@@ -7,13 +7,12 @@ devuelve las entradas del corpus que junta `scripts/build-busqueda.py`:
   partido, con enlace a su ficha `/congreso/legisladores/{id}`
   (`enlace.legislador` de lib/grafo.ts).
 - **Iniciativas** (`t="iniciativa"`, peso 1): título, número de expediente,
-  tipo y condición, con enlace a `/congreso/{id}` (`enlace.iniciativa`). Si
-  el título se modificó en el trámite, el nuevo va en el texto auxiliar para
-  que también lo encuentre.
+  tipo, tema, número de promulgación y título reformulado, con enlace a `/congreso/{id}`
+  (`enlace.iniciativa`). La instantánea las trae en columnas
+  (`iniciativas.campos` / `filas`, con catálogos de tipo, condición y tema).
 """
 import json
 import pathlib
-import re
 
 # Condiciones del SIL en versales → cómo se leen: la misma tabla que
 # `ETIQUETA_CONDICION` en lib/congreso.ts, en el mismo orden.
@@ -30,14 +29,14 @@ ETIQUETA_CONDICION = [
 ]
 
 
-def _condicion(ini: dict) -> str:
-    if ini.get("np"):
+def _condicion(condicion: str, promulgacion: str) -> str:
+    if promulgacion:
         return "Promulgada"
-    c = (ini.get("co") or "").upper()
+    c = condicion.upper()
     for raiz, etiqueta in ETIQUETA_CONDICION:
         if raiz in c:
             return etiqueta
-    return c.capitalize() if c else (ini.get("es") or "")
+    return c.capitalize()
 
 
 def _limpio(d: dict) -> dict:
@@ -74,22 +73,24 @@ def _legislador(l: dict) -> dict:
     })
 
 
-def _iniciativa(i: dict) -> dict:
-    tipo = i.get("tp") or ""
-    cond = _condicion(i)
-    x = [i.get("nu"), tipo, i.get("gr")]
-    if i.get("np"):
-        x.append(f"Ley {i['np']}" if re.match(r"^proyecto de ley|^ley", tipo, re.I) else i["np"])
-    if i.get("tm"):
-        x.append(i["tm"])
+def _iniciativa(fila: list, cat: dict) -> dict:
+    iid, numero, titulo, tipo_i, cond_i, fd, grupo_i = fila[:7]
+    np = fila[7] if len(fila) > 7 else ""
+    tm = fila[8] if len(fila) > 8 else ""
+    tipo = cat["tipos"][tipo_i]
+    x = [numero, tipo, cat["grupos"][grupo_i]]
+    if np:
+        x.append(f"Ley {np}" if tipo == "Proyecto de Ley" else np)
+    if tm:
+        x.append(tm)
     return _limpio({
         "t": "iniciativa",
-        "ti": i["ti"],
+        "ti": titulo,
         "x": " ".join(filter(None, x)),
-        "d": " · ".join(filter(None, [tipo, cond])),
+        "d": " · ".join(filter(None, [tipo, _condicion(cat["condiciones"][cond_i], np)])),
         "on": "Congreso Nacional",
-        "h": f"/congreso/{i['id']}",
-        "f": i.get("fd"),
+        "h": f"/congreso/{iid}",
+        "f": fd,
         "p": 1,
     })
 
@@ -98,6 +99,7 @@ def entradas(datos: pathlib.Path) -> tuple[list[dict], str]:
     """(entradas del corpus, fecha ISO de la instantánea)."""
     doc = json.loads((datos / "congreso.json").read_text())
     legs = sorted(doc["legisladores"], key=lambda l: (l["n"].lower(), l["id"]))
-    inis = sorted(doc["iniciativas"], key=lambda i: (i.get("fd", ""), i["id"]), reverse=True)
-    salida = [_legislador(l) for l in legs] + [_iniciativa(i) for i in inis]
+    cat = doc["iniciativas"]
+    filas = sorted(cat["filas"], key=lambda f: (f[5], f[0]), reverse=True)
+    salida = [_legislador(l) for l in legs] + [_iniciativa(f, cat) for f in filas]
     return salida, doc["generado"][:10]

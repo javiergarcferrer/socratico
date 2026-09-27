@@ -36,6 +36,9 @@ Límites que declara la instantánea (`corte`):
 - Cobertura = lo que el SIL de Diputados registra en 2020-2024 y 2024-2028.
   Las piezas vivas de períodos anteriores se arrastran al registro vigente con
   número nuevo (RECON §6); las que murieron antes de 2020 no están.
+- Los títulos pesan ~6 MB por sí solos (media de 320 caracteres) y no se
+  recortan; por eso el resto va en columnas con catálogos. El reformulado
+  («TÍTULO MODIFICADO», ~1 850 piezas) va aparte, para que también se busque.
 - El Senado **no** entra: su consultante lista 50 expedientes por colección y
   pagina por postback con ViewState que muta la sesión (RECON §12.2). No hay
   listado barato; su búsqueda sigue en vivo en `/congreso/senado`.
@@ -187,25 +190,55 @@ def iniciativas_de(periodo: dict) -> tuple[list[dict], int]:
         total = p["total"]
         for raw in p["results"]:
             titulo, modificado = separar_titulo(limpiar(raw.get("descripcion")) or "(sin descripción)")
-            filas[raw["id"]] = sin_vacios({
+            filas[raw["id"]] = {
                 "id": raw["id"],
                 "nu": limpiar(raw.get("numero")),
                 "ti": titulo,
-                "tm": modificado,
                 "tp": limpiar(raw.get("tipo")),
                 "co": limpiar(raw.get("condicion")),
-                "es": limpiar(raw.get("estado")),
                 "fd": fecha(raw.get("fechaDeposito")),
-                "pe": limpiar(raw.get("periodoRegistro")) or periodo["description"],
-                "np": limpiar(raw.get("numPromulgacion")),
                 "gr": limpiar(raw.get("grupo")),
-            })
+                "np": limpiar(raw.get("numPromulgacion")),
+                "tm": modificado,
+            }
         if pagina % 50 == 0:
             print(f"  {periodo['description']}: página {pagina}/{-(-total // 10)}", file=sys.stderr)
         if pagina * 10 >= total or not p["results"]:
             break
         pagina += 1
     return list(filas.values()), total
+
+
+CAMPOS = ["id", "numero", "titulo", "tipo", "condicion", "fechaDeposito", "grupo", "promulgacion",
+          "tituloModificado"]
+
+
+def compactar(inis: list[dict]) -> dict:
+    """Las ~18 mil piezas en columnas: tipo, condición y tema viajan una vez
+    en su catálogo y cada fila lleva el índice. Los títulos pesan ~6 MB por
+    sí solos (media de 320 caracteres); todo lo demás se recorta. Las dos
+    últimas columnas son opcionales: la fila acaba en la última con valor
+    (7 columnas; 8 con promulgación; 9 con título modificado, y entonces la
+    promulgación puede ir vacía)."""
+    cat = {"tipos": [], "condiciones": [], "grupos": []}
+
+    def idx(nombre: str, valor: str) -> int:
+        lista = cat[nombre]
+        if valor not in lista:
+            lista.append(valor)
+        return lista.index(valor)
+
+    orden = sorted(inis, key=lambda f: (f["fd"], f["id"]), reverse=True)
+    filas = []
+    for f in orden:
+        fila = [f["id"], f["nu"], f["ti"], idx("tipos", f["tp"]), idx("condiciones", f["co"]),
+                f["fd"], idx("grupos", f["gr"])]
+        if f["np"] or f["tm"]:
+            fila.append(f["np"])
+        if f["tm"]:
+            fila.append(f["tm"])
+        filas.append(fila)
+    return {"campos": CAMPOS, **cat, "filas": filas}
 
 
 def main() -> None:
@@ -226,7 +259,6 @@ def main() -> None:
         for f in filas:
             todas[f["id"]] = f
 
-    inis = sorted(todas.values(), key=lambda f: (f.get("fd", ""), f["id"]), reverse=True)
     salida = {
         "generado": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "fuente": "SIL de la Cámara de Diputados (diputadosrd.gob.do/sil/api)",
@@ -240,12 +272,12 @@ def main() -> None:
             "legisladores": "Diputados y senadores del período vigente, por demarcación.",
         },
         "legisladores": legs,
-        "iniciativas": inis,
+        "iniciativas": compactar(list(todas.values())),
     }
     SALIDA.write_text(json.dumps(salida, ensure_ascii=False, separators=(",", ":")))
     tam = SALIDA.stat().st_size
     print(
-        f"{len(legs)} legisladores, {len(inis)} iniciativas, {tam / 1e6:.2f} MB, "
+        f"{len(legs)} legisladores, {len(todas)} iniciativas, {tam / 1e6:.2f} MB, "
         f"{peticiones} peticiones, {time.time() - inicio:.0f} s → {SALIDA.relative_to(RAIZ)}",
         file=sys.stderr,
     )

@@ -1573,7 +1573,7 @@ User-Agent identificable; ninguna en una visita.
   proponentes (una petición por pieza: no se pide). Legisladores: el barrido
   del directorio (~41 peticiones), 189 diputados y 32 senadores.
   `scripts/build-congreso.py` → `public/data/congreso.json` (17,857
-  iniciativas, 9.9 MB); se niega a escribir si un período queda por debajo
+  iniciativas, 7.5 MB en columnas); se niega a escribir si un período queda por debajo
   del 98 % de su total. ⚠️ Las piezas de antes de 2020 que murieron no están;
   las vivas se arrastran al registro vigente con número nuevo (RECON §6).
   ❌ El Senado no entra: su consultante pagina por postback con ViewState que
