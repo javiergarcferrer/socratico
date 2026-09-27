@@ -3,21 +3,24 @@
 buscador de toda la plataforma (`/buscar`, la paleta ⌘K, `/api/buscar`).
 
 No lee ninguna fuente: junta en un solo corpus lo que ya traen las
-instantáneas —instituciones, normativa, obras, documentos, datos abiertos,
-cargos de nómina y proveedores con contratos desde 2015— y calcula para cada
-entrada su vector semántico con el modelo podado de
-`scripts/build-modelo-semantico.py`. Los proveedores no llevan vector: un
-nombre de empresa («Plaza Lama, SA») no dice de qué trata, y sus ~32 mil
-filas pesarían ~4 MB para acercar razones sociales por su sonido. Van al
-final del corpus, y `vectorizados` dice hasta dónde hay vector. El servidor construye
-sobre esto un índice de texto (Orama: BM25, raíces del español, tolerancia a
-erratas) y compara vectores por coseno; `lib/busqueda.ts` funde las dos
-listas. Nada de esto es una base de datos: es un archivo versionado más.
+instantáneas —instituciones, normativa reciente y todas las leyes, obras,
+documentos, datos abiertos, cargos de nómina (con su sueldo), procesos de
+compra del último año, sentencias del TC y del TSE, iniciativas y
+legisladores del Congreso, y proveedores con contratos desde 2015— y calcula
+para cada entrada su vector semántico con el modelo podado de
+`scripts/build-modelo-semantico.py`. Las fuentes nuevas traen su propio
+lector de entradas (`scripts/busqueda_*.py`, `entradas(datos)`). Legisladores
+y proveedores no llevan vector: un nombre de persona o de empresa no dice de
+qué trata. Van al final del corpus, y `vectorizados` dice hasta dónde hay
+vector. El servidor lee sobre esto un índice por palabra ya construido (BM25,
+raíces del español, erratas; `scripts/build-indice-busqueda.mjs`) y compara
+vectores por coseno; `lib/busqueda.ts` funde las dos listas. Nada de esto es
+una base de datos: es un archivo versionado más.
 
 Se corre **después** de regenerar cualquiera de esas instantáneas (el orden
-semanal: normativa → instituciones → este), y **detrás** de él
-`node scripts/build-indice-busqueda.mjs`, que guarda el índice por palabra ya
-construido. Si no se corre, el buscador
+semanal: normativa → instituciones → leyes, procesos, sentencias, congreso →
+este), y **detrás** de él `node scripts/build-indice-busqueda.mjs`, que
+guarda el índice por palabra ya construido. Si no se corre, el buscador
 sigue funcionando con el corpus anterior y dice su fecha.
 
 Los vectores se calculan con el tokenizador de Rust (`tokenizers`); el del
@@ -33,6 +36,7 @@ Uso:
 import datetime
 import hashlib
 import json
+import math
 import pathlib
 import re
 import sys
@@ -42,6 +46,13 @@ from urllib.parse import quote, unquote
 
 import numpy as np
 from tokenizers import Tokenizer
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# Las fuentes que traen su propio lector de entradas (`entradas(datos)`).
+import busqueda_congreso  # noqa: E402
+import busqueda_leyes  # noqa: E402
+import busqueda_procesos  # noqa: E402
+import busqueda_sentencias  # noqa: E402
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 DATOS = RAIZ / "public" / "data"
@@ -195,15 +206,21 @@ def cargos() -> tuple[list[dict], str]:
     plazas: Counter = Counter()
     grafias: dict[str, Counter] = defaultdict(Counter)
     inst: dict[str, set] = defaultdict(set)
+    sueldos: dict[str, list] = defaultdict(list)
     for fila in crudo["rows"]:
-        i, c = fila[0], fila[2]
+        i, c, sueldo = fila[0], fila[2], fila[3]
         k = clave[c]
         plazas[k] += 1
         grafias[k][crudo["cargos"][c]] += 1
         inst[k].add(i)
+        # Sueldo mensual bruto de la plaza; una plaza sin sueldo (0) no dice
+        # cuánto paga el cargo.
+        if sueldo and sueldo > 0:
+            sueldos[k].append(sueldo)
     out = []
     for k, n in plazas.items():
         nombre = grafias[k].most_common(1)[0][0].strip()
+        s = sorted(sueldos[k])
         out.append(
             {
                 "t": "cargo",
@@ -212,6 +229,11 @@ def cargos() -> tuple[list[dict], str]:
                 "h": f"/nomina?q={quote(nombre, safe='')}",
                 "n": n,
                 "m": len(inst[k]),
+                # Percentil 10, mediana y percentil 90: «¿cuánto gana un
+                # médico?» se contesta en la fila, sin abrir la nómina. No el
+                # mínimo ni el máximo: una plaza de medio mes (RD$2,754 de un
+                # «médico general») los vuelve anécdota.
+                "s": [round(percentil(s, 0.1)), round(mediana(s)), round(percentil(s, 0.9))] if s else None,
                 # Una plaza pesa menos que una institución, una norma o una
                 # obra que se llaman igual: «escuelas» busca escuelas antes
                 # que al vigilante de una.
@@ -219,6 +241,36 @@ def cargos() -> tuple[list[dict], str]:
             }
         )
     return out, crudo["generatedAt"][:10]
+
+
+def mediana(xs: list) -> float:
+    n = len(xs)
+    return xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+
+
+def percentil(xs: list, p: float) -> float:
+    """Por rango más cercano, sobre una lista ya ordenada."""
+    return xs[min(len(xs) - 1, max(0, math.ceil(p * len(xs)) - 1))]
+
+
+def de_modulo(entradas: list[dict]) -> list[dict]:
+    """Las entradas de un `scripts/busqueda_*.py`: quien publica viaja como
+    nombre (`on`) y aquí pasa a su índice en `origenes`."""
+    out = []
+    for e in entradas:
+        e = dict(e)
+        on = e.pop("on", None)
+        if on:
+            e["o"] = origen(on)
+        out.append(e)
+    return out
+
+
+def sin_repetidas(normas: list[dict], leyes: list[dict]) -> list[dict]:
+    """Las leyes del histórico que la normativa reciente no trae ya: una
+    norma es tipo, número y fecha (el mismo criterio de `normas()`)."""
+    vistas = {(n["x"], n.get("f") or "") for n in normas}
+    return [l for l in leyes if (l["x"], l.get("f") or "") not in vistas]
 
 
 def proveedores() -> tuple[list[dict], str]:
@@ -277,17 +329,26 @@ def main() -> None:
     docs: list[dict] = []
     fechas: dict[str, str] = {}
     docs += instituciones()
+    recientes, fechas["norma"] = normas()
+    historicas, fechas["ley"] = busqueda_leyes.entradas(DATOS)
+    docs += recientes + de_modulo(sin_repetidas(recientes, historicas))
+    congreso, fechas["congreso"] = busqueda_congreso.entradas(DATOS)
     for tipo, (lista, fecha) in {
-        "norma": normas(),
         "obra": obras(),
         "documento": documentos(),
         "dato": datos_abiertos(),
         "cargo": cargos(),
+        "proceso": busqueda_procesos.entradas(DATOS),
+        "sentencia": busqueda_sentencias.entradas(DATOS),
     }.items():
-        docs += lista
+        docs += de_modulo(lista)
         fechas[tipo] = fecha
-    # Con vector, todo lo anterior; los proveedores, sin él y al final.
+    docs += de_modulo([e for e in congreso if e["t"] == "iniciativa"])
+    fechas["iniciativa"] = fechas["legislador"] = fechas.pop("congreso")
+    # Con vector, todo lo anterior. Legisladores y proveedores, sin él y al
+    # final: un nombre de persona o de empresa no dice de qué trata.
     vectorizados = len(docs)
+    docs += de_modulo([e for e in congreso if e["t"] == "legislador"])
     lista, fechas["proveedor"] = proveedores()
     docs += lista
 
@@ -311,6 +372,17 @@ def main() -> None:
 
     # Sin claves vacías: el archivo viaja entero en cada arranque en frío.
     limpios = [{k: v for k, v in d.items() if v not in (None, "")} for d in docs]
+    # El detalle y el texto auxiliar que se repiten («Compra menor al umbral ·
+    # Adjudicado» en 40 mil procesos) viajan una vez en `frases` y cada entrada
+    # lleva su índice, como `origenes`. `resolverFrases` (lib/busqueda-esquema.ts)
+    # los devuelve a su texto al leer.
+    veces = Counter(d[k] for d in limpios for k in ("d", "x") if isinstance(d.get(k), str))
+    frases = sorted(v for v, n in veces.items() if n >= 20 and len(v) > 3)
+    pos = {v: i for i, v in enumerate(frases)}
+    for d in limpios:
+        for k in ("d", "x"):
+            if k in d and d[k] in pos:
+                d[k] = pos[d[k]]
     # La huella ata el índice guardado (`build-indice-busqueda.mjs`) a este
     # corpus: si no coinciden, el servidor construye el índice en memoria.
     huella = hashlib.sha256(json.dumps(limpios, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:16]
@@ -322,6 +394,7 @@ def main() -> None:
         "piezas": n,
         "vectorizados": vectorizados,
         "origenes": ORIGENES,
+        "frases": frases,
         "docs": limpios,
     }
     (SALIDA / "corpus.json").write_text(json.dumps(corpus, ensure_ascii=False, separators=(",", ":")))

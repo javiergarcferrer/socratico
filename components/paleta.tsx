@@ -40,10 +40,12 @@ import {
  * La lista es el índice de `lib/indice.ts`, agrupado por tarea.
  *
  * Lo que no hace es fingir un índice de todo. El de la plataforma
- * (`lib/busqueda.ts`: instituciones, normativa, obras, documentos, datos
- * abiertos y cargos, por palabra y por tema) sugiere sus primeras filas en
- * «En la plataforma»; lo que vive fuera de él —licitaciones, proveedores, las
- * dos cámaras— no se finge: lo tecleado se ofrece a cada destino y cada fila
+ * (`lib/busqueda.ts`: instituciones, legisladores, proveedores, procesos del
+ * último año, leyes y normativa, iniciativas de Diputados, sentencias, obras,
+ * documentos, datos abiertos y cargos, por palabra y por tema) sugiere sus
+ * primeras filas en «En la plataforma»; lo que vive fuera de él —las
+ * licitaciones más viejas, el Senado, lo publicado después de cada
+ * instantánea— no se finge: lo tecleado se ofrece a cada destino y cada fila
  * dice debajo qué recorre; «Toda la plataforma» (`/buscar`) encabeza y
  * declara igual su alcance. Es la trampa del campo de
  * licitaciones que vivía en la cabecera, evitada al revés: el alcance no se

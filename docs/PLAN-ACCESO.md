@@ -199,7 +199,8 @@ precedente). Ninguna de estas rompe la invariante.
 
 - ✅ **Buscador de toda la plataforma** — `/buscar` y la paleta pasan de
   «todas las palabras como subcadena, por vertical» a un índice con ranking:
-  Orama (BM25, raíces del español, erratas) + Model2Vec (tema) fundidos por
+  BM25 (raíces del español, erratas; Orama hasta el 2026-09-27, hoy un
+  índice propio) + Model2Vec (tema) fundidos por
   RRF; filtros por tipo con su cuenta, vista «Todo» por grupos, palabras en
   negrita, «Por tema» declarado (`docs/ARQUITECTURA.md` §Búsqueda).
 
@@ -290,6 +291,25 @@ Del buscador, lo siguiente (resuelto el 2026-09-26):
   entero (~138 mil inscritos, casi todos sin contrato). Sin vector: un
   nombre de empresa no aporta tema, y ahorra ~4 MB. El corpus pasa de 7.5 a
   10.9 MB.
+
+Del buscador, la revisión del 2026-09-27 (`docs/ARQUITECTURA.md` §Búsqueda):
+- ✅ **Índice propio en vez de Orama**: un índice invertido binario
+  (`indice.bin`) que se lee con vistas sobre el búfer. Con el mismo corpus
+  de 68 mil entradas, la primera consulta pasó de ~1.3 s a ~0.34 s; con el
+  corpus ampliado (≈188 mil), ~0.85 s. Mismo BM25+ (k1 1.2, b 0.75, d 0.5),
+  pero cada término cuenta por su **mejor campo**, no la suma: repetir la
+  palabra en título, archivo y origen no hace más pertinente. El índice de
+  Orama guardado (`indice.json.br`) y la dependencia `@orama/orama` se van;
+  quedan `@orama/stemmers` y `@orama/stopwords`.
+- ✅ **Cobertura**: todas las leyes desde 1844 (12,130; `leyes.json`),
+  los procesos de compra de los últimos 12 meses (77,790; `procesos.json`),
+  sentencias del TC y del TSE (12,106; `sentencias.json`) y el Congreso
+  (`congreso.json`: 221 legisladores y 17,857 iniciativas de 2020–2028).
+- ✅ **Preguntas y sueldos**: las palabras con que se pregunta («¿cuánto
+  **gana**…?», «el **país**») y las de un sueldo o una compra ordenan pero no
+  se exigen, y prefieren cargos o procesos; los cargos traen mediana y
+  tramo del 80 % central de su sueldo; los anexos de un mismo aviso (mismo
+  sitio, título y fecha) son una fila con «N archivos».
 - ❌ **Tema con contexto** — evaluado el 2026-09-26 y **no** adoptado.
   `Xenova/multilingual-e5-small` cuantizado (q8, ONNX) por
   `@huggingface/transformers` 4.3.0 + `onnxruntime-node` 1.30.0, contra el

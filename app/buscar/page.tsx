@@ -8,11 +8,12 @@ import {
   buscarPantallas,
   type PantallaHallada,
   esTipoResultado,
+  EN_MAYUSCULAS,
   TIPOS_RESULTADO,
   type Resultado,
   type TipoResultado,
 } from "@/lib/busqueda";
-import { buscarIniciativasTolerante, desdeMayusculas, marcaDeIniciativa, normalizarIniciativa } from "@/lib/congreso";
+import { desdeMayusculas } from "@/lib/congreso";
 import { formatFecha, formatPesos } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { BUSQUEDAS } from "@/lib/secciones";
@@ -26,7 +27,6 @@ import { Resaltado } from "@/components/resaltado";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { IconArrowRight, IconExternal } from "@/components/icons";
-import { enlace } from "@/lib/grafo";
 import { recortar } from "@/lib/raiz";
 
 export const metadata: Metadata = {
@@ -35,17 +35,19 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
   title: "Buscar en toda la plataforma",
   description:
-    "Una sola caja para instituciones, proveedores, normativa, obras, documentos, datos abiertos, nómina y Congreso del Estado dominicano, por palabra y por tema.",
+    "Una sola caja para instituciones, legisladores, proveedores, compras, leyes y normativa, iniciativas del Congreso, sentencias, obras, documentos, datos abiertos y nómina del Estado dominicano, por palabra y por tema.",
 };
 
 /**
  * Buscar en toda la plataforma. Si lo tecleado tiene forma inequívoca —un RNC,
  * «Ley 47-20», un código de proceso, unas siglas— lleva directo
  * (`lib/buscar.ts`). Si no, el índice de `lib/busqueda.ts` ordena en una sola
- * lista, por palabra y por tema, lo que traen siete instantáneas —los
- * proveedores, los que tienen contratos desde 2015—; Diputados se lee en
- * vivo aparte, y lo que exige barrer una API entera (licitaciones, Senado) se
- * ofrece como enlace con su alcance, no se finge.
+ * lista, por palabra y por tema, lo que traen las instantáneas —los
+ * proveedores, los que tienen contratos desde 2015; los procesos, los del
+ * último año; las iniciativas de Diputados, las de los dos períodos que
+ * expone el SIL—. Lo que el índice no cubre (el Senado, los procesos más
+ * viejos, lo publicado después de la instantánea) se ofrece como enlace a su
+ * vertical con su alcance, no se finge.
  *
  * Dos vistas del mismo resultado: «Todo» junta los mejores de cada tipo, en
  * el orden de su mejor acierto —se ve de un vistazo en qué vertical vive lo
@@ -80,16 +82,16 @@ export default async function BuscarPage({
       <Suspense>
         <BuscadorUrl
           etiqueta="Buscar en toda la plataforma"
-          placeholder="MINERD, Ley 47-20, agua potable, chofer, 101000000…"
-          ayuda="Instituciones, proveedores con contratos desde 2015, normativa, obras, documentos, datos abiertos y cargos de nómina, por palabra y por tema; Diputados, en vivo. Licitaciones y Senado se abren en su vertical."
+          placeholder="MINERD, Ley 47-20, agua potable, computadoras, sueldo de un médico…"
+          ayuda="Instituciones, legisladores, proveedores con contratos desde 2015, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, documentos, datos abiertos y cargos de nómina con su sueldo, por palabra y por tema. El Senado se abre en su vertical."
         />
       </Suspense>
 
       {q && (
         <>
           {/*
-            El índice se carga una vez por instancia (más de un segundo en
-            frío): la cabecera y la caja no lo esperan.
+            El índice se carga una vez por instancia (menos de un segundo
+            en frío): la cabecera y la caja no lo esperan.
           */}
           <Suspense
             key={`${q}|${tipo ?? ""}|${pagina}`}
@@ -102,29 +104,7 @@ export default async function BuscarPage({
             <Resultados q={q} tipo={tipo} pagina={pagina} />
           </Suspense>
 
-          {/*
-            Diputados se lee en vivo y llega aparte. Su vacío se dice en la
-            misma línea corta que los demás; su caída, no: «el SIL no
-            respondió» es otra pantalla, y se queda en su tarjeta. Solo en
-            «Todo»: un tipo elegido es una lista de ese tipo.
-          */}
-          {!tipo && (
-            <Suspense
-              fallback={
-                <Card as="section" className="p-5" aria-busy="true">
-                  <CardTitle>Diputados</CardTitle>
-                  <EsqueletoFilas n={3} className="mt-3" />
-                </Card>
-              }
-            >
-              <Diputados q={q} />
-            </Suspense>
-          )}
-
-          {/*
-            Al final, siempre: Diputados llega aparte y puede traer lo único
-            que se encontró; «Sigue buscando» antes lo empujaría por debajo.
-          */}
+          {/* Al final, siempre: lo que el índice no cubre sigue en su vertical. */}
           <Card as="section" className="p-5">
             <CardTitle>Sigue buscando «{q}» en</CardTitle>
             <ul className="mt-2 divide-y divide-hairline">
@@ -159,7 +139,15 @@ const NOTA_CARGOS =
 const NOTA_PROVEEDORES =
   "Los que tienen al menos un contrato desde 2015 en el registro de la DGCP, por nombre, RNC o RPE; no los inscritos que nunca contrataron. Se encuentran por palabra, no por tema.";
 
-const NOTAS: Partial<Record<TipoResultado, string>> = { cargo: NOTA_CARGOS, proveedor: NOTA_PROVEEDORES };
+const NOTAS: Partial<Record<TipoResultado, string>> = {
+  cargo: `${NOTA_CARGOS} El sueldo es el mensual bruto de esas plazas.`,
+  proveedor: NOTA_PROVEEDORES,
+  proceso: "Los publicados en el Portal Transaccional en los últimos doce meses, por su carátula, código y unidad de compra; el monto es el estimado.",
+  legislador: "Diputados y senadores con ficha en la plataforma, por nombre, cámara y provincia. Se encuentran por palabra, no por tema.",
+  iniciativa: "Proyectos de ley y de resolución del SIL de la Cámara de Diputados, por su título y número de expediente.",
+  sentencia: "Del Tribunal Constitucional (desde 2012) y del Tribunal Superior Electoral (desde 2021), por lo que dice su listado; el texto de la sentencia no se busca. Abren la ficha del Tribunal.",
+  norma: "Decretos, reglamentos y resoluciones de los últimos cuatro años y todas las leyes desde 1844. Las leyes sin ficha propia abren su PDF en la Consultoría Jurídica.",
+};
 
 const PLURAL = Object.fromEntries(TIPOS_RESULTADO.map((t) => [t.clave, t.plural])) as Record<TipoResultado, string>;
 
@@ -200,9 +188,10 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
       <>
         {bloquePantallas}
         <EstadoVacio titulo={<>Nada con «{q}» en el índice</>}>
-        Ni por palabra ni por tema en instituciones, proveedores, normativa,
-        obras, documentos, datos abiertos o cargos de nómina (índice del {fechaIndice}).
-        Prueba con menos palabras, o sigue en una vertical.
+        Ni por palabra ni por tema en{" "}
+        {new Intl.ListFormat("es", { type: "disjunction" }).format(TIPOS_RESULTADO.map((t) => t.plural.toLowerCase()))}{" "}
+        (índice del {fechaIndice}).
+        {h.soloOrdenan.length > 0 ? " Una pregunta se contesta mejor en la pantalla que la responde, arriba si la hay." : " Prueba con menos palabras, o sigue en una vertical."}
         </EstadoVacio>
       </>
     );
@@ -228,7 +217,13 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
       </NavFiltros>
 
       <p aria-live="polite" className="px-1 text-xs leading-relaxed text-ink-soft">
-        {h.conErrata && <>No había «{q}» tal cual: estos llevan una palabra a una letra de diferencia. </>}
+        {h.conErrata && <>Casi nada con «{q}» tal cual: se suman palabras a una letra de diferencia, detrás de lo exacto. </>}
+        {h.soloOrdenan.length > 0 && (
+          <>
+            {new Intl.ListFormat("es", { type: "conjunction" }).format(h.soloOrdenan.map((w) => `«${w}»`))}{" "}
+            {h.soloOrdenan.length === 1 ? "ayuda a ordenar pero no se exige" : "ayudan a ordenar pero no se exigen"}.{" "}
+          </>
+        )}
         Por palabra —sin tildes, con plurales y conjugaciones— y por tema, en el
         índice del {fechaIndice}.
         {h.soloTema > 0 && <> Lo marcado «por tema» no lleva todas tus palabras: trata de algo parecido.</>}
@@ -315,17 +310,40 @@ function detalleDe(r: Resultado): React.ReactNode {
     case "dato":
       return [r.origen, r.detalle].filter(Boolean).join(" · ");
     case "cargo":
-      return r.plazas
-        ? `${formatInt(r.plazas)} ${r.plazas === 1 ? "plaza" : "plazas"} en ${r.instituciones ?? 0} ${r.instituciones === 1 ? "institución" : "instituciones"}`
-        : null;
+      return [
+        r.plazas
+          ? `${formatInt(r.plazas)} ${r.plazas === 1 ? "plaza" : "plazas"} en ${r.instituciones ?? 0} ${r.instituciones === 1 ? "institución" : "instituciones"}`
+          : null,
+        sueldoDe(r),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    case "proceso":
+      return [r.detalle, r.origen, r.valor ? `${formatPesos(r.valor)} estimado` : null, r.fecha && formatFecha(r.fecha)]
+        .filter(Boolean)
+        .join(" · ");
+    case "iniciativa":
+    case "sentencia":
+      return [r.detalle, r.origen, r.fecha && formatFecha(r.fecha)].filter(Boolean).join(" · ");
     default:
       return r.detalle;
   }
 }
 
+/**
+ * «RD$50,000 de mediana al mes; 8 de cada 10 plazas, de RD$40,000 a
+ * RD$95,000», o una sola cifra si no varía.
+ */
+function sueldoDe(r: Resultado): string | null {
+  const s = r.sueldo;
+  if (!s) return null;
+  // Un tramo de centavos (RD$82,605 a RD$82,606) es una sola cifra.
+  if (s.alto - s.bajo <= s.mediana * 0.01) return `${formatPesos(s.mediana)} al mes`;
+  return `${formatPesos(s.mediana)} de mediana al mes; 8 de cada 10 plazas, de ${formatPesos(s.bajo)} a ${formatPesos(s.alto)}`;
+}
+
 function FilaResultado({ r, q }: { r: Resultado; q: string }) {
-  // Normas, obras y cargos llegan de su fuente en MAYÚSCULAS.
-  const titulo = r.tipo === "norma" || r.tipo === "obra" || r.tipo === "cargo" ? desdeMayusculas(r.titulo) : r.titulo;
+  const titulo = EN_MAYUSCULAS.has(r.tipo) ? desdeMayusculas(r.titulo) : r.titulo;
   return (
     <Fila
       href={r.href}
@@ -354,54 +372,6 @@ function Pantallas({ lista }: { lista: PantallaHallada[] }) {
               href={p.href}
               titulo={p.titulo}
               detalle={p.pregunta ? `${p.nota} · «${p.pregunta}»` : `${p.nota} · ${p.tema}`}
-            />
-          </li>
-        ))}
-      </ul>
-    </Grupo>
-  );
-}
-
-async function Diputados({ q }: { q: string }) {
-  const busqueda = await buscarIniciativasTolerante(q, 1);
-  const pagina = busqueda?.pagina ?? null;
-  if (!pagina) {
-    return (
-      <Card as="section" className="p-5">
-        <CardTitle>Diputados</CardTitle>
-        <p className="mt-1 text-xs leading-relaxed text-alerta-700">
-          El SIL de la Cámara no respondió: no es que no haya iniciativas, es que
-          no pudimos mirar.{" "}
-          <Link href={`/congreso?q=${encodeURIComponent(q)}`} className="font-medium text-brand-700 hover:underline">
-            Reintentar en Congreso
-          </Link>
-        </p>
-      </Card>
-    );
-  }
-  const lista = pagina.results.slice(0, 6).map(normalizarIniciativa);
-  if (lista.length === 0) return <SinCoincidencias q={q} donde={["Diputados"]} />;
-  return (
-    <Grupo
-      titulo="Diputados"
-      nota={
-        pagina.total > lista.length
-          ? busqueda?.truncado
-            ? `${formatInt(pagina.total)} entre las ${formatInt(busqueda.leidas)} iniciativas más recientes de la palabra menos común; estas son las primeras.`
-            : busqueda?.frase
-              ? `${formatInt(pagina.total)} iniciativas de la Cámara con esa frase exacta; estas son las primeras.`
-              : `${formatInt(pagina.total)} iniciativas de la Cámara llevan esas palabras; estas son las primeras.`
-          : "En la descripción de las iniciativas de la Cámara de Diputados."
-      }
-      mas={pagina.total > lista.length ? { href: `/congreso?q=${encodeURIComponent(q)}`, texto: "Ver todas" } : undefined}
-    >
-      <ul className="divide-y divide-hairline">
-        {lista.map((i) => (
-          <li key={i.id}>
-            <Fila
-              href={enlace.iniciativa(i.id)}
-              titulo={desdeMayusculas(i.titulo)}
-              detalle={[i.numero?.completo, marcaDeIniciativa(i).label].filter(Boolean).join(" · ")}
             />
           </li>
         ))}

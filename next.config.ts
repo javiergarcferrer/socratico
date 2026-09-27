@@ -12,7 +12,7 @@ import type { NextConfig } from "next";
     segundo plano una vez pasada.
   · Sin cabecera `x-powered-by`: no aporta nada y pesa en cada respuesta.
   · El índice del buscador (`public/data/busqueda`: corpus, vectores, modelo
-    e índice por palabra ya construido, ~31 MB) se lee con `fs` desde
+    e índice por palabra ya construido, ~85 MB) se lee con `fs` desde
     `lib/busqueda.ts`. Se declara aquí para que
     el trazado de archivos lo meta en la función de las dos rutas que lo usan
     y solo en ellas, sin depender de que adivine la ruta.

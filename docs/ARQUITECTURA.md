@@ -277,65 +277,102 @@ the first `n` rows of any type, at most half from one type when no `tipo` is
 given.
 
 ## Búsqueda — `lib/busqueda.ts` + `public/data/busqueda/`
-El índice de toda la plataforma, sin base de datos ni clave: cuatro archivos
-versionados y dos bibliotecas abiertas.
+El índice de toda la plataforma, sin base de datos ni clave: archivos
+versionados y dos bibliotecas abiertas (el tokenizador de Hugging Face y el
+lematizador de `@orama/stemmers`).
 
-- **Corpus** (`corpus.json`, ~10.9 MB): 67,906 entradas de siete instantáneas
-  —instituciones, normativa, obras, documentos, datos abiertos, cargos de
-  nómina (las grafías de un mismo cargo se juntan) y proveedores—, con
-  título, texto auxiliar, quién publica (tabla `origenes`), enlace y fecha.
-  Lo escribe `scripts/build-busqueda.py`, que se corre **después** de
-  regenerar cualquiera de ellas, y lleva una `huella` (sha256 de las
-  entradas) que ata a él el índice guardado.
-- **Proveedores** (32,152): los que tienen al menos un contrato desde 2015 en
-  `public/data/historico/proveedores/` —no los ~138 mil inscritos del RPE,
-  casi todos sin contrato ni ficha que enseñar—, con el RNC del cruce con la
-  DGII (`public/data/rnc/`) cuando existe; ni teléfono ni correo, que ninguna
-  instantánea guarda. Llevan RPE (`r`), RNC (`c`), contratos (`k`) y años
-  (`a`); enlace y detalle («RNC … · 865 contratos, 2015–2026») los deriva
-  `aResultado`. **Sin vector**: un nombre de empresa no dice de qué trata, y
-  32 mil filas serían ~4 MB para acercar razones sociales por su sonido. Van
-  al final del corpus; `vectorizados` (35,754) dice hasta dónde hay vector.
-- **Por palabra**: Orama (`@orama/orama`, Apache-2.0), un BM25 sobre título
-  (×3), texto auxiliar y origen. Esquema y tokenizador viven en
-  `lib/busqueda-esquema.ts`, sin alias `@/`, para que el servidor y
-  `scripts/build-indice-busqueda.mjs` (que `node` carga quitando tipos) usen
-  el mismo: si discreparan, las raíces guardadas no serían las de la
-  consulta. Sin índice de orden (`sort: { enabled: false }`): nadie ordena
-  por campo.
-- **Índice guardado** (`indice.json.br`, 2.8 MB): `save()` de Orama tras
-  construirlo en build, sin la copia de los documentos (el servidor solo usa
-  el id) y en JSON con brotli; el script comprueba que 14 consultas, con y sin
-  tipo y errata, den los mismos ids y puntuaciones que el índice recién
-  construido, y si no, falla. La primera línea es la etiqueta del corpus
-  (fecha | huella | entradas): si no coincide —se regeneró el corpus y no
-  esto—, o el archivo falta o no se lee, el servidor lo construye en memoria,
-  más lento y nunca distinto. `@orama/plugin-data-persistence` se midió y no
-  se usa: su `restore` crea una base con esquema de relleno y el tokenizador
-  por defecto (se perdería el lematizador español), `dpack` y `seqproto`
-  fallan a este tamaño (seqproto pasa de 16 MB), y su `binary` es msgpack en
-  hexadecimal (50.7 MB, y decodificar msgpack cargaba en ~2 s contra ~0.65 s
-  de `JSON.parse`).
-  `lib/raiz.ts` le da el lematizador español (`@orama/stemmers`) **después
-  de quitar tildes** —al revés, «Educación» daba `educ` y «educacion»
-  `educacion`— y la lista de palabras vacías de `@orama/stopwords` **menos
-  las de contenido** que trae (trabajo, estado, empleo, general, poder,
-  cuenta, trata, valor…): con ellas, «ministerio trabajo» era «ministerio».
-  Todas las palabras tienen que estar, **en cualquier campo**: el
-  `threshold: 0` de Orama lo exige dentro de un mismo campo, así que se
-  busca cada palabra, se cruzan los conjuntos y se ordena por el BM25 de la
-  consulta entera. ✅ (2026-09-26) La pertenencia se lee del árbol del
-  índice con la raíz **exacta** (`documentosCon`): `search` de Orama busca
-  por prefijo y «agua» (`agu`) traía Aguirre, Aguja y Agustín; el prefijo
-  solo vale en la última palabra mientras se escribe («minis» →
-  ministerio), si el lematizador no la tocó y no es un número. Una consulta
-  de solo palabras vacías no busca tema, una cita («Ley 80-25») tampoco, y
-  la cita exacta de una norma va primera. Los filtros cuentan lo mismo que
-  abren: sin tope práctico de fusión y con los vecinos por tema de «Todo». Con un tipo elegido, la búsqueda se hace dentro del tipo
-  (`where`), para que la lista llegue tan lejos como su cuenta. Una errata
-  se perdona solo si lo exacto no trajo nada y la consulta es de una o dos
-  palabras de seis letras o más: la tolerancia actúa sobre la raíz, y «agua»
-  (`agu`) a distancia uno es `agr`.
+- **Corpus** (`corpus.json`, ~44 MB; ~7.8 MB comprimido): ≈188 mil entradas de las instantáneas
+  —instituciones, legisladores, proveedores, procesos de compra, normativa
+  reciente y **todas las leyes**, iniciativas del Congreso, sentencias del TC
+  y del TSE, obras, documentos, datos abiertos y cargos de nómina (las
+  grafías de un mismo cargo se juntan)—, con título, texto auxiliar, quién
+  publica (tabla `origenes`), enlace y fecha. El detalle y el texto auxiliar
+  que se repiten (40 mil «Compra menor al umbral · Adjudicado») viajan una
+  vez en `frases` y se resuelven al leer (`resolverFrases`). Lo escribe
+  `scripts/build-busqueda.py`, que se corre **después** de regenerar
+  cualquiera de ellas, y lleva una `huella` (sha256 de las entradas) que
+  ata a él el índice guardado. Las fuentes nuevas traen su lector de
+  entradas (`scripts/busqueda_{leyes,procesos,sentencias,congreso}.py`,
+  `entradas(datos)`), que da quién publica por nombre (`on`).
+- **Qué hay de cada fuente**:
+  - *Leyes* (`leyes.json`, `scripts/build-leyes.py`): el histórico completo
+    de la Consultoría, 12,130 desde 1844 (AUDITORIA §G.15). Se deduplican
+    contra `normativa.json` por tipo, número y fecha. Las que tienen número
+    con año enlazan a su ficha, que ahora las resuelve también desde el
+    histórico (`leyHistorica` en `lib/normativa.ts`); las demás —número sin
+    año, «BIS», números que el origen repite— abren el PDF en la
+    Consultoría (`/api/document/{DocId}`), que el navegador de quien busca
+    sí alcanza.
+  - *Procesos* (`procesos.json`, `scripts/build-procesos.py`): los 77,790
+    publicados en los 12 meses anteriores a la última publicación de la
+    tabla abierta de la DGCP, con carátula, unidad de compra, modalidad,
+    estado y monto estimado. El código va en `r`: el enlace
+    (`enlace.proceso`) y su búsqueda como texto auxiliar se derivan de él.
+  - *Sentencias* (`sentencias.json`, `scripts/build-sentencias.py`): 11,393
+    del TC (2012–) y 713 del TSE (2021–), por su «Relativo a», número (en
+    sus variantes de escritura) y expediente; abren la ficha del Tribunal.
+  - *Congreso* (`congreso.json`, `scripts/build-congreso.py`): los 221
+    legisladores con ficha (189 diputados, 32 senadores) y las 17,857
+    iniciativas del SIL de los dos períodos que expone (2020–2024 y
+    2024–2028; AUDITORIA §G.15). Con ellas dentro, `/buscar` dejó de
+    consultar el SIL en vivo; el Senado sigue en su vertical. «Senador»,
+    «diputada por Santiago» prefieren legisladores: su cargo y su provincia
+    están en el texto auxiliar, y el que lleva todas las palabras cuenta como
+    nombrado.
+  - *Proveedores* (32,152): los que tienen al menos un contrato desde 2015 en
+    `public/data/historico/proveedores/` —no los ~138 mil inscritos del RPE—,
+    con el RNC del cruce con la DGII cuando existe; ni teléfono ni correo.
+    Llevan RPE (`r`), RNC (`c`), contratos (`k`) y años (`a`); enlace y
+    detalle los deriva `aResultado`.
+  - *Cargos*: plazas, instituciones y el sueldo mensual bruto de sus plazas
+    en percentil 10, mediana y percentil 90 (`s`); no el mínimo ni el máximo,
+    que una plaza de medio mes (RD$2,754 de un «médico general») vuelve
+    anécdota.
+  - **Sin vector** van legisladores y proveedores, al final del corpus: un
+    nombre de persona o de empresa no dice de qué trata. `vectorizados` dice
+    hasta dónde hay vector.
+- **Por palabra**: un índice invertido propio (`lib/busqueda-esquema.ts`),
+  sin alias `@/`, que usan igual el servidor y
+  `scripts/build-indice-busqueda.mjs` (que `node` carga quitando tipos): el
+  corte de palabras, las vacías y el lematizador son uno solo, o las raíces
+  guardadas no serían las de la consulta. Los términos van ordenados
+  (búsqueda binaria, prefijo, errata a una edición) y, por término, sus
+  apariciones con campo y frecuencia. BM25+ (k1 1.2, b 0.75, d 0.5) sobre
+  título (×3), texto auxiliar y origen (×0.5), con la rareza por campo y
+  **el mejor campo** por término, no la suma: «Presupuesto-Formulado-1990»
+  de la Dirección General de Presupuesto repite la palabra en título,
+  archivo y origen y no por eso va antes que un documento titulado
+  «Presupuesto». Un número con guiones es una palabra y se indexa también
+  por partes y en su forma corta («47-2020» es también «47-20»).
+  `lib/raiz.ts` da el lematizador español **después de quitar tildes** y la
+  lista de palabras vacías de `@orama/stopwords` **menos las de contenido**
+  (trabajo, estado, empleo, general, poder, cuenta, trata, valor, país…).
+- **Qué palabras cuentan** (`analizarConsulta`): todas las de contenido
+  tienen que estar, **en cualquier campo** («agua CORAMON»). Excepciones que
+  ordenan sin exigirse: en una pregunta (con «¿?» o que empieza por qué,
+  cuánto, quién…), el verbo y el sujeto genérico («¿cuánto **gana** un
+  médico?», «¿cuánto debe **el país**?» —exigir «país» traía los decretos de
+  consulados—); las de un sueldo («salario ministro» → la plaza de ministro,
+  y prefiere cargos ×1.6); las de una compra («compras de computadoras» →
+  los procesos que se titulan «Adquisición de computadoras», y prefiere
+  procesos). Si una pregunta no deja nada que nombrar, no hay búsqueda por
+  palabra ni por tema: la contesta la pantalla que la responde, y la página
+  lo dice. El prefijo solo vale en la última palabra mientras se escribe
+  («minis» → ministerio), si el lematizador no la tocó y no es un número.
+  Una errata a una edición de la raíz se suma cuando lo exacto trae menos de
+  tres y la consulta es de una o dos palabras de seis letras o más; lo
+  exacto vale el doble y va primero. Una cita («Ley 80-25», «ley 1494»,
+  «TC/0064/19») o un número suelto no buscan tema, y la cita exacta de una
+  norma o una sentencia va primera. Con un tipo elegido, la búsqueda se
+  hace dentro del tipo, para que la lista llegue tan lejos como su cuenta.
+- **Índice guardado** (`indice.bin`, ~21 MB): «SIB1», una cabecera JSON
+  con la etiqueta del corpus (fecha | huella | entradas), los términos
+  unidos por «\n» y, alineadas, las tablas `inicio`, `entrada`,
+  `campoFrecuencia` y `largo`. El servidor lo lee con vistas sobre el búfer,
+  sin `JSON.parse` (~20 ms); si falta, está roto o es de otro corpus, lo
+  construye en memoria (~5 s), más lento y nunca distinto. Reemplazó el
+  guardado de Orama (`indice.json.br`: 27 MB de JSON que costaban ~1.3 s por
+  arranque con 68 mil entradas, más `load` de su árbol).
 - **Por tema**: Model2Vec `potion-multilingual-128M` (MIT), un embedding
   **estático** —una tabla por pieza, sin red que ejecutar—, podado al español
   por `scripts/build-modelo-semantico.py` (72,837 piezas, PCA 256→128, int8:
@@ -344,17 +381,23 @@ versionados y dos bibliotecas abiertas.
   verificado en 6,000 títulos) y se promedia; se compara por coseno contra
   `vectores.bin` (4.7 MB). Umbral 0.55: por debajo, el parecido es ruido.
 - **Fusión**: rango recíproco (RRF, k = 60; el tema pesa 0.6), un bono al
-  nombre o a las siglas exactas, y un peso menor para hospitales,
-  ayuntamientos y cargos. Solo se juntan copias de verdad: el **mismo
-  archivo** (sitio, nombre sin extensión ni el «-1» que WordPress pone a una
-  segunda subida, y título) en PDF y XLSX es una fila con dos formatos;
-  dos decretos «Que otorga exequátur» o dos obras homónimas con distinto
-  SNIP son filas distintas. Cada resultado dice su vía: `palabra`, `tema` o `ambas`; la
+  nombre, las siglas o la cita exactas (también a las palabras exigidas:
+  «Ministro» en «salario ministro»), un peso menor para hospitales,
+  ayuntamientos, cargos, procesos, iniciativas y sentencias, y 0.8 para un
+  documento titulado como su archivo («7. ag salud.pdf»). Solo se juntan
+  copias de verdad: el **mismo archivo** (sitio, nombre sin extensión ni el
+  «-1» que WordPress pone a una segunda subida, y título) en PDF y XLSX, o
+  el **mismo título del mismo sitio subido el mismo día** (los cinco anexos
+  de un aviso de la DGCP), es una fila con sus formatos y «N archivos», que
+  abre `/documentos` con ese título y ese sitio; dos decretos «Que otorga
+  exequátur», dos obras homónimas con distinto SNIP o dos «Informe» de
+  fechas distintas son filas distintas. Cada resultado dice su vía: `palabra`, `tema` o `ambas`; la
   interfaz marca «Por tema» lo que no lleva todas las palabras.
-- **Coste**: primera consulta de una instancia ~1.2–1.5 s con el índice
-  guardado, contra ~4.5 s construyéndolo (68 mil entradas; con las 36 mil de
-  antes eran ~2.4 s), medido con `next start` el 2026-09-26; 15–150 ms por
-  consulta en caliente. `/buscar` pone los resultados en un
+- **Coste**: carga del motor por instancia ~0.8–0.9 s con ≈188 mil entradas
+  (medido el 2026-09-27 en node: casi todo es `JSON.parse` del corpus y el
+  tokenizador; el índice, ~20 ms), contra ~1.3 s del índice de Orama con 68
+  mil; ~430 MB de memoria residente; 25–120 ms por consulta en caliente (el
+  barrido por tema recorre ~155 mil vectores). `/buscar` pone los resultados en un
   `Suspense` para que la caja no espere; la paleta no muestra nada mientras
   tanto (y «Toda la plataforma» sigue ahí), y si `/api/buscar` falla lo dice
   en una línea: «no respondió» no es «no hay nada». `next.config.ts` declara los

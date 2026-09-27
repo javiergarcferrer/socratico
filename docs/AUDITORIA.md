@@ -1513,6 +1513,74 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
   `scripts/build-subastas.py` → `public/data/subastas.json`, `lib/subastas.ts`
   + `SubastasDeuda` en `/deuda`.
 
+### G.15 El buscador de toda la plataforma — cuatro instantáneas nuevas (2026-09-27)
+
+Para que `/buscar` encuentre leyes viejas, compras, sentencias y el Congreso
+(`docs/ARQUITECTURA.md` §Búsqueda). Todas las lecturas son en build, con el
+User-Agent identificable; ninguna en una visita.
+
+- ✅ **Consultoría — todas las leyes en una consulta.** `POST
+  /api/consultas/search` con `DocumentTypeCode: 1` y `PublicationYear: ""`
+  devuelve el histórico entero (201, `application/json`, 12,516 filas, ~9 s);
+  con un año, un subconjunto de la misma lista. La serie empieza en 1844; el
+  número con año (`47-20`, a veces `16-2000`) es lo habitual desde los
+  noventa, antes solo un número (`1494`), a veces con «BIS».
+  `scripts/build-leyes.py` → `public/data/leyes.json` (12,130 leyes, 1.8 MB).
+  ⚠️ El origen repite ~380 filas (una ley es número + fecha), 12 números
+  tienen dos fechas (74-25: 2025-08-03 y 2026-08-14) y «0-00» marca cuatro
+  leyes de 1921; 33 filas sin fecha, 28 sin título (se descartan). ⚠️
+  Cobertura reciente escasa en el origen: 2020 trae 12 leyes y 2022, 22.
+  ✅ `GET /api/document/{DocId}` sirve el PDF (`application/pdf`): es el
+  enlace de las leyes sin ficha. ❌ Sin cambios: 403 de Cloudflare al egreso
+  de Vercel; la ficha cae a la instantánea (`leyHistorica`).
+- ✅ **DGCP — tabla de procesos, con carátula.** La tabla de §G.1
+  (`/tablas/procesos?Type=csv`, un GET, 245 MB en ~5.5 s, `text/csv`,
+  `x-ratelimit-limit: 60`) trae `CARATULA` —el objeto del proceso en texto
+  libre, hasta 200 caracteres— además de unidad, modalidad, estado, monto,
+  moneda, fecha, objeto (Bienes/Obras/Servicios) y URL; 631,900 filas.
+  `scripts/build-procesos.py` → `public/data/procesos.json` (77,790
+  procesos de los 12 meses anteriores a la última publicación, 10.9 MB).
+  La API paginada `/procesos` trae `titulo` y `descripcion` pero a ~100
+  filas por página: cientos de peticiones que la tabla resuelve en una. ⚠️
+  Un 12 % de los códigos lleva espacios y tildes («Hosp. Reid
+  Cabral-DAF-CD-2026-0634»): la API los resuelve codificados, y
+  `reconocerPorForma` (lib/grafo.ts) no los reconoce dentro de un texto. ⚠️
+  140 procesos en US$, € o £ van sin monto.
+- ✅ **TC — el listado anual entero.** `GET
+  /consultas/secretar%C3%ADa/sentencias?searchCriteria=&searchString=&size=999999&filtery=AAAA&criteriay=years&order=Date`
+  sirve el año completo (15 peticiones para 2012–2026, sin rechazo; robots
+  404): número, fecha, referencia (expediente) y «Relativo a». La ficha se
+  deriva del número (`TC/0002/12` → `…/sentencias/tc000212`) en las 11,393.
+  ⚠️ El PDF solo aparece en la ficha (un blob de Azure): una petición por
+  sentencia, que no se hace; el buscador enlaza la ficha.
+- ✅ **TSE — el visor, todas sus páginas.** `GET /?y=AAAA&s=`, 60 por página,
+  siguiendo «Siguiente» (`?pos=N`); 20 peticiones para 2021–2026 (robots 200
+  vacío), 713 sentencias. ⚠️ El visor pagina un orden con empates: 2024 da
+  402 filas para 396 fichas y 2023, 223 para 221; la clave es la ficha, no
+  el número. A veces el documento es `.docx` dentro de un `<iframe>`.
+  `scripts/build-sentencias.py` → `public/data/sentencias.json` (4.4 MB, el
+  «Relativo a» recortado a 300 caracteres; el del TSE, cortado en el primer
+  salto de párrafo, que arrastra la fórmula de cierre).
+- ✅ **SIL de Diputados — los dos períodos enteros.**
+  `iniciativa/getIniciativas?page=N&keyword=&periodoId=P` (10 por página,
+  de la más reciente a la más antigua). `periodoId` es el parámetro que el
+  interceptor HTTP del propio portal añade a toda petición (leído del bundle
+  `/sil/Script/Bundles`); sin él, el SIL responde el período vigente.
+  `periodolegislativo/all` expone solo `2020-2024` (id 2760) y `2024-2028`
+  (id 2761). Censos: 11,500 y 6,357; ~1,800 peticiones en serie con pausa
+  (~30 min). Una pieza del período anterior abre igual en su ficha
+  (`iniciativa/iniciativa/{id}`, sin `periodoId`). El listado no trae
+  proponentes (una petición por pieza: no se pide). Legisladores: el barrido
+  del directorio (~41 peticiones), 189 diputados y 32 senadores.
+  `scripts/build-congreso.py` → `public/data/congreso.json` (17,857
+  iniciativas, 9.9 MB); se niega a escribir si un período queda por debajo
+  del 98 % de su total. ⚠️ Las piezas de antes de 2020 que murieron no están;
+  las vivas se arrastran al registro vigente con número nuevo (RECON §6).
+  ❌ El Senado no entra: su consultante pagina por postback con ViewState que
+  muta la sesión (RECON §12.2); sigue en vivo en `/congreso/senado`.
+- El boletín del Poder Judicial (`lib/justicia.ts`) son estadísticas, no
+  sentencias: no hay nada que indexar ahí.
+
 ### G.9 Pendientes que deja esta pasada
 
 1. Estadísticas judiciales (índice + XLSX mensual) y sentencias del TSE.

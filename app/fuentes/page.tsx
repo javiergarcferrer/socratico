@@ -237,6 +237,18 @@ export default async function FuentesPage() {
             y por perimidas. No filtra un tipo en todos los temas a la vez, y por
             eso la vista no lo ofrece.
           </p>
+          <p className="mt-2 text-[13px] text-ink-soft sm:text-xs">
+            Para el buscador de toda la plataforma, los legisladores y las
+            iniciativas de los dos períodos que el SIL expone (2020–2024 y
+            2024–2028) se guardan en una instantánea (
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-congreso.py</code>
+            ): título, expediente, tipo, estado y fecha de depósito. Lo depositado
+            después se busca en vivo en{" "}
+            <Link href="/congreso" className="font-medium text-brand-700 hover:underline">
+              Congreso
+            </Link>
+            .
+          </p>
         </Fuente>
 
         <Fuente
@@ -331,6 +343,15 @@ export default async function FuentesPage() {
               automatizado identificado.
             </p>
           )}
+          <p className="mt-3">
+            Aparte, el histórico completo de leyes —unas 12,100 desde 1844, en una
+            sola consulta del mismo buscador JSON (
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-leyes.py</code>
+            )— alimenta el buscador de toda la plataforma y la ficha de una ley más
+            vieja que la instantánea reciente. Solo las leyes con número y año
+            tienen ficha propia; las anteriores, o las que el origen numera igual,
+            abren su PDF en el sitio de la Consultoría.
+          </p>
           <p className="mt-3">
             Sus PDF traen capa de texto —no son escaneos— y cada norma tiene su
             ficha, que es también la vía al articulado de las piezas del
@@ -649,6 +670,17 @@ export default async function FuentesPage() {
             de captura, otros pueden ser obras reales, y sin el expediente no se
             distinguen— y se listan aparte con nombre y apellido.
           </p>
+          <p className="mt-3">
+            De la tabla de procesos se guardan además, con su carátula, unidad de
+            compra, modalidad, estado y monto estimado, los publicados en los doce
+            meses anteriores a su publicación más reciente (unos 78 mil,{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-procesos.py</code>
+            ): son los que{" "}
+            <Link href="/buscar" className="font-medium text-brand-700 hover:underline">
+              el buscador
+            </Link>{" "}
+            encuentra por lo que se compra. Cada uno abre su ficha, leída en vivo.
+          </p>
         </Fuente>
 
         <Fuente nombre="Contraloría y Cámara de Cuentas — auditorías y declaraciones" estado="activa" etiqueta="Instantánea local">
@@ -701,20 +733,34 @@ export default async function FuentesPage() {
             <Link href="/buscar" className="font-medium text-brand-700 hover:underline">
               El buscador
             </Link>{" "}
-            no lee ninguna fuente nueva: junta en un índice las instantáneas de
-            instituciones, normativa, obras, documentos, datos abiertos, cargos de
-            nómina y proveedores, y dice la fecha en que se armó. Busca por
-            palabra —sin tildes, con plurales y conjugaciones, y una errata
-            perdonada en palabras largas— y por tema, con un modelo abierto de
-            vectores (Model2Vec, licencia MIT) reducido al español y guardado
-            junto a los datos: no hay servicio externo ni clave. Lo que sale solo
-            por tema se marca así. De los proveedores están los 32 mil que tienen
-            al menos un contrato desde 2015 en el registro de la DGCP, por nombre,
-            RNC o RPE, no los inscritos que nunca contrataron; se encuentran por
-            palabra y no por tema, porque el nombre de una empresa no dice de qué
-            trata. Del padrón de la DGII solo se usa el RNC: ni teléfonos ni
-            correos. Licitaciones y el Senado no están en el índice: se buscan en
-            su vertical, y Diputados se consulta en vivo.
+            junta en un índice las instantáneas de instituciones, legisladores,
+            proveedores, procesos de compra, normativa y leyes, iniciativas del
+            Congreso, sentencias, obras, documentos, datos abiertos y cargos de
+            nómina, y dice la fecha en que se armó. Busca por palabra —sin
+            tildes, con plurales y conjugaciones, y una errata admitida en
+            palabras largas cuando lo exacto trae casi nada— y por tema, con un
+            modelo abierto de vectores (Model2Vec, licencia MIT) reducido al
+            español y guardado junto a los datos: no hay servicio externo ni
+            clave. Lo que sale solo por tema se marca así. En una pregunta, las
+            palabras con que se pregunta («¿cuánto gana…?») ordenan pero no se
+            exigen, y la página lo dice.
+          </p>
+          <p className="mt-3">
+            <strong>Cobertura:</strong> de los proveedores, los 32 mil con al
+            menos un contrato desde 2015 en el registro de la DGCP, por nombre,
+            RNC o RPE —no los inscritos que nunca contrataron—; de los procesos,
+            los publicados en los doce meses anteriores a la tabla abierta de la
+            DGCP; de la normativa, todas las leyes desde 1844 y los decretos,
+            reglamentos y resoluciones de los últimos cuatro años; del Congreso,
+            los legisladores con ficha y las iniciativas de Diputados de los
+            períodos 2020–2024 y 2024–2028, los dos que expone el SIL; de las
+            sentencias, las del Tribunal Constitucional desde 2012 y las del
+            Tribunal Superior Electoral desde 2021, por lo que dice su listado y
+            no por el texto de la sentencia. El sueldo de un cargo es el mensual
+            bruto de sus plazas en la foto de nómina: la mediana y el tramo en
+            que cae el 80 % del medio. Del padrón de la DGII solo se usa el RNC:
+            ni teléfonos ni correos. El Senado, los procesos más viejos y lo
+            publicado después de cada instantánea se buscan en su vertical.
           </p>
         </Fuente>
 
@@ -729,6 +775,12 @@ export default async function FuentesPage() {
             cerrados. La sentencia en sí es un PDF que se abre desde su ficha en el
             sitio del Tribunal: no se descarga ni se copia.
           </p>
+          <p className="mt-3">
+            Para el buscador de toda la plataforma, el listado de cada año desde
+            2012 se guarda en una instantánea (
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-sentencias.py</code>
+            , unas 11,400 sentencias): número, fecha, expediente y de qué trata.
+          </p>
         </Fuente>
 
         <Fuente nombre="Tribunal Superior Electoral — sentencias" estado="activa" etiqueta="Conectada">
@@ -741,6 +793,12 @@ export default async function FuentesPage() {
             declara si lo alcanza. La numeración de la fuente es irregular y un mismo
             número puede tener dos fichas: cada fila es una ficha. El PDF se abre
             desde la ficha, en el sitio del tribunal.
+          </p>
+          <p className="mt-3">
+            La misma instantánea del buscador guarda sus 713 sentencias desde 2021,
+            recorriendo todas las páginas. El visor pagina un orden con empates:
+            algunas fichas salen en dos páginas y puede que otras en ninguna (en
+            2024, 402 filas para 396 fichas distintas).
           </p>
         </Fuente>
 

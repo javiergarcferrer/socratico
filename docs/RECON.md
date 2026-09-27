@@ -141,6 +141,12 @@ Envoltorio uniforme: `{ "page": 1, "pageSize": 10, "total": 6222, "results": [..
 - Conteos observados: `CountIniciativas` → **6225**; `getIniciativas?keyword=`
   → `total` **6222**; `keyword=ley` → **1482**. La diferencia de 3 entre los dos
   primeros no se explicó. **No usar ninguno como cifra de control** sin entenderla.
+- ✅ (2026-09-27) **El período anterior también se lista**: `getIniciativas`
+  acepta `periodoId` (2760 = 2020-2024, 2761 = 2024-2028), el parámetro que el
+  interceptor HTTP del portal añade a toda petición según el selector de su
+  cabecera (leído de `/sil/Script/Bundles`); sin él responde el vigente.
+  Censos: 11,500 y 6,357. `scripts/build-congreso.py` barre los dos para el
+  buscador (AUDITORIA §G.15).
 
 ### 2.4 Perención: la feature #2 no depende del endpoint roto
 

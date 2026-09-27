@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { buscarEnTodo, buscarPantallas, esTipoResultado, TIPOS_RESULTADO } from "@/lib/busqueda";
+import { buscarEnTodo, buscarPantallas, EN_MAYUSCULAS, esTipoResultado, TIPOS_RESULTADO } from "@/lib/busqueda";
+import { formatPesos } from "@/lib/format";
 import { desdeMayusculas } from "@/lib/congreso";
 import { recortar } from "@/lib/raiz";
 
@@ -59,9 +60,10 @@ export async function GET(req: Request) {
         resultados: filas.map((r) => ({
           tipo: r.tipo,
           etiqueta: ETIQUETA[r.tipo],
-          // Normas, obras y cargos llegan de su fuente en MAYÚSCULAS.
-          titulo: r.tipo === "norma" || r.tipo === "obra" || r.tipo === "cargo" ? desdeMayusculas(r.titulo) : r.titulo,
-          detalle: [r.detalle, r.origen].filter(Boolean).join(" · ") || null,
+          titulo: EN_MAYUSCULAS.has(r.tipo) ? desdeMayusculas(r.titulo) : r.titulo,
+          detalle:
+            [r.detalle, r.origen, r.sueldo && `${formatPesos(r.sueldo.mediana)} de mediana al mes`].filter(Boolean).join(" · ") ||
+            null,
           href: r.href,
           externo: r.externo,
           via: r.via,

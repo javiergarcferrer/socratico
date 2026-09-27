@@ -26,6 +26,7 @@ import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { filas, pedirJsonOLanzar } from "@/lib/pedir";
 import { agujas, contieneTodas, plano as planoConsulta } from "@/lib/raiz";
+import { numeroCanonico } from "@/lib/grafo";
 
 const BASE = "https://www.consultoria.gov.do";
 
@@ -255,6 +256,48 @@ function leerInstantanea(): Promise<Instantanea | null> {
       return null;
     });
   return instantanea;
+}
+
+/**
+ * Todas las leyes desde 1844 (`public/data/leyes.json`, `scripts/build-leyes.py`),
+ * en filas compactas: `campos` nombra las columnas de cada fila. Solo la lee la
+ * ficha, cuando una ley es más vieja que `normativa.json` y el origen no contesta.
+ */
+interface InstantaneaLeyes {
+  generadoEn: string;
+  campos: string[];
+  leyes: unknown[][];
+}
+
+let instantaneaLeyes: Promise<InstantaneaLeyes | null> | null = null;
+
+function leerLeyes(): Promise<InstantaneaLeyes | null> {
+  instantaneaLeyes ??= readFile(path.join(process.cwd(), "public", "data", "leyes.json"), "utf8")
+    .then((t) => {
+      const crudo = JSON.parse(t) as InstantaneaLeyes;
+      return crudo?.generadoEn && Array.isArray(crudo.leyes) ? crudo : null;
+    })
+    .catch((err) => {
+      console.error(`[normativa] instantánea de leyes: ${String(err)}`);
+      return null;
+    });
+  return instantaneaLeyes;
+}
+
+/**
+ * La ley de `leyes.json` con ese número canónico (47-2020 es la 47-20). Si el
+ * origen repite el número con dos fechas, gana la más reciente: el archivo ya
+ * viene ordenado de la más reciente a la más antigua.
+ */
+async function leyHistorica(numero: string): Promise<Documento | null> {
+  const inst = await leerLeyes();
+  if (!inst) return null;
+  const buscado = numeroCanonico("ley", numero);
+  for (const fila of inst.leyes) {
+    const f = Object.fromEntries(inst.campos.map((c, k) => [c, fila[k]])) as FilaBuscador;
+    if (numeroCanonico("ley", texto(f.Numero)) === buscado) return aDocumento({ ...f, TipoDocumento: 1 });
+  }
+  return null;
 }
 
 function ordenar(docs: Documento[]): Documento[] {
@@ -751,12 +794,13 @@ export async function resolverNorma(
   // El origen no contestó: la instantánea cubre los años recientes.
   const codigo = CODIGO_POR_TIPO[tipo.toLowerCase()];
   const inst = codigo ? await leerInstantanea() : null;
-  if (!inst) return null;
+  if (!inst) return codigo === "1" ? leyHistorica(numero) : null;
   const normalizado = numero.replace(/\s+/g, "");
   for (const [clave, filas] of Object.entries(inst.busquedas)) {
     if (!clave.startsWith(`${codigo}/`)) continue;
     const fila = filas.find((f) => texto(f.Numero).replace(/\s+/g, "") === normalizado);
     if (fila) return aDocumento(fila);
   }
-  return null;
+  // Una ley más vieja que la instantánea reciente: el histórico completo.
+  return codigo === "1" ? leyHistorica(normalizado) : null;
 }

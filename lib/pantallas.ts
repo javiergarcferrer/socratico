@@ -43,7 +43,7 @@ export const PANTALLAS: Record<string, Pantalla> = {
     ],
   },
   "/buscar": {
-    que: "Una sola caja para buscar en toda la plataforma: instituciones, proveedores, normas, obras, documentos, datos abiertos y cargos.",
+    que: "Una sola caja para buscar en toda la plataforma: instituciones, legisladores, proveedores, compras, leyes, iniciativas, sentencias, obras, documentos, datos abiertos y cargos.",
     preguntas: ["¿Dónde busco cualquier cosa?", "Buscar un nombre en todo el Estado"],
   },
   "/licitaciones": {

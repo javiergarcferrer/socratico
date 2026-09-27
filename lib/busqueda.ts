@@ -4,16 +4,17 @@
  *
  * Dos lecturas de la misma consulta, fundidas en una lista:
  *
- *  1. **Por palabra** — Orama (`@orama/orama`, Apache-2.0): BM25 sobre título,
- *     texto auxiliar y quién publica, con raíces del español («escuelas»
- *     encuentra «escuela»), sin palabras vacías, sin tildes, y tolerancia de
- *     una errata en palabras largas («presupusto»). Todas las palabras
- *     tienen que estar.
+ *  1. **Por palabra** — un índice invertido propio (`lib/busqueda-esquema.ts`):
+ *     BM25 sobre título, texto auxiliar y quién publica, con raíces del
+ *     español («escuelas» encuentra «escuela»), sin palabras vacías, sin
+ *     tildes, y tolerancia de una errata en palabras largas («presupusto»).
+ *     Todas las palabras que cuentan tienen que estar; las de una pregunta
+ *     («¿cuánto **gana** un médico?») o de un sueldo solo ordenan.
  *  2. **Por tema** — un embedding estático (Model2Vec
  *     `potion-multilingual-128M`, MIT, podado al español por
  *     `scripts/build-modelo-semantico.py`): la consulta se tokeniza con
  *     `@huggingface/tokenizers` y se promedia su tabla; los vectores de las
- *     36 mil entradas que lo llevan (todas menos los proveedores, cuyo
+ *     entradas que lo llevan (todas menos legisladores y proveedores, cuyo
  *     nombre no dice de qué tratan) vienen hechos de
  *     `scripts/build-busqueda.py`. «Agua potable» encuentra los conjuntos de
  *     CORAMON aunque se llamen «Producción de agua».
@@ -25,34 +26,66 @@
  *
  * Nada de esto es una base de datos (CLAUDE.md, la invariante): el corpus,
  * los vectores, el modelo y el índice por palabra ya construido
- * (`indice.json.br`, de `scripts/build-indice-busqueda.mjs`) son archivos
+ * (`indice.bin`, de `scripts/build-indice-busqueda.mjs`) son archivos
  * versionados en `public/data/busqueda`, leídos una vez por instancia y
  * guardados en memoria.
  */
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { brotliDecompressSync } from "node:zlib";
-import { insertMultiple, load, search, type AnyOrama } from "@orama/orama";
 import { Tokenizer } from "@huggingface/tokenizers";
-import { aDocumento, etiquetaCorpus, indiceVacio } from "@/lib/busqueda-esquema";
+import {
+  construirIndice,
+  entradasDe,
+  esVacia,
+  etiquetaCorpus,
+  leerIndice,
+  palabrasDe,
+  puntuar,
+  raizDe,
+  resolverFrases,
+  terminosQueCasan,
+  type IndicePalabras,
+} from "@/lib/busqueda-esquema";
 import { agujas, plano as planoConsulta, pruebas, sinTildes } from "@/lib/raiz";
 import { INDICE } from "@/lib/indice";
 import { PANTALLAS } from "@/lib/pantallas";
 import { enlace } from "@/lib/grafo";
 
-export type TipoResultado = "institucion" | "proveedor" | "norma" | "obra" | "documento" | "dato" | "cargo";
+export type TipoResultado =
+  | "institucion"
+  | "legislador"
+  | "proveedor"
+  | "proceso"
+  | "norma"
+  | "iniciativa"
+  | "sentencia"
+  | "obra"
+  | "documento"
+  | "dato"
+  | "cargo";
 
 /** El orden en que se nombran los tipos: el de las verticales en `/buscar`. */
 export const TIPOS_RESULTADO: { clave: TipoResultado; etiqueta: string; plural: string }[] = [
   { clave: "institucion", etiqueta: "Institución", plural: "Instituciones" },
+  { clave: "legislador", etiqueta: "Legislador", plural: "Legisladores" },
   { clave: "proveedor", etiqueta: "Proveedor", plural: "Proveedores" },
+  { clave: "proceso", etiqueta: "Proceso de compra", plural: "Procesos de compra" },
   { clave: "norma", etiqueta: "Norma", plural: "Normativa" },
+  { clave: "iniciativa", etiqueta: "Iniciativa", plural: "Iniciativas del Congreso" },
+  { clave: "sentencia", etiqueta: "Sentencia", plural: "Sentencias" },
   { clave: "obra", etiqueta: "Obra", plural: "Obras públicas" },
   { clave: "documento", etiqueta: "Documento", plural: "Documentos" },
   { clave: "dato", etiqueta: "Datos abiertos", plural: "Datos abiertos" },
   { clave: "cargo", etiqueta: "Cargo", plural: "Cargos en la nómina" },
 ];
+
+/**
+ * Los tipos cuyo título llega de su fuente en MAYÚSCULAS (normas, obras,
+ * cargos, carátulas de procesos): se enseñan en
+ * minúsculas con `desdeMayusculas`.
+ */
+export const EN_MAYUSCULAS: ReadonlySet<TipoResultado> = new Set(["norma", "obra", "cargo", "proceso"]);
 
 export function esTipoResultado(v: string | undefined | null): v is TipoResultado {
   return TIPOS_RESULTADO.some((t) => t.clave === v);
@@ -72,23 +105,31 @@ interface Entrada {
   m?: number;
   p?: number;
   e?: 1;
-  /** Proveedores: RPE, RNC (si el cruce con la DGII lo trae), contratos y años. */
+  /**
+   * El identificador del que se deriva la ficha: el RPE de un proveedor, el
+   * código de un proceso. Se busca como texto auxiliar.
+   */
   r?: string;
+  /** Proveedores: RNC (si el cruce con la DGII lo trae), contratos y años. */
   c?: string;
   k?: number;
   a?: [number, number];
+  /** Cargos: sueldo de sus plazas en el percentil 10, la mediana y el 90. */
+  s?: [number, number, number];
 }
 
 interface Corpus {
   generado: string;
   /** Huella de las entradas: ata el índice guardado a este corpus. */
   huella?: string;
-  instantaneas: Partial<Record<TipoResultado, string>>;
+  instantaneas: Partial<Record<TipoResultado | "ley", string>>;
   dimensiones: number;
   piezas: number;
-  /** Las primeras `vectorizados` entradas llevan vector; los proveedores, no. */
+  /** Las primeras `vectorizados` entradas llevan vector; las demás, no. */
   vectorizados?: number;
   origenes: string[];
+  /** Detalles y textos auxiliares repetidos; ver `resolverFrases`. */
+  frases?: string[];
   docs: Entrada[];
 }
 
@@ -107,13 +148,21 @@ export interface Resultado {
   /** Un archivo o una ficha en el sitio de otra institución. */
   externo: boolean;
   fecha: string | null;
-  /** Obras: su valor en pesos. */
+  /** Obras y procesos: su valor (estimado, en los procesos) en pesos. */
   valor: number | null;
   /** Cargos: plazas y en cuántas instituciones. */
   plazas: number | null;
   instituciones: number | null;
+  /**
+   * Cargos: sueldo mensual bruto de sus plazas —mediana y el tramo en que
+   * cae el 80 % del medio—. No el mínimo ni el máximo: una plaza de medio mes
+   * o un encargo con compensación los vuelven anécdota.
+   */
+  sueldo: { bajo: number; mediana: number; alto: number } | null;
   /** Proveedores: contratos desde 2015 en la instantánea. */
   contratos: number | null;
+  /** Documentos: cuántos archivos del mismo sitio, título y fecha se juntaron aquí. */
+  archivos: number | null;
   via: Via;
 }
 
@@ -124,7 +173,7 @@ const DIR = path.join(process.cwd(), "public", "data", "busqueda");
 
 interface Motor {
   corpus: Corpus;
-  db: AnyOrama;
+  indice: IndicePalabras;
   tokenizer: Tokenizer;
   especiales: Set<number>;
   dim: number;
@@ -149,33 +198,24 @@ function partir(buf: Buffer, n: number, dim: number): [Int8Array, Float32Array] 
 
 /**
  * El índice por palabra: el guardado si es de este corpus, o construido aquí.
- * Cargar el guardado cuesta ~0.7 s; construirlo, ~3.8 s (68 mil entradas).
- * Si falta, está roto o su etiqueta no es la del corpus —alguien regeneró el
- * corpus y no el índice—, se construye: más lento, nunca distinto.
+ * Leer el guardado es un `readFile` y unas vistas sobre el búfer (decenas de
+ * milisegundos); construirlo, segundos. Si falta, está roto o su etiqueta no
+ * es la del corpus —alguien regeneró el corpus y no el índice—, se
+ * construye: más lento, nunca distinto.
  */
-async function indicePorPalabra(corpus: Corpus): Promise<AnyOrama> {
-  const guardado = await readFile(path.join(DIR, "indice.json.br")).catch(() => null);
+async function indicePorPalabra(corpus: Corpus): Promise<IndicePalabras> {
+  const etiqueta = etiquetaCorpus(corpus);
+  const guardado = await readFile(path.join(DIR, "indice.bin")).catch(() => null);
   if (guardado) {
     try {
-      const texto = brotliDecompressSync(guardado).toString("utf8");
-      const corte = texto.indexOf("\n");
-      if (texto.slice(0, corte) === etiquetaCorpus(corpus)) {
-        const db = indiceVacio();
-        load(db, JSON.parse(texto.slice(corte + 1)));
-        return db;
-      }
-      console.warn("[busqueda] indice.json.br es de otro corpus: se construye en memoria (corre scripts/build-indice-busqueda.mjs)");
+      const ix = leerIndice(guardado);
+      if (ix.etiqueta === etiqueta) return ix;
+      console.warn("[busqueda] indice.bin es de otro corpus: se construye en memoria (corre scripts/build-indice-busqueda.mjs)");
     } catch (err) {
-      console.warn(`[busqueda] indice.json.br no se pudo leer: se construye en memoria (${String(err)})`);
+      console.warn(`[busqueda] indice.bin no se pudo leer: se construye en memoria (${String(err)})`);
     }
   }
-  const db = indiceVacio();
-  await insertMultiple(
-    db,
-    corpus.docs.map((d, i) => aDocumento(d, i, corpus.origenes)),
-    2000,
-  );
-  return db;
+  return construirIndice(corpus.docs, corpus.origenes, etiqueta);
 }
 
 async function cargar(): Promise<Motor> {
@@ -187,6 +227,7 @@ async function cargar(): Promise<Motor> {
     readFile(path.join(DIR, "vectores.bin")),
   ]);
   const corpus = JSON.parse(crudoCorpus) as Corpus;
+  resolverFrases(corpus);
   const meta = JSON.parse(crudoMeta) as { piezas: number; dimensiones: number; especiales: number[] };
   if (meta.piezas !== corpus.piezas || meta.dimensiones !== corpus.dimensiones) {
     // Vectores de otro modelo: compararlos daría ruido con apariencia de tema.
@@ -202,7 +243,7 @@ async function cargar(): Promise<Motor> {
 
   return {
     corpus,
-    db: await indicePorPalabra(corpus),
+    indice: await indicePorPalabra(corpus),
     tokenizer: new Tokenizer(JSON.parse(crudoTok), {}),
     especiales: new Set(meta.especiales),
     dim,
@@ -259,7 +300,7 @@ function porTema(m: Motor, v: Float32Array | null, tipo?: TipoResultado): { i: n
   const docs = m.corpus.docs;
   const mejores: { i: number; s: number }[] = [];
   let piso = UMBRAL_TEMA;
-  // Los proveedores van al final y sin vector: el tema no los alcanza.
+  // Legisladores y proveedores van al final y sin vector: el tema no los alcanza.
   for (let i = 0; i < m.vectorizados; i++) {
     if (tipo && docs[i].t !== tipo) continue;
     const base = i * m.dim;
@@ -276,6 +317,106 @@ function porTema(m: Motor, v: Float32Array | null, tipo?: TipoResultado): { i: n
   return mejores.sort((a, b) => b.s - a.s).slice(0, VECINOS);
 }
 
+/* -------------------------------------------------- qué palabras cuentan */
+
+/**
+ * Las palabras con que se pregunta y no se nombra: el verbo de «¿cuánto
+ * **gana** un médico?» y el sujeto de «¿cuánto debe **el país**?». Exigirlas
+ * trae lo que las lleva por casualidad —«país» traía los decretos de
+ * consulados—; en una pregunta solo ayudan a ordenar. Las demás palabras
+ * vacías (qué, cuánto, debe, hay) ya las quita el índice.
+ */
+const DE_PREGUNTA = new Set([
+  "gana", "ganan", "cobra", "cobran", "paga", "pagan", "cuesta", "cuestan", "gasta", "gastan",
+  "recibe", "reciben", "invierte", "invierten", "compra", "compran", "existe", "existen",
+  "pais", "republica", "dominicana", "rd", "gobierno", "estado", "nacion", "dinero", "plata",
+]);
+const INTERROGATIVAS = new Set([
+  "que", "quien", "quienes", "cual", "cuales", "cuanto", "cuanta", "cuantos", "cuantas",
+  "como", "donde", "cuando", "porque",
+]);
+
+/**
+ * Las de un sueldo: «salario ministro» busca la plaza de ministro y su
+ * sueldo, no un documento que diga las dos cosas. Ordenan y prefieren los
+ * cargos, pero no se exigen si queda otra palabra.
+ */
+const DE_SUELDO = new Set([
+  "salario", "salarios", "sueldo", "sueldos", "gana", "ganan", "cobra", "cobran", "remuneracion",
+]);
+
+/**
+ * Las de una compra: «compras de computadoras» busca los procesos de
+ * computadoras, que se titulan «Adquisición de computadoras» y no dicen
+ * «compra». Ordenan y prefieren los procesos.
+ */
+const DE_COMPRA = new Set([
+  "compra", "compras", "adquisicion", "adquisiciones", "licitacion", "licitaciones", "contratacion",
+  "contrataciones",
+]);
+
+/**
+ * Las de un cargo electo: «senador», «diputada por Santiago» buscan a las
+ * personas antes que las leyes de pensión «a favor del ex-senador…» o las
+ * resoluciones «de la Cámara de Diputados». Se exigen —dicen de quién se
+ * habla— y prefieren legisladores.
+ */
+const DE_LEGISLADOR = new Set([
+  "senador", "senadora", "senadores", "senadoras", "diputado", "diputada", "diputados", "diputadas",
+  "legislador", "legisladora", "legisladores", "legisladoras",
+]);
+
+interface Consulta {
+  /** Lo tecleado, recortado: es lo que se embebe. */
+  texto: string;
+  /** Las palabras que tienen que estar, ya planas y sin vacías. */
+  requeridas: string[];
+  /** Las que solo suman al orden. */
+  opcionales: string[];
+  /** ¿La última requerida es la última tecleada? Entonces se admite como prefijo. */
+  ultimaAbierta: boolean;
+  /** Un tipo que la consulta pide sin nombrarlo («sueldo» → cargos). */
+  preferido?: TipoResultado;
+  /** Las requeridas unidas: lo que se compara con un título exacto. */
+  nucleo: string;
+  /** ¿Se tecleó como pregunta («¿cuánto…?», «qué…»)? */
+  pregunta: boolean;
+}
+
+export function analizarConsulta(texto: string): Consulta {
+  const todas = palabrasDe(texto);
+  const pregunta = /[¿?]/.test(texto) || INTERROGATIVAS.has(todas[0] ?? "");
+  const contenido = todas.filter((w) => !esVacia(w));
+  const sueldo = contenido.some((w) => DE_SUELDO.has(w));
+  const compra = contenido.some((w) => DE_COMPRA.has(w));
+  const opcional = (w: string) => DE_SUELDO.has(w) || DE_COMPRA.has(w) || (pregunta && DE_PREGUNTA.has(w));
+  let requeridas = contenido.filter((w) => !opcional(w));
+  let opcionales = contenido.filter(opcional);
+  // «sueldo», «¿salario?» o «república dominicana» solos: si no es una
+  // pregunta, lo tecleado es lo que se busca.
+  if (requeridas.length === 0 && !pregunta) [requeridas, opcionales] = [opcionales, []];
+  return {
+    texto,
+    requeridas,
+    opcionales,
+    ultimaAbierta: requeridas.length > 0 && requeridas[requeridas.length - 1] === todas[todas.length - 1],
+    preferido:
+      requeridas.length > 0 && opcionales.length > 0
+        ? sueldo
+          ? "cargo"
+          : compra
+            ? "proceso"
+            : undefined
+        : requeridas.some((w) => DE_LEGISLADOR.has(w))
+          ? "legislador"
+          : undefined,
+    nucleo: requeridas.join(" "),
+    pregunta,
+  };
+}
+
+/* ------------------------------------------------------------ por palabra */
+
 /** Tope de coincidencias por palabra que entran a la fusión. */
 const TOPE_PALABRA = 20_000;
 
@@ -287,94 +428,71 @@ interface PorPalabra {
   todos: Set<number>;
 }
 
-/** ¿Se puede perdonar una errata? Ver `porPalabra`. */
-function admiteErrata(q: string): boolean {
-  const palabras = q.split(/\s+/).filter(Boolean);
-  return palabras.length <= 2 && palabras.every((w) => /^\p{L}{6,}$/u.test(w));
-}
+/** Con menos coincidencias exactas que estas, se prueba con una errata. */
+const MINIMO_SIN_ERRATA = 3;
 
-/** Sin tope práctico: el corpus entero cabe. */
-const TODOS = 50_000;
-
-interface Arbol {
-  node: { find(p: { term: string; exact?: boolean; tolerance?: number }): Record<string, number[]> };
+/** ¿Se puede perdonar una errata? Una o dos palabras, todas largas. */
+function admiteErrata(c: Consulta): boolean {
+  return c.requeridas.length > 0 && c.requeridas.length <= 2 && c.requeridas.every((w) => /^[a-z]{6,}$/.test(w));
 }
 
 /**
- * Los documentos que llevan **esa palabra**, leídos del árbol del índice.
- *
- * `search` de Orama busca cada raíz como **prefijo**: «agua» es `agu`, y
- * `agu` empieza `aguj`, `agustin` y `aguilar`, así que «agua» traía a
- * «Zaglul Aguirreurreta» y a la Industria Nacional de la Aguja; «100», los
- * RPE que empiezan por 100. Aquí la raíz tiene que ser la del documento. El
- * prefijo solo se admite en la **última** palabra, si el lematizador no la
- * tocó y no es un número: es la que se está escribiendo («minis» →
- * ministerio). Con tolerancia, la distancia de edición de Orama.
+ * Los términos del índice que cuentan como **esa palabra**. La raíz tiene
+ * que ser la del documento: «agua» es `agu`, y como prefijo traía `aguj`,
+ * `agustin` y `aguilar`. El prefijo solo se admite en la **última** palabra,
+ * si el lematizador no la tocó y no es un número: es la que se está
+ * escribiendo («minis» → ministerio). Con tolerancia, una edición sobre la
+ * raíz.
  */
-function documentosCon(m: Motor, palabra: string, tolerancia: number, ultima: boolean): Set<string> {
-  const db = m.db as unknown as {
-    data: { index: { indexes: Record<string, Arbol> } };
-    internalDocumentIDStore: { internalIdToId: string[] };
-  };
-  const externo = db.internalDocumentIDStore.internalIdToId;
-  const salida = new Set<string>();
-  const w = palabra.toLowerCase();
-  for (const raiz of m.db.tokenizer.tokenize(palabra, "spanish")) {
-    const prefijo = ultima && tolerancia === 0 && raiz === sinTildes(w) && !/\d/.test(raiz) && raiz.length >= 3;
-    for (const prop of ["ti", "x", "o"]) {
-      const arbol = db.data.index.indexes[prop];
-      if (!arbol) continue;
-      const hallado = arbol.node.find({ term: raiz, exact: !prefijo && tolerancia === 0, tolerance: tolerancia });
-      for (const ids of Object.values(hallado)) for (const id of ids) salida.add(externo[id - 1]);
-    }
-  }
-  return salida;
+function terminosDe(m: Motor, palabra: string, tolerancia: number, ultima: boolean): number[] {
+  const raiz = raizDe(palabra);
+  if (tolerancia > 0) return terminosQueCasan(m.indice, raiz, "errata");
+  const prefijo = ultima && raiz === palabra && !/\d/.test(raiz) && raiz.length >= 3;
+  return terminosQueCasan(m.indice, raiz, prefijo ? "prefijo" : "exacta");
 }
 
-async function porPalabra(m: Motor, q: string, tipo?: TipoResultado, tolerancia?: number): Promise<PorPalabra> {
-  const donde = tipo ? { where: { t: { eq: tipo } } } : {};
-  const buscarCon = (term: string, t: number, limit: number, threshold: number) =>
-    search(m.db, {
-      term,
-      properties: ["ti", "x", "o"],
-      boost: { ti: 3, x: 1, o: 0.5 },
-      threshold,
-      tolerance: t,
-      limit,
-      ...donde,
+/**
+ * Todas las requeridas tienen que estar, cada una en cualquier campo:
+ * «agua CORAMON» lleva una en el título y otra en quién publica. El orden es
+ * el BM25 de todas las palabras —requeridas y opcionales— entre las que
+ * pasan.
+ */
+function porPalabra(m: Motor, c: Consulta, tipo?: TipoResultado, tolerancia?: number): PorPalabra {
+  const conTolerancia = (t: number): PorPalabra => {
+    const vacio = { ids: [], total: 0, tolerancia: t, todos: new Set<number>() };
+    if (c.requeridas.length === 0) return vacio;
+    const docs = m.corpus.docs;
+    const terminos = c.requeridas.map((w, n) =>
+      terminosDe(m, w, t, c.ultimaAbierta && n === c.requeridas.length - 1),
+    );
+    // Se cruza desde la más rara: el conjunto más chico manda.
+    const conjuntos = terminos.map((ks) => entradasDe(m.indice, ks)).sort((a, b) => a.size - b.size);
+    let todas = [...conjuntos[0]].filter((i) => (!tipo || docs[i].t === tipo) && conjuntos.every((s) => s.has(i)));
+    if (todas.length === 0) return vacio;
+    const admitidas = new Set(todas);
+    const puntos = new Map<number, number>();
+    const vale = (i: number) => admitidas.has(i);
+    // Con tolerancia, la palabra bien escrita vale el doble que sus erratas.
+    const raices = c.requeridas.map(raizDe);
+    terminos.forEach((ks, n) => {
+      for (const k of ks) puntuar(m.indice, k, vale, puntos, t > 0 && m.indice.terminos[k] !== raices[n] ? 0.5 : 1);
     });
-
-  /*
-    Todas las palabras tienen que estar: «agua potable» no es «agua» o
-    «potable». El `threshold: 0` de Orama lo exige **dentro de un mismo
-    campo** y contando variantes por prefijo, así que «agua CORAMON» (una en
-    el título, otra en quién publica) no salía y «ministerio trabajo» traía
-    todos los ministerios. Se hace a mano: cada palabra por separado, se
-    cruzan los conjuntos, y el orden es el BM25 de la consulta entera.
-  */
-  const conPalabras = async (t: number): Promise<PorPalabra> => {
-    const palabras = q
-      .split(/[^\p{L}\p{N}]+/u)
-      .filter((w) => w && m.db.tokenizer.tokenize(w, "spanish").length > 0);
-    // Solo palabras vacías o signos («de la», «¿?»): no hay nada que buscar
-    // por palabra, y el tema de «de la» es ruido.
-    if (palabras.length === 0) return { ids: [], total: 0, tolerancia: t, todos: new Set() };
-    const conjuntos = palabras.map((w, n) => documentosCon(m, w, t, n === palabras.length - 1));
-    const todas = new Set([...conjuntos[0]].filter((id) => conjuntos.every((c) => c.has(id))));
-    if (todas.size === 0) return { ids: [], total: 0, tolerancia: t, todos: new Set() };
-    // El orden es el BM25 de la consulta entera, entre los que llevan todas.
-    const r = await buscarCon(q, t, TODOS, 1);
-    const ids = r.hits.filter((h) => todas.has(h.id)).map((h) => Number(h.id));
-    return { ids: ids.slice(0, TOPE_PALABRA), total: ids.length, tolerancia: t, todos: new Set(ids) };
+    for (const w of c.opcionales) for (const k of terminosDe(m, w, 0, false)) puntuar(m.indice, k, vale, puntos);
+    todas = todas.sort((a, b) => puntos.get(b)! - puntos.get(a)! || a - b);
+    return { ids: todas.slice(0, TOPE_PALABRA), total: todas.length, tolerancia: t, todos: admitidas };
   };
 
-  if (tolerancia !== undefined) return conPalabras(tolerancia);
-  const exacta = await conPalabras(0);
-  // Una errata solo se perdona cuando lo exacto no trajo nada, y solo en
-  // consultas de una o dos palabras largas. La tolerancia se aplica a la
-  // raíz: «agua» es «agu», y a distancia uno de «agr» salían los cargos de
-  // agricultura. En una frase larga, mejor que conteste el tema.
-  if (exacta.total === 0 && admiteErrata(q)) return conPalabras(1);
+  if (tolerancia !== undefined) return conTolerancia(tolerancia);
+  const exacta = conTolerancia(0);
+  // Una errata solo se perdona cuando lo exacto trajo casi nada —«presupusto»
+  // está mal escrito en el título de una ley de 1931, y esa sola no es la
+  // respuesta—, y solo en consultas de una o dos palabras largas. En una
+  // frase larga, mejor que conteste el tema. Lo exacto sigue primero: vale
+  // el doble que la errata.
+  if (exacta.total < MINIMO_SIN_ERRATA && admiteErrata(c)) {
+    const tolerante = conTolerancia(1);
+    if (tolerante.total > exacta.total) return tolerante;
+  }
   return exacta;
 }
 
@@ -384,6 +502,8 @@ async function porPalabra(m: Motor, q: string, tipo?: TipoResultado, tolerancia?
 const K_RRF = 60;
 /** El tema pesa menos que la palabra: acompaña, no manda. */
 const PESO_TEMA = 0.6;
+/** Cuánto sube el tipo que la consulta pide sin nombrarlo. */
+const PESO_PREFERIDO = 1.6;
 
 export const POR_PAGINA = 20;
 /** Cuántos de cada tipo enseña la vista «Todo». */
@@ -400,6 +520,17 @@ function sinGuiones(s: string): string {
     .replace(/[-.\s]+/g, " ")
     .trim();
 }
+
+/**
+ * Una cita busca su ficha, no un tema: «Ley 80-25», «decreto 38 25», «ley
+ * 1494» (las leyes viejas no llevan año), «TC/0064/19», «TSE-001-2021». El
+ * vector de «ley» y un número se parece a cualquier otra ley.
+ */
+const ES_CITA =
+  /\b\d{1,4}[-\s]\d{2,4}\b|\b(?:ley|decreto|reglamento|resoluci[oó]n)\s+(?:n[uú]m(?:ero)?\.?\s*|no\.?\s*)?\d+|\bt(?:c|se)[/\-\s]?\d{1,4}[/\-]\d{2,4}\b/i;
+
+/** Un título que es el nombre de un archivo («7. ag salud.pdf»): dice poco. */
+const TITULO_ARCHIVO = /\.(pdf|docx?|xlsx?|pptx?|csv|odt|ods|zip|rar)$/i;
 
 export interface Grupo {
   tipo: TipoResultado;
@@ -424,12 +555,14 @@ export interface Hallazgos {
   truncado: boolean;
   /** Cuántos salieron solo por tema, en el filtro actual. */
   soloTema: number;
-  /** Se perdonó una errata por palabra para encontrar algo. */
+  /** Se admitieron palabras a una errata de lo tecleado (había pocas o ninguna exacta). */
   conErrata: boolean;
+  /** Palabras de la consulta que solo ordenaron (las de una pregunta o un sueldo). */
+  soloOrdenan: string[];
   pagina: number;
   paginas: number;
   generado: string;
-  instantaneas: Partial<Record<TipoResultado, string>>;
+  instantaneas: Partial<Record<TipoResultado | "ley", string>>;
 }
 
 interface Fusion {
@@ -438,26 +571,38 @@ interface Fusion {
   via: Map<number, Via>;
   /** Documentos: los formatos en que se publicó el mismo archivo. */
   formatos: Map<number, string[]>;
+  /** Documentos: cuántas copias se juntaron en cada resultado. */
+  copias: Map<number, number>;
 }
 
+const sitioDe = (url: string) => /^https?:\/\/([^/]+)/i.exec(url)?.[1] ?? "";
+
 /**
- * El archivo sin su extensión ni su copia: `…/Informe-2026.pdf`,
- * `…/Informe-2026.xlsx` y el `…/2026/03/Informe-2026-1.pdf` que WordPress
- * crea al subir otra vez lo mismo son un documento. La clave es el sitio, el
- * nombre del archivo y el título: «Tomo-1» y «Tomo-2» se titulan distinto y
- * no se juntan.
+ * Las claves con que un documento se reconoce copia de otro:
+ *
+ *  - el **mismo archivo** sin su extensión ni su copia: `…/Informe-2026.pdf`,
+ *    `…/Informe-2026.xlsx` y el `…/2026/03/Informe-2026-1.pdf` que WordPress
+ *    crea al subir otra vez lo mismo;
+ *  - el **mismo título, del mismo sitio, subido el mismo día**: los cinco
+ *    anexos de una nota («Contrataciones Públicas remite informe a
+ *    solicitud del senador…») que la institución tituló igual.
+ *
+ * «Tomo-1» y «Tomo-2» se titulan distinto y no se juntan; dos «Informe» de
+ * fechas distintas, tampoco.
  */
-function mismoArchivo(d: Entrada): string | null {
-  if (d.t !== "documento" || !d.h) return null;
-  const sitio = /^https?:\/\/([^/]+)/i.exec(d.h)?.[1] ?? "";
+function clavesDeCopia(d: Entrada): string[] {
+  if (d.t !== "documento" || !d.h) return [];
+  const sitio = sitioDe(d.h);
   const nombre = (d.h.split("/").pop() ?? "")
     .replace(/\.[a-z0-9]{2,5}$/i, "")
     .replace(/-\d{1,2}$/, "")
     .toLowerCase();
-  return `${sitio}|${nombre}|${plano(d.ti)}`;
+  const claves = [`a|${sitio}|${nombre}|${plano(d.ti)}`];
+  if (d.f) claves.push(`t|${sitio}|${plano(d.ti)}|${d.f}`);
+  return claves;
 }
 
-function fundir(m: Motor, consulta: string, palabra: PorPalabra, tema: { i: number }[]): Fusion {
+function fundir(m: Motor, c: Consulta, palabra: PorPalabra, tema: { i: number }[]): Fusion {
   const docs = m.corpus.docs;
   const puntos = new Map<number, number>();
   const via = new Map<number, Via>();
@@ -470,40 +615,53 @@ function fundir(m: Motor, consulta: string, palabra: PorPalabra, tema: { i: numb
     // Lleva todas las palabras aunque quedara fuera del tope: no es «por tema».
     via.set(i, via.has(i) || palabra.todos.has(i) ? "ambas" : "tema");
   });
-  const exacta = plano(consulta);
+  const exactas = new Set([plano(c.texto), c.nucleo].filter(Boolean));
+  const cita = sinGuiones(c.texto);
   for (const [i, p] of puntos) {
     const d = docs[i];
-    // Lo tecleado es el nombre, las siglas o la cita exactas («Ley 80-25»):
-    // eso va primero.
+    // Lo tecleado es el nombre, las siglas o la cita exactas («Ley 80-25»,
+    // «Ministro» en «salario ministro»): eso va primero.
     const nombrado =
-      plano(d.ti) === exacta ||
-      (d.t === "institucion" && plano(d.x ?? "") === exacta) ||
-      (d.t === "norma" && sinGuiones(d.x ?? "") === sinGuiones(consulta));
+      exactas.has(plano(d.ti)) ||
+      (d.t === "institucion" && exactas.has(plano(d.x ?? ""))) ||
+      (d.t === "norma" && sinGuiones(d.x ?? "") === cita) ||
+      (d.t === "sentencia" && sinGuiones((d.d ?? "").replace(/\//g, " ")) === sinGuiones(c.texto.replace(/\//g, " ")));
+    // Un legislador que lleva todas las palabras de «diputado santiago» es
+    // lo nombrado: su cargo y su provincia están en el texto auxiliar, no en
+    // el título (su nombre), y el BM25 lo pondría detrás de cada resolución
+    // «de la Cámara de Diputados» que mencione Santiago.
+    const legislador = c.preferido === "legislador" && d.t === "legislador";
+    let q = nombrado || legislador ? p + 1 : p;
+    if (c.preferido && d.t === c.preferido && !legislador) q *= PESO_PREFERIDO;
+    if (d.t === "documento" && TITULO_ARCHIVO.test(d.ti)) q *= 0.8;
     // Un ministerio antes que un hospital que se llama parecido.
-    puntos.set(i, (nombrado ? p + 1 : p) / (1 + 0.15 * (d.p ?? 0)));
+    puntos.set(i, q / (1 + 0.15 * (d.p ?? 0)));
   }
 
-  // Solo se juntan copias de verdad: el **mismo archivo** publicado en PDF y
-  // en XLSX. Dos decretos «Que otorga exequátur» o dos obras con el mismo
-  // nombre y distinto SNIP son resultados distintos aunque se titulen igual.
+  // Solo se juntan copias de verdad (ver `clavesDeCopia`). Dos decretos «Que
+  // otorga exequátur» o dos obras con el mismo nombre y distinto SNIP son
+  // resultados distintos aunque se titulen igual.
   const orden: number[] = [];
   const formatos = new Map<number, string[]>();
+  const copias = new Map<number, number>();
   const primero = new Map<string, number>();
-  for (const i of [...puntos.keys()].sort((a, b) => puntos.get(b)! - puntos.get(a)!)) {
+  for (const i of [...puntos.keys()].sort((a, b) => puntos.get(b)! - puntos.get(a)! || a - b)) {
     const d = docs[i];
-    const clave = mismoArchivo(d);
-    const ya = clave === null ? undefined : primero.get(clave);
+    const claves = clavesDeCopia(d);
+    const ya = claves.map((k) => primero.get(k)).find((x) => x !== undefined);
     if (ya === undefined) {
-      if (clave !== null) primero.set(clave, i);
+      for (const k of claves) primero.set(k, i);
       orden.push(i);
       if (d.t === "documento" && d.d) formatos.set(i, [d.d]);
       continue;
     }
+    for (const k of claves) if (!primero.has(k)) primero.set(k, ya);
+    copias.set(ya, (copias.get(ya) ?? 1) + 1);
     const f = formatos.get(ya);
     if (f && d.d && !f.includes(d.d)) f.push(d.d);
     if (via.get(i) !== via.get(ya)) via.set(ya, "ambas");
   }
-  return { orden, via, formatos };
+  return { orden, via, formatos, copias };
 }
 
 /**
@@ -521,26 +679,31 @@ export async function buscarEnTodo(
   try {
     const m = await motor();
     const docs = m.corpus.docs;
-    const consulta = q.trim().slice(0, 120);
+    const c = analizarConsulta(q.trim().slice(0, 120));
     // Sin una palabra con contenido («de la», «¿?», «--») no hay tema: el
     // vector de las palabras vacías se parece a todo y traía 146 filas.
-    const conContenido = m.db.tokenizer.tokenize(consulta, "spanish").length > 0;
+    // Tampoco en una pregunta sin nada que nombrar («¿cuánto debe el
+    // país?»): su vector se parece a los decretos que nombran cónsules «en
+    // varios países». La contesta la pantalla que la responde, no el índice.
+    const conContenido = c.requeridas.length > 0 || (!c.pregunta && c.opcionales.length > 0);
     // Una cita («Ley 80-25», «decreto 38 25») busca una norma, no un tema: el
     // vector de «ley» y un número se parece a cualquier otra ley.
-    const esCita = /\b\d{1,4}[-\s]\d{2,4}\b/.test(consulta);
-    const vector = conContenido && !esCita ? embeber(m, consulta) : null;
+    const esCita = ES_CITA.test(c.texto);
+    // Ni un número suelto (un RNC, un expediente): su vector no es un tema.
+    const soloNumeros = c.requeridas.length > 0 && c.requeridas.every((w) => /^[\d-]+$/.test(w));
+    const vector = conContenido && !esCita && !soloNumeros ? embeber(m, c.texto) : null;
 
     // Todo, sin filtro: las cuentas de los filtros y la vista «Todo».
-    const palabra = await porPalabra(m, consulta);
+    const palabra = porPalabra(m, c);
     const tema = porTema(m, vector);
-    const todo = fundir(m, consulta, palabra, tema);
+    const todo = fundir(m, c, palabra, tema);
     const porTipo = Object.fromEntries(TIPOS_RESULTADO.map((t) => [t.clave, 0])) as Record<TipoResultado, number>;
     for (const i of todo.orden) porTipo[docs[i].t] += 1;
     let truncado = palabra.total > palabra.ids.length;
     if (truncado) {
       // Más allá del tope, BM25 solo cuenta: cada tipo, dentro de su tipo.
       for (const t of TIPOS_RESULTADO) {
-        const r = await porPalabra(m, consulta, t.clave, palabra.tolerancia);
+        const r = porPalabra(m, c, t.clave, palabra.tolerancia);
         const solo = todo.orden.filter((i) => docs[i].t === t.clave && todo.via.get(i) === "tema").length;
         porTipo[t.clave] = Math.max(porTipo[t.clave], r.total + solo);
       }
@@ -551,12 +714,13 @@ export async function buscarEnTodo(
     // «Normativa 93» abra una lista de 93 y no de 150.
     let lista = todo;
     if (opts.tipo) {
-      const soloTipo = await porPalabra(m, consulta, opts.tipo, palabra.tolerancia);
+      const soloTipo = porPalabra(m, c, opts.tipo, palabra.tolerancia);
       truncado = soloTipo.total > soloTipo.ids.length;
-      lista = fundir(m, consulta, soloTipo, tema.filter(({ i }) => docs[i].t === opts.tipo));
+      lista = fundir(m, c, soloTipo, tema.filter(({ i }) => docs[i].t === opts.tipo));
     }
 
-    const resultado = (i: number) => aResultado(m.corpus, docs[i], lista.via.get(i)!, lista.formatos.get(i));
+    const aplicar = (f: Fusion) => (i: number) =>
+      aResultado(m.corpus, docs[i], f.via.get(i)!, f.formatos.get(i), f.copias.get(i));
     const porPagina = opts.porPagina ?? POR_PAGINA;
     const paginas = Math.max(1, Math.ceil(lista.orden.length / porPagina));
     const pagina = Math.min(Math.max(1, opts.pagina ?? 1), paginas);
@@ -566,19 +730,18 @@ export async function buscarEnTodo(
       const t = docs[i].t;
       let g = grupos.find((x) => x.tipo === t);
       if (!g) grupos.push((g = { tipo: t, total: porTipo[t], resultados: [] }));
-      if (g.resultados.length < POR_GRUPO) {
-        g.resultados.push(aResultado(m.corpus, docs[i], todo.via.get(i)!, todo.formatos.get(i)));
-      }
+      if (g.resultados.length < POR_GRUPO) g.resultados.push(aplicar(todo)(i));
     }
 
     return {
-      resultados: lista.orden.slice((pagina - 1) * porPagina, pagina * porPagina).map(resultado),
+      resultados: lista.orden.slice((pagina - 1) * porPagina, pagina * porPagina).map(aplicar(lista)),
       grupos,
       total: lista.orden.length,
       porTipo,
       truncado,
       soloTema: lista.orden.filter((i) => lista.via.get(i) === "tema").length,
       conErrata: palabra.tolerancia > 0 && palabra.total > 0,
+      soloOrdenan: c.opcionales,
       pagina,
       paginas,
       generado: m.corpus.generado,
@@ -701,20 +864,41 @@ function detalleProveedor(d: Entrada): string {
   return [d.c && `RNC ${d.c}`, [contratos, anios].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
 }
 
-function aResultado(c: Corpus, d: Entrada, via: Via, formatos?: string[]): Resultado {
+/**
+ * Varios archivos juntados en un resultado no caben en un enlace a uno solo:
+ * se abre la biblioteca de documentos con ese título, en ese sitio.
+ */
+function hrefCopias(d: Entrada): string {
+  const u = new URLSearchParams({ q: d.ti, inst: sitioDe(d.h ?? "").replace(/^www\./, "") });
+  return `/documentos?${u.toString()}`;
+}
+
+function aResultado(c: Corpus, d: Entrada, via: Via, formatos?: string[], copias?: number): Resultado {
   const proveedor = d.t === "proveedor";
+  const archivos = copias && copias > 1 ? copias : null;
+  const detalle = formatos
+    ? [formatos.join(" · "), archivos && `${ENTERO.format(archivos)} archivos`].filter(Boolean).join(" · ")
+    : proveedor
+      ? detalleProveedor(d)
+      : d.d;
+  let href = d.h ?? null;
+  if (proveedor && d.r) href = enlace.proveedor(d.r);
+  else if (d.t === "proceso" && d.r) href = enlace.proceso(d.r);
+  else if (archivos) href = hrefCopias(d);
   return {
     tipo: d.t,
     titulo: d.ti,
-    detalle: (formatos ? formatos.join(" · ") : proveedor ? detalleProveedor(d) : d.d) || null,
+    detalle: detalle || null,
     origen: d.o === undefined ? null : c.origenes[d.o],
-    href: proveedor && d.r ? enlace.proveedor(d.r) : (d.h ?? null),
-    externo: d.e === 1,
+    href,
+    externo: d.e === 1 && !archivos,
     fecha: d.f ?? null,
     valor: d.v ?? null,
     plazas: d.n ?? null,
     instituciones: d.m ?? null,
+    sueldo: d.s ? { bajo: d.s[0], mediana: d.s[1], alto: d.s[2] } : null,
     contratos: proveedor ? (d.k ?? null) : null,
+    archivos,
     via,
   };
 }
