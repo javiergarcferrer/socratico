@@ -105,6 +105,14 @@ def instituciones() -> list[dict]:
 
 def normas() -> tuple[list[dict], str]:
     crudo = json.loads((DATOS / "normativa.json").read_text())
+    # Un número que el origen da a normas distintas (el Decreto 108-23 son dos
+    # decretos) no identifica una: su ficha resolvería una sola. Esas abren
+    # el PDF de cada una en la Consultoría.
+    titulos: dict[tuple, set] = defaultdict(set)
+    for filas in crudo["busquedas"].values():
+        for f in filas:
+            tipo = TIPO_NORMA.get(f.get("TipoDocumento") or 0, "Norma")
+            titulos[(tipo, (f.get("Numero") or "").strip())].add(re.sub(r"\W+", "", (f.get("Titulo") or "").lower()))
     vistas: set[str] = set()
     out = []
     for filas in crudo["busquedas"].values():
@@ -120,13 +128,22 @@ def normas() -> tuple[list[dict], str]:
                 continue
             vistas.add(clave)
             ruta = RUTA_NORMA.get(tipo)
+            unica = len(titulos[(tipo, numero)]) == 1
+            ficha = f"/normativa/{ruta}/{numero}" if ruta and unica and re.fullmatch(r"\d{1,4}-\d{2,4}", numero) else None
+            pdf = f"{busqueda_leyes.DOCUMENTO}/{f['DocId']}" if not ficha and f.get("DocId") else None
+            # La misma norma cargada con dos fechas (Resolución 85-24): una.
+            if ficha and ficha in vistas:
+                continue
+            if ficha:
+                vistas.add(ficha)
             out.append(
                 {
                     "t": "norma",
                     "ti": f["Titulo"],
                     "x": f"{tipo} {numero}",
                     "d": f"{tipo} {numero}".strip(),
-                    "h": f"/normativa/{ruta}/{numero}" if ruta and re.fullmatch(r"\d{1,4}-\d{2,4}", numero) else None,
+                    "h": ficha or pdf,
+                    "e": 1 if pdf else None,
                     "f": fecha,
                 }
             )
@@ -232,8 +249,14 @@ def cargos() -> tuple[list[dict], str]:
                 # Percentil 10, mediana y percentil 90: «¿cuánto gana un
                 # médico?» se contesta en la fila, sin abrir la nómina. No el
                 # mínimo ni el máximo: una plaza de medio mes (RD$2,754 de un
-                # «médico general») los vuelve anécdota.
-                "s": [round(percentil(s, 0.1)), round(mediana(s)), round(percentil(s, 0.9))] if s else None,
+                # «médico general») los vuelve anécdota. Con menos de diez
+                # plazas no hay «8 de cada 10» que decir: van el mínimo y el
+                # máximo, y la interfaz dice de cuántas plazas.
+                "s": (
+                    [round(percentil(s, 0.1)), round(mediana(s)), round(percentil(s, 0.9))]
+                    if len(s) >= 10
+                    else [round(s[0]), round(mediana(s)), round(s[-1])]
+                ) if s else None,
                 # Una plaza pesa menos que una institución, una norma o una
                 # obra que se llaman igual: «escuelas» busca escuelas antes
                 # que al vigilante de una.
@@ -246,6 +269,33 @@ def cargos() -> tuple[list[dict], str]:
 def mediana(xs: list) -> float:
     n = len(xs)
     return xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2
+
+
+# Un carácter UTF-8 de dos o más bytes leído como Windows-1252: el byte de
+# arranque (Â…ô) seguido de sus bytes de continuación, que en 1252 son
+# \x80–\xbf o las comillas, rayas y € de ese rango.
+MOJIBAKE = re.compile(
+    "[\u00c2-\u00f4](?:[\u00a0-\u00bf\u0152\u0153\u0160\u0161\u0178\u017d\u017e\u0192"
+    "\u02c6\u02dc\u2013\u2014\u2018\u2019\u201a\u201c\u201d\u201e\u2020\u2021\u2022"
+    "\u2026\u2030\u2039\u203a\u20ac\u2122]){1,3}"
+)
+
+
+def reparar(texto: str) -> str:
+    """UTF-8 leído como Windows-1252 en el origen («DesempeÃ±o», «â€œDía»):
+    cada tramo se deshace si al volver a codificarlo sale UTF-8 válido; si
+    no, se deja como vino."""
+
+    def uno(m: re.Match) -> str:
+        try:
+            return m.group(0).encode("cp1252").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return m.group(0)
+
+    if not texto:
+        return texto
+    # «”» es E2 80 9D, y 9D no existe en 1252: el origen lo perdió y deja «â€».
+    return MOJIBAKE.sub(uno, texto).replace("â€", "”")
 
 
 def percentil(xs: list, p: float) -> float:
@@ -268,9 +318,15 @@ def de_modulo(entradas: list[dict]) -> list[dict]:
 
 def sin_repetidas(normas: list[dict], leyes: list[dict]) -> list[dict]:
     """Las leyes del histórico que la normativa reciente no trae ya: una
-    norma es tipo, número y fecha (el mismo criterio de `normas()`)."""
+    norma es tipo, número y fecha (el mismo criterio de `normas()`), y dos
+    entradas que llevan a la misma ficha son la misma ley (74-25 figura con
+    dos fechas)."""
     vistas = {(n["x"], n.get("f") or "") for n in normas}
-    return [l for l in leyes if (l["x"], l.get("f") or "") not in vistas]
+    fichas = {n["h"] for n in normas if n.get("h")}
+    return [
+        l for l in leyes
+        if (l["x"], l.get("f") or "") not in vistas and not (l.get("h") and l["h"] in fichas)
+    ]
 
 
 def proveedores() -> tuple[list[dict], str]:
@@ -370,6 +426,10 @@ def main() -> None:
     cuant = np.round(vec / escala).astype(np.int8)
     (SALIDA / "vectores.bin").write_bytes(cuant.tobytes() + escala.astype("<f4").tobytes())
 
+    for d in docs:
+        for k in ("ti", "x", "d"):
+            if isinstance(d.get(k), str):
+                d[k] = reparar(d[k])
     # Sin claves vacías: el archivo viaja entero en cada arranque en frío.
     limpios = [{k: v for k, v in d.items() if v not in (None, "")} for d in docs]
     # El detalle y el texto auxiliar que se repiten («Compra menor al umbral ·

@@ -86,6 +86,24 @@ if printf '%s\n' "$nuevos" | grep -qE '^lib/[a-z-]+\.ts$'; then
   else ok "new adapter is declared in /fuentes or CLAUDE.md"; fi
 fi
 
+# 5a. The search index belongs to its corpus: a stale indice.bin is not an
+#     error at runtime, it is a silent ~6 s rebuild on every cold start.
+if [ -f public/data/busqueda/corpus.json ]; then
+  if etq="$(node -e '
+    const fs = require("fs");
+    const c = JSON.parse(fs.readFileSync("public/data/busqueda/corpus.json", "utf8"));
+    const b = fs.readFileSync("public/data/busqueda/indice.bin");
+    if (b.subarray(0, 4).toString() !== "SIB1") { console.log("indice.bin is not SIB1"); process.exit(); }
+    const cab = JSON.parse(b.subarray(8, 8 + b.readUInt32LE(4)).toString());
+    const esperada = `${c.generado}|${c.huella ?? "sin-huella"}|${c.docs.length}`;
+    if (cab.etiqueta !== esperada) console.log(`indice.bin ${cab.etiqueta} != corpus ${esperada}`);
+  ' 2>&1)" && [ -z "$etq" ]; then
+    ok "search: indice.bin matches corpus.json"
+  else
+    mal "search index out of date — node scripts/build-indice-busqueda.mjs"; printf '%s\n' "$etq" | sed 's/^/       /'
+  fi
+fi
+
 # 5b. The harness's own claims (ceiling, paths, rule ownership, frontmatter).
 if arn="$("$(dirname "$0")/harness.sh" "$ROOT" 2>&1)" && [ -z "$arn" ]; then
   ok "harness: CLAUDE.md within budget, paths resolve, rules own a page, frontmatter valid"

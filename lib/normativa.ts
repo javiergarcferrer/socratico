@@ -76,6 +76,11 @@ export interface Documento {
    * `esDesignacion`). Las gacetas no la tienen.
    */
   institucion?: string | null;
+  /**
+   * Fecha de la instantánea de la que salió, si el origen no respondió y se
+   * sirvió de `normativa.json` o `leyes.json`; `null` si se leyó en vivo.
+   */
+  instantanea?: string | null;
 }
 
 /** Fila del buscador `/api/consultas/search` (solo los campos que se leen). */
@@ -295,7 +300,9 @@ async function leyHistorica(numero: string): Promise<Documento | null> {
   const buscado = numeroCanonico("ley", numero);
   for (const fila of inst.leyes) {
     const f = Object.fromEntries(inst.campos.map((c, k) => [c, fila[k]])) as FilaBuscador;
-    if (numeroCanonico("ley", texto(f.Numero)) === buscado) return aDocumento({ ...f, TipoDocumento: 1 });
+    if (numeroCanonico("ley", texto(f.Numero)) === buscado) {
+      return { ...aDocumento({ ...f, TipoDocumento: 1 }), instantanea: inst.generadoEn };
+    }
   }
   return null;
 }
@@ -799,7 +806,7 @@ export async function resolverNorma(
   for (const [clave, filas] of Object.entries(inst.busquedas)) {
     if (!clave.startsWith(`${codigo}/`)) continue;
     const fila = filas.find((f) => texto(f.Numero).replace(/\s+/g, "") === normalizado);
-    if (fila) return aDocumento(fila);
+    if (fila) return { ...aDocumento(fila), instantanea: inst.generadoEn };
   }
   // Una ley más vieja que la instantánea reciente: el histórico completo.
   return codigo === "1" ? leyHistorica(normalizado) : null;

@@ -149,6 +149,20 @@ const NOTAS: Partial<Record<TipoResultado, string>> = {
   norma: "Decretos, reglamentos y resoluciones de los últimos cuatro años y todas las leyes desde 1844. Las leyes sin ficha propia abren su PDF en la Consultoría Jurídica.",
 };
 
+/**
+ * La nota de un tipo con la fecha de su instantánea: el estado de un proceso
+ * o de una iniciativa es el de ese día, no el de hoy, y se dice junto a él.
+ */
+function notaDe(tipo: TipoResultado, instantaneas: Partial<Record<string, string>>): string {
+  const corte = instantaneas[tipo];
+  const fecha = corte ? `Instantánea del ${formatFecha(corte)}.` : "";
+  const vigente = VIVO[tipo] ? ` El estado de hoy, en su ${VIVO[tipo]}.` : "";
+  return [NOTAS[tipo], fecha + vigente].filter(Boolean).join(" ");
+}
+
+/** Dónde se lee en vivo lo que en el índice es de la fecha de la instantánea. */
+const VIVO: Partial<Record<TipoResultado, string>> = { proceso: "ficha", iniciativa: "ficha" };
+
 const PLURAL = Object.fromEntries(TIPOS_RESULTADO.map((t) => [t.clave, t.plural])) as Record<TipoResultado, string>;
 
 async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado; pagina: number }) {
@@ -191,7 +205,7 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
         Ni por palabra ni por tema en{" "}
         {new Intl.ListFormat("es", { type: "disjunction" }).format(TIPOS_RESULTADO.map((t) => t.plural.toLowerCase()))}{" "}
         (índice del {fechaIndice}).
-        {h.soloOrdenan.length > 0 ? " Una pregunta se contesta mejor en la pantalla que la responde, arriba si la hay." : " Prueba con menos palabras, o sigue en una vertical."}
+        {h.pregunta ? " Una pregunta se contesta mejor en la pantalla que la responde, arriba si la hay." : " Prueba con menos palabras, o sigue en una vertical."}
         </EstadoVacio>
       </>
     );
@@ -240,11 +254,13 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
         ) : (
           <Card as="section" className="p-5">
             <CardTitle>{PLURAL[tipo]}</CardTitle>
-            {NOTAS[tipo] && <p className="mt-1 text-xs leading-relaxed text-ink-soft">{NOTAS[tipo]}</p>}
+            {notaDe(tipo, h.instantaneas) && (
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">{notaDe(tipo, h.instantaneas)}</p>
+            )}
             <ul className="mt-2 divide-y divide-hairline">
-              {h.resultados.map((r) => (
-                <li key={`${r.tipo}-${r.href ?? r.titulo}`}>
-                  <FilaResultado r={r} q={q} />
+              {h.resultados.map((r, k) => (
+                <li key={`${r.tipo}-${k}-${r.href ?? r.titulo}`}>
+                  <FilaResultado r={r} q={q} corte={h.instantaneas[r.tipo]} />
                 </li>
               ))}
             </ul>
@@ -265,7 +281,7 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
             <Grupo
               key={g.tipo}
               titulo={PLURAL[g.tipo]}
-              nota={NOTAS[g.tipo]}
+              nota={notaDe(g.tipo, h.instantaneas)}
               mas={
                 g.total > g.resultados.length
                   ? { href: hrefBusqueda(q, g.tipo), texto: `Ver los ${formatInt(g.total)}` }
@@ -273,9 +289,9 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
               }
             >
               <ul className="divide-y divide-hairline">
-                {g.resultados.map((r) => (
-                  <li key={`${r.tipo}-${r.href ?? r.titulo}`}>
-                    <FilaResultado r={r} q={q} />
+                {g.resultados.map((r, k) => (
+                  <li key={`${r.tipo}-${k}-${r.href ?? r.titulo}`}>
+                    <FilaResultado r={r} q={q} corte={h.instantaneas[r.tipo]} />
                   </li>
                 ))}
               </ul>
@@ -289,7 +305,7 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
 }
 
 /** Lo que cada tipo dice debajo del título, con las primitivas de formato. */
-function detalleDe(r: Resultado): React.ReactNode {
+function detalleDe(r: Resultado, corte?: string): React.ReactNode {
   switch (r.tipo) {
     case "norma":
       return [r.detalle, r.fecha && formatFecha(r.fecha)].filter(Boolean).join(" · ");
@@ -319,12 +335,38 @@ function detalleDe(r: Resultado): React.ReactNode {
         .filter(Boolean)
         .join(" · ");
     case "proceso":
-      return [r.detalle, r.origen, r.valor ? `${formatPesos(r.valor)} estimado` : null, r.fecha && formatFecha(r.fecha)]
-        .filter(Boolean)
-        .join(" · ");
     case "iniciativa":
+      // El estado es el del día de la instantánea: se dice al lado, no en
+      // una nota al pie («Abierto a ofertas» ayer puede estar cerrado hoy).
+      return (
+        <>
+          {[
+            r.detalle && corte ? `${r.detalle} al ${formatFecha(corte)}` : r.detalle,
+            r.tipo === "proceso" ? r.origen : null,
+            r.valor ? `${formatPesos(r.valor)} estimado` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          {r.fecha && (
+            <>
+              {" · "}
+              <Antiguedad iso={r.fecha} prefijo={r.tipo === "proceso" ? "publicado" : "depositada"} />
+            </>
+          )}
+        </>
+      );
     case "sentencia":
-      return [r.detalle, r.origen, r.fecha && formatFecha(r.fecha)].filter(Boolean).join(" · ");
+      return (
+        <>
+          {[r.detalle, r.origen].filter(Boolean).join(" · ")}
+          {r.fecha && (
+            <>
+              {" · "}
+              <Antiguedad iso={r.fecha} prefijo="dictada" />
+            </>
+          )}
+        </>
+      );
     default:
       return r.detalle;
   }
@@ -337,19 +379,23 @@ function detalleDe(r: Resultado): React.ReactNode {
 function sueldoDe(r: Resultado): string | null {
   const s = r.sueldo;
   if (!s) return null;
+  // Con menos de diez plazas no hay «8 de cada 10»: el tramo es de todas.
+  if (r.plazas !== null && r.plazas < 10 && s.alto - s.bajo > s.mediana * 0.01) {
+    return `${formatPesos(s.mediana)} de mediana al mes; de ${formatPesos(s.bajo)} a ${formatPesos(s.alto)} en sus ${r.plazas} plazas`;
+  }
   // Un tramo de centavos (RD$82,605 a RD$82,606) es una sola cifra.
   if (s.alto - s.bajo <= s.mediana * 0.01) return `${formatPesos(s.mediana)} al mes`;
   return `${formatPesos(s.mediana)} de mediana al mes; 8 de cada 10 plazas, de ${formatPesos(s.bajo)} a ${formatPesos(s.alto)}`;
 }
 
-function FilaResultado({ r, q }: { r: Resultado; q: string }) {
+function FilaResultado({ r, q, corte }: { r: Resultado; q: string; corte?: string }) {
   const titulo = EN_MAYUSCULAS.has(r.tipo) ? desdeMayusculas(r.titulo) : r.titulo;
   return (
     <Fila
       href={r.href}
       externo={r.externo}
       titulo={<Resaltado texto={titulo} consulta={q} />}
-      detalle={detalleDe(r)}
+      detalle={detalleDe(r, corte)}
       marca={
         r.via === "tema" ? (
           <Badge variant="contorno" title="No lleva todas tus palabras: trata de algo parecido.">

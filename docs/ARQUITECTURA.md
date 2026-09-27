@@ -327,7 +327,15 @@ lematizador de `@orama/stemmers`).
   - *Cargos*: plazas, instituciones y el sueldo mensual bruto de sus plazas
     en percentil 10, mediana y percentil 90 (`s`); no el mínimo ni el máximo,
     que una plaza de medio mes (RD$2,754 de un «médico general») vuelve
-    anécdota.
+    anécdota. Con menos de diez plazas van mínimo, mediana y máximo, y la
+    fila dice «en sus N plazas» en vez de «8 de cada 10».
+  - *Un número que nombra dos normas* (el Decreto 108-23 son dos decretos; la
+    Ley 17-06, el presupuesto de 2006 y la presa de Jigüey) no lleva ficha: su
+    ficha resolvería una sola. Esas filas abren el PDF de cada una; la misma
+    norma cargada con dos fechas es una sola fila.
+  - *Texto dañado en el origen* («DesempeÃ±o», UTF-8 leído como 1252) se
+    repara por tramos al armar el corpus (`reparar`); lo que perdió un byte
+    en el origen se queda como vino.
   - **Sin vector** van legisladores y proveedores, al final del corpus: un
     nombre de persona o de empresa no dice de qué trata. `vectorizados` dice
     hasta dónde hay vector.
@@ -365,6 +373,14 @@ lematizador de `@orama/stemmers`).
   «TC/0064/19») o un número suelto no buscan tema, y la cita exacta de una
   norma o una sentencia va primera. Con un tipo elegido, la búsqueda se
   hace dentro del tipo, para que la lista llegue tan lejos como su cuenta.
+  Cuando hay más coincidencias que el tope de la fusión (20 mil), los
+  filtros se cuentan en una sola pasada sobre todas, con las copias
+  juntadas como en la lista (antes, once búsquedas más: hasta ~1 s).
+- **Instantáneas, con su fecha al lado**: cada grupo dice la fecha de su
+  instantánea, y el estado de un proceso o de una iniciativa se lee «Adjudicado
+  al 25 sep 2026» en la fila y en la paleta: «Abierto a ofertas» ese día puede
+  estar cerrado hoy, y el vigente está en su ficha. Las fechas de fila son
+  relativas (`<Antiguedad>`: publicado, depositada, dictada).
 - **Índice guardado** (`indice.bin`, ~21 MB): «SIB1», una cabecera JSON
   con la etiqueta del corpus (fecha | huella | entradas), los términos
   unidos por «\n» y, alineadas, las tablas `inicio`, `entrada`,
@@ -401,7 +417,14 @@ lematizador de `@orama/stemmers`).
   `Suspense` para que la caja no espere; la paleta no muestra nada mientras
   tanto (y «Toda la plataforma» sigue ahí), y si `/api/buscar` falla lo dice
   en una línea: «no respondió» no es «no hay nada». `next.config.ts` declara los
-  archivos en `outputFileTracingIncludes` de las dos rutas que los leen.
+  archivos en `outputFileTracingIncludes` de las tres rutas que los leen
+  (`/buscar`, `/api/buscar`, `/proveedores`) y excluye de toda función las
+  instantáneas que solo lee el armado del corpus (procesos, Congreso,
+  sentencias). ⚠️ Una ruta de `fs` con el nombre en una variable hace que el
+  trazado meta `public/data` entero en cada función que la importa: así
+  cargaban ~146 MB ocho páginas por `lib/obras.ts`, que ahora escribe cada
+  ruta entera. El gate comprueba que `indice.bin` sea de su `corpus.json`:
+  si no, cada arranque en frío lo reconstruye (~6 s, ~535 MB).
 - **Pantallas** (G4, `lib/pantallas.ts`): cada destino de `lib/indice.ts`
   con lo que ofrece y las preguntas que contesta. `buscarPantallas` las pasa
   por el mismo modelo al cargar (~40 pantallas, ~150 frases; no hay archivo

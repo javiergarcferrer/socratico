@@ -95,17 +95,23 @@ export function urlFichaMapaInversiones(o: Obra): string {
 let listado: Promise<Instantanea | null> | null = null;
 let detalle: Promise<Detalle | null> | null = null;
 
-async function leer<T>(archivo: string): Promise<T | null> {
+/*
+  Cada ruta se escribe entera, sin variable: el trazado de archivos de Next
+  lee la expresión de `readFile`, y con el nombre en una variable metía en la
+  función de cada página que importa esto `public/data` entero —el índice
+  del buscador incluido, ~100 MB que no usa—.
+*/
+async function leer<T>(nombre: string, texto: Promise<string>): Promise<T | null> {
   try {
-    return JSON.parse(await readFile(join(process.cwd(), "public", "data", archivo), "utf8")) as T;
+    return JSON.parse(await texto) as T;
   } catch (err) {
-    console.error(`[obras] ${archivo}:`, err);
+    console.error(`[obras] ${nombre}:`, err);
     return null;
   }
 }
 
 export function getObras(): Promise<Instantanea | null> {
-  listado ??= leer<Instantanea>("obras.json").then((d) => {
+  listado ??= leer<Instantanea>("obras.json", readFile(join(process.cwd(), "public", "data", "obras.json"), "utf8")).then((d) => {
     if (!d) listado = null; // un fallo no se queda pegado en la instancia
     return d;
   });
@@ -113,7 +119,10 @@ export function getObras(): Promise<Instantanea | null> {
 }
 
 async function getDetalle(): Promise<Detalle | null> {
-  detalle ??= leer<Detalle>("obras-detalle.json").then((d) => {
+  detalle ??= leer<Detalle>(
+    "obras-detalle.json",
+    readFile(join(process.cwd(), "public", "data", "obras-detalle.json"), "utf8"),
+  ).then((d) => {
     if (!d) detalle = null;
     return d;
   });

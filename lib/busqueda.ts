@@ -557,8 +557,10 @@ export interface Hallazgos {
   soloTema: number;
   /** Se admitieron palabras a una errata de lo tecleado (había pocas o ninguna exacta). */
   conErrata: boolean;
-  /** Palabras de la consulta que solo ordenaron (las de una pregunta o un sueldo). */
+  /** Palabras de la consulta que solo ordenaron (las de una pregunta, un sueldo o una compra). */
   soloOrdenan: string[];
+  /** ¿Se tecleó como pregunta? */
+  pregunta: boolean;
   pagina: number;
   paginas: number;
   generado: string;
@@ -701,12 +703,20 @@ export async function buscarEnTodo(
     for (const i of todo.orden) porTipo[docs[i].t] += 1;
     let truncado = palabra.total > palabra.ids.length;
     if (truncado) {
-      // Más allá del tope, BM25 solo cuenta: cada tipo, dentro de su tipo.
-      for (const t of TIPOS_RESULTADO) {
-        const r = porPalabra(m, c, t.clave, palabra.tolerancia);
-        const solo = todo.orden.filter((i) => docs[i].t === t.clave && todo.via.get(i) === "tema").length;
-        porTipo[t.clave] = Math.max(porTipo[t.clave], r.total + solo);
-      }
+      // Más allá del tope de la fusión se cuenta, no se ordena: todos los que
+      // llevan las palabras más los que solo trajo el tema, en una pasada y
+      // con las copias juntadas como en la lista, para que el filtro diga lo
+      // que abre.
+      const vistas = new Set<string>();
+      for (const t of TIPOS_RESULTADO) porTipo[t.clave] = 0;
+      const contar = (i: number) => {
+        const claves = clavesDeCopia(docs[i]);
+        if (claves.some((k) => vistas.has(k))) return;
+        for (const k of claves) vistas.add(k);
+        porTipo[docs[i].t] += 1;
+      };
+      for (const i of palabra.todos) contar(i);
+      for (const i of todo.orden) if (todo.via.get(i) === "tema") contar(i);
     }
 
     // Un tipo elegido se busca dentro de ese tipo, con la misma tolerancia.
@@ -742,6 +752,7 @@ export async function buscarEnTodo(
       soloTema: lista.orden.filter((i) => lista.via.get(i) === "tema").length,
       conErrata: palabra.tolerancia > 0 && palabra.total > 0,
       soloOrdenan: c.opcionales,
+      pregunta: c.pregunta,
       pagina,
       paginas,
       generado: m.corpus.generado,
@@ -869,7 +880,9 @@ function detalleProveedor(d: Entrada): string {
  * se abre la biblioteca de documentos con ese título, en ese sitio.
  */
 function hrefCopias(d: Entrada): string {
-  const u = new URLSearchParams({ q: d.ti, inst: sitioDe(d.h ?? "").replace(/^www\./, "") });
+  // El sitio tal cual: `/documentos` compara `inst` con los hosts de su
+  // índice, que conservan el «www.» de los que lo llevan (Hacienda, SISALRIL).
+  const u = new URLSearchParams({ q: d.ti, inst: sitioDe(d.h ?? "") });
   return `/documentos?${u.toString()}`;
 }
 

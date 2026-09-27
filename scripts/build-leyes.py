@@ -31,6 +31,9 @@ import datetime
 import json
 import pathlib
 import re
+import sys
+import time
+import urllib.error
 import urllib.request
 
 BASE = "https://www.consultoria.gov.do"
@@ -56,10 +59,19 @@ def leyes() -> list:
         headers={"User-Agent": UA, "Accept": "application/json", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=300) as r:
-        if "json" not in (r.headers.get("content-type") or ""):
-            raise SystemExit(f"respuesta inesperada: {r.headers.get('content-type')}")
-        return json.load(r)
+    # Un reintento, como manda el contrato de las fuentes (una caída de red
+    # o un 5xx pasajero no deben dejar la instantánea sin regenerar).
+    for intento in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as r:
+                if "json" not in (r.headers.get("content-type") or ""):
+                    raise SystemExit(f"respuesta inesperada: {r.headers.get('content-type')}")
+                return json.load(r)
+        except (urllib.error.URLError, TimeoutError) as err:
+            if intento == 2:
+                raise SystemExit(f"la Consultoría no respondió: {err}")
+            print(f"reintento tras: {err}", file=sys.stderr)
+            time.sleep(10)
 
 
 def main() -> None:

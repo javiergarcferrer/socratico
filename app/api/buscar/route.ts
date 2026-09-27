@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buscarEnTodo, buscarPantallas, EN_MAYUSCULAS, esTipoResultado, TIPOS_RESULTADO } from "@/lib/busqueda";
-import { formatPesos } from "@/lib/format";
+import { formatFecha, formatPesos } from "@/lib/format";
 import { desdeMayusculas } from "@/lib/congreso";
 import { recortar } from "@/lib/raiz";
 
@@ -10,7 +10,7 @@ const ETIQUETA = Object.fromEntries(TIPOS_RESULTADO.map((t) => [t.clave, t.etiqu
 
 /**
  * El índice de `lib/busqueda.ts` para la paleta ⌘K: las primeras filas de
- * lo tecleado, de cualquier tipo, ya ordenadas. El corpus (once megas) y el
+ * lo tecleado, de cualquier tipo, ya ordenadas. El corpus (~44 MB) y el
  * modelo no viajan al navegador; aquí se busca y salen `n` filas.
  *
  * `?q=` (2 a 120 caracteres), `?n=` (1 a 20, por defecto 6) y `?tipo=`
@@ -62,8 +62,17 @@ export async function GET(req: Request) {
           etiqueta: ETIQUETA[r.tipo],
           titulo: EN_MAYUSCULAS.has(r.tipo) ? desdeMayusculas(r.titulo) : r.titulo,
           detalle:
-            [r.detalle, r.origen, r.sueldo && `${formatPesos(r.sueldo.mediana)} de mediana al mes`].filter(Boolean).join(" · ") ||
-            null,
+            [
+              // El estado de un proceso o una iniciativa es el del día de la
+              // instantánea: se dice al lado.
+              (r.tipo === "proceso" || r.tipo === "iniciativa") && r.detalle && h.instantaneas[r.tipo]
+                ? `${r.detalle} al ${formatFecha(h.instantaneas[r.tipo])}`
+                : r.detalle,
+              r.origen,
+              r.sueldo && `${formatPesos(r.sueldo.mediana)} de mediana al mes`,
+            ]
+              .filter(Boolean)
+              .join(" · ") || null,
           href: r.href,
           externo: r.externo,
           via: r.via,

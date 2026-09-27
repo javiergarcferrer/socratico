@@ -28,14 +28,34 @@ def canonico(numero: str) -> str:
 def entradas(datos: pathlib.Path) -> tuple[list[dict], str]:
     crudo = json.loads((datos / "leyes.json").read_text())
     campos = crudo["campos"]
+    filas = [dict(zip(campos, fila)) for fila in crudo["leyes"]]
+    # Un número canónico que el origen usa para leyes distintas (17-06 es el
+    # presupuesto de 2006 y la presa de Jigüey) no identifica una ley: su
+    # ficha resolvería una sola. Esas van al PDF de cada una.
+    titulos: dict[str, set] = {}
+    for f in filas:
+        titulos.setdefault(canonico((f.get("Numero") or "").strip()), set()).add(
+            re.sub(r"\W+", "", (f.get("Titulo") or "").lower())
+        )
     out = []
-    for fila in crudo["leyes"]:
-        f = dict(zip(campos, fila))
+    # La misma ley cargada con dos fechas (37-17, 62-00…) es una sola entrada:
+    # la más reciente, que es la primera (el archivo viene de la más nueva a la
+    # más vieja).
+    vistas: set[tuple[str, str]] = set()
+    for f in filas:
         numero = (f.get("Numero") or "").strip()
         n = canonico(numero)
+        clave = (n, re.sub(r"\W+", "", (f.get("Titulo") or "").lower()))
+        if re.fullmatch(r"\d{1,4}-\d{2,4}", n) and clave in vistas:
+            continue
+        vistas.add(clave)
         # «0-00» es un marcador del origen que cuatro leyes de 1921 comparten:
         # no identifica una ley, así que no lleva ficha.
-        con_ficha = re.fullmatch(r"\d{1,4}-\d{2,4}", n) and not re.fullmatch(r"0+-\d+", n)
+        con_ficha = (
+            re.fullmatch(r"\d{1,4}-\d{2,4}", n)
+            and not re.fullmatch(r"0+-\d+", n)
+            and len(titulos[n]) == 1
+        )
         e = {
             "t": "norma",
             "ti": f["Titulo"],

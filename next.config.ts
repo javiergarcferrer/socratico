@@ -12,9 +12,9 @@ import type { NextConfig } from "next";
     segundo plano una vez pasada.
   · Sin cabecera `x-powered-by`: no aporta nada y pesa en cada respuesta.
   · El índice del buscador (`public/data/busqueda`: corpus, vectores, modelo
-    e índice por palabra ya construido, ~85 MB) se lee con `fs` desde
+    e índice por palabra ya construido, ~98 MB) se lee con `fs` desde
     `lib/busqueda.ts`. Se declara aquí para que
-    el trazado de archivos lo meta en la función de las dos rutas que lo usan
+    el trazado de archivos lo meta en la función de las tres rutas que lo usan
     y solo en ellas, sin depender de que adivine la ruta.
 */
 const nextConfig: NextConfig = {
@@ -22,6 +22,12 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/buscar": ["./public/data/busqueda/**"],
     "/api/buscar": ["./public/data/busqueda/**"],
+    "/proveedores": ["./public/data/busqueda/**"],
+  },
+  // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
+  // ninguna función: su contenido ya está en el corpus.
+  outputFileTracingExcludes: {
+    "*": ["./public/data/{procesos,congreso,sentencias}.json"],
   },
   experimental: {
     staleTimes: { dynamic: 30, static: 300 },

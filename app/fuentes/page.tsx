@@ -348,9 +348,10 @@ export default async function FuentesPage() {
             sola consulta del mismo buscador JSON (
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-leyes.py</code>
             )— alimenta el buscador de toda la plataforma y la ficha de una ley más
-            vieja que la instantánea reciente. Solo las leyes con número y año
-            tienen ficha propia; las anteriores, o las que el origen numera igual,
-            abren su PDF en el sitio de la Consultoría.
+            vieja que la instantánea reciente, que entonces dice de qué
+            instantánea salió. Solo las leyes con número y año tienen ficha
+            propia; las anteriores, o las que el origen numera igual siendo
+            distintas, abren su PDF en el sitio de la Consultoría.
           </p>
           <p className="mt-3">
             Sus PDF traen capa de texto —no son escaneos— y cada norma tiene su

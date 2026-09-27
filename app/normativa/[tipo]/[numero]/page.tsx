@@ -96,6 +96,12 @@ export default async function NormaPage({ params }: Props) {
             .filter(Boolean)
             .join(" · ")}
         </p>
+        {norma.instantanea && (
+          <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+            Datos de la instantánea del {formatFecha(norma.instantanea)}: la Consultoría no respondió a la
+            lectura en vivo.
+          </p>
+        )}
       </header>
       <AccionesFicha className="mt-3" tipo="norma" id={`${slug}/${numero}`} titulo={`${tipo} ${norma.numero}: ${desdeMayusculas(norma.titulo)}`} href={enlace.norma(slug, numero) ?? "/normativa"} />
 
