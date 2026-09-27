@@ -26,8 +26,12 @@ const nextConfig: NextConfig = {
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus.
+  // Las claves casan como subcadena: «/proveedores» también es
+  // «/proveedores/[rpe]» y «/api/proveedores», que no usan el índice.
   outputFileTracingExcludes: {
     "*": ["./public/data/{procesos,congreso,sentencias}.json"],
+    "/proveedores/*": ["./public/data/busqueda/**"],
+    "/api/proveedores": ["./public/data/busqueda/**"],
   },
   experimental: {
     staleTimes: { dynamic: 30, static: 300 },
