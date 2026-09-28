@@ -49,20 +49,6 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   Google's consent screen names `amuyclnyjyhigeyhuufs.supabase.co` until the
   project has a custom Auth domain (paid add-on). Email code stays as the
   fallback; `/democracia/registro` is untouched.
-- **Password sign-ups over the raw API** (⚠️ inferred from
-  `/auth/v1/settings` on 2026-09-28, not exercised — it would create a user in
-  the live pool): `email: true`, `disable_signup: false`,
-  `mailer_autoconfirm: true` mean anyone can `POST /auth/v1/signup` with a
-  password and get `email_confirmed_at` set for an address they do not own.
-  `espacios.mi_correo()` trusts that column, so a squatter who registers a
-  not-yet-used email first sees the invitations sent to it, and the real owner
-  who later enters with the code lands in an account the squatter holds the
-  password to. The UI never signs up with a password (`lib/sesion.ts`), but
-  the endpoint is open regardless. Fix is a panel action: Authentication →
-  Sign In / Providers → Email → turn **Confirm email** on. The code flow keeps
-  working: new users then get `confirm-signup.html`, which already carries
-  `{{ .Token }}`. Check first that the other app on the `Transac` pool does
-  not rely on autoconfirm.
 - **Cuenta Única OAuth2 client** (PLAN-DEMOCRACIA §9, AUDITORIA §A.11):
   identity v2 for `/democracia` is **built and inert** (public PKCE client,
   verification inside the Edge Function `vincular-cuenta-unica`, subject
@@ -120,6 +106,16 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crea el dueño en su panel, con tope de gasto.
 
 ## Cerradas, para que nadie las reabra
+
+- **«Confirm email» encendido (28-09-2026).** Con `mailer_autoconfirm: true`
+  cualquiera podía `POST /auth/v1/signup` con contraseña y quedar con
+  `email_confirmed_at` sobre un correo ajeno: `espacios.mi_correo()` le habría
+  entregado sus invitaciones, y el dueño real del correo habría entrado luego
+  con el código a una cuenta cuya contraseña tenía otro. El dueño lo encendió
+  en el panel; `/auth/v1/settings` dice ✅ `mailer_autoconfirm: false`. Los
+  altas nuevas reciben `confirm-signup.html`, que lleva `{{ .Token }}`: el
+  código sigue sirviendo. La interfaz igual nunca da de alta con contraseña
+  (`lib/sesion.ts`): no se relaja si alguien vuelve a apagarlo.
 
 - **La cabecera es la palabra, sin placa (28-09-2026).** El dueño pidió quitar
   la «s» en placa de la cabecera: la marca ahí es «socrático» sola, más

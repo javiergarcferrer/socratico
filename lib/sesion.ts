@@ -272,11 +272,12 @@ export function mensajeDeGoogle(codigo: string): string {
 /* --------------------------------------------------------- contraseña */
 
 /**
- * Entrar con correo y contraseña. **No hay alta con contraseña**: el proyecto
- * tiene `mailer_autoconfirm: true` (medido 2026-09-28, `/auth/v1/settings`),
- * así que un `signUp` con contraseña daría por verificado un correo que nadie
- * probó, y quien registrara primero el correo ajeno recibiría sus
- * invitaciones (`espacios.mi_correo()` confía en `email_confirmed_at`). La
+ * Entrar con correo y contraseña. **No hay alta con contraseña**: hasta el
+ * 2026-09-28 el proyecto tenía `mailer_autoconfirm: true`, y con él un
+ * `signUp` con contraseña daba por verificado un correo que nadie probó, y
+ * quien registrara primero el correo ajeno recibía sus invitaciones
+ * (`espacios.mi_correo()` confía en `email_confirmed_at`). El
+ * dueño lo apagó (docs/DECISIONES.md); esto no depende de que siga apagado. La
  * contraseña solo se pone desde dentro de una sesión abierta con el código
  * (`ponerContrasena`), que sí prueba el correo. Olvidarla no pide un flujo
  * propio: se entra con el código y se pone otra.

@@ -183,7 +183,7 @@ registro tiene que aceptar las tres mientras el Site URL del proyecto siga en
 |---|---|
 | `GET /auth/v1/verify?token=…&type=magiclink&redirect_to=https://brillo-soft.vercel.app/democracia/registro` | `303 → http://localhost:3000#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired` |
 | `POST /auth/v1/otp?redirect_to=https://brillo-soft.vercel.app/democracia/registro` (usuario inexistente, `create_user:false`) | `422 otp_disabled` — o sea, **pasó** la validación de redirección |
-| `GET /auth/v1/settings` | `email:true`, `disable_signup:false`, `mailer_autoconfirm:true` |
+| `GET /auth/v1/settings` | `email:true`, `disable_signup:false`, `mailer_autoconfirm:true` (✅ `false` desde el 2026-09-28, docs/DECISIONES.md) |
 
 Tres conclusiones, y las tres están en el código:
 

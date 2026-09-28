@@ -82,8 +82,9 @@ sola, editor que mueve entradas, `href` con `/\`).
   `mi_correo()` lo ve confirmado, así que las invitaciones siguen casando.
   Contraseña opcional: se entra con `signInWithPassword`, pero **solo se crea
   desde dentro** de una sesión abierta con el código (`updateUser`), nunca con
-  `signUp` — con `mailer_autoconfirm: true` un alta con contraseña daría por
-  verificado un correo ajeno y le entregaría sus invitaciones. Olvidarla es
+  `signUp` — con `mailer_autoconfirm: true` (✅ apagado el 2026-09-28) un alta
+  con contraseña daba por verificado un correo ajeno y le entregaba sus
+  invitaciones; la regla se queda aunque el panel ya lo impida. Olvidarla es
   entrar con el código y poner otra; no hay correo de recuperación. El nombre con que firma, salir, y qué se
   guarda y qué no. Al entrar une lo que el navegador ya seguía con la cuenta
   y, si hay invitaciones, lo dice y lleva a `/espacio`. `?volver=` solo
