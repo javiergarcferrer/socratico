@@ -2,8 +2,9 @@
 
 Plataforma de inteligencia sobre el Estado dominicano: **qué compra, qué
 legisla y a quién paga**. Reúne fuentes oficiales en un solo lugar, leídas en
-vivo y cacheadas, sin base de datos intermedia. La única vertical con
-persistencia es el piloto de voto ciudadano, que la necesita y la declara.
+vivo y cacheadas, sin base de datos intermedia. Solo persiste lo que es del
+lector, no del Estado: el piloto de voto ciudadano y la cuenta con sus
+espacios de investigación (lo guardado, proyectos, notas, lo que sigue).
 
 Herramienta independiente y no oficial. Producción:
 https://socratico.vercel.app
@@ -12,7 +13,9 @@ https://socratico.vercel.app
 
 | Vertical | Rutas | Fuente | Capa de datos |
 |---|---|---|---|
-| Panorama | `/` | Todas las de abajo | `app/page.tsx` |
+| Portada | `/` | Misión, cifras de hoy y el mapa de todo lo que hay | `app/page.tsx` |
+| Panorama | `/indicadores` | Todas las de abajo | `app/indicadores/page.tsx` |
+| Tu espacio | `/cuenta`, `/espacio`, `/espacio/proyecto`, `/p/[slug]` | Supabase, esquema `espacios` (referencias, nunca datos del Estado) | `lib/espacios.ts`, `lib/espacios-cliente.ts`, `lib/sesion.ts` |
 | Licitaciones | `/licitaciones`, `/procesos/[codigo]`, `/proveedores`, `/proveedores/[rpe]`, `/estadisticas`, `/contratos`, `/planes`, `/seguimiento`, `/guia` | [API de datos abiertos de la DGCP](https://datosabiertos.dgcp.gob.do/api-dgcp/docs/index.html) | `lib/dgcp.ts` |
 | Finanzas | `/finanzas`, `/finanzas/[capitulo]` | API de datos abiertos del SIGEF (Hacienda), en instantánea | `lib/fiscal.ts`, `lib/capitulos.ts`, `public/data/fiscal.json` |
 | Congreso | `/congreso`, `/congreso/[id]`, `/congreso/perencion`, `/congreso/senado`, `/congreso/senado/[cuatrienio]/[id]` | SIL de Diputados (API JSON interna) y consultante del Senado (HTML) | `lib/congreso.ts`, `lib/senado.ts`, `lib/legislacion.ts` |
@@ -69,7 +72,7 @@ emita el `client_id`.
 - Sin base de datos ni secretos en las superficies de inteligencia: cada capa
   de datos lee en vivo con `fetch` y caché por `revalidate`, timeout y un
   reintento. Las rutas `app/api/*` son proxies delgados sobre `lib/*`.
-- Democracia usa Supabase con claves **publicables** únicamente
+- Democracia y Tu espacio usan Supabase con claves **publicables** únicamente
   (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y el
   `NEXT_PUBLIC_CUENTA_UNICA_CLIENT_ID` público); el material sensible vive
   dentro de Postgres y de una Edge Function. Migraciones y funciones en

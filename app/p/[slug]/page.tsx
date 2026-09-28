@@ -22,13 +22,14 @@ const cargar = cache((slug: string) => leerPublicado(slug));
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const r = await cargar(slug);
-  if (r.estado !== "ok") return { title: "Investigación publicada", robots: { index: false, follow: true } };
+  if (r.estado !== "ok") return { title: "Investigación publicada", robots: { index: false, follow: false } };
   return {
     title: r.proyecto.titulo,
     description: r.proyecto.descripcion.slice(0, 200) || `Una investigación de ${r.proyecto.autor} sobre registros del Estado dominicano.`,
     alternates: { canonical: `/p/${slug}` },
-    // Es la obra de un lector, no de la plataforma: se comparte, no se indexa.
-    robots: { index: false, follow: true },
+    // Es la obra de un lector, no de la plataforma: se comparte, no se indexa,
+    // y sus enlaces no llevan el aval del sitio.
+    robots: { index: false, follow: false },
   };
 }
 
@@ -144,10 +145,14 @@ function Registro({ e }: { e: EntradaPublicada }) {
   // `leerPublicado` ya filtró por `hrefValido`; aquí solo se decide si es
   // propia (Link) o de una institución (pestaña nueva, sin referer).
   return !rutaPropia(e.href) ? (
-    <a href={e.href} target="_blank" rel="noopener noreferrer" className={clase}>
-      {e.titulo}
-      <IconExternal className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-ink-soft" />
-    </a>
+    <>
+      <a href={e.href} target="_blank" rel="ugc nofollow noopener noreferrer" className={clase}>
+        {e.titulo}
+        <IconExternal className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-ink-soft" />
+      </a>
+      {/* Lo eligió el autor, no Socrático: se dice a qué sitio lleva antes del toque. */}
+      <span className="ml-1.5 font-mono text-xs text-ink-soft">{new URL(e.href).hostname}</span>
+    </>
   ) : (
     <Link href={e.href} className={clase}>
       {e.titulo}

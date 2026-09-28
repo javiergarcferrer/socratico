@@ -40,6 +40,8 @@ Read §1 (contract) and §5 (applying) before changing anything here.
 - Migrations under `supabase/migrations/`, re-runnable. Run
   `python3 supabase/pruebas/espacios_rls.py` (throwaway Postgres simulating
   `auth`) and keep `FALLOS: 0`; add a case for every new policy or function.
+  Touching the follow sync in `lib/espacios-cliente.ts`: run
+  `node supabase/pruebas/sincronizar_seguidos.cjs` (no network) and keep `FALLOS: 0`.
 - Applying the migration or exposing the schema in the Data API is an
   **owner action**: prepare, list the steps (PLAN §5), stop.
 - Every screen distinguishes three states: nothing there, could not look

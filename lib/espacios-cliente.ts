@@ -35,6 +35,7 @@ function traducir(e: FalloSupabase): { ok: false; error: string; cerrado?: boole
   }
   if (codigo === "54000") return { ok: false, error: `Llegaste a un tope: ${e.message}.` };
   if (codigo === "23505") return { ok: false, error: "Eso ya está guardado ahí." };
+  if (codigo === "23514") return { ok: false, error: "Eso no cabe: algún texto es demasiado largo." };
   if (codigo === "42501" || texto.includes("row-level security")) {
     return { ok: false, error: "No tienes permiso para hacer eso en este proyecto." };
   }
@@ -81,9 +82,12 @@ export function alCambiarSesion(cb: (u: Usuario | null) => void): () => void {
  * lo seguido era de la cuenta y no se queda a la vista del siguiente lector
  * del mismo equipo.
  */
-export async function salir(): Promise<void> {
+export async function salir(): Promise<Hecho<null>> {
   const u = await sesionActual();
-  await supabase().auth.signOut();
+  const { error } = await supabase().auth.signOut();
+  if (error) return { ok: false, error: "No se pudo cerrar la sesión. Vuelve a intentarlo." };
+  // Primero se deja de reflejar: vaciar la lista no es «dejar de seguir todo».
+  dejarDeReflejar?.();
   reemplazarSeguidos([]);
   if (u) {
     try {
@@ -92,6 +96,7 @@ export async function salir(): Promise<void> {
       /* sin almacenamiento: no quedó nada que borrar */
     }
   }
+  return { ok: true, datos: null };
 }
 
 /**
@@ -358,7 +363,7 @@ export interface InvitacionRecibida {
   proyecto: string;
   rol: Exclude<Rol, "dueno">;
   titulo: string;
-  /** El nombre con que firma quien invita, o `null` si no puso ninguno. */
+  /** El nombre con que firma quien invita, o su correo enmascarado (`null` solo si no tiene correo). */
   invita: string | null;
   creado: string;
 }
@@ -391,15 +396,19 @@ interface FilaSeguimiento {
   visto: string | null;
 }
 
+/** Una fecha que Postgres acepta, o `null`. */
+const instante = (v: string | undefined) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : null);
+
+/** La fila, ajustada a los `check` de `espacios.seguimientos`: una sola fila rota no tumba la subida entera. */
 const aFila = (u: Usuario, s: Seguido) => ({
   usuario: u.id,
   tipo: s.tipo,
   ref: s.id,
-  titulo: s.titulo.slice(0, 500),
+  titulo: (s.titulo || s.id).slice(0, 500),
   href: s.href,
-  huella: s.huella ?? null,
-  desde: s.desde ?? new Date().toISOString(),
-  visto: s.visto ?? null,
+  huella: s.huella && s.huella.length <= 500 ? s.huella : null,
+  desde: instante(s.desde) ?? new Date().toISOString(),
+  visto: instante(s.visto),
 });
 
 const deFila = (f: FilaSeguimiento): Seguido => ({
@@ -421,8 +430,13 @@ function claves(lista: { tipo: string; id?: string; ref?: string }[]): Set<strin
   return new Set(lista.map(clave));
 }
 
+/** Los tipos que admite `espacios.seguimientos`. */
+const TIPOS_SEGUIMIENTO = new Set<string>(["proceso", "proyecto", "expediente-senado", "proveedor", "institucion", "norma"]);
+
 /** Lo que la tabla acepta: una ruta propia (el `check` de `espacios.seguimientos`). */
-const subible = (s: Seguido) => rutaPropia(s.href);
+const subible = (s: Seguido) =>
+  TIPOS_SEGUIMIENTO.has(s.tipo) && rutaPropia(s.href) && s.id.length >= 1 && s.id.length <= 300;
+
 
 function leerComun(u: Usuario): Set<string> | null {
   try {
@@ -476,6 +490,19 @@ async function borrar(lista: Seguido[]): Promise<Hecho<null>> {
  * la próxima vez se vuelve a comparar desde el mismo punto y nada se pierde.
  */
 export async function sincronizarSeguidos(u: Usuario): Promise<Hecho<null>> {
+  // Si el lector sigue o deja de seguir algo mientras esto espera a la red,
+  // la foto de `local` ya no vale: se vuelve a empezar desde la lista de
+  // ahora, hasta tres veces. Nunca se escribe encima de un toque suyo.
+  for (let intento = 0; intento < 3; intento++) {
+    const r = await sincronizarUnaVez(u);
+    if (r !== "de-nuevo") return r;
+  }
+  return { ok: false, error: "La lista cambió mientras se sincronizaba. Se intentará en la próxima página." };
+}
+
+const firma = (lista: Seguido[]) => JSON.stringify(lista.map((s) => [clave(s), s.visto ?? "", s.huella ?? ""]));
+
+async function sincronizarUnaVez(u: Usuario): Promise<Hecho<null> | "de-nuevo"> {
   const remoto = await hecho<FilaSeguimiento[]>(
     espacios().from("seguimientos").select("tipo, ref, titulo, href, huella, desde, visto"),
   );
@@ -509,6 +536,16 @@ export async function sincronizarSeguidos(u: Usuario): Promise<Hecho<null>> {
       }),
     ...[...deCuenta.values()].filter((s) => !deAqui.has(clave(s)) && !quitados.has(clave(s))),
   ];
+  // Lo escrito ya es lo común entre la cuenta y la foto de `local`. Si el
+  // lector tocó algo mientras tanto, se compara su lista de ahora contra esto
+  // en otra vuelta, en vez de pisarla.
+  if (firma(getSeguidos()) !== firma(local)) {
+    // Común es lo que ya tienen los dos lados: lo de la foto que quedó en la
+    // cuenta. Lo que solo trajo la cuenta no lo es todavía: la próxima vuelta
+    // lo suma, no lo toma por quitado aquí.
+    fijarComun(u, lista.filter((s) => deAqui.has(clave(s))));
+    return "de-nuevo";
+  }
   reemplazarSeguidos(lista);
   fijarComun(u, lista);
   return { ok: true, datos: null };
@@ -554,9 +591,16 @@ export function reflejarSeguidos(u: Usuario): () => void {
       enCurso = false;
     }
   };
-  const dejar = onSeguimientoCambio(() => void alCambiar());
-  return () => {
+  const escucha = onSeguimientoCambio(() => void alCambiar());
+  const dejar = () => {
     vivo = false;
-    dejar();
+    escucha();
+    if (dejarDeReflejar === dejar) dejarDeReflejar = null;
   };
+  dejarDeReflejar?.();
+  dejarDeReflejar = dejar;
+  return dejar;
 }
+
+/** El reflejo activo, para que `salir` lo apague antes de vaciar la lista. */
+let dejarDeReflejar: (() => void) | null = null;

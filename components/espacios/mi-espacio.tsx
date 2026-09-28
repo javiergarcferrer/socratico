@@ -62,6 +62,7 @@ function Espacio({ u }: { u: Usuario }) {
       return;
     }
     if (i.ok) setInvitaciones(i.datos);
+    else setError(`No pudimos ver si tienes invitaciones pendientes. ${i.error}`);
     if (!p.ok) setError(p.error);
     else setProyectos(p.datos);
     if (!e.ok) setError(e.error);
@@ -156,7 +157,8 @@ function Invitaciones({ lista, onCambio }: { lista: InvitacionRecibida[]; onCamb
     <Card as="section" className="border-brand-200 p-5" aria-live="polite">
       <CardTitle>{lista.length === 1 ? "Te invitaron a una investigación" : `Te invitaron a ${lista.length} investigaciones`}</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Si aceptas, quien invita y sus colaboradores ven tu nombre de firma. Lo que anotes ahí es
+        Si aceptas, quien invita y sus colaboradores ven tu nombre de firma o, si no tienes, tu
+        correo enmascarado. Lo que anotes ahí es
         parte de su investigación: si la publica, sale bajo su nombre, no el tuyo.
       </p>
       {aviso && <p className="mt-2 text-xs text-alerta-700">{aviso}</p>}
@@ -168,7 +170,7 @@ function Invitaciones({ lista, onCambio }: { lista: InvitacionRecibida[]; onCamb
               <div className="min-w-0">
                 <p className="font-medium text-ink">{i.titulo}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-soft">
-                  <span>{i.invita ? `De ${i.invita}` : "De alguien sin nombre de firma"}, {ROL_INVITADO[i.rol]}</span>
+                  <span>De {i.invita ?? "una cuenta sin nombre de firma"}, {ROL_INVITADO[i.rol]}</span>
                   <span aria-hidden>·</span>
                   <Antiguedad iso={i.creado} />
                 </p>

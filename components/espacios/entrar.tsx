@@ -145,7 +145,8 @@ export default function Entrar({ volver }: { volver: string | null }) {
   }
 
   async function cerrar() {
-    await salir();
+    const r = await salir();
+    if (!r.ok) return setError(r.error);
     // El cliente borra su clave; la cabecera se entera en esta pestaña.
     avisarCambioDeSesion();
     setUsuario(null);

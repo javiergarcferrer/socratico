@@ -63,7 +63,10 @@ export interface Referencia {
   /** El identificador dentro de su tipo (el mismo que usa `lib/seguimiento.ts`). */
   ref: string;
   titulo: string;
-  /** Una ruta propia (`/…`) o un documento `https://` en el sitio de una institución. */
+  /**
+   * Una ruta propia (`/…`) o un enlace `https://`. La tabla no restringe el
+   * sitio: quien lo muestra a terceros (`/p`) dice a qué dominio lleva.
+   */
   href: string;
 }
 

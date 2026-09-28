@@ -54,8 +54,12 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
               qué cambió desde entonces.
             </li>
             <li>
-              Lo que el servicio de cuentas (Supabase) registra de cada entrada: fecha, dirección
-              IP y navegador.
+              Los correos que invitas a una investigación, hasta que la acepten o retires la
+              invitación.
+            </li>
+            <li>
+              Lo que el servicio de cuentas (Supabase) registra cada vez que inicias sesión: fecha,
+              dirección IP y navegador.
             </li>
           </ul>
           <CardTitle className="mt-4 text-sm">Qué no</CardTitle>

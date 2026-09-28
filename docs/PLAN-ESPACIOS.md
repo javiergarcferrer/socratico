@@ -95,6 +95,12 @@ sola, editor que mueve entradas, `href` con `/\`).
   bandeja o directo a un proyecto.
 - **La portada** explica para qué sirve la cuenta (`app/page.tsx`).
 
+La sincronización de lo seguido (`sincronizarSeguidos`, `reflejarSeguidos`,
+`salir`) tiene su prueba sin red: `node supabase/pruebas/sincronizar_seguidos.cjs`
+(12 casos, `FALLOS: 0`), que toca la lista **mientras** la sincronización
+espera a la red. ✅ Reproduce el fallo de la versión anterior (un «Seguir»
+pulsado durante la primera sincronización se perdía) y pasa con la actual.
+
 ## 4. Alertas
 
 Lo que el lector sigue vive en su cuenta y «qué cambió desde tu última

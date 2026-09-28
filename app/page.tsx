@@ -549,7 +549,7 @@ async function DominioCompras() {
           ? [
               {
                 etiqueta: "Abiertos, de lo publicado en 30 días",
-                valor: formatInt(abiertos.length),
+                valor: procesos.length >= 1000 ? `${formatInt(abiertos.length)} o más` : formatInt(abiertos.length),
                 destacar: true,
               },
               {
