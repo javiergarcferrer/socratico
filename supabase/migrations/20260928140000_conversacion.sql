@@ -50,7 +50,9 @@ returns boolean language sql immutable set search_path = '' as $$
   select espacios.href_valido(h, false) and case t
     when 'institucion'       then h ~ '^/instituciones/[1-9][0-9]{0,6}$'
     when 'proveedor'         then h ~ '^/proveedores/[1-9][0-9]{0,9}$'
-    when 'proceso'           then h ~ '^/procesos/[A-Za-z0-9._~-]{3,120}$'
+    -- `enlace.proceso` pasa el código por encodeURIComponent: un código con
+    -- espacios o tildes (el 12 % de los de la DGCP) llega como %20, %C3%B3…
+    when 'proceso'           then h ~ '^/procesos/(?:[A-Za-z0-9._~!*''()-]|%[0-9A-F]{2})+$'
     when 'norma'             then h ~ '^/normativa/[a-z]+(-[a-z]+)*/[0-9]{1,4}-[0-9]{2,4}$'
     when 'proyecto'          then h ~ '^/congreso/[1-9][0-9]{0,9}$'
     when 'expediente-senado' then h ~ '^/congreso/senado/[0-9]{4}-[0-9]{4}/[1-9][0-9]{0,9}$'
@@ -108,8 +110,10 @@ create table if not exists espacios.comentarios (
   -- respuestas de otros se quedan, como comentarios sueltos.
   padre      uuid references espacios.comentarios (id) on delete set null,
   usuario    uuid not null references auth.users (id) on delete cascade,
-  -- La huella de la cédula de quien escribió: solo para el tope de ritmo.
-  cedula     text not null,
+  -- La huella de la cédula de quien escribió: para el tope de ritmo y para
+  -- que una suspensión alcance a la cédula aunque se borre el registro de
+  -- votante. Se vacía a los 90 días (`olvidar_huellas`).
+  cedula     text,
   cuerpo     text not null check (char_length(cuerpo) <= 4000),
   estado     text not null default 'visible' check (estado in ('visible', 'oculto', 'retirado', 'borrado')),
   puntos     integer not null default 0,
@@ -118,6 +122,7 @@ create table if not exists espacios.comentarios (
 );
 create index if not exists comentarios_hilo on espacios.comentarios (hilo_tipo, hilo_ref, creado);
 create index if not exists comentarios_cedula on espacios.comentarios (cedula, creado desc);
+create index if not exists comentarios_con_huella on espacios.comentarios (creado) where cedula is not null;
 
 create table if not exists espacios.votos_comentario (
   comentario  uuid not null references espacios.comentarios (id) on delete cascade,
@@ -202,7 +207,9 @@ create or replace function espacios.contar_voto_hilo()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if tg_op = 'INSERT' then
-    update espacios.hilos set votos = votos + 1, actividad = now() where tipo = new.tipo and ref = new.ref;
+    -- Un voto no reaviva la conversación: votar y retirar en bucle no la
+    -- sube en «Destacado». La actividad es de lo que se escribe.
+    update espacios.hilos set votos = votos + 1 where tipo = new.tipo and ref = new.ref;
   else
     update espacios.hilos set votos = greatest(votos - 1, 0) where tipo = old.tipo and ref = old.ref;
   end if;
@@ -254,6 +261,9 @@ begin
     else
       update espacios.hilos set ref = new.slug, href = '/p/' || new.slug
        where tipo = 'investigacion' and ref = old.slug;
+      -- Las denuncias pendientes siguen a la conversación.
+      update espacios.denuncias set objetivo = 'investigacion:' || new.slug
+       where objetivo_tipo = 'hilo' and objetivo = 'investigacion:' || old.slug;
     end if;
   end if;
   return null;
@@ -386,6 +396,19 @@ returns text language sql stable security definer set search_path = '' as $$
   end;
 $$;
 
+-- Las huellas de cédula se guardan 90 días: bastan para el tope de ritmo
+-- (un día) y para suspender a quien escribió algo reciente aunque haya
+-- borrado su registro de votante. Después se vacían. Corre de paso en cada
+-- comentario y en cada suspensión; no hace falta un trabajo programado.
+create or replace function espacios.olvidar_huellas()
+returns void language sql security definer set search_path = '' as $$
+  update espacios.comentarios set cedula = null
+   where cedula is not null and creado < now() - interval '90 days';
+  update espacios.hilos set abierto_cedula = null
+   where abierto_cedula is not null and creado < now() - interval '90 days';
+  delete from espacios.suspensiones where hasta <= now();
+$$;
+
 -- ─────────────────────────────────────────────── comentar
 create or replace function espacios.comentar(
   p_tipo text, p_ref text, p_titulo text, p_href text, p_padre uuid, p_cuerpo text
@@ -424,6 +447,7 @@ begin
   insert into espacios.comentarios (hilo_tipo, hilo_ref, padre, usuario, cedula, cuerpo)
   values (p_tipo, p_ref, p_padre, auth.uid(), c, cuerpo)
   returning id into nuevo;
+  perform espacios.olvidar_huellas();
   return nuevo;
 end;
 $$;
@@ -652,6 +676,8 @@ begin
     'hilos', coalesce((
       select jsonb_agg(jsonb_build_object(
         'tipo', h.tipo, 'ref', h.ref, 'titulo', h.titulo, 'href', h.href, 'estado', h.estado,
+        'abierto_por', h.abierto_por,
+        'abierto_por_nombre', (select coalesce(pf.nombre, 'Sin nombre') from espacios.perfiles pf where pf.id = h.abierto_por),
         'denuncias', (select jsonb_agg(jsonb_build_object('motivo', d.motivo, 'detalle', d.detalle, 'creado', d.creado, 'con_cedula', d.con_cedula) order by d.creado)
                         from espacios.denuncias d where d.objetivo_tipo = 'hilo' and d.objetivo = h.tipo || ':' || h.ref and not d.resuelta)
       ) order by h.creado)
@@ -746,7 +772,7 @@ begin
   if p_usuario = auth.uid() then
     raise exception 'no te suspendes a ti' using errcode = '22023';
   end if;
-  delete from espacios.suspensiones where hasta <= now();
+  perform espacios.olvidar_huellas();
   if p_dias <= 0 then
     delete from espacios.suspensiones where usuario = p_usuario;
     insert into espacios.acciones_moderacion (moderador, objetivo_tipo, objetivo, accion, nota)
@@ -757,7 +783,12 @@ begin
     raise exception 'una suspensión dice por qué' using errcode = '22023';
   end if;
   insert into espacios.suspensiones (usuario, cedula, hasta, motivo, por)
-  values (p_usuario, (select cedula_hash from democracia.votantes where id = p_usuario),
+  -- La huella del registro de votante o, si lo borró antes de que se la
+  -- suspendiera, la que dejó en lo último que escribió (90 días).
+  values (p_usuario, coalesce(
+            (select cedula_hash from democracia.votantes where id = p_usuario),
+            (select cedula from espacios.comentarios where usuario = p_usuario and cedula is not null order by creado desc limit 1),
+            (select abierto_cedula from espacios.hilos where abierto_por = p_usuario and abierto_cedula is not null order by creado desc limit 1)),
           now() + make_interval(days => least(p_dias, 3650)), btrim(p_motivo), auth.uid())
   on conflict (usuario) do update
     set cedula = coalesce(excluded.cedula, espacios.suspensiones.cedula), hasta = excluded.hasta,
@@ -777,6 +808,7 @@ revoke all on function espacios.mi_cedula() from public, anon, authenticated;
 revoke all on function espacios.exigir_autoria() from public, anon, authenticated;
 revoke all on function espacios.exigir_votante() from public, anon, authenticated;
 revoke all on function espacios.estado_para_escribir(text, text) from public, anon, authenticated;
+revoke all on function espacios.olvidar_huellas() from public, anon, authenticated;
 revoke all on function espacios.contar_voto_comentario() from public, anon, authenticated;
 revoke all on function espacios.contar_voto_hilo() from public, anon, authenticated;
 revoke all on function espacios.contar_comentario() from public, anon, authenticated;

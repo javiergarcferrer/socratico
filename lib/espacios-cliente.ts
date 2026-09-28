@@ -727,7 +727,13 @@ export interface ColaModeracion {
     hilo: ReferenciaHilo;
     denuncias: DenunciaEnCola[] | null;
   }[];
-  hilos: (ReferenciaHilo & { estado: string; denuncias: DenunciaEnCola[] | null })[];
+  hilos: (ReferenciaHilo & {
+    estado: string;
+    denuncias: DenunciaEnCola[] | null;
+    /** Quién abrió la conversación (y puso su título): se le puede suspender. */
+    abierto_por: string | null;
+    abierto_por_nombre: string | null;
+  })[];
   suspensiones: { usuario: string; nombre: string; hasta: string; motivo: string }[];
 }
 
