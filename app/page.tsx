@@ -405,7 +405,7 @@ function SeccionEspacio() {
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <LlamadaCuenta />
             <p className="text-xs leading-relaxed text-ink-soft">
-              Gratis. Entras con un código al correo, sin contraseña. Guardamos lo que eliges
+              Gratis. Entras con un código al correo o, si la creas, con tu contraseña. Guardamos lo que eliges
               —nunca los datos del Estado, que siguen leyéndose de su fuente—.{" "}
               <Link href="/cuenta" className="font-medium text-brand-700 hover:underline">
                 Qué guardamos

@@ -48,7 +48,7 @@ export function SinSesion({ volver, que }: { volver: string; que: string }) {
         </Button>
       }
     >
-      Tu espacio es privado: para verlo hay que entrar. Es un código al correo, sin contraseña.
+      Tu espacio es privado: para verlo hay que entrar. Es un código al correo, o tu contraseña si ya la creaste.
     </EstadoVacio>
   );
 }

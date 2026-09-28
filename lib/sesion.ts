@@ -268,3 +268,51 @@ export function mensajeDeGoogle(codigo: string): string {
   }
   return "Google no devolvió una sesión válida. Vuelve a intentarlo o entra con tu correo.";
 }
+
+/* --------------------------------------------------------- contraseña */
+
+/**
+ * Entrar con correo y contraseña. **No hay alta con contraseña**: el proyecto
+ * tiene `mailer_autoconfirm: true` (medido 2026-09-28, `/auth/v1/settings`),
+ * así que un `signUp` con contraseña daría por verificado un correo que nadie
+ * probó, y quien registrara primero el correo ajeno recibiría sus
+ * invitaciones (`espacios.mi_correo()` confía en `email_confirmed_at`). La
+ * contraseña solo se pone desde dentro de una sesión abierta con el código
+ * (`ponerContrasena`), que sí prueba el correo. Olvidarla no pide un flujo
+ * propio: se entra con el código y se pone otra.
+ */
+export const LARGO_MINIMO = 8;
+
+export async function entrarConContrasena(email: string, contrasena: string): Promise<string | null> {
+  try {
+    const { error } = await supabase().auth.signInWithPassword({ email, password: contrasena });
+    if (!error) return null;
+    if (error.status === 429 || error.code === "over_request_rate_limit") {
+      return "Demasiados intentos seguidos. Espera unos minutos o entra con el código al correo.";
+    }
+    if (error.code === "invalid_credentials" || error.status === 400) {
+      return "Correo o contraseña incorrectos. Si nunca pusiste contraseña o la olvidaste, entra con el código y créala dentro.";
+    }
+    return "No se pudo entrar ahora. Vuelve a intentarlo o entra con el código al correo.";
+  } catch {
+    return "No hubo conexión con el servidor. Revisa tu internet.";
+  }
+}
+
+/** Crea o cambia la contraseña de la sesión abierta. Devuelve el fallo, o `null`. */
+export async function ponerContrasena(contrasena: string): Promise<string | null> {
+  if (contrasena.length < LARGO_MINIMO) return `La contraseña necesita al menos ${LARGO_MINIMO} caracteres.`;
+  try {
+    const { error } = await supabase().auth.updateUser({ password: contrasena });
+    if (!error) return null;
+    if (error.code === "same_password") return "Esa ya es tu contraseña.";
+    if (error.code === "weak_password") return "Esa contraseña es demasiado débil. Usa una más larga o menos común.";
+    if (error.code === "reauthentication_needed") {
+      return "Por seguridad, sal y vuelve a entrar con el código antes de cambiarla.";
+    }
+    if (error.status === 401 || error.code === "session_not_found") return "Tu sesión venció. Vuelve a entrar.";
+    return "No se pudo guardar la contraseña. Vuelve a intentarlo.";
+  } catch {
+    return "No hubo conexión con el servidor. Revisa tu internet.";
+  }
+}

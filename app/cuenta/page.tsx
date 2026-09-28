@@ -68,7 +68,8 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
               Ninguna cifra del Estado: cada registro se sigue leyendo de su fuente oficial,
               igual que para quien no tiene cuenta.
             </li>
-            <li>Ni contraseña ni lo que buscas, salvo la búsqueda que tú guardes.</li>
+            <li>Ni tu contraseña en claro: si creas una, el servicio de cuentas guarda solo su huella cifrada, que nadie puede leer.</li>
+            <li>Ni lo que buscas, salvo la búsqueda que tú guardes.</li>
             <li>
               La cédula solo la pide el{" "}
               <Link href="/democracia/seguridad" className="font-medium text-brand-700 hover:underline">

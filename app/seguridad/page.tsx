@@ -56,8 +56,9 @@ export default function SeguridadPlataformaPage() {
         </Medida>
 
         <Medida titulo="Tu cuenta guarda lo que eliges, nunca los datos del Estado">
-          La cuenta es opcional y se abre con un código al correo, sin
-          contraseña. Guarda tu correo, el nombre con que firmas si lo das, y lo
+          La cuenta es opcional y se abre con un código al correo; la contraseña
+          también es opcional, se crea después, y el servicio de cuentas guarda
+          solo su huella cifrada (bcrypt), nunca la contraseña. Guarda tu correo, el nombre con que firmas si lo das, y lo
           que eliges: la <strong>referencia</strong> a cada registro —tipo,
           número, título, enlace—, tus notas, tus enlaces y lo que sigues. Ninguna
           cifra del Estado entra en la base: cada registro se sigue leyendo de su

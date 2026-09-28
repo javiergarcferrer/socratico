@@ -49,6 +49,20 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   Google's consent screen names `amuyclnyjyhigeyhuufs.supabase.co` until the
   project has a custom Auth domain (paid add-on). Email code stays as the
   fallback; `/democracia/registro` is untouched.
+- **Password sign-ups over the raw API** (⚠️ inferred from
+  `/auth/v1/settings` on 2026-09-28, not exercised — it would create a user in
+  the live pool): `email: true`, `disable_signup: false`,
+  `mailer_autoconfirm: true` mean anyone can `POST /auth/v1/signup` with a
+  password and get `email_confirmed_at` set for an address they do not own.
+  `espacios.mi_correo()` trusts that column, so a squatter who registers a
+  not-yet-used email first sees the invitations sent to it, and the real owner
+  who later enters with the code lands in an account the squatter holds the
+  password to. The UI never signs up with a password (`lib/sesion.ts`), but
+  the endpoint is open regardless. Fix is a panel action: Authentication →
+  Sign In / Providers → Email → turn **Confirm email** on. The code flow keeps
+  working: new users then get `confirm-signup.html`, which already carries
+  `{{ .Token }}`. Check first that the other app on the `Transac` pool does
+  not rely on autoconfirm.
 - **Cuenta Única OAuth2 client** (PLAN-DEMOCRACIA §9, AUDITORIA §A.11):
   identity v2 for `/democracia` is **built and inert** (public PKCE client,
   verification inside the Edge Function `vincular-cuenta-unica`, subject

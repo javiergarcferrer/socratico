@@ -7,11 +7,14 @@ import { rutaPropia } from "@/lib/espacios";
 import {
   abrirSesion,
   correoValido,
+  entrarConContrasena,
   entrarConGoogle,
   googleDisponible,
+  LARGO_MINIMO,
   leerEntrada,
   mensajeDeGoogle,
   pedirCodigo,
+  ponerContrasena,
   vueltaDeGoogle,
 } from "@/lib/sesion";
 import {
@@ -29,10 +32,12 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { IconArrowRight, IconCheck, IconGoogle } from "@/components/icons";
 import { avisarCambioDeSesion } from "./presencia";
 
 type Paso = "cargando" | "correo" | "codigo" | "dentro";
+type Modo = "codigo" | "contrasena";
 
 /** Solo una ruta de esta plataforma: `?volver=` no puede mandar a otro sitio. */
 function volverSeguro(v: string | null): string | null {
@@ -42,8 +47,10 @@ function volverSeguro(v: string | null): string | null {
 /**
  * Entrar o crear la cuenta: con Google, cuando el proveedor está activo en el
  * proyecto, o con el mismo correo con código que `/democracia`
- * (`lib/sesion.ts`). No hay contraseña que olvidar ni que filtrar: Google
- * responde por quien entra, o llega al correo un código de un solo uso.
+ * (`lib/sesion.ts`): Google responde por quien entra, o llega al correo un
+ * código de un solo uso.
+ * La contraseña es opcional y se crea **dentro**, tras probar el correo con
+ * el código: por qué no hay alta con contraseña, en `lib/sesion.ts`.
  *
  * Al entrar, lo que el navegador ya seguía pasa a la cuenta (`alEntrar`) y,
  * si hay invitaciones a ese correo, se avisa: se aceptan o no en «Tu
@@ -63,6 +70,10 @@ export default function Entrar({ volver }: { volver: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [conGoogle, setConGoogle] = useState(false);
+  const [modo, setModo] = useState<Modo>("codigo");
+  const [contrasena, setContrasena] = useState("");
+  const [nueva, setNueva] = useState("");
+  const [contrasenaGuardada, setContrasenaGuardada] = useState(false);
   const destino = volverSeguro(volver);
 
   async function dentro(u: Usuario, recienLlegado: boolean) {
@@ -129,12 +140,40 @@ export default function Entrar({ volver }: { volver: string | null }) {
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     if (!correoValido(email)) return;
+    if (modo === "contrasena") return entrarConClave();
     setError(null);
     setCargando(true);
     const fallo = await pedirCodigo(email.trim(), "/cuenta");
     setCargando(false);
     if (fallo) setError(fallo);
     else setPaso("codigo");
+  }
+
+  async function entrarConClave() {
+    if (!contrasena) return;
+    setError(null);
+    setCargando(true);
+    const fallo = await entrarConContrasena(email.trim(), contrasena);
+    const u = fallo ? null : await sesionActual();
+    setCargando(false);
+    if (fallo || !u) {
+      setError(fallo ?? "No quedó la sesión abierta. Vuelve a intentarlo.");
+      return;
+    }
+    setContrasena("");
+    await dentro(u, true);
+  }
+
+  async function guardarContrasena(e: React.FormEvent) {
+    e.preventDefault();
+    if (nueva.length < LARGO_MINIMO) return;
+    setError(null);
+    setCargando(true);
+    const fallo = await ponerContrasena(nueva);
+    setCargando(false);
+    if (fallo) return setError(fallo);
+    setNueva("");
+    setContrasenaGuardada(true);
   }
 
   async function google() {
@@ -183,6 +222,8 @@ export default function Entrar({ volver }: { volver: string | null }) {
     // El cliente borra su clave; la cabecera se entera en esta pestaña.
     avisarCambioDeSesion();
     setUsuario(null);
+    setNueva("");
+    setContrasenaGuardada(false);
     setPaso("correo");
   }
 
@@ -222,6 +263,36 @@ export default function Entrar({ volver }: { volver: string | null }) {
             </div>
           </form>
         </Card>
+        <Card className="p-5">
+          <form onSubmit={guardarContrasena} className="space-y-2.5">
+            <Label htmlFor="contrasena-nueva">Tu contraseña</Label>
+            <p className="text-xs leading-relaxed text-ink-soft">
+              Opcional. Con ella entras sin esperar el código; si la olvidas, entras con el código y
+              pones otra aquí. Al menos {LARGO_MINIMO} caracteres.
+            </p>
+            {/* El correo, para que el gestor de contraseñas la guarde con su cuenta. */}
+            <input type="email" name="username" autoComplete="username" value={usuario.email} readOnly hidden />
+            <div className="flex gap-2">
+              <Input
+                id="contrasena-nueva"
+                type="password"
+                autoComplete="new-password"
+                value={nueva}
+                onChange={(e) => {
+                  setNueva(e.target.value);
+                  setContrasenaGuardada(false);
+                }}
+                placeholder="Crea o cambia tu contraseña"
+              />
+              <Button type="submit" variant="secondary" disabled={cargando || nueva.length < LARGO_MINIMO}>
+                {contrasenaGuardada ? "Guardada" : "Guardar"}
+              </Button>
+            </div>
+            {nueva.length > 0 && nueva.length < LARGO_MINIMO && (
+              <p className="text-xs text-ink-soft">Faltan {LARGO_MINIMO - nueva.length} caracteres.</p>
+            )}
+          </form>
+        </Card>
         {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs">{error}</Alert>}
         <div className="flex flex-wrap gap-2.5">
           <Button asChild size="lg">
@@ -245,8 +316,8 @@ export default function Entrar({ volver }: { volver: string | null }) {
           <CardTitle>{conGoogle ? "Entra o crea tu cuenta" : "Entra o crea tu cuenta con tu correo"}</CardTitle>
           <p className="text-sm leading-relaxed text-ink-soft">
             {conGoogle
-              ? "No hay contraseña: entras con tu cuenta de Google o con un código de seis dígitos que llega a tu correo. Si ya votaste en el piloto de democracia con ese mismo correo, es la misma cuenta."
-              : "Te enviamos un código de seis dígitos. No hay contraseña: cada vez que entres llega uno nuevo. Si ya votaste en el piloto de democracia, es la misma cuenta."}
+              ? "Entras con tu cuenta de Google o con tu correo: un código de seis dígitos, o la contraseña si ya la creaste. Si ya votaste en el piloto de democracia con ese mismo correo, es la misma cuenta."
+              : "Te enviamos un código de seis dígitos, o entras con tu contraseña si ya la creaste. La cuenta se crea con el código; la contraseña se pone dentro. Si ya votaste en el piloto de democracia, es la misma cuenta."}
           </p>
           {conGoogle && (
             <>
@@ -254,9 +325,27 @@ export default function Entrar({ volver }: { volver: string | null }) {
                 <IconGoogle className="h-4 w-4" />
                 Continuar con Google
               </Button>
-              <p className="pt-1 text-center text-xs text-ink-soft">o con un código a tu correo</p>
+              <p className="pt-1 text-center text-xs text-ink-soft">o con tu correo</p>
             </>
           )}
+          <ToggleGroup
+            type="single"
+            value={modo}
+            onValueChange={(v) => {
+              if (!v) return;
+              setModo(v as Modo);
+              setError(null);
+            }}
+            aria-label="Cómo entrar con tu correo"
+            className="w-full p-0.5"
+          >
+            <ToggleGroupItem value="codigo" className="min-h-11 flex-1 text-xs sm:min-h-9">
+              Con código
+            </ToggleGroupItem>
+            <ToggleGroupItem value="contrasena" className="min-h-11 flex-1 text-xs sm:min-h-9">
+              Con contraseña
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Label htmlFor="correo-cuenta" className="sr-only">Correo</Label>
           <Input
             id="correo-cuenta"
@@ -270,14 +359,46 @@ export default function Entrar({ volver }: { volver: string | null }) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="tu@correo.com"
           />
+          {modo === "contrasena" && (
+            <>
+              <Label htmlFor="contrasena-cuenta" className="sr-only">Contraseña</Label>
+              <Input
+                id="contrasena-cuenta"
+                type="password"
+                autoComplete="current-password"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
+                placeholder="Tu contraseña"
+              />
+            </>
+          )}
           {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">{error}</Alert>}
           {/* Apagado explica por qué antes del toque (docs/IDENTIDAD.md §6). */}
           {!correoValido(email) && email.length > 3 && (
             <p className="text-xs text-ink-soft">Escribe un correo completo: nombre@dominio.</p>
           )}
-          <Button type="submit" className="w-full" disabled={!correoValido(email) || cargando}>
-            {cargando ? "Enviando…" : "Enviarme el código"}
-          </Button>
+          {modo === "codigo" ? (
+            <Button type="submit" className="w-full" disabled={!correoValido(email) || cargando}>
+              {cargando ? "Enviando…" : "Enviarme el código"}
+            </Button>
+          ) : (
+            <>
+              <Button type="submit" className="w-full" disabled={!correoValido(email) || !contrasena || cargando}>
+                {cargando ? "Entrando…" : "Entrar"}
+              </Button>
+              <Button
+                type="button"
+                variant="link"
+                onClick={() => {
+                  setModo("codigo");
+                  setError(null);
+                }}
+                className="h-11 w-full text-xs font-medium text-ink-soft hover:text-ink"
+              >
+                ¿Sin contraseña o la olvidaste? Entra con el código y créala dentro
+              </Button>
+            </>
+          )}
         </form>
       ) : (
         <form onSubmit={verificar} className="space-y-3">
