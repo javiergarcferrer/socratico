@@ -822,7 +822,7 @@ madura, sin clave ni servicio (`docs/PLAN-ACCESO.md` §6 bis, puntos 6-8 y 10):
 | Mecanismo | Biblioteca | Dónde |
 |---|---|---|
 | Estado ↔ URL | `nuqs` (`NuqsAdapter` en `app/layout.tsx`) | `app/buscador.tsx` y `components/campo-licitaciones.tsx` (un solo mapa: `components/licitaciones-url.ts`), `components/nomina/explorer.tsx`, `components/buscador-url.tsx` (push + `shallow: false`: filtra el servidor). |
-| Lectura del navegador | `@tanstack/react-query` (`ProveedorConsultas` de `components/consultas.tsx` en `app/layout.tsx`; claves y lectores en `lib/consultas.ts`) | El listado y las unidades de `app/buscador.tsx`, la paleta (`components/paleta.tsx`), «Agregar» de `components/espacios/mesa-proyecto.tsx`, `app/seguimiento/page.tsx` y la instantánea de `components/nomina/explorer.tsx`. Cancela la petición vieja al cambiar la clave, comparte una respuesta entre componentes y conserva la lista anterior (`keepPreviousData`). Un reintento, como `lib/pedir.ts`; sin reenfocar. Las herramientas de desarrollo solo existen con `next dev`. |
+| Lectura del navegador | `@tanstack/react-query` (`ProveedorConsultas` de `components/consultas.tsx` en `app/layout.tsx`; claves y lectores en `lib/consultas.ts`) | El listado y las unidades de `app/buscador.tsx`, la paleta (`components/paleta.tsx`), «Agregar» de `components/espacios/mesa-proyecto.tsx`, `app/seguimiento/page.tsx` y la instantánea de `components/nomina/explorer.tsx`. Cancela la petición vieja al cambiar la clave, comparte una respuesta entre componentes y conserva la lista anterior (`keepPreviousData`). Sin reintento en el navegador —la ruta ya reintenta una vez contra la fuente (`lib/pedir.ts`) y otro aquí duplicaba las llamadas a una fuente caída—, salvo la instantánea estática de la nómina; sin reenfocar. El rebote de lo tecleado es `components/rebotado.ts`, aparte para que `lib/consultas.ts` no lleve hooks. Las herramientas de desarrollo (`devDependencies`) solo existen con `next dev`. |
 | Lista virtual | `@tanstack/react-virtual` | `components/nomina/data-table.tsx`. |
 | Hoja que se arrastra | `vaul` | `components/ui/drawer.tsx` (el `Drawer` de shadcn), bajo `components/bottom-sheet.tsx` y la hoja «Más» de `components/mobile-tab-bar.tsx`. Su movimiento propio (500 ms y su curva, en CSS inyectado y en línea) se reemplaza en `app/globals.css` por los tokens de la casa, y se apaga con movimiento reducido. |
 
@@ -839,7 +839,9 @@ escritura de un solo uso.
 la de la nómina, y el orden son quince líneas sobre filas en tuplas. Con las
 94,659 plazas, `getCoreRowModel` de `@tanstack/table-core` 8 tarda ~1.1 s en
 construir los objetos de fila antes de ordenar; el orden propio, ~20 ms
-(2026-09-28, Node 22). El resto de tablas ordena en el servidor.
+(2026-09-28, Node 22, tres corridas; `createTable` con una columna de sueldo,
+`sortingFn: 'basic'`, contra `rows.slice().sort()`; el script va en el cuerpo
+del commit que lo registra). El resto de tablas ordena en el servidor.
 
 ### La capa de arriba: lo que ninguna librería puede traer
 | Primitiva | Qué resuelve |

@@ -6,10 +6,10 @@
  * piden lo mismo compartan la respuesta— y las funciones que leen. Viaja al
  * navegador: nada de `lib/pedir.ts` ni de un adaptador de fuente, que son del
  * servidor. Las fuentes del Estado nunca se leen desde aquí; solo las rutas
- * de la plataforma que ya las leyeron.
+ * de la plataforma que ya las leyeron. Sin hooks de React: un componente de
+ * servidor puede importar las claves (el rebote vive en
+ * `components/rebotado.ts`).
  */
-import { useEffect, useState } from "react";
-
 export const claves = {
   /** Las unidades de compra del filtro de licitaciones (`/api/unidades`). */
   unidades: ["unidades"] as const,
@@ -47,18 +47,4 @@ export interface RespuestaBuscar<R, P = unknown> {
 
 export function buscarEnPlataforma<R, P = unknown>(q: string, n: number, signal?: AbortSignal) {
   return leerJson<RespuestaBuscar<R, P>>(`/api/buscar?q=${encodeURIComponent(q)}&n=${n}`, signal);
-}
-
-/**
- * El valor, cuando lleva `ms` sin cambiar. Con `ms = 0` es el valor mismo, sin
- * un render de retraso: así borrar el texto de un buscador pide en el acto.
- */
-export function useRebotado<T>(valor: T, ms: number): T {
-  const [v, setV] = useState(valor);
-  useEffect(() => {
-    if (ms === 0) return setV(valor);
-    const t = setTimeout(() => setV(valor), ms);
-    return () => clearTimeout(t);
-  }, [valor, ms]);
-  return ms === 0 ? valor : v;
 }

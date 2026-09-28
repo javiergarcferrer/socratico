@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useQueryStates } from "nuqs";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { claves, leerJson, useRebotado } from "@/lib/consultas";
+import { claves, leerJson } from "@/lib/consultas";
+import { useRebotado } from "@/components/rebotado";
 import type { OrdenProceso, Proceso } from "@/lib/dgcp";
 /*
   Las etapas se importan de `lib/estados.ts` y no de `lib/dgcp.ts`: son
@@ -296,8 +297,18 @@ export default function Buscador() {
     queryKey: claves.procesos(paramsListado),
     queryFn: ({ signal }) => leerJson<ApiResult>(`/api/procesos?${paramsListado}`, signal),
     placeholderData: keepPreviousData,
+    // Mientras el texto espera su pausa no se pide nada: si no, `page` (que
+    // cambia en el acto) pediría la página 1 de la búsqueda anterior.
+    enabled: qConsulta === q.trim(),
   });
-  const data = listado.data ?? null;
+  /*
+    `keepPreviousData` cubre la espera, no el error: si una página falla, la
+    cuenta y el paginador siguen siendo los de la última que llegó, para que
+    se pueda volver a ella.
+  */
+  const ultimo = useRef<ApiResult | null>(null);
+  if (listado.data && !listado.isPlaceholderData) ultimo.current = listado.data;
+  const data = listado.data ?? (listado.isError ? ultimo.current : null);
   const loading = listado.isFetching;
   const error = listado.error ? listado.error.message || "Error inesperado" : null;
   const reintentar = () => void listado.refetch();

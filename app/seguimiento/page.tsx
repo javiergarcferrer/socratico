@@ -138,12 +138,14 @@ export default function SeguimientoPage() {
   });
 
   /*
-    Cada lectura que llega se compara una sola vez con la huella guardada.
-    Lo que cambió se enseña arriba y solo después se guarda la huella nueva:
-    la próxima visita compara contra lo de hoy.
+    Cuando han llegado todas, cada lectura se compara una sola vez con la
+    huella guardada, y las huellas nuevas se guardan de una vez (una
+    escritura y un aviso, no uno por pieza). Lo que cambió se enseña arriba y
+    solo después se guarda: la próxima visita compara contra lo de hoy.
   */
   const firma = conEstadoItems.map((s) => `${clave(s)}=${lecturas[clave(s)].estado}`).join("|");
   useEffect(() => {
+    if (conEstadoItems.some((s) => lecturas[clave(s)].estado === "cargando")) return;
     const detectados: Cambio[] = [];
     const vistos: Parameters<typeof marcarVistos>[0] = [];
     for (const s of conEstadoItems) {

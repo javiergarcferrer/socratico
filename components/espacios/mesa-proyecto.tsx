@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { buscarEnPlataforma, claves } from "@/lib/consultas";
 import {
   anotar,
@@ -223,9 +223,14 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
 
   const busqueda = useQuery({
     queryKey: claves.buscar(enviada, 8),
-    queryFn: ({ signal }) =>
-      buscarEnPlataforma<{ tipo: string; titulo: string; detalle: string | null; href: string | null }>(enviada, 8, signal),
+    // La respuesta lleva su consulta: «Nada con…» nombra lo que se buscó.
+    queryFn: async ({ signal }) => ({
+      q: enviada,
+      ...(await buscarEnPlataforma<{ tipo: string; titulo: string; detalle: string | null; href: string | null }>(enviada, 8, signal)),
+    }),
     enabled: enviada.length >= 2,
+    // La lista anterior se queda mientras llega la nueva: el formulario no salta.
+    placeholderData: keepPreviousData,
   });
   const hallados: Hallado[] | null = busqueda.data
     ? (busqueda.data.resultados ?? []).flatMap((x) => {
@@ -275,7 +280,7 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
       {(error ?? errorBusqueda) && <p className="mt-2 text-xs text-alerta-700">{error ?? errorBusqueda}</p>}
       {hallados && (
         <ul aria-live="polite" className="mt-3 divide-y divide-hairline">
-          {hallados.length === 0 && <li className="py-2 text-sm text-ink-soft">Nada con «{enviada}» que se pueda guardar.</li>}
+          {hallados.length === 0 && <li className="py-2 text-sm text-ink-soft">Nada con «{busqueda.data?.q}» que se pueda guardar.</li>}
           {hallados.map((h) => {
             const dentro = ya.has(`${h.tipo}:${h.ref}`);
             return (

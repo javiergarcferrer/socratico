@@ -65,7 +65,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { agujas, plano, pruebas } from "@/lib/raiz";
-import { claves, useRebotado } from "@/lib/consultas";
+import { claves } from "@/lib/consultas";
+import { useRebotado } from "@/components/rebotado";
 
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -99,6 +100,8 @@ export function Explorer({ fichas = {} }: { fichas?: FichasNomina }) {
     queryKey: claves.nomina,
     queryFn: () => loadNomina(),
     staleTime: Infinity,
+    // Un archivo estático: si falla, es la red del lector, y un reintento vale.
+    retry: 1,
   });
 
   if (error) {

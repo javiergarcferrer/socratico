@@ -16,8 +16,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
  * la siguiente.
  *
  * No es una base de datos ni guarda nada fuera de la memoria de la pestaña:
- * la invariante (sin DB, sin claves) no se toca. Las mismas reglas que
- * `lib/pedir.ts` en el servidor: un reintento, y nada más.
+ * la invariante (sin DB, sin claves) no se toca.
  *
  * Se crea con `useState` y no en el módulo: en el servidor, un cliente de
  * módulo se compartiría entre peticiones de lectores distintos.
@@ -31,7 +30,11 @@ export default function ProveedorConsultas({ children }: { children: React.React
             // Las rutas propias ya cachean con `revalidate`; un minuto en el
             // navegador basta para que volver atrás no repita la lectura.
             staleTime: 60_000,
-            retry: 1,
+            // Sin reintento: la ruta ya reintenta una vez contra la fuente
+            // (`lib/pedir.ts`), y otro aquí multiplicaba las llamadas a la
+            // DGCP justo cuando está caída. Lo estático de `/data/*` sí
+            // reintenta, en su propia consulta.
+            retry: 0,
             // Volver a la pestaña no es pedir los datos otra vez: la página
             // dice de cuándo es lo que muestra.
             refetchOnWindowFocus: false,

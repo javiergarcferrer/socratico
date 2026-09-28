@@ -3,7 +3,8 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { buscarEnPlataforma, claves as clavesConsulta, useRebotado } from "@/lib/consultas";
+import { buscarEnPlataforma, claves as clavesConsulta } from "@/lib/consultas";
+import { useRebotado } from "@/components/rebotado";
 import { BUSQUEDAS, SECCIONES, seccionDe, type DestinoBusqueda } from "@/lib/secciones";
 import { INDICE, porTarea, type Destino } from "@/lib/indice";
 import { TAREAS } from "@/lib/tareas";
@@ -126,7 +127,9 @@ export default function Paleta() {
   const sugerencias = useQuery({
     queryKey: clavesConsulta.buscar(consultaRebotada, 6),
     queryFn: ({ signal }) => buscarEnPlataforma<Sugerida, PantallaSugerida>(consultaRebotada, 6, signal),
-    enabled: abierta && consultaRebotada.length >= 2,
+    // Solo lo que sigue tecleado: al reabrir, el texto se vacía y la
+    // consulta rebotada aún dice el de la vez anterior.
+    enabled: abierta && consultaRebotada.length >= 2 && consultaRebotada === texto.trim(),
   });
   // «No respondió» no es «no hay nada»: se dice, en una línea. Solo el de lo
   // que está tecleado ahora, no el de una consulta que ya se dejó atrás.
