@@ -200,10 +200,24 @@ existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
     políticas» (las tablas se tocan solo por funciones) y funciones
     definidoras ejecutables, que son exactamente la superficie de la app.
 
-- ⚠️ Paso 5, **pendiente de aprobación**: el caso (§7). Aplicar
-  `20260928160000_caso.sql` a `Transac`, `notify pgrst, 'reload schema'`, y
-  comprobar como `anon` que `select espacios.publicado('no-existe')` sigue
-  en `null` y que `guardar_narrativa` da 42501. **Va antes del despliegue**:
+- ✅ Paso 5, con aprobación del dueño (2026-09-28): `caso` aplicada a
+  `Transac` antes del despliegue, con `notify pgrst, 'reload schema'`.
+  Antes de aplicar: ninguna fila con puerto de cinco cifras, y la única vieja
+  se llamaba `enlaces_desde_hasta_key`. Comprobado en vivo, en una transacción
+  revertida:
+  - una cuenta ajena no guarda la narración (42501), `anon` tampoco;
+  - la dueña guarda sobre su versión y una versión vieja devuelve `null`;
+  - un `update` directo de `narrativa` se niega;
+  - mover una tarjeta no cambia `actualizado`.
+
+  Por HTTP como `anon`: `publicado` 200, `comunidad` 200 y `guardar_narrativa`
+  42501. Los avisos de seguridad no traen nada nuevo: `guardar_narrativa`
+  aparece como definidora ejecutable, que es su oficio.
+  - ⚠️ Siguen dos avisos viejos de `democracia`: la vista definidora
+    `agregados_publicos`, que es a propósito, y el `search_path` de
+    `cedula_valida`.
+
+  Lo que sigue es la historia del paso. **Iba antes del despliegue**:
   la mesa y la bandeja ya piden `fecha, x, y` y `enlaces.tipo`. Sin la
   migración, `traducir` lee el 42703 como «aún no abierto» y no como caída,
   pero guardar no funcionaría: el código no pasa a `main` antes.
