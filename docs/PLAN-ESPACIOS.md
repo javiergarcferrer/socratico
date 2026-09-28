@@ -129,3 +129,19 @@ La migración **no se aplica** sin que el dueño lo diga. Los pasos, en orden:
 Mientras 1 y 2 no estén hechos, todo lo demás funciona: la portada, las
 fichas y «Seguir» en el navegador. `/cuenta` permite entrar (Auth ya
 existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
+
+**Estado (2026-09-28):**
+- ✅ Paso 1, con aprobación del dueño: las dos migraciones aplicadas a
+  `Transac` (`espacios`, `democracia_secretos_rls`). Comprobado en vivo: las
+  siete tablas de `espacios` con RLS y sin ningún permiso para `anon`;
+  `democracia.secretos` con RLS encendida y no forzada; `hash_cedula` responde;
+  `democracia.registrar_votante` como `authenticated`, dentro de una
+  transacción revertida con un usuario de prueba, devuelve `registrado` (el voto
+  sigue funcionando); `mi_correo()` y `mis_invitaciones()` responden. Los
+  avisos de seguridad no marcan nada de `espacios`; el único cambio es un aviso
+  informativo esperado («RLS sin políticas» en `democracia.secretos`: es la
+  cerradura).
+- ❌ Paso 2, pendiente del dueño: el API responde `PGRST106` («Only the
+  following schemas are exposed: public, storage, graphql_public,
+  democracia»). Hasta que se añada `espacios`, las pantallas de cuenta dicen
+  que los proyectos aún no están abiertos.
