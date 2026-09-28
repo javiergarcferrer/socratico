@@ -816,17 +816,30 @@ del archivo que las lleva:
 - **Los iconos salen de `components/icons.tsx`**, no de `lucide-react`.
 
 ### Bibliotecas de cliente — el mecanismo, no el aspecto
-Tres mecanismos que estaban escritos a mano los resuelve hoy una biblioteca
-madura, sin clave ni servicio (`docs/PLAN-ACCESO.md` §6 bis, puntos 6-8):
+Cuatro mecanismos que estaban escritos a mano los resuelve hoy una biblioteca
+madura, sin clave ni servicio (`docs/PLAN-ACCESO.md` §6 bis, puntos 6-8 y 10):
 
 | Mecanismo | Biblioteca | Dónde |
 |---|---|---|
 | Estado ↔ URL | `nuqs` (`NuqsAdapter` en `app/layout.tsx`) | `app/buscador.tsx` y `components/campo-licitaciones.tsx` (un solo mapa: `components/licitaciones-url.ts`), `components/nomina/explorer.tsx`, `components/buscador-url.tsx` (push + `shallow: false`: filtra el servidor). |
+| Lectura del navegador | `@tanstack/react-query` (`ProveedorConsultas` de `components/consultas.tsx` en `app/layout.tsx`; claves y lectores en `lib/consultas.ts`) | El listado y las unidades de `app/buscador.tsx`, la paleta (`components/paleta.tsx`), «Agregar» de `components/espacios/mesa-proyecto.tsx`, `app/seguimiento/page.tsx` y la instantánea de `components/nomina/explorer.tsx`. Cancela la petición vieja al cambiar la clave, comparte una respuesta entre componentes y conserva la lista anterior (`keepPreviousData`). Un reintento, como `lib/pedir.ts`; sin reenfocar. Las herramientas de desarrollo solo existen con `next dev`. |
 | Lista virtual | `@tanstack/react-virtual` | `components/nomina/data-table.tsx`. |
 | Hoja que se arrastra | `vaul` | `components/ui/drawer.tsx` (el `Drawer` de shadcn), bajo `components/bottom-sheet.tsx` y la hoja «Más» de `components/mobile-tab-bar.tsx`. Su movimiento propio (500 ms y su curva, en CSS inyectado y en línea) se reemplaza en `app/globals.css` por los tokens de la casa, y se apaga con movimiento reducido. |
 
 Un estado nuevo que deba sobrevivir a recargar o compartirse va por `nuqs`,
-no por `history.replaceState` ni por un efecto que reconcilie dos copias.
+no por `history.replaceState` ni por un efecto que reconcilie dos copias. Una
+lectura nueva del navegador a una ruta propia va por `useQuery` con su clave
+en `lib/consultas.ts`, no por `fetch` en un efecto con su `AbortController`.
+Fuera, a propósito: lo que habla con Supabase (los espacios, la sesión y
+`/democracia`: autenticación, tiempo real y RLS tienen su propio contrato en
+`lib/espacios-cliente.ts` y `lib/sesion.ts`) y el canje del código de Cuenta Única, que es una
+escritura de un solo uso.
+
+**TanStack Table no se usa, medido.** La única tabla de cliente que ordena es
+la de la nómina, y el orden son quince líneas sobre filas en tuplas. Con las
+94,659 plazas, `getCoreRowModel` de `@tanstack/table-core` 8 tarda ~1.1 s en
+construir los objetos de fila antes de ordenar; el orden propio, ~20 ms
+(2026-09-28, Node 22). El resto de tablas ordena en el servidor.
 
 ### La capa de arriba: lo que ninguna librería puede traer
 | Primitiva | Qué resuelve |
@@ -902,7 +915,8 @@ The sources are slow and outside our control, so the contract is that the
   un cuadro de datos normal (los artículos de un proceso); aquí manda el
   desplazamiento fluido.
 - **Client lists keep the previous results on screen** while the next page
-  loads (`aria-busy` + dimmed), never a skeleton swap; the skeleton is only
+  loads (`aria-busy` + dimmed; `placeholderData: keepPreviousData` in
+  TanStack Query), never a skeleton swap; the skeleton is only
   for the first paint. `/licitaciones` renders a real silhouette as the
   `useSearchParams` fallback, never `null`.
 - **Long lists paint lazily** with `.cv-auto` (`content-visibility: auto`;

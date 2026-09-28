@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useQueryStates } from "nuqs";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { claves, leerJson, useRebotado } from "@/lib/consultas";
 import type { OrdenProceso, Proceso } from "@/lib/dgcp";
 /*
   Las etapas se importan de `lib/estados.ts` y no de `lib/dgcp.ts`: son
@@ -130,6 +132,9 @@ interface ApiResult {
   error?: string;
 }
 
+/** Vacía y estable: una lista nueva en cada render dispararía los efectos que la leen. */
+const SIN_UNIDADES: Unidad[] = [];
+
 function hoyMenosDias(dias: number): string {
   const d = new Date(Date.now() - dias * 86400000);
   return d.toISOString().slice(0, 10);
@@ -218,22 +223,15 @@ export default function Buscador() {
     `?uc=` cambia desde fuera (una búsqueda guardada, «atrás»), el campo pasa a
     decir el nombre de esa institución.
   */
-  const [unidades, setUnidades] = useState<Unidad[]>([]);
+  // La lista no cambia en una visita: se pide una vez y la comparte cualquier
+  // montaje del buscador. Si no llega, el campo sigue siendo texto libre.
+  const { data: listaUnidades } = useQuery({
+    queryKey: claves.unidades,
+    queryFn: ({ signal }) => leerJson<Unidad[]>("/api/unidades", signal),
+    staleTime: 60 * 60_000,
+  });
+  const unidades = Array.isArray(listaUnidades) ? listaUnidades : SIN_UNIDADES;
   const [unidadTexto, setUnidadTextoLocal] = useState("");
-
-  useEffect(() => {
-    let cancel = false;
-    fetch("/api/unidades")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: Unidad[]) => {
-        if (cancel || !Array.isArray(list)) return;
-        setUnidades(list);
-      })
-      .catch(() => {});
-    return () => {
-      cancel = true;
-    };
-  }, []);
 
   const setUnidadTexto = useCallback(
     (v: string) => {
@@ -267,48 +265,42 @@ export default function Buscador() {
     [unidades, url.uc]
   );
 
-  const [data, setData] = useState<ApiResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  /*
+    El listado es una consulta de TanStack Query con los filtros por clave.
+    Cambiar un filtro cambia la clave: la petición anterior se cancela sola y
+    una respuesta tardía ya no puede pisar la nueva. Mientras llega la página
+    siguiente se queda la anterior en pantalla (`keepPreviousData`), atenuada
+    por `aria-busy`, nunca un esqueleto encima de lo que se estaba leyendo.
 
-  const fetchData = useCallback(async () => {
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      if (q.trim()) params.set("q", q.trim());
-      if (etapa) params.set("etapa", etapa);
-      if (modalidad) params.set("modalidad", modalidad);
-      if (startdate) params.set("startdate", startdate);
-      if (enddate) params.set("enddate", enddate);
-      if (mipyme) params.set("mipyme", "true");
-      if (unidadSel) params.set("unidad_compra", String(unidadSel.codigo));
-      // El orden viaja al servidor: ordenar aquí solo reordenaba las 24 filas
-      // de la página y el control decía «Mayor monto» de miles de procesos.
-      if (orden !== "recientes") params.set("orden", orden);
-      params.set("page", String(page));
-      params.set("limit", "24");
-      const res = await fetch(`/api/procesos?${params}`, { signal: ctrl.signal });
-      const json = (await res.json()) as ApiResult;
-      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-      setData(json);
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      setError(e instanceof Error ? e.message : "Error inesperado");
-    } finally {
-      if (abortRef.current === ctrl) setLoading(false);
-    }
-  }, [q, etapa, modalidad, startdate, enddate, mipyme, orden, page, unidadSel]);
-
-  // Debounce para el texto; inmediato para el resto de filtros.
-  useEffect(() => {
-    const t = setTimeout(fetchData, q ? 450 : 0);
-    return () => clearTimeout(t);
-  }, [fetchData, q]);
+    El texto espera 450 ms a que se deje de teclear; el resto de filtros, y
+    borrar el texto, piden en el acto.
+  */
+  const qConsulta = useRebotado(q.trim(), q.trim() ? 450 : 0);
+  const paramsListado = (() => {
+    const params = new URLSearchParams();
+    if (qConsulta) params.set("q", qConsulta);
+    if (etapa) params.set("etapa", etapa);
+    if (modalidad) params.set("modalidad", modalidad);
+    if (startdate) params.set("startdate", startdate);
+    if (enddate) params.set("enddate", enddate);
+    if (mipyme) params.set("mipyme", "true");
+    if (unidadSel) params.set("unidad_compra", String(unidadSel.codigo));
+    // El orden viaja al servidor: ordenar aquí solo reordenaba las 24 filas
+    // de la página y el control decía «Mayor monto» de miles de procesos.
+    if (orden !== "recientes") params.set("orden", orden);
+    params.set("page", String(page));
+    params.set("limit", "24");
+    return params.toString();
+  })();
+  const listado = useQuery({
+    queryKey: claves.procesos(paramsListado),
+    queryFn: ({ signal }) => leerJson<ApiResult>(`/api/procesos?${paramsListado}`, signal),
+    placeholderData: keepPreviousData,
+  });
+  const data = listado.data ?? null;
+  const loading = listado.isFetching;
+  const error = listado.error ? listado.error.message || "Error inesperado" : null;
+  const reintentar = () => void listado.refetch();
 
   /*
     La lista llega ya filtrada y ordenada, y paginada de verdad.
@@ -727,7 +719,7 @@ export default function Buscador() {
               No es un problema de tu búsqueda: los filtros siguen puestos. La
               fuente oficial no contestó a tiempo.
             </p>
-            <Button type="button" onClick={() => fetchData()} className="mt-4">
+            <Button type="button" onClick={reintentar} className="mt-4">
               Reintentar
             </Button>
           </Alert>

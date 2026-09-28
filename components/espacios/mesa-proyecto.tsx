@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { buscarEnPlataforma, claves } from "@/lib/consultas";
 import {
   anotar,
   borrarProyecto,
@@ -213,31 +215,35 @@ interface Hallado extends Referencia {
  */
 function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; existentes: Entrada[]; onAgregado: () => void }) {
   const [q, setQ] = useState("");
-  const [hallados, setHallados] = useState<Hallado[] | null>(null);
-  const [buscando, setBuscando] = useState(false);
+  // Lo que se buscó al enviar el formulario: la consulta sale de aquí, no de
+  // cada tecla.
+  const [enviada, setEnviada] = useState("");
   const [error, setError] = useState<string | null>(null);
   const ya = useMemo(() => new Set(existentes.map((e) => `${e.tipo}:${e.ref}`)), [existentes]);
 
-  async function buscar(e: React.FormEvent) {
+  const busqueda = useQuery({
+    queryKey: claves.buscar(enviada, 8),
+    queryFn: ({ signal }) =>
+      buscarEnPlataforma<{ tipo: string; titulo: string; detalle: string | null; href: string | null }>(enviada, 8, signal),
+    enabled: enviada.length >= 2,
+  });
+  const hallados: Hallado[] | null = busqueda.data
+    ? (busqueda.data.resultados ?? []).flatMap((x) => {
+        const tipo = tipoDeResultado(x.tipo);
+        return tipo && x.href && hrefValido(x.href) ? [{ tipo, ref: x.href, titulo: x.titulo, href: x.href, detalle: x.detalle }] : [];
+      })
+    : null;
+  const buscando = busqueda.isFetching;
+  const errorBusqueda = busqueda.isError ? "El buscador no respondió. Vuelve a intentarlo." : null;
+
+  function buscar(e: React.FormEvent) {
     e.preventDefault();
-    if (q.trim().length < 2) return;
-    setBuscando(true);
+    const t = q.trim();
+    if (t.length < 2) return;
     setError(null);
-    try {
-      const r = await fetch(`/api/buscar?q=${encodeURIComponent(q.trim())}&n=8`);
-      const j = (await r.json()) as { resultados?: { tipo: string; titulo: string; detalle: string | null; href: string | null }[] };
-      if (!r.ok || !j.resultados) throw new Error();
-      setHallados(
-        j.resultados.flatMap((x) => {
-          const tipo = tipoDeResultado(x.tipo);
-          return tipo && x.href && hrefValido(x.href) ? [{ tipo, ref: x.href, titulo: x.titulo, href: x.href, detalle: x.detalle }] : [];
-        }),
-      );
-    } catch {
-      setError("El buscador no respondió. Vuelve a intentarlo.");
-    } finally {
-      setBuscando(false);
-    }
+    // La misma consulta otra vez es «vuelve a intentarlo»: se pide de nuevo.
+    if (t === enviada) void busqueda.refetch();
+    else setEnviada(t);
   }
 
   async function agregar(h: Hallado) {
@@ -266,10 +272,10 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
       <p className="mt-1.5 text-xs text-ink-soft">
         El mismo índice de «Buscar en todo». También puedes guardar desde la ficha de cada registro.
       </p>
-      {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
+      {(error ?? errorBusqueda) && <p className="mt-2 text-xs text-alerta-700">{error ?? errorBusqueda}</p>}
       {hallados && (
         <ul aria-live="polite" className="mt-3 divide-y divide-hairline">
-          {hallados.length === 0 && <li className="py-2 text-sm text-ink-soft">Nada con «{q}» que se pueda guardar.</li>}
+          {hallados.length === 0 && <li className="py-2 text-sm text-ink-soft">Nada con «{enviada}» que se pueda guardar.</li>}
           {hallados.map((h) => {
             const dentro = ya.has(`${h.tipo}:${h.ref}`);
             return (

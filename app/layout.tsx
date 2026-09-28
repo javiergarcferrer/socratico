@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Instrument_Serif, Public_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import ProveedorConsultas from "@/components/consultas";
 import MobileTabBar from "@/components/mobile-tab-bar";
 import InstallPrompt from "@/components/install-prompt";
 import ScrollTop from "@/components/scroll-top";
@@ -89,6 +90,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           componentes distintos y tienen que leer la misma URL.
         */}
         <NuqsAdapter>
+        {/*
+          `ProveedorConsultas` es el cliente de TanStack Query: toda lectura
+          del navegador a una ruta propia (`/api/*`, `/data/*`) pasa por él
+          (`lib/consultas.ts`). Envuelve el cuerpo entero porque la paleta de
+          la cabecera y los buscadores de las páginas comparten sus respuestas.
+        */}
+        <ProveedorConsultas>
         {/*
           Chrome de dos niveles:
           1) Header global — marca, búsqueda con alcance (solo donde aplica) y
@@ -319,6 +327,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </footer>
+        </ProveedorConsultas>
         </NuqsAdapter>
       </body>
     </html>
