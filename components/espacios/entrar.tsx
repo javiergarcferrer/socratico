@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { rutaPropia } from "@/lib/espacios";
-import { abrirSesion, correoValido, leerEntrada, pedirCodigo } from "@/lib/sesion";
+import {
+  abrirSesion,
+  correoValido,
+  entrarConGoogle,
+  googleDisponible,
+  leerEntrada,
+  mensajeDeGoogle,
+  pedirCodigo,
+  vueltaDeGoogle,
+} from "@/lib/sesion";
 import {
   alEntrar,
   guardarNombre,
@@ -20,7 +29,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { IconArrowRight, IconCheck } from "@/components/icons";
+import { IconArrowRight, IconCheck, IconGoogle } from "@/components/icons";
 import { avisarCambioDeSesion } from "./presencia";
 
 type Paso = "cargando" | "correo" | "codigo" | "dentro";
@@ -31,9 +40,10 @@ function volverSeguro(v: string | null): string | null {
 }
 
 /**
- * Entrar o crear la cuenta: el mismo correo con código que `/democracia`
- * (`lib/sesion.ts`). No hay contraseña que olvidar ni que filtrar: cada
- * entrada es un código de un solo uso que llega al correo.
+ * Entrar o crear la cuenta: con Google, cuando el proveedor está activo en el
+ * proyecto, o con el mismo correo con código que `/democracia`
+ * (`lib/sesion.ts`). No hay contraseña que olvidar ni que filtrar: Google
+ * responde por quien entra, o llega al correo un código de un solo uso.
  *
  * Al entrar, lo que el navegador ya seguía pasa a la cuenta (`alEntrar`) y,
  * si hay invitaciones a ese correo, se avisa: se aceptan o no en «Tu
@@ -52,6 +62,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
   const [aviso, setAviso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [conGoogle, setConGoogle] = useState(false);
   const destino = volverSeguro(volver);
 
   async function dentro(u: Usuario, recienLlegado: boolean) {
@@ -87,16 +98,27 @@ export default function Entrar({ volver }: { volver: string | null }) {
   // fragmento en cuanto se inicializa.
   useEffect(() => {
     const llegada = leerEntrada(window.location.href);
+    const deGoogle = vueltaDeGoogle();
+    googleDisponible().then(setConGoogle);
     (async () => {
       let u = await sesionActual();
-      let nueva = false;
-      if (llegada && !u) {
+      // supabase-js ya consumió el fragmento de una vuelta de Google o del
+      // correo al inicializarse: la sesión existe, pero es recién llegada.
+      let nueva = Boolean(u && llegada && llegada.via !== "fallo");
+      if (llegada?.via === "fallo" && deGoogle) {
+        setError(mensajeDeGoogle(llegada.codigo));
+      } else if (llegada && !u) {
         const fallo = await abrirSesion("", llegada);
         if (fallo) setError(fallo);
         u = await sesionActual();
         nueva = Boolean(u);
       }
-      if (llegada) window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      if (llegada) {
+        // Solo `?volver=` sobrevive: el `?error=`/`?code=` de la vuelta ya se leyó.
+        const v = new URLSearchParams(window.location.search).get("volver");
+        const q = v ? `?${new URLSearchParams({ volver: v })}` : "";
+        window.history.replaceState(null, "", window.location.pathname + q);
+      }
       if (u) await dentro(u, nueva);
       else setPaso("correo");
     })();
@@ -113,6 +135,17 @@ export default function Entrar({ volver }: { volver: string | null }) {
     setCargando(false);
     if (fallo) setError(fallo);
     else setPaso("codigo");
+  }
+
+  async function google() {
+    setError(null);
+    setCargando(true);
+    // Vuelve aquí con el mismo `?volver=`: la llegada se resuelve al montar.
+    const fallo = await entrarConGoogle(window.location.pathname + window.location.search);
+    if (fallo) {
+      setCargando(false);
+      setError(fallo);
+    }
   }
 
   async function verificar(e: React.FormEvent) {
@@ -209,11 +242,21 @@ export default function Entrar({ volver }: { volver: string | null }) {
     <Card className="p-5 sm:p-6">
       {paso === "correo" ? (
         <form onSubmit={enviar} className="space-y-3">
-          <CardTitle>Entra o crea tu cuenta con tu correo</CardTitle>
+          <CardTitle>{conGoogle ? "Entra o crea tu cuenta" : "Entra o crea tu cuenta con tu correo"}</CardTitle>
           <p className="text-sm leading-relaxed text-ink-soft">
-            Te enviamos un código de seis dígitos. No hay contraseña: cada vez que entres
-            llega uno nuevo. Si ya votaste en el piloto de democracia, es la misma cuenta.
+            {conGoogle
+              ? "No hay contraseña: entras con tu cuenta de Google o con un código de seis dígitos que llega a tu correo. Si ya votaste en el piloto de democracia con ese mismo correo, es la misma cuenta."
+              : "Te enviamos un código de seis dígitos. No hay contraseña: cada vez que entres llega uno nuevo. Si ya votaste en el piloto de democracia, es la misma cuenta."}
           </p>
+          {conGoogle && (
+            <>
+              <Button type="button" variant="outline" size="lg" className="w-full" disabled={cargando} onClick={google}>
+                <IconGoogle className="h-4 w-4" />
+                Continuar con Google
+              </Button>
+              <p className="pt-1 text-center text-xs text-ink-soft">o con un código a tu correo</p>
+            </>
+          )}
           <Label htmlFor="correo-cuenta" className="sr-only">Correo</Label>
           <Input
             id="correo-cuenta"

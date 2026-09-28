@@ -73,9 +73,13 @@ sola, editor que mueve entradas, `href` con `/\`).
 
 ## 3. Pantallas
 
-- **`/cuenta`** — entrar o crear la cuenta con el código de seis dígitos que
-  llega al correo (`lib/sesion.ts`, la misma lectura tolerante de enlaces y
-  códigos que `/democracia/registro`), el nombre con que firma, salir, y qué se
+- **`/cuenta`** — entrar o crear la cuenta con Google o con el código de seis
+  dígitos que llega al correo (`lib/sesion.ts`, la misma lectura tolerante de
+  enlaces y códigos que `/democracia/registro`). El botón de Google solo
+  aparece si `/auth/v1/settings` dice `external.google: true` (⚠️ hoy
+  `false`: activarlo es del dueño, docs/DECISIONES.md); GoTrue une la
+  identidad de Google a la cuenta que ya tenga ese correo verificado, y
+  `mi_correo()` lo ve confirmado, así que las invitaciones siguen casando. El nombre con que firma, salir, y qué se
   guarda y qué no. Al entrar une lo que el navegador ya seguía con la cuenta
   y, si hay invitaciones, lo dice y lleva a `/espacio`. `?volver=` solo
   acepta `rutaPropia`. Salir borra de este navegador la lista de la cuenta.

@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase-config";
 
 /**
  * Abrir sesión con el correo: lo comparten `/democracia/registro` (votar) y
@@ -199,3 +200,71 @@ export async function pedirCodigo(email: string, volverA: string): Promise<strin
 
 /** Un correo con forma de correo: la validación de verdad la hace el envío. */
 export const correoValido = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+
+/* ------------------------------------------------------------- Google */
+
+/**
+ * Entrar con Google (OAuth de Supabase Auth). Es la misma cuenta que la del
+ * código: GoTrue une la identidad de Google al usuario que ya tenga ese correo
+ * verificado, así que quien votó o guardó con su correo no pierde nada.
+ *
+ * El proveedor se activa en el panel de Supabase (docs/DECISIONES.md); hasta
+ * entonces `/auth/v1/settings` dice `google: false` y el botón no se ofrece:
+ * un botón que lleva a un error es un control sin efecto (IDENTIDAD §6).
+ */
+let googleActivo: Promise<boolean> | null = null;
+
+export function googleDisponible(): Promise<boolean> {
+  googleActivo ??= fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+    headers: { apikey: SUPABASE_ANON_KEY },
+    signal: AbortSignal.timeout(8_000),
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((s: { external?: { google?: boolean } } | null) => s?.external?.google === true)
+    .catch(() => false);
+  return googleActivo;
+}
+
+/**
+ * Marca de «esta vuelta viene de Google». Sin ella, un `?error=access_denied`
+ * de quien canceló en Google se leería como un enlace de correo vencido y se
+ * le mandaría a pedir un correo que nunca pidió.
+ */
+const MARCA_GOOGLE = "socratico-entrada-google";
+
+/**
+ * Sale hacia Google. `volverA` es la ruta de esta plataforma a la que vuelve
+ * la sesión; si el dominio no está en la lista de redirecciones del panel,
+ * GoTrue la sustituye por el Site URL (el mismo caso medido en `Entrada`).
+ * Devuelve el mensaje del fallo, o `null` si el navegador ya va de camino.
+ */
+export async function entrarConGoogle(volverA: string): Promise<string | null> {
+  try {
+    window.sessionStorage.setItem(MARCA_GOOGLE, "1");
+  } catch {
+    /* sin almacenamiento: el fallo, si lo hay, se dirá en su forma genérica */
+  }
+  const { error } = await supabase().auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${window.location.origin}${volverA}` },
+  });
+  return error ? "No se pudo abrir la entrada con Google. Vuelve a intentarlo o entra con tu correo." : null;
+}
+
+/** ¿Esta llegada es la vuelta de Google? Se lee una sola vez: la marca se gasta. */
+export function vueltaDeGoogle(): boolean {
+  try {
+    const marca = window.sessionStorage.getItem(MARCA_GOOGLE) === "1";
+    window.sessionStorage.removeItem(MARCA_GOOGLE);
+    return marca;
+  } catch {
+    return false;
+  }
+}
+
+export function mensajeDeGoogle(codigo: string): string {
+  if (codigo === "access_denied") {
+    return "No se completó la entrada con Google: se canceló o no se dio permiso. Puedes volver a intentarlo o entrar con tu correo.";
+  }
+  return "Google no devolvió una sesión válida. Vuelve a intentarlo o entra con tu correo.";
+}

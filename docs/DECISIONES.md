@@ -33,6 +33,22 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   allowlisted, and the registration form accepts all five return shapes,
   including the address bar the visitor is stranded on after tapping the link
   (which carries the session even though the link's token is already spent).
+- **Google sign-in for `/cuenta`** (PLAN-ESPACIOS §3): built and inert — the
+  button appears by itself once `/auth/v1/settings` reports `google: true`
+  (⚠️ `false`, measured 2026-09-28). Owner steps: (1) Google Cloud Console →
+  OAuth consent screen (external, app name Socrático.do, domain
+  `socratico.vercel.app`) → Credentials → OAuth client ID, type Web, authorized
+  redirect URI `https://amuyclnyjyhigeyhuufs.supabase.co/auth/v1/callback`;
+  (2) Supabase → Authentication → Sign In / Providers → Google: enable, paste
+  client ID and secret (the secret lives only in the panel, never in the repo);
+  (3) **required first**: Authentication → URL Configuration → Site URL
+  `https://socratico.vercel.app` and add `https://socratico.vercel.app/**` to
+  the redirect allowlist — otherwise GoTrue returns every Google login to
+  `http://localhost:3000`. The pool is shared with `Transac`: enabling the
+  provider does not change that app's login unless it offers the button.
+  Google's consent screen names `amuyclnyjyhigeyhuufs.supabase.co` until the
+  project has a custom Auth domain (paid add-on). Email code stays as the
+  fallback; `/democracia/registro` is untouched.
 - **Cuenta Única OAuth2 client** (PLAN-DEMOCRACIA §9, AUDITORIA §A.11):
   identity v2 for `/democracia` is **built and inert** (public PKCE client,
   verification inside the Edge Function `vincular-cuenta-unica`, subject
