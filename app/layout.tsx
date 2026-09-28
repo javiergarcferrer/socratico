@@ -14,7 +14,7 @@ import SincronizarCuenta from "@/components/espacios/sincronizar";
 import Rastro from "@/components/rastro";
 import SectionBar from "@/components/section-bar";
 import { SECCIONES } from "@/lib/secciones";
-import { Logotipo, Sello, SelloCompacto } from "@/components/marca";
+import { Logotipo, Sello } from "@/components/marca";
 import { Card } from "@/components/ui/card";
 
 /*
@@ -113,7 +113,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
 
         <header
-          className="sticky top-0 z-50 bg-marca text-canvas"
+          className="cabecera sticky top-0 z-50 text-canvas"
           style={{ paddingTop: "env(safe-area-inset-top)" }}
         >
           {/*
@@ -127,12 +127,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             plataforma.
           */}
           <div className="mx-auto flex min-h-[64px] max-w-6xl items-center gap-2.5 px-4 py-2 sm:gap-4">
-            <Link
-              href="/"
-              className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
-            >
-              <SelloCompacto className="h-9 w-9" fondo="#f7f3ea" trazo="#171d2e" acento="#c8102e" />
-              <Logotipo className="text-[19px] max-[340px]:hidden" />
+            {/*
+              La marca es la palabra, sola (decisión del dueño, 2026-09-28): sin
+              placa, «socrático» con su acento de sello. En pantallas anchas la
+              acompaña lo que promete, en el registro de la casa.
+            */}
+            <Link href="/" className="group/marca flex shrink-0 items-center gap-4 py-1" aria-label="Socrático, inicio">
+              <Logotipo className="cabecera-marca text-[26px] sm:text-[30px]" />
+              <span
+                aria-hidden
+                className="hidden border-l border-canvas/20 pl-4 font-mono text-[10.5px] font-medium uppercase leading-tight tracking-[0.16em] text-canvas/55 transition-colors group-hover/marca:text-canvas/80 xl:block"
+              >
+                Pregúntale
+                <br />
+                al Estado
+              </span>
             </Link>
 
             <div className="min-w-0 flex-1" />
@@ -144,13 +153,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               la mano que sostiene el teléfono, y dice su nombre en todas las
               anchuras: una lupa sola no dice qué recorre.
             */}
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <Paleta />
               {/* La cuenta: «Entrar» o «Tu espacio» (docs/PLAN-ESPACIOS.md). */}
               <PuertaCuenta />
             </div>
           </div>
-          <div className="h-px bg-canvas/20" />
         </header>
 
         <SectionBar />

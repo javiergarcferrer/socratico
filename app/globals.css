@@ -38,6 +38,8 @@
   */
   --color-marca: #0b2d6b;
   --color-marca-acento: #ff5a5f;
+  /* El canto de la cabecera: el mismo azul, más hondo, sin difuminar. */
+  --color-marca-canto: #061a42;
 
   /* Papel, tinta y márgenes: la superficie del documento */
   --color-canvas: #f7f3ea;
@@ -272,6 +274,11 @@
       pulsa: al tacto, un mando es papel con cuerpo; lo que se lee es liso.
     */
     --grano: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .09 0 0 0 0 .11 0 0 0 0 .18 0 0 0 .11 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+    /*
+      La misma fibra teñida de papel, para el azul de la cabecera: sobre tinta
+      la fibra oscura no se ve. Es la tapa de un expediente, no una barra de app.
+    */
+    --grano-claro: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .97 0 0 0 0 .95 0 0 0 0 .92 0 0 0 .075 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
 
     /*
       Una altura `auto` se puede animar (Chrome 129+). Donde no, el pliegue
@@ -498,6 +505,84 @@
   .relative:has(.estira[aria-pressed="true"]):not(:has(.relative .estira)):not([data-slot="card"]) {
     background-color: var(--color-brand-50);
     box-shadow: inset 0 2px 3px -2px rgb(23 29 46 / 0.18);
+  }
+}
+
+/*
+  La cabecera (decisión del dueño, 2026-09-28): la tapa del expediente. Azul
+  de la marca con la fibra del papel, luz de 1 px arriba y un canto duro de
+  2 px abajo —el borde de una hoja gruesa, no una sombra de vidrio—. Es la
+  única superficie que no se pulsa y lleva fibra: es la marca, no contenido.
+
+  Al desplazarse, y solo entonces, la tapa se asienta: la palabra se reduce
+  un poco y el canto se ahonda, atados al desplazamiento con
+  `animation-timeline: scroll()`. No cambia de altura —nada de la página
+  salta—; se mueve lo que el lector movió (§Movimiento, regla 1). Donde el
+  navegador no sabe atarlo, la cabecera se queda quieta.
+*/
+.cabecera {
+  background-color: var(--color-marca);
+  background-image: var(--grano-claro);
+  box-shadow:
+    inset 0 1px 0 0 rgb(247 243 234 / 0.1),
+    0 1px 0 0 var(--color-marca-canto),
+    0 2px 0 0 var(--color-marca-canto);
+}
+.cabecera-marca {
+  transform-origin: left center;
+}
+
+/*
+  Las puertas de la cabecera: la raya de papel se **dibuja** de izquierda a
+  derecha al apuntar, a media tinta; la de la sección donde está el lector
+  queda entera.
+*/
+.cabecera-puerta::after {
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition:
+    transform var(--dur-breve) var(--ease-firma),
+    opacity var(--dur-breve) var(--ease-firma);
+}
+/* El chevrón gira con la misma curva y duración que la raya. */
+.cabecera-puerta > svg {
+  transition: transform var(--dur-breve) var(--ease-firma);
+}
+@media (hover: hover) {
+  .cabecera-puerta:hover::after {
+    transform: scaleX(1);
+    opacity: 0.45;
+  }
+}
+.cabecera-puerta[data-activo="true"]::after,
+.cabecera-puerta[data-state="open"]::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+@keyframes lr-cabecera-asienta {
+  to {
+    box-shadow:
+      inset 0 1px 0 0 rgb(247 243 234 / 0.06),
+      0 1px 0 0 var(--color-marca-canto),
+      0 3px 0 0 var(--color-marca-canto);
+  }
+}
+@keyframes lr-marca-asienta {
+  to {
+    transform: scale(0.88);
+  }
+}
+@supports (animation-timeline: scroll()) {
+  .cabecera {
+    animation: lr-cabecera-asienta linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 96px;
+  }
+  .cabecera-marca {
+    animation: lr-marca-asienta linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 96px;
   }
 }
 
@@ -801,6 +886,8 @@
   }
   .shimmer::after,
   .live-dot::before,
+  .cabecera,
+  .cabecera-marca,
   .bar-grow,
   .columna-grow,
   .capa[data-state],
@@ -830,5 +917,10 @@
   [data-slot="card"] {
     transform: none !important;
     transition-duration: 0ms !important;
+  }
+  /* La raya de la puerta aparece entera, sin dibujarse; el chevrón, girado. */
+  .cabecera-puerta::after,
+  .cabecera-puerta > svg {
+    transition: none;
   }
 }

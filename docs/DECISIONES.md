@@ -91,6 +91,12 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Cerradas, para que nadie las reabra
 
+- **La cabecera es la palabra, sin placa (28-09-2026).** El dueño pidió quitar
+  la «s» en placa de la cabecera: la marca ahí es «socrático» sola, más
+  grande, con fibra, canto y un asentarse atado al desplazamiento
+  (docs/IDENTIDAD.md §La marca y §Relieve). La placa sigue en el favicon y el
+  ícono de la app.
+
 - **Cuentas y espacios del lector** (28-09-2026). El dueño pidió una portada que
   explique por qué crear una cuenta y espacios donde guardar registros, armar
   proyectos de investigación que enlacen registros distintos, anotarlos,

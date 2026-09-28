@@ -60,13 +60,13 @@ function NavigationMenuItem({
 
 /** El disparador sobre la tinta: sustantivo, galón y el estado activo en papel. */
 const disparador = cn(
-  "group inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-canvas/80 transition-colors",
-  "hover:bg-canvas/10 hover:text-canvas",
-  "data-[state=open]:bg-canvas/10 data-[state=open]:text-canvas",
-  // La puerta que contiene la página actual lleva una raya de papel debajo:
-  // dice «estás aquí» sin competir con el panel abierto.
-  "relative after:absolute after:inset-x-2.5 after:-bottom-1 after:h-0.5 after:rounded-sm after:bg-canvas after:opacity-0 after:transition-opacity",
-  "data-[activo=true]:text-canvas data-[activo=true]:after:opacity-100",
+  "cabecera-puerta group inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium tracking-[0.005em] text-canvas/78 transition-colors",
+  "hover:text-canvas data-[state=open]:text-canvas",
+  // La raya de papel debajo se dibuja al apuntar y queda entera en la puerta
+  // que contiene la página actual: dice «estás aquí» sin competir con el
+  // panel abierto. El dibujo vive en `.cabecera-puerta` (app/globals.css).
+  "relative after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-sm after:bg-canvas",
+  "data-[activo=true]:text-canvas",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-canvas/50",
 );
 
@@ -84,7 +84,7 @@ function NavigationMenuTrigger({
       {children}
       <IconChevronDown
         aria-hidden
-        className="h-3.5 w-3.5 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180"
+        className="h-3.5 w-3.5 opacity-60 group-data-[state=open]:rotate-180"
       />
     </NavigationMenuPrimitive.Trigger>
   );

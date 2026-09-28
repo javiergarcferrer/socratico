@@ -91,9 +91,11 @@ una sola palabra en minúscula, **sin «.do»**: el nombre es Socrático.
   azul `marca`** (decisión del dueño, 2026-09-25): la cabecera, la placa azul
   del pie, la tarjeta para compartir. Nunca sobre blanco ni sobre papel; sobre
   papel la marca es la placa del ícono.
-- `SelloCompacto` — la «s» con el mismo acento en una placa (SVG): en la
-  cabecera, placa de papel sobre el azul; en el favicon (`app/icon.svg`) y el
-  ícono de la app, placa azul `marca` con el acento en `marca-acento`.
+- `SelloCompacto` — la «s» con el mismo acento en una placa (SVG): en el
+  favicon (`app/icon.svg`) y el ícono de la app, placa azul `marca` con el
+  acento en `marca-acento`. **No va en la cabecera** (decisión del dueño,
+  2026-09-28): ahí la marca es la palabra sola, a 26–30 px, y en pantallas
+  anchas la acompaña «Pregúntale al Estado» en el registro mono.
 - `Sello` — la circular con «¿» al centro y el aro «SOCRÁTICO · PREGÚNTALE AL
   ESTADO · REPÚBLICA DOMINICANA». Es el sello de firma (pie de página, tarjeta
   social), no el logotipo. Nunca por debajo de 72 px con aro. Sobre azul, trazo `papel` y el punto
@@ -116,6 +118,14 @@ ninguno es decorativo.
 | **Relieve** | Se pulsa | Fibra de papel (`--grano`), luz de 1 px arriba y **canto** de 2 px abajo, sin difuminar. Al apuntar sube 1 px y el canto crece; al pulsar baja 2 px y el canto desaparece. | `Button` con caja (principal, secundario, filete, sello), la tarjeta que es un enlace. |
 | **Hundido** | Está puesto | Sin canto, sombra por dentro. | El filtro que es la página actual (`aria-current`), «Siguiendo» (`aria-pressed`), la opción elegida de un conmutador, la bandeja del conmutador. |
 | **Capa** | Se superpone | `shadow-pop`. | Menús, hojas, diálogos. |
+
+**La cabecera es la tapa del expediente** (decisión del dueño, 2026-09-28):
+azul `marca` con la fibra en papel (`--grano-claro`), luz de 1 px arriba y
+canto duro de 2 px en `marca-canto`. Es la única superficie que lleva fibra
+sin pulsarse, porque es la marca y no contenido. Al desplazarse se asienta
+—la palabra al 88 %, el canto a 3 px— atada al desplazamiento, sin cambiar
+de altura; sus puertas dibujan la raya de papel al apuntarlas (`.cabecera`,
+`.cabecera-puerta` en `app/globals.css`).
 
 La fila de una lista no tiene canto —la lista ya es una hoja—: se tiñe de
 firma al apuntarla y se **hunde** al pulsarla.
