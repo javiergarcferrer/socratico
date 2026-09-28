@@ -17,7 +17,8 @@ import { EnlaceRegistro } from "./registro";
 /** Los estilos de la narración: los mismos en el editor y en la lectura. */
 export const CLASE_NARRATIVA = [
   "text-[15px] leading-relaxed text-ink",
-  "[&_p]:my-2.5 [&_h3]:font-display [&_h3]:mt-5 [&_h3]:mb-1.5 [&_h3]:text-2xl [&_h4]:mt-4 [&_h4]:mb-1 [&_h4]:text-base [&_h4]:font-bold",
+  // La serif es de h1 y h2 (docs/IDENTIDAD.md): los títulos de la narración van en sans.
+  "[&_p]:my-2.5 [&_h3]:mt-5 [&_h3]:mb-1.5 [&_h3]:text-lg [&_h3]:font-bold [&_h4]:mt-4 [&_h4]:mb-1 [&_h4]:text-base [&_h4]:font-semibold",
   "[&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_li>p]:my-1",
   "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline [&_blockquote]:pl-3 [&_blockquote]:text-ink-soft",
   "[&_hr]:my-5 [&_hr]:border-hairline",
@@ -112,12 +113,13 @@ function nodo(n: NodoNarrativa, k: number, nivel: number, porId: Map<string, Reg
 }
 
 function Marcado({ texto, marcas }: { texto: string; marcas?: { type: string }[] }) {
+  // Cada marca se aplica una vez, aunque el documento la repita mil: así el
+  // anidamiento tiene tope (cuatro) y un documento hecho a mano no ahoga el servidor.
+  const tiene = new Set((Array.isArray(marcas) ? marcas : []).map((m) => m?.type));
   let r: ReactNode = texto;
-  for (const m of Array.isArray(marcas) ? marcas : []) {
-    if (m?.type === "bold") r = <strong>{r}</strong>;
-    else if (m?.type === "italic") r = <em>{r}</em>;
-    else if (m?.type === "strike") r = <s>{r}</s>;
-    else if (m?.type === "underline") r = <u>{r}</u>;
-  }
+  if (tiene.has("bold")) r = <strong>{r}</strong>;
+  if (tiene.has("italic")) r = <em>{r}</em>;
+  if (tiene.has("strike")) r = <s>{r}</s>;
+  if (tiene.has("underline")) r = <u>{r}</u>;
   return <>{r}</>;
 }

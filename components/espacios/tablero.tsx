@@ -186,7 +186,7 @@ function Lienzo({
   // Al cambiar los datos (una tarjeta nueva, una selección) se rehace la
   // lista, pero lo que se está arrastrando se queda bajo el dedo, y cada nodo
   // conserva su medida para no parpadear.
-  useEffect(
+  const rehacer = useCallback(
     () =>
       setNodos((antes) => {
         const previo = new Map(antes.map((n) => [n.id, n]));
@@ -197,6 +197,39 @@ function Lienzo({
         });
       }),
     [construir],
+  );
+  useEffect(rehacer, [rehacer]);
+  const rehacerRef = useRef(rehacer);
+  rehacerRef.current = rehacer;
+  const onMoverRef = useRef(onMover);
+  onMoverRef.current = onMover;
+
+  // Dónde quedó cada tarjeta, se haya movido con el ratón, el dedo o las
+  // flechas del teclado: se guarda un momento después del último paso, para
+  // que diez toques de flecha sean una escritura y no diez.
+  const porGuardar = useRef(new Map<string, { x: number; y: number }>());
+  const espera = useRef<number | null>(null);
+  const guardarPosiciones = useCallback(async () => {
+    espera.current = null;
+    const lote = [...porGuardar.current];
+    porGuardar.current.clear();
+    for (const [id, p] of lote) {
+      const bien = (await onMoverRef.current?.(id, p.x, p.y)) ?? true;
+      // Si la base no lo guardó, la tarjeta vuelve a donde estaba.
+      if (!bien) {
+        locales.current.delete(id);
+        rehacerRef.current();
+      }
+    }
+  }, []);
+  useEffect(
+    () => () => {
+      if (espera.current) {
+        window.clearTimeout(espera.current);
+        void guardarPosiciones();
+      }
+    },
+    [guardarPosiciones],
   );
 
   const aristas = useMemo<Edge[]>(
@@ -222,23 +255,25 @@ function Lienzo({
     [lazos, seleccion],
   );
 
-  const alCambiar = useCallback((c: NodeChange<NodoTarjeta>[]) => setNodos((n) => applyNodeChanges(c, n)), []);
-
-  const alSoltar = useCallback(
-    async (_e: unknown, _nodo: NodoTarjeta, movidos: NodoTarjeta[]) => {
-      if (!onMover) return;
-      for (const n of movidos) {
-        const p = { x: Math.round(n.position.x), y: Math.round(n.position.y) };
-        locales.current.set(n.id, p);
-        const bien = await onMover(n.id, p.x, p.y);
-        // Si la base no lo guardó, la tarjeta vuelve a donde estaba.
-        if (!bien) {
-          locales.current.delete(n.id);
-          setNodos(construir());
-        }
+  const alCambiar = useCallback(
+    (cambios: NodeChange<NodoTarjeta>[]) => {
+      setNodos((n) => applyNodeChanges(cambios, n));
+      if (!onMoverRef.current) return;
+      let hay = false;
+      for (const c of cambios) {
+        // Una posición sin arrastre en curso es un paso terminado: el fin de
+        // un arrastre o una flecha del teclado.
+        if (c.type !== "position" || !c.position || c.dragging) continue;
+        const p = { x: Math.round(c.position.x), y: Math.round(c.position.y) };
+        locales.current.set(c.id, p);
+        porGuardar.current.set(c.id, p);
+        hay = true;
       }
+      if (!hay) return;
+      if (espera.current) window.clearTimeout(espera.current);
+      espera.current = window.setTimeout(() => void guardarPosiciones(), 400);
     },
-    [onMover, construir],
+    [guardarPosiciones],
   );
 
   const alConectar = useCallback(
@@ -264,7 +299,6 @@ function Lienzo({
       edges={aristas}
       nodeTypes={TIPOS_NODO}
       onNodesChange={alCambiar}
-      onNodeDragStop={alSoltar}
       onConnect={alConectar}
       onSelectionChange={alElegir}
       nodesDraggable={edita}
@@ -277,6 +311,9 @@ function Lienzo({
       // o pellizcando. Un tablero a media página no secuestra el scroll.
       zoomOnScroll={false}
       preventScrolling={false}
+      // Quien solo mira no arrastra el lienzo con el dedo: el dedo baja la
+      // página. Se acerca pellizcando o con los botones.
+      panOnDrag={edita}
       fitView
       fitViewOptions={ENCUADRE}
       minZoom={0.2}
@@ -312,6 +349,8 @@ export default function Tablero(props: PropsTablero) {
       role="group"
       aria-label={`Tablero del caso: ${tarjetas.length} ${tarjetas.length === 1 ? "registro" : "registros"} y ${lazos.length} ${lazos.length === 1 ? "enlace" : "enlaces"}. Lo mismo está en la lista de registros.`}
       className="h-[26rem] w-full overflow-hidden rounded-lg border border-hairline bg-canvas sm:h-[34rem]"
+      // El crédito de React Flow sobre papel, no sobre blanco de pantalla.
+      style={{ ["--xy-attribution-background-color" as string]: "var(--color-surface)" }}
     >
       <ReactFlowProvider>
         <Lienzo {...props} edita={edita} ajeno={props.ajeno ?? false} />

@@ -105,6 +105,13 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crear claves del Gateway ni tokens OIDC (403, verificado 24-09-2026): la
   crea el dueño en su panel, con tope de gasto.
 
+- **¿Se permite el verbo «es familiar de» en un caso publicado?** Deja que
+  cualquiera publique en `/p` un parentesco sobre personas con nombre: es un
+  dato personal (Ley 172-13). Hoy existe, `/p` dice que cada flecha es
+  afirmación de su autor y la conversación se modera después. Las opciones:
+  quitarlo de `TIPOS_ENLACE` (y del `check`), dejarlo solo en casos privados,
+  o mantenerlo. Decide el dueño.
+
 ## Cerradas, para que nadie las reabra
 
 - **«Confirm email» encendido (28-09-2026).** Con `mailer_autoconfirm: true`

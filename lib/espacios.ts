@@ -83,8 +83,23 @@ export function rutaPropia(v: unknown): v is string {
 
 /** Lo que `espacios.entradas` acepta en `href`: el mismo `espacios.href_valido(h, true)`. */
 export function hrefValido(href: string): boolean {
-  const externo = href.length <= 1000 && !/[\s\p{Cc}\\]/u.test(href) && /^https:\/\/[a-z0-9.-]+(:[0-9]+)?(\/|$)/i.test(href);
+  const externo =
+    href.length <= 1000 &&
+    !/[\s\p{Cc}\\]/u.test(href) &&
+    /^https:\/\/[a-z0-9.-]+(:[0-9]{1,4})?(\/|$)/i.test(href) &&
+    // Lo que el navegador no sabe leer como dirección no se pinta como enlace.
+    seLee(href);
   return externo || rutaPropia(href);
+}
+
+/** `URL.canParse` sin exigirlo: Safari 16 no lo tiene. */
+function seLee(href: string): boolean {
+  try {
+    new URL(href);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /* ---------------------------------------------------------------- el caso */

@@ -87,7 +87,9 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
         <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">{p.titulo}</h1>
         {p.descripcion && <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-ink">{p.descripcion}</p>}
         <p className="mt-3 text-xs leading-relaxed text-ink-soft">
-          La selección y las notas son de su autor, no de Socrático ni del Estado. «{p.autor}» es
+          La selección, la narración, las fechas, lo que une a cada registro y las notas son
+          afirmaciones de su autor, no de Socrático ni del Estado: una flecha que dice «pagó a» es
+          lo que él sostiene, no un dato verificado. «{p.autor}» es
           el nombre de firma que escribió quien la publica: Socrático no lo verifica. Cada registro
           abre su ficha, que lee la cifra de su fuente oficial.
         </p>
@@ -108,7 +110,12 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
           <p className="text-xs leading-relaxed text-ink-soft">
             Como lo armó su autor. Cada flecha se lee con su verbo; lo mismo está en «Lo que los une», más abajo.
           </p>
-          <TableroDiferido tarjetas={p.entradas} lazos={lazos} ajeno />
+          {/* Al tablero solo lo que pinta: las notas ya viajan una vez, con la lista. */}
+          <TableroDiferido
+            tarjetas={p.entradas.map(({ id, tipo, titulo, href, fecha, x, y }) => ({ id, tipo, titulo, href, fecha, x, y }))}
+            lazos={lazos}
+            ajeno
+          />
         </Card>
       )}
 

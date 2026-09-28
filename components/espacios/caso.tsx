@@ -150,7 +150,7 @@ export default function Caso({
             <>
               <p className="text-xs leading-relaxed text-ink-soft">
                 {edita
-                  ? "Arrastra las tarjetas a donde te sirvan; para unir dos, tira una flecha del punto derecho de una al izquierdo de otra. Toca una tarjeta o una flecha para abrirla abajo."
+                  ? "Arrastra las tarjetas a donde te sirvan; para unir dos, tira una flecha del punto derecho de una al izquierdo de otra, o abre una y usa «Enlazar con otro registro». Toca una tarjeta o una flecha para abrirla abajo."
                   : "Toca una tarjeta o una flecha para ver su nota abajo."}
               </p>
               <TableroDiferido

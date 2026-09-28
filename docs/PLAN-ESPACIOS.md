@@ -204,8 +204,13 @@ existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
   `20260928160000_caso.sql` a `Transac`, `notify pgrst, 'reload schema'`, y
   comprobar como `anon` que `select espacios.publicado('no-existe')` sigue
   en `null` y que `guardar_narrativa` da 42501. **Va antes del despliegue**:
-  la mesa y la bandeja ya piden `fecha, x, y` y `enlaces.tipo`, y sin la
-  migración responderían con error.
+  la mesa y la bandeja ya piden `fecha, x, y` y `enlaces.tipo`. Sin la
+  migración, `traducir` lee el 42703 como «aún no abierto» y no como caída,
+  pero guardar no funcionaría: el código no pasa a `main` antes.
+
+  ⚠️ **Orden al re-ejecutar:** `20260928120000_espacios.sql` vuelve a dar los
+  permisos de columna viejos y la `publicado` sin el caso. Quien la re-ejecute
+  corre después `20260928160000_caso.sql`, siempre.
 
 ## 6. La conversación
 

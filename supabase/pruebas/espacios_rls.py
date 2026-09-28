@@ -135,6 +135,8 @@ esperar("un documento que no es del editor se rechaza", como(A, "ana@x.do", "sel
 esperar("una narración enorme se rechaza", como(A, "ana@x.do", "select espacios.guardar_narrativa(%s, jsonb_build_object('type','doc','t',repeat('x',210000)), 2)", params=(pid,)), "error")
 esperar("C no guarda narración ajena", como(C, "carla@x.do", "select espacios.guardar_narrativa(%s, %s::jsonb, 2)", params=(pid, DOC)), "error")
 esperar("anon no guarda narración", como(None, None, "select espacios.guardar_narrativa(%s, %s::jsonb, 2)", rol="anon", params=(pid, DOC)), "error")
+esperar("ni al crear un proyecto", como(A, "ana@x.do", "insert into espacios.proyectos (titulo, narrativa_version) values ('x', 7)"), "error")
+esperar("crear con título y descripción sigue pasando", como(A, "ana@x.do", "insert into espacios.proyectos (titulo, descripcion) values ('Nuevo', 'd') returning narrativa_version"), [(0,)])
 esperar("la versión quedó en 2", como(A, "ana@x.do", f"select narrativa_version from espacios.proyectos where id='{pid}'"), [(2,)])
 
 # ---- una extraña no ve ni toca nada
@@ -222,6 +224,7 @@ for nombre, h in [
     ("/<salto>/otro", "/\n/evil.com"),
     ("https con espacio", "https://x.gob.do/a b"),
     ("http sin s", "http://x.gob.do/a"),
+    ("puerto imposible", "https://x.gob.do:99999/a"),
 ]:
     esperar(f"href {nombre} rechazado", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('documento','z','z',%s)", params=(h,)), "error")
 esperar("href propio aceptado", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('norma','/normativa/ley/9-20','L','/normativa/ley/9-20') returning ref"), [("/normativa/ley/9-20",)])

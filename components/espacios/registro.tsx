@@ -47,7 +47,16 @@ export function EnlaceRegistro({
         {titulo}
         <IconExternal className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-ink-soft" />
       </a>
-      {ajeno && <span className="ml-1.5 font-mono text-xs text-ink-soft">{new URL(href).hostname}</span>}
+      {ajeno && <span className="ml-1.5 font-mono text-xs text-ink-soft">{sitio(href)}</span>}
     </>
   );
+}
+
+/** El sitio al que lleva un enlace; si no se puede leer, no se inventa uno. */
+function sitio(href: string): string {
+  try {
+    return new URL(href).hostname;
+  } catch {
+    return "";
+  }
 }

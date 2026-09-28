@@ -10,6 +10,8 @@ paths:
   - "lib/sesion.ts"
   - "supabase/migrations/*espacios*"
   - "supabase/migrations/*conversacion*"
+  - "supabase/migrations/*caso*"
+  - "lib/ftm.ts"
   - "supabase/pruebas/**"
 ---
 # The reader's account and spaces — the second exception

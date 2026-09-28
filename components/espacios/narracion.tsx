@@ -42,9 +42,14 @@ type Estado =
   | { e: "error"; error: string };
 
 const ESPERA = 1200;
-// La base acepta 200 000 bytes del documento como lo escribe Postgres, que
-// añade espacios al JSON: aquí se corta antes, con margen.
-const TOPE = 180_000;
+// La base acepta 200 000 bytes del documento como lo escribe Postgres
+// (`jsonb::text`, con un espacio tras cada «:» y cada «,»). Aquí se mide igual
+// y se corta un poco antes.
+const TOPE = 195_000;
+
+function bytesComoPostgres(doc: NodoNarrativa): number {
+  return new TextEncoder().encode(JSON.stringify(doc).replace(/([:,])/g, "$1 ")).length;
+}
 
 /** Sin tildes ni mayúsculas: «Inapa» encuentra «INAPA» y «adjudicación» «adjudicacion». */
 function plano(s: string): string {
@@ -65,6 +70,9 @@ export default function Narracion({ proyecto, registros }: { proyecto: string; r
   const temporizador = useRef<number | null>(null);
   const enVuelo = useRef(false);
   const otraVez = useRef(false);
+  // Cuántas ediciones van: si llega una mientras se guarda, lo guardado ya no
+  // es lo que está en pantalla y no se dice «guardada».
+  const cambios = useRef(0);
   // Lo que la sugerencia necesita en cada tecla, sin rehacer el editor.
   const registrosRef = useRef(registros);
   registrosRef.current = registros;
@@ -161,19 +169,26 @@ export default function Narracion({ proyecto, registros }: { proyecto: string; r
       otraVez.current = true;
       return;
     }
-    const doc = editor.getJSON() as NodoNarrativa;
-    if (new TextEncoder().encode(JSON.stringify(doc)).length > TOPE) {
+    let doc: NodoNarrativa;
+    try {
+      doc = editor.getJSON() as NodoNarrativa;
+    } catch {
+      return; // el editor ya se destruyó
+    }
+    if (bytesComoPostgres(doc) > TOPE) {
       setEstado({ e: "grande" });
       return;
     }
+    const vistos = cambios.current;
     enVuelo.current = true;
     setEstado({ e: "guardando" });
     const r = await guardarNarrativa(proyecto, doc, version.current);
     enVuelo.current = false;
-    if (!r.ok) return setEstado({ e: "error", error: r.error });
+    // El `check` de tamaño de la base (23514) es «demasiado grande», no un fallo que se reintente.
+    if (!r.ok) return setEstado(r.error.startsWith("Eso no cabe") ? { e: "grande" } : { e: "error", error: r.error });
     if (r.datos === null) return setEstado({ e: "conflicto" });
     version.current = r.datos;
-    setEstado({ e: "guardado", cuando: new Date().toISOString() });
+    setEstado(cambios.current === vistos ? { e: "guardado", cuando: new Date().toISOString() } : { e: "pendiente" });
     if (otraVez.current) {
       otraVez.current = false;
       void guardar();
@@ -183,6 +198,7 @@ export default function Narracion({ proyecto, registros }: { proyecto: string; r
   const guardarRef = useRef(guardar);
   guardarRef.current = guardar;
   function programar() {
+    cambios.current++;
     setEstado((s) => (s.e === "conflicto" ? s : { e: "pendiente" }));
     if (temporizador.current) window.clearTimeout(temporizador.current);
     temporizador.current = window.setTimeout(() => void guardarRef.current(), ESPERA);
@@ -206,15 +222,22 @@ export default function Narracion({ proyecto, registros }: { proyecto: string; r
   // Salir con cambios sin guardar se pregunta; el navegador pone el texto.
   useEffect(() => {
     const aviso = (e: BeforeUnloadEvent) => {
-      if (["pendiente", "guardando", "conflicto"].includes(estado.e)) e.preventDefault();
+      if (["pendiente", "guardando", "conflicto", "error", "grande"].includes(estado.e)) e.preventDefault();
     };
     window.addEventListener("beforeunload", aviso);
     return () => window.removeEventListener("beforeunload", aviso);
   }, [estado.e]);
 
+  // Cambiar de pestaña desmonta el editor: lo que esperaba su turno se guarda
+  // ya. `guardar` lee el documento antes de su primera espera, y Tiptap
+  // destruye el editor un instante después.
   useEffect(
     () => () => {
-      if (temporizador.current) window.clearTimeout(temporizador.current);
+      if (temporizador.current) {
+        window.clearTimeout(temporizador.current);
+        temporizador.current = null;
+        void guardarRef.current();
+      }
     },
     [],
   );
@@ -280,7 +303,7 @@ function BarraFormato({ editor }: { editor: Editor }) {
     { etiqueta: "Cita", activo: editor.isActive("blockquote"), hacer: () => editor.chain().focus().toggleBlockquote().run() },
   ];
   return (
-    <div role="toolbar" aria-label="Formato de la narración" className="flex flex-wrap gap-1.5">
+    <div role="toolbar" aria-label="Formato de la narración" className="flex flex-wrap gap-2">
       {botones.map((b) => (
         <Button key={b.etiqueta} type="button" variant="outline" size="sm" aria-pressed={b.activo} onClick={b.hacer}>
           {b.etiqueta}
@@ -340,7 +363,7 @@ function EstadoGuardado({
     <p role="status" aria-live="polite" className={cn("text-xs", estado.e === "error" || estado.e === "grande" ? "text-alerta-700" : "text-ink-soft")}>
       {texto}
       {estado.e === "error" && (
-        <Button type="button" variant="link" size="sm" className="ml-1 h-auto p-0 text-xs" onClick={onReintentar}>
+        <Button type="button" variant="link" size="sm" className="ml-1" onClick={onReintentar}>
           Reintentar
         </Button>
       )}

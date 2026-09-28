@@ -11,6 +11,18 @@
 --
 -- Re-ejecutable, como las anteriores.
 
+-- ─────────────────────────────────────────────── enlaces que el navegador entiende
+-- `https://sitio:99999/` pasaba el `check` y rompía `new URL` al pintarlo en
+-- `/p`. Un puerto de hasta cuatro cifras siempre es válido; ningún sitio del
+-- Estado usa otro. Las filas viejas no se revalidan: `/p` las filtra igual
+-- (`hrefValido` en lib/espacios.ts).
+create or replace function espacios.href_valido(h text, externo boolean)
+returns boolean language sql immutable set search_path = '' as $$
+  select char_length(h) <= 1000
+     and h !~ '[[:space:][:cntrl:]\\]'
+     and (h ~ '^/([^/]|$)' or (externo and h ~* '^https://[a-z0-9.-]+(:[0-9]{1,4})?(/|$)'));
+$$;
+
 -- ─────────────────────────────────────────────── relaciones tipadas
 alter table espacios.enlaces add column if not exists tipo text not null default 'relaciona';
 alter table espacios.enlaces drop constraint if exists enlaces_tipo_valido;
@@ -79,6 +91,9 @@ $$;
 -- La narración solo se escribe por la función (con su versión); la posición,
 -- la fecha y el tipo de un enlace, por columna.
 grant update (titulo, nota, x, y, fecha) on espacios.entradas to authenticated;
+-- Tampoco al crear el proyecto: se inserta título y descripción, nada más.
+revoke insert on espacios.proyectos from authenticated;
+grant insert (titulo, descripcion) on espacios.proyectos to authenticated;
 grant update (nota, tipo) on espacios.enlaces to authenticated;
 revoke all on function espacios.guardar_narrativa(uuid, jsonb, integer) from public, anon;
 grant execute on function espacios.guardar_narrativa(uuid, jsonb, integer) to authenticated;

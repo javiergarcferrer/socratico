@@ -43,7 +43,9 @@ function traducir(e: FalloSupabase): { ok: false; error: string; cerrado?: boole
   // PGRST106: el esquema no está entre los que expone el API (paso 2 de
   // PLAN-ESPACIOS §5); 42P01/3F000: la migración aún no se aplicó;
   // PGRST202/42883: la función todavía no existe (la conversación, paso 4).
-  if (["PGRST106", "42P01", "3F000", "PGRST202", "42883"].includes(codigo) || texto.includes("schema must be one of")) {
+  // 42703/PGRST204: la columna no existe todavía (una migración posterior,
+  // como la del caso, sin aplicar): lo que no está abierto no es una caída.
+  if (["PGRST106", "42P01", "3F000", "PGRST202", "42883", "42703", "PGRST204"].includes(codigo) || texto.includes("schema must be one of")) {
     return { ok: false, cerrado: true, error: "Los proyectos todavía no están abiertos en esta plataforma." };
   }
   // Las funciones de la conversación dicen el porqué en español (`raise

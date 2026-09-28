@@ -87,6 +87,9 @@ export default function Evidencia({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getRowId: (f) => f.id,
+    // Un tercer toque no deja el cuadro sin orden (que sería el de la base):
+    // alterna entre los dos sentidos.
+    enableSortingRemoval: false,
   });
   const visibles = tabla.getRowModel().rows;
 
@@ -126,7 +129,7 @@ export default function Evidencia({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="-mx-2 h-8 gap-1 px-2 font-mono text-[11px] uppercase tracking-wider"
+                        className="rotulo -mx-2 gap-1 px-2 text-ink-soft"
                         onClick={h.column.getToggleSortingHandler()}
                       >
                         {flexRender(h.column.columnDef.header, h.getContext())}
