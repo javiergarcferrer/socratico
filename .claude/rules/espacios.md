@@ -53,6 +53,14 @@ Read §1 (contract) and §5 (applying) before changing anything here.
 - `Conversacion` goes at the **end** of a ficha (understand first, opine
   after) and loads nothing until the reader scrolls near it.
 
+## The case (PLAN §7)
+- A case adds only the investigator's own work: a date they set, a board
+  position, a closed-vocabulary verb per link (`TIPOS_ENLACE` = the `check`),
+  and the narrative. Never a date or a figure copied from the source.
+- The narrative is written only through `guardar_narrativa` (versioned), and
+  rendered only through `narrativa-lectura.tsx` (whitelist, no raw HTML,
+  mentions resolved by entry id). The board and timeline never import Supabase.
+
 ## Changing the database
 - Migrations under `supabase/migrations/`, re-runnable. Run
   `python3 supabase/pruebas/espacios_rls.py` (throwaway Postgres simulating

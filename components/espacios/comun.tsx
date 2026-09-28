@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { alCambiarSesion, sesionActual, type Usuario } from "@/lib/espacios-cliente";
-import { hrefValido, NOMBRE_TIPO, rutaPropia, type TipoEntrada } from "@/lib/espacios";
 import { Alert, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EstadoVacio } from "@/components/estado-vacio";
-import { IconArrowRight, IconExternal } from "@/components/icons";
+import { IconArrowRight } from "@/components/icons";
 
 /**
  * Piezas que comparten las pantallas del espacio (`/espacio`, la mesa de un
@@ -74,27 +72,4 @@ export function Cerrado() {
   );
 }
 
-/** La marca de tipo de un registro: grafito, porque informa y no pide nada. */
-export function MarcaTipo({ tipo }: { tipo: TipoEntrada }) {
-  return <Badge variant="neutro">{NOMBRE_TIPO[tipo]}</Badge>;
-}
-
-/**
- * El título de un registro, como enlace a su ficha viva. Un documento vive en
- * el sitio de la institución: pestaña nueva y su icono.
- */
-export function EnlaceRegistro({ titulo, href, className }: { titulo: string; href: string; className?: string }) {
-  const clase = className ?? "font-medium text-ink hover:text-brand-700 hover:underline";
-  // Lo que no pasa el mismo `check` de la tabla se lee, no se pulsa.
-  if (!hrefValido(href)) return <span className="font-medium text-ink">{titulo}</span>;
-  return !rutaPropia(href) ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={clase}>
-      {titulo}
-      <IconExternal className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-ink-soft" />
-    </a>
-  ) : (
-    <Link href={href} className={clase}>
-      {titulo}
-    </Link>
-  );
-}
+export { EnlaceRegistro, MarcaTipo } from "./registro";

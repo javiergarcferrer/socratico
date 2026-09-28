@@ -1003,6 +1003,14 @@ export default async function FuentesPage() {
             repositorio. La única base guarda lo que es del lector —su voto, y con
             cuenta lo que guarda, anota y sigue—, nunca una cifra de una fuente.
           </li>
+          <li>
+            Un <strong>caso</strong> se arma con piezas abiertas y probadas —React
+            Flow para el tablero, Tiptap para la narración, TanStack Table para la
+            evidencia, las tres con licencia MIT— y se exporta en FollowTheMoney, el
+            formato de Aleph y OpenSanctions. Lo que sale es del investigador:
+            referencias, notas, fechas que él anotó y el verbo de cada enlace.
+            Ninguna cifra del Estado; esa se lee en cada ficha.
+          </li>
         </ul>
         <p className="mt-4 text-[13px] text-ink-soft sm:text-xs">
           Herramienta independiente y no oficial. Para efectos legales, verificar

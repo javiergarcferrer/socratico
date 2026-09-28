@@ -3,8 +3,9 @@
 /**
  * Diálogo — la primitiva de shadcn/ui vestida de «El Contrasello».
  *
- * Hoy la usa una sola pieza, la paleta de `components/paleta.tsx`, y entra por
- * lo mismo que entraron las demás: foco atrapado mientras está abierto, Escape,
+ * La usan la paleta de `components/paleta.tsx` y la pregunta «¿qué los une?»
+ * del tablero de un caso (`components/espacios/caso.tsx`), y entra por lo
+ * mismo que entraron las demás: foco atrapado mientras está abierto, Escape,
  * y el foco de vuelta al disparador al cerrar.
  *
  * Mismas plantas que la hoja (`components/ui/drawer.tsx`): velo en `z-[70]` y
@@ -132,6 +133,17 @@ function DialogDescription({
   );
 }
 
+/** El pie de un diálogo con formulario: las acciones, la principal a la derecha. */
+function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-footer"
+      className={cn("flex shrink-0 flex-wrap justify-end gap-2 border-t border-hairline px-4 py-3", className)}
+      {...props}
+    />
+  );
+}
+
 export {
   Dialog,
   DialogTrigger,
@@ -141,4 +153,5 @@ export {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 };

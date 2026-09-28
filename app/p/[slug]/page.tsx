@@ -1,21 +1,32 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
-import { leerPublicado, NOMBRE_TIPO, rutaPropia, type EntradaPublicada } from "@/lib/espacios";
+import { leerPublicado, VERBO_ENLACE } from "@/lib/espacios";
 import { formatFecha } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EstadoVacio } from "@/components/estado-vacio";
 import Conversacion from "@/components/espacios/conversacion";
+import ExportarFtm from "@/components/espacios/exportar-ftm";
+import LineaDeTiempo from "@/components/espacios/linea-tiempo";
+import NarrativaLectura, { narrativaConTexto } from "@/components/espacios/narrativa-lectura";
+import { EnlaceRegistro, MarcaTipo } from "@/components/espacios/registro";
+import TableroDiferido from "@/components/espacios/tablero-diferido";
 import { Rotulo } from "@/components/papel";
-import { IconArrowRight, IconExternal, IconLink } from "@/components/icons";
+import { IconArrowRight, IconLink } from "@/components/icons";
 
 /*
   Un proyecto publicado por un lector (docs/PLAN-ESPACIOS.md). Se sirve en el
   servidor para que se pueda compartir y leer sin cuenta y sin JavaScript. Lo
-  que dice es del autor —su selección, sus notas—; lo que enlaza son las
-  fichas vivas de la plataforma, que leen cada cifra de su fuente.
+  que dice es del autor —su selección, sus notas, su narración, sus fechas—;
+  lo que enlaza son las fichas vivas de la plataforma, que leen cada cifra de
+  su fuente.
+
+  El orden es el de entender (docs/IDENTIDAD.md §4): qué sostiene el autor
+  (narración), cómo se conectan las piezas (tablero), en qué orden pasaron
+  (línea de tiempo), cada pieza con su nota, y después la conversación. El
+  tablero es lo único que necesita JavaScript, y lo que dice está entero en
+  las listas.
 */
 
 const cargar = cache((slug: string) => leerPublicado(slug));
@@ -66,6 +77,9 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
 
   const p = r.proyecto;
   const porId = new Map(p.entradas.map((e) => [e.id, e]));
+  const hayNarrativa = narrativaConTexto(p.narrativa);
+  const fechados = p.entradas.filter((e) => e.fecha).length;
+  const lazos = p.enlaces.map((l, k) => ({ ...l, id: `l${k}` }));
   return (
     <article className="mx-auto max-w-3xl space-y-5">
       <header>
@@ -79,6 +93,37 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
         </p>
       </header>
 
+      {hayNarrativa && p.narrativa && (
+        <Card as="section" className="p-5">
+          <CardTitle>Lo que sostiene</CardTitle>
+          <div className="mt-2">
+            <NarrativaLectura doc={p.narrativa} registros={p.entradas} ajeno />
+          </div>
+        </Card>
+      )}
+
+      {p.entradas.length > 1 && p.enlaces.length > 0 && (
+        <Card as="section" className="space-y-3 p-5">
+          <CardTitle>El tablero</CardTitle>
+          <p className="text-xs leading-relaxed text-ink-soft">
+            Como lo armó su autor. Cada flecha se lee con su verbo; lo mismo está en «Lo que los une», más abajo.
+          </p>
+          <TableroDiferido tarjetas={p.entradas} lazos={lazos} ajeno />
+        </Card>
+      )}
+
+      {fechados > 0 && (
+        <Card as="section" className="space-y-3 p-5">
+          <CardTitle>
+            En orden <span className="font-mono text-sm font-normal tabular-nums text-ink-soft">{fechados}</span>
+          </CardTitle>
+          <p className="text-xs leading-relaxed text-ink-soft">
+            Las fechas las anotó su autor: cuándo pasó lo que le importa de cada registro. La ficha dice la suya.
+          </p>
+          <LineaDeTiempo hitos={p.entradas} ajeno />
+        </Card>
+      )}
+
       <Card as="section" className="p-5">
         <CardTitle>
           Registros <span className="font-mono text-sm font-normal tabular-nums text-ink-soft">{p.entradas.length}</span>
@@ -89,9 +134,10 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
           <ul className="mt-2 divide-y divide-hairline">
             {p.entradas.map((e) => (
               <li key={e.id} className="py-3">
-                <Registro e={e} />
-                <p className="mt-0.5">
-                  <Badge variant="neutro">{NOMBRE_TIPO[e.tipo]}</Badge>
+                <EnlaceRegistro titulo={e.titulo} href={e.href} ajeno />
+                <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-soft">
+                  <MarcaTipo tipo={e.tipo} />
+                  {e.fecha && <span className="font-mono">{formatFecha(e.fecha)}</span>}
                 </p>
                 {e.nota && (
                   <p className="mt-2 whitespace-pre-line border-l-2 border-hairline pl-3 text-sm leading-relaxed text-ink">{e.nota}</p>
@@ -114,14 +160,25 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
                 <li key={k} className="flex items-start gap-2 py-3 text-sm leading-relaxed">
                   <IconLink className="mt-1 h-4 w-4 shrink-0 text-ink-soft" />
                   <p>
-                    <Registro e={a} />
-                    <span className="mx-1.5 text-ink-soft">—{l.nota ? ` ${l.nota} ` : " "}→</span>
-                    <Registro e={b} />
+                    <EnlaceRegistro titulo={a.titulo} href={a.href} ajeno />
+                    <span className="mx-1.5 text-brand-700">— {VERBO_ENLACE[l.tipo]} →</span>
+                    <EnlaceRegistro titulo={b.titulo} href={b.href} ajeno />
+                    {l.nota && <span className="block text-xs text-ink-soft">{l.nota}</span>}
                   </p>
                 </li>
               );
             })}
           </ul>
+        </Card>
+      )}
+
+      {p.entradas.length > 0 && (
+        <Card as="section" className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <p className="max-w-md text-sm leading-relaxed text-ink-soft">
+            Para seguir este caso en Aleph u OpenSanctions: los registros, las notas y los enlaces,
+            en FollowTheMoney.
+          </p>
+          <ExportarFtm titulo={p.titulo} entradas={p.entradas} enlaces={p.enlaces} variant="secondary" />
         </Card>
       )}
 
@@ -140,25 +197,5 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
         </Button>
       </Card>
     </article>
-  );
-}
-
-function Registro({ e }: { e: EntradaPublicada }) {
-  const clase = "font-medium text-ink hover:text-brand-700 hover:underline";
-  // `leerPublicado` ya filtró por `hrefValido`; aquí solo se decide si es
-  // propia (Link) o de una institución (pestaña nueva, sin referer).
-  return !rutaPropia(e.href) ? (
-    <>
-      <a href={e.href} target="_blank" rel="ugc nofollow noopener noreferrer" className={clase}>
-        {e.titulo}
-        <IconExternal className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-ink-soft" />
-      </a>
-      {/* Lo eligió el autor, no Socrático: se dice a qué sitio lleva antes del toque. */}
-      <span className="ml-1.5 font-mono text-xs text-ink-soft">{new URL(e.href).hostname}</span>
-    </>
-  ) : (
-    <Link href={e.href} className={clase}>
-      {e.titulo}
-    </Link>
   );
 }

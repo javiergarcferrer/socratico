@@ -215,6 +215,19 @@ export const IconPlus = (p: P) => (
   </Svg>
 );
 
+export const IconMinus = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 12h14" />
+  </Svg>
+);
+
+/** Encuadrar: las cuatro esquinas de un marco. */
+export const IconEncuadrar = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4" />
+  </Svg>
+);
+
 export const IconTrash = (p: P) => (
   <Svg {...p}>
     <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />

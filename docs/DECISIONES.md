@@ -117,6 +117,22 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   código sigue sirviendo. La interfaz igual nunca da de alta con contraseña
   (`lib/sesion.ts`): no se relaja si alguien vuelve a apagarlo.
 
+- **El caso, armado con piezas abiertas (28-09-2026).** El dueño pidió
+  «una solución completa» para armar casos. No se adoptó una plataforma
+  entera: Aleph se volvió producto de pago, OpenAleph es pequeño y pesado,
+  Datashare es AGPL y tldraw pide licencia. Se armó con piezas que pasan el
+  criterio de código abierto:
+  - React Flow (`@xyflow/react`, MIT) para el tablero;
+  - Tiptap (`@tiptap/*`, MIT) para la narración;
+  - TanStack Table v8 para la evidencia. La v9 salió en agosto de 2026 y
+    todavía no tiene el recorrido que el criterio exige;
+  - FollowTheMoney como vocabulario de relaciones y formato de salida. No es
+    una dependencia: `lib/ftm.ts` escribe su JSON.
+
+  La atribución de React Flow se queda visible. La licencia permitiría
+  quitarla, pero sus autores piden hacerlo solo con la suscripción Pro
+  (docs/PLAN-ESPACIOS.md §7).
+
 - **La conversación (28-09-2026).** El dueño pidió un componente social tipo
   Reddit sobre todo registro. Decidió tres cosas:
   - solo comenta quien registró su cédula; vota cualquier cuenta;

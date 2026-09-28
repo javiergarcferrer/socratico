@@ -87,12 +87,83 @@ export function hrefValido(href: string): boolean {
   return externo || rutaPropia(href);
 }
 
+/* ---------------------------------------------------------------- el caso */
+
+/**
+ * Qué une a dos registros: un verbo de un vocabulario cerrado, el mismo
+ * `check` de `espacios.enlaces.tipo` (docs/PLAN-ESPACIOS.md §7). Se lee de
+ * `desde` hacia `hasta`: «INAPA — adjudicó a → Constructora X». Inspirado en
+ * las relaciones de FollowTheMoney, al que se exporta (`lib/ftm.ts`).
+ */
+export const TIPOS_ENLACE = [
+  "adjudico",
+  "contrato",
+  "pago",
+  "dueno",
+  "dirige",
+  "trabaja",
+  "familia",
+  "firmo",
+  "regula",
+  "financia",
+  "relaciona",
+] as const;
+
+export type TipoEnlace = (typeof TIPOS_ENLACE)[number];
+
+export function esTipoEnlace(v: unknown): v is TipoEnlace {
+  return typeof v === "string" && (TIPOS_ENLACE as readonly string[]).includes(v);
+}
+
+/** El verbo, como se lee entre los dos registros. */
+export const VERBO_ENLACE: Record<TipoEnlace, string> = {
+  adjudico: "adjudicó a",
+  contrato: "contrató con",
+  pago: "pagó a",
+  dueno: "es dueño o socio de",
+  dirige: "dirige o representa a",
+  trabaja: "trabaja en",
+  familia: "es familiar de",
+  firmo: "firmó",
+  regula: "regula o autoriza",
+  financia: "financia",
+  relaciona: "se relaciona con",
+};
+
+/** Una fecha de la línea de tiempo: la anota el investigador, `AAAA-MM-DD`. */
+export const FECHA_CASO = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * La narración del caso: el documento del editor (Tiptap/ProseMirror) tal
+ * como se guarda. Quien la pinta a terceros (`/p`) no confía en su forma: solo
+ * pinta los nodos que conoce (`components/espacios/narrativa-lectura.tsx`).
+ */
+export interface NodoNarrativa {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: NodoNarrativa[];
+  text?: string;
+  marks?: { type: string }[];
+}
+
 /* --------------------------------------------------------- lo publicado */
 
 export interface EntradaPublicada extends Referencia {
   id: string;
   nota: string;
   creado: string;
+  /** La fecha que le dio el autor en su línea de tiempo. */
+  fecha: string | null;
+  /** Dónde la puso en su tablero; `null` si nunca la movió. */
+  x: number | null;
+  y: number | null;
+}
+
+export interface EnlacePublicado {
+  desde: string;
+  hasta: string;
+  tipo: TipoEnlace;
+  nota: string;
 }
 
 export interface ProyectoPublicado {
@@ -101,8 +172,9 @@ export interface ProyectoPublicado {
   /** El nombre con que firma quien lo publicó, o «Anónimo». */
   autor: string;
   actualizado: string;
+  narrativa: NodoNarrativa | null;
   entradas: EntradaPublicada[];
-  enlaces: { desde: string; hasta: string; nota: string }[];
+  enlaces: EnlacePublicado[];
 }
 
 /** Lo que devuelve la lectura de un proyecto publicado. */
@@ -140,12 +212,32 @@ export async function leerPublicado(slug: string): Promise<LecturaPublicada> {
     if (!r.ok || !(r.headers.get("content-type") ?? "").includes("json")) return { estado: "caida" };
     const datos = (await r.json()) as ProyectoPublicado | null;
     if (!datos) return { estado: "no-existe" };
+    const numero = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    const entradas = (datos.entradas ?? [])
+      .filter((e) => esTipoEntrada(e.tipo) && hrefValido(e.href))
+      .map((e) => {
+        const x = numero(e.x);
+        const y = numero(e.y);
+        return {
+          ...e,
+          fecha: typeof e.fecha === "string" && FECHA_CASO.test(e.fecha) ? e.fecha : null,
+          x: x !== null && y !== null ? x : null,
+          y: x !== null && y !== null ? y : null,
+        };
+      });
+    const ids = new Set(entradas.map((e) => e.id));
     return {
       estado: "ok",
       proyecto: {
         ...datos,
-        entradas: (datos.entradas ?? []).filter((e) => esTipoEntrada(e.tipo) && hrefValido(e.href)),
-        enlaces: datos.enlaces ?? [],
+        narrativa: datos.narrativa && typeof datos.narrativa === "object" && datos.narrativa.type === "doc" ? datos.narrativa : null,
+        entradas,
+        // Un enlace a un registro que no se muestra (su enlace no pasó el
+        // filtro) tampoco se muestra; un verbo que no se conoce se lee «se
+        // relaciona con».
+        enlaces: (datos.enlaces ?? [])
+          .filter((l) => ids.has(l.desde) && ids.has(l.hasta))
+          .map((l) => ({ ...l, tipo: esTipoEnlace(l.tipo) ? l.tipo : "relaciona" })),
       },
     };
   } catch {

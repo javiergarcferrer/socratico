@@ -200,6 +200,13 @@ existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
     políticas» (las tablas se tocan solo por funciones) y funciones
     definidoras ejecutables, que son exactamente la superficie de la app.
 
+- ⚠️ Paso 5, **pendiente de aprobación**: el caso (§7). Aplicar
+  `20260928160000_caso.sql` a `Transac`, `notify pgrst, 'reload schema'`, y
+  comprobar como `anon` que `select espacios.publicado('no-existe')` sigue
+  en `null` y que `guardar_narrativa` da 42501. **Va antes del despliegue**:
+  la mesa y la bandeja ya piden `fecha, x, y` y `enlaces.tipo`, y sin la
+  migración responderían con error.
+
 ## 6. La conversación
 
 Decisión del dueño (2026-09-28, docs/DECISIONES.md): cada registro con ficha
@@ -332,3 +339,48 @@ casos.
   de huellas a los 90 días, denuncias que siguen a una investigación que
   cambia de dirección.
 - `FALLOS: 0`.
+
+## 7. El caso
+
+Una investigación se trabaja como caso, con cuatro vistas de los mismos
+registros (`components/espacios/caso.tsx`, migración
+`20260928160000_caso.sql`):
+
+| Vista | Qué es | Pieza |
+|---|---|---|
+| Tablero | Tarjetas que el investigador pone donde le sirven; flechas con su verbo | `tablero.tsx` (React Flow), cargado aparte (`tablero-diferido.tsx`) |
+| Línea de tiempo | Los registros con fecha, por año | `linea-tiempo.tsx` (sin «use client»: `/p` la pinta en el servidor) |
+| Evidencia | El cuadro que se ordena y filtra; en el teléfono, fichas | `evidencia.tsx` (TanStack Table v8) |
+| Narración | Texto con citas `@registro` que se guarda solo | `narracion.tsx` (Tiptap); para leer, `narrativa-lectura.tsx` |
+
+Lo que hay que saber antes de tocarlo:
+
+- **Nada del Estado entra.** La fecha la anota el investigador —cuándo pasó
+  lo que le importa— y la pantalla lo dice; no se copia de la ficha. La
+  posición en el tablero y el verbo de un enlace son suyos.
+- **El verbo es un vocabulario cerrado** (`TIPOS_ENLACE` en `lib/espacios.ts`,
+  el mismo `check` de `enlaces.tipo`). Dos registros pueden unirse con varios
+  verbos, no dos veces con el mismo. Un verbo nuevo va en los dos sitios.
+- **La narración solo se escribe por `espacios.guardar_narrativa`**, con la
+  versión que se leyó: si otra persona guardó antes devuelve `null` y la
+  pantalla ofrece traer la suya o guardar encima. Sin permiso de columna, un
+  `update` directo no pasa. Tope: 200 000 bytes (el cliente corta en 180 000).
+  ✅ Probado: `puede_editar` devuelve `null`, no `false`, para quien no es
+  miembro; la función usa `coalesce` (una extraña guardó en la primera
+  versión de la prueba).
+- **La narración se pinta sin confiar en ella**: lista blanca de nodos y
+  marcas, elementos de React, profundidad 24. Una mención guarda solo el id
+  de la entrada; título y enlace salen del registro vivo del caso. Sin
+  enlaces libres (`link: false` en el editor).
+- **Mover una tarjeta no «actualiza»** la investigación: el disparador de
+  `entradas.actualizado` mira título, nota y fecha, no `x`/`y`.
+- **El tablero no importa Supabase**: guardar es de quien lo monta. En `/p`
+  va de solo lectura; todo lo que dice está también en las listas, que se
+  leen sin JavaScript.
+- **Exportar** es FollowTheMoney (`lib/ftm.ts`): cada registro como la
+  entidad de su tipo y cada enlace como `UnknownLink` con el verbo en `role`.
+  Los esquemas se comprobaron contra el repositorio de FtM el 2026-09-28.
+- ✅ Visto en Chromium a 1280 y 390 px con datos de prueba: arrastrar,
+  elegir, panel, fechas, cuadro apilado, `@` con su menú y el guardado con
+  versión.
+

@@ -22,6 +22,8 @@ import {
   type OrdenComunidad,
   type Referencia,
   type ReferenciaHilo,
+  type NodoNarrativa,
+  type TipoEnlace,
   type TipoEntrada,
   type TipoHilo,
 } from "@/lib/espacios";
@@ -252,9 +254,14 @@ export interface Entrada extends Referencia {
   nota: string;
   creado: string;
   actualizado: string;
+  /** La fecha que el investigador le da en la línea de tiempo (`AAAA-MM-DD`). */
+  fecha: string | null;
+  /** Dónde está en el tablero; `null` mientras nadie la haya movido. */
+  x: number | null;
+  y: number | null;
 }
 
-const COLUMNAS_ENTRADA = "id, usuario, proyecto, tipo, ref, titulo, href, nota, creado, actualizado";
+const COLUMNAS_ENTRADA = "id, usuario, proyecto, tipo, ref, titulo, href, nota, creado, actualizado, fecha, x, y";
 
 /** Lo guardado en un proyecto, o en la bandeja si `proyecto` es `null`. */
 export async function entradasDe(u: Usuario, proyecto: string | null): Promise<Hecho<Entrada[]>> {
@@ -294,29 +301,78 @@ export async function anotar(id: string, nota: string): Promise<Hecho<null>> {
   return hecho(espacios().from("entradas").update({ nota }).eq("id", id).then((r) => ({ ...r, data: null })));
 }
 
+/** Pone un registro en un sitio del tablero. */
+export async function mover(id: string, x: number, y: number): Promise<Hecho<null>> {
+  return hecho(
+    espacios().from("entradas").update({ x: Math.round(x), y: Math.round(y) }).eq("id", id).then((r) => ({ ...r, data: null })),
+  );
+}
+
+/** Le da (o le quita, con `null`) una fecha en la línea de tiempo. */
+export async function fechar(id: string, fecha: string | null): Promise<Hecho<null>> {
+  return hecho(espacios().from("entradas").update({ fecha }).eq("id", id).then((r) => ({ ...r, data: null })));
+}
+
 /* ------------------------------------------------------------ enlaces */
 
 export interface Enlace {
   id: string;
   desde: string;
   hasta: string;
+  tipo: TipoEnlace;
   nota: string;
   creado: string;
 }
 
+const COLUMNAS_ENLACE = "id, desde, hasta, tipo, nota, creado";
+
 export async function enlacesDe(proyecto: string): Promise<Hecho<Enlace[]>> {
-  return hecho<Enlace[]>(
-    espacios().from("enlaces").select("id, desde, hasta, nota, creado").eq("proyecto", proyecto).order("creado"),
-  );
+  return hecho<Enlace[]>(espacios().from("enlaces").select(COLUMNAS_ENLACE).eq("proyecto", proyecto).order("creado"));
 }
 
-export async function enlazar(proyecto: string, desde: string, hasta: string, nota: string): Promise<Hecho<Enlace>> {
+export async function enlazar(
+  proyecto: string,
+  desde: string,
+  hasta: string,
+  nota: string,
+  tipo: TipoEnlace = "relaciona",
+): Promise<Hecho<Enlace>> {
   return hecho<Enlace>(
     espacios()
       .from("enlaces")
-      .insert({ proyecto, desde, hasta, nota: nota.trim() })
-      .select("id, desde, hasta, nota, creado")
+      .insert({ proyecto, desde, hasta, tipo, nota: nota.trim() })
+      .select(COLUMNAS_ENLACE)
       .single(),
+  );
+}
+
+/** Cambia el verbo o la nota de un enlace. */
+export async function editarEnlace(id: string, campos: { tipo?: TipoEnlace; nota?: string }): Promise<Hecho<null>> {
+  return hecho(espacios().from("enlaces").update(campos).eq("id", id).then((r) => ({ ...r, data: null })));
+}
+
+/* ---------------------------------------------------------- narración */
+
+export interface Narrativa {
+  doc: NodoNarrativa | null;
+  version: number;
+}
+
+/** La narración del caso, aparte del proyecto: puede pesar y la lista de proyectos no la necesita. */
+export async function narrativaDe(proyecto: string): Promise<Hecho<Narrativa>> {
+  const r = await hecho<{ narrativa: NodoNarrativa | null; narrativa_version: number }>(
+    espacios().from("proyectos").select("narrativa, narrativa_version").eq("id", proyecto).single(),
+  );
+  return r.ok ? { ok: true, datos: { doc: r.datos.narrativa, version: r.datos.narrativa_version } } : r;
+}
+
+/**
+ * Guarda la narración sobre la versión que se leyó. `datos: null` quiere
+ * decir que otra persona guardó antes: no se pisó nada, y la pantalla decide.
+ */
+export async function guardarNarrativa(proyecto: string, doc: NodoNarrativa, version: number): Promise<Hecho<number | null>> {
+  return hecho<number | null>(
+    espacios().rpc("guardar_narrativa", { p_proyecto: proyecto, p_doc: doc, p_version: version }),
   );
 }
 

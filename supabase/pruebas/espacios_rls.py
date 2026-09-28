@@ -33,6 +33,7 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 MIGRACIONES = [
     RAIZ / "supabase" / "migrations" / "20260928120000_espacios.sql",
     RAIZ / "supabase" / "migrations" / "20260928120100_democracia_secretos_rls.sql",
+    RAIZ / "supabase" / "migrations" / "20260928160000_caso.sql",
 ]
 
 BASE = """
@@ -104,6 +105,38 @@ r = esperar("A guarda 2", como(A, "ana@x.do", f"insert into espacios.entradas (p
 e1, e2 = r[1][0][0], r[1][1][0]
 esperar("A enlaza", como(A, "ana@x.do", f"insert into espacios.enlaces (proyecto,desde,hasta,nota) values ('{pid}','{e1}','{e2}','compra') returning nota"), [("compra",)])
 
+# ---- el caso: relaciones tipadas, tablero, fechas (20260928160000_caso.sql)
+esperar("un enlace sin tipo es «relaciona»", como(A, "ana@x.do", f"select tipo from espacios.enlaces where desde='{e1}'"), [("relaciona",)])
+esperar("el mismo par con otro verbo pasa", como(A, "ana@x.do", f"insert into espacios.enlaces (proyecto,desde,hasta,tipo) values ('{pid}','{e1}','{e2}','adjudico') returning tipo"), [("adjudico",)])
+esperar("el mismo par con el mismo verbo se rechaza", como(A, "ana@x.do", f"insert into espacios.enlaces (proyecto,desde,hasta,tipo) values ('{pid}','{e1}','{e2}','adjudico')"), "error")
+esperar("un verbo inventado se rechaza", como(A, "ana@x.do", f"insert into espacios.enlaces (proyecto,desde,hasta,tipo) values ('{pid}','{e2}','{e1}','soborna')"), "error")
+esperar("A cambia el verbo de un enlace", como(A, "ana@x.do", f"update espacios.enlaces set tipo='contrato' where desde='{e1}' and tipo='relaciona' returning tipo"), [("contrato",)])
+esperar("A pone una tarjeta en el tablero", como(A, "ana@x.do", f"update espacios.entradas set x=120, y=-40 where id='{e1}' returning x, y"), [(120.0, -40.0)])
+esperar("x sin y se rechaza", como(A, "ana@x.do", f"update espacios.entradas set x=10, y=null where id='{e1}'"), "error")
+esperar("una posición absurda se rechaza", como(A, "ana@x.do", f"update espacios.entradas set x=1e9, y=0 where id='{e1}'"), "error")
+esperar("A fecha un registro", como(A, "ana@x.do", f"update espacios.entradas set fecha='2024-03-12' where id='{e2}' returning fecha::text"), [("2024-03-12",)])
+esperar("una fecha antes de la República se rechaza", como(A, "ana@x.do", f"update espacios.entradas set fecha='1700-01-01' where id='{e2}'"), "error")
+esperar("lo suelto no lleva fecha", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href,fecha) values ('norma','/normativa/ley/7-20','L','/normativa/ley/7-20','2024-01-01')"), "error")
+esperar("lo suelto no va al tablero", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href,x,y) values ('norma','/normativa/ley/7-21','L','/normativa/ley/7-21',1,1)"), "error")
+antes_mover = como(A, "ana@x.do", f"select actualizado::text from espacios.entradas where id='{e1}'")[1][0][0]
+como(A, "ana@x.do", f"update espacios.entradas set x=300, y=200 where id='{e1}'")
+esperar("mover una tarjeta no la da por actualizada", como(A, "ana@x.do", f"select actualizado::text from espacios.entradas where id='{e1}'"), [(antes_mover,)])
+esperar("C no mueve tarjetas ajenas (0 filas)", como(C, "carla@x.do", f"update espacios.entradas set x=0, y=0 where id='{e1}' returning id"), [])
+esperar("C no retipa enlaces ajenos (0 filas)", como(C, "carla@x.do", f"update espacios.enlaces set tipo='pago' where proyecto='{pid}' returning id"), [])
+
+# ---- la narración: solo por la función, con versión
+DOC = json.dumps({"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Hipótesis"}]}]})
+esperar("la narración no se escribe por tabla", como(A, "ana@x.do", f"update espacios.proyectos set narrativa='{{}}'::jsonb where id='{pid}'"), "error")
+esperar("ni su versión", como(A, "ana@x.do", f"update espacios.proyectos set narrativa_version=99 where id='{pid}'"), "error")
+esperar("A guarda la narración (v0 → 1)", como(A, "ana@x.do", "select espacios.guardar_narrativa(%s, %s::jsonb, 0)", params=(pid, DOC)), [(1,)])
+esperar("guardar sobre una versión vieja no pisa (null)", como(A, "ana@x.do", "select espacios.guardar_narrativa(%s, %s::jsonb, 0)", params=(pid, DOC)), [(None,)])
+esperar("sobre la vigente, sí (1 → 2)", como(A, "ana@x.do", "select espacios.guardar_narrativa(%s, %s::jsonb, 1)", params=(pid, DOC)), [(2,)])
+esperar("un documento que no es del editor se rechaza", como(A, "ana@x.do", "select espacios.guardar_narrativa(%s, '[1]'::jsonb, 2)", params=(pid,)), "error")
+esperar("una narración enorme se rechaza", como(A, "ana@x.do", "select espacios.guardar_narrativa(%s, jsonb_build_object('type','doc','t',repeat('x',210000)), 2)", params=(pid,)), "error")
+esperar("C no guarda narración ajena", como(C, "carla@x.do", "select espacios.guardar_narrativa(%s, %s::jsonb, 2)", params=(pid, DOC)), "error")
+esperar("anon no guarda narración", como(None, None, "select espacios.guardar_narrativa(%s, %s::jsonb, 2)", rol="anon", params=(pid, DOC)), "error")
+esperar("la versión quedó en 2", como(A, "ana@x.do", f"select narrativa_version from espacios.proyectos where id='{pid}'"), [(2,)])
+
 # ---- una extraña no ve ni toca nada
 esperar("C no ve proyecto", como(C, "carla@x.do", "select count(*) from espacios.proyectos"), [(0,)])
 esperar("C no ve entradas", como(C, "carla@x.do", "select count(*) from espacios.entradas"), [(0,)])
@@ -128,6 +161,9 @@ esperar("C no acepta la de B por id", como(C, "carla@x.do", f"select espacios.ac
 esperar("B acepta la suya", como(B, "beto@x.do", f"select espacios.aceptar_invitacion('{inv_b}') = '{pid}'"), [(True,)])
 esperar("B ve entradas", como(B, "beto@x.do", "select count(*) from espacios.entradas"), [(2,)])
 esperar("B edita nota", como(B, "beto@x.do", f"update espacios.entradas set nota='revisar' where id='{e2}' returning nota"), [("revisar",)])
+esperar("B editor mueve una tarjeta", como(B, "beto@x.do", f"update espacios.entradas set x=5, y=5 where id='{e2}' returning x"), [(5.0,)])
+esperar("B editor retipa un enlace", como(B, "beto@x.do", f"update espacios.enlaces set tipo='pago' where tipo='contrato' and proyecto='{pid}' returning tipo"), [("pago",)])
+esperar("B editor guarda la narración (2 → 3)", como(B, "beto@x.do", "select espacios.guardar_narrativa(%s, %s::jsonb, 2)", params=(pid, DOC)), [(3,)])
 
 # ---- lo que un editor no puede
 esperar("B no publica", como(B, "beto@x.do", f"update espacios.proyectos set publico=true, slug='caso-inapa' where id='{pid}'"), "error")
@@ -144,6 +180,9 @@ esperar("A no mete a C cambiando un miembro", como(A, "ana@x.do", f"update espac
 esperar("A no mete a C por inserción", como(A, "ana@x.do", f"insert into espacios.miembros (proyecto,usuario,rol) values ('{pid}','{C}','editor')"), "error")
 esperar("A sí cambia el rol de B", como(A, "ana@x.do", f"update espacios.miembros set rol='lector' where usuario='{B}' returning rol"), [("lector",)])
 esperar("B lectora ya no edita nota (0 filas)", como(B, "beto@x.do", f"update espacios.entradas set nota='x' where id='{e2}' returning id"), [])
+esperar("B lectora no mueve tarjetas (0 filas)", como(B, "beto@x.do", f"update espacios.entradas set x=1, y=1 where id='{e2}' returning id"), [])
+esperar("B lectora no guarda la narración", como(B, "beto@x.do", "select espacios.guardar_narrativa(%s, %s::jsonb, 3)", params=(pid, DOC)), "error")
+esperar("B lectora sí la lee", como(B, "beto@x.do", f"select narrativa->>'type' from espacios.proyectos where id='{pid}'"), [("doc",)])
 
 r = esperar("miembros_de por B", como(B, "beto@x.do", f"select string_agg(rol||':'||nombre, ', ' order by rol) from espacios.miembros_de('{pid}')"), "ok")
 print("     ", r[1])
@@ -158,6 +197,10 @@ esperar("A publica", como(A, "ana@x.do", f"update espacios.proyectos set publico
 esperar("publicar sin slug falla", como(A, "ana@x.do", f"update espacios.proyectos set slug=null where id='{pid}'"), "error")
 r = esperar("anon lee publicado", como(None, None, "select espacios.publicado('caso-inapa')::text", rol="anon"), "ok")
 t = r[1][0][0]
+pub = json.loads(t)
+esperar("publicado trae la narración", ("ok", [pub["narrativa"]["type"]]), ["doc"])
+esperar("publicado trae el verbo de cada enlace", ("ok", sorted(l["tipo"] for l in pub["enlaces"])), ["adjudico", "pago"])
+esperar("publicado trae fecha y tablero", ("ok", sorted(((e["fecha"] or ""), e["x"]) for e in pub["entradas"])), [("", 300.0), ("2024-03-12", 5.0)])
 esperar("publicado sin uuid de usuario ni correo", ("ok", ["0000000a" not in t and "0000000b" not in t and "@x.do" not in t]), ["True" == "True"] and [True])
 antes = como(None, None, "select espacios.publicado('caso-inapa')->>'actualizado'", rol="anon")[1][0][0]
 como(A, "ana@x.do", f"update espacios.entradas set nota='nueva' where id='{e1}'")
