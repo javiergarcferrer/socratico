@@ -10,10 +10,6 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Abiertas — solo el dueño
 
-- **Raya en el texto (28-09-2026).** `docs/DESIGN.md`, traída de RosetSoft,
-  prohíbe la raya (—) como muleta en el texto de cara al lector; la voz de
-  Socrático la usa como inciso unas 650 veces. Decidir: se queda como voz de
-  la casa, o se sustituye por punto, coma o «·» en una pasada.
 - **Denuncias y retiro de investigaciones publicadas** (`/p/<slug>`,
   docs/PLAN-ESPACIOS.md §3): cualquiera con cuenta puede publicar con el
   nombre de firma que quiera. Hoy la página dice que ese nombre no está
@@ -117,6 +113,14 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crea el dueño en su panel, con tope de gasto.
 
 ## Cerradas, para que nadie las reabra
+
+- **Sin raya en el texto de cara al lector (28-09-2026).** El dueño adoptó la
+  regla de `docs/DESIGN.md` §8: la raya (—) no es muleta; el inciso va entre
+  comas, se parte en dos frases o se une con «·». Rige para todo texto que
+  ve el lector (interfaz, metadatos, textos que escriben los scripts de
+  instantáneas). No rige para los comentarios del código ni para los nombres
+  y textos que vienen del Estado tal cual. El rango numérico usa «a» o la
+  raya corta (–), no la larga.
 
 - **Titulares en Geist, no en Instrument Serif (28-09-2026).** El dueño juzgó
   la serif de titular «horrible»: condensada y a 400, se leía floja y

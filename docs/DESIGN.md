@@ -250,9 +250,9 @@ A page is read by machines before most people ever see it.
   - The ellipsis is one character: `…` (placeholders end with it).
   - Quotes are `«»`.
   - A non-breaking space keeps `RD$` with its number.
-- **The em dash** is the house voice's aside — some 650 uses across `app/` and
-  `components/` — and stays for now; RosetSoft bans it in customer copy. ⚠️ Open for the owner
-  (DECISIONES, «Raya en el texto»).
+- **No em dash as a crutch** in reader-facing copy: a comma, a full stop or a
+  middle dot `·` (DECISIONES, 28-09-2026). Code comments and the State's own
+  texts are exempt.
 - **Units are always stated.** A quantity says what it counts: plazas,
   procesos, millones de pesos.
 
