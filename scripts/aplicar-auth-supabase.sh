@@ -31,9 +31,9 @@ print(json.dumps({
     "site_url": sitio,
     # El Site URL siempre vale; la lista añade el resto de destinos posibles.
     "uri_allow_list": ",".join([f"{sitio}/**", "http://localhost:3000/**"]),
-    "mailer_subjects_magic_link": "Tu código para votar",
+    "mailer_subjects_magic_link": "Tu código para entrar a Socrático",
     "mailer_templates_magic_link_content": lee("magic-link.html"),
-    "mailer_subjects_confirmation": "Tu código para registrarte",
+    "mailer_subjects_confirmation": "Tu código para crear tu cuenta en Socrático",
     "mailer_templates_confirmation_content": lee("confirm-signup.html"),
 }))
 PY
