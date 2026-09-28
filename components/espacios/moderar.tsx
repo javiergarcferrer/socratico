@@ -138,6 +138,7 @@ function Cola() {
                 <Denuncias lista={h.denuncias} />
                 <Retitular clave={`${h.tipo}:${h.ref}`} actual={h.titulo} onHecho={cargar} />
                 <Decidir objetivo={{ tipo: "hilo", clave: `${h.tipo}:${h.ref}` }} onHecho={cargar} />
+                {h.abierto_por && <Suspender usuario={h.abierto_por} nombre={h.abierto_por_nombre ?? "quien la abrió"} onHecho={cargar} />}
               </li>
             ))}
           </ul>

@@ -116,11 +116,7 @@ export default function Conversacion({ referencia, className }: { referencia: Re
             miVoto={carga.hilo.mi_voto}
             // Una conversación que nadie abrió la abre este voto, y abrirla es
             // escribir su título: eso pide cédula.
-            cerradoPorque={
-              hay && !carga.hilo.existe && !carga.yo?.cedula
-                ? "La primera palabra sobre un registro la da alguien con cédula registrada; después vota cualquier cuenta."
-                : null
-            }
+            cerradoPorque={hay && !carga.hilo.existe ? porQueNoAbre(carga.yo) : null}
           />
         )}
       </div>
@@ -189,6 +185,9 @@ function Cuerpo({
   const [respondiendo, setRespondiendo] = useState<string | null>(null);
   const [denunciando, setDenunciando] = useState<{ tipo: "comentario"; id: string } | { tipo: "hilo" } | null>(null);
   const puede = !!yo && yo.cedula && !!yo.nombre && yo.normas && !yo.suspendido_hasta;
+  // Votar pide correo verificado y no estar suspendido; sin eso, se ven los
+  // puntos, no flechas que respondan con un error.
+  const puedeVotar = !!yo && yo.correo && !yo.suspendido_hasta;
 
   const arbol = useMemo(() => construir(hilo.lista, orden), [hilo.lista, orden]);
 
@@ -222,7 +221,7 @@ function Cuerpo({
                 hijos={arbol.hijos}
                 prof={0}
                 referencia={referencia}
-                hay={hay}
+                hay={puedeVotar}
                 puede={puede}
                 respondiendo={respondiendo}
                 setRespondiendo={setRespondiendo}
@@ -258,6 +257,19 @@ function Cuerpo({
       />
     </div>
   );
+}
+
+/**
+ * Por qué este lector no puede abrir una conversación que nadie abrió (su
+ * primer voto la abriría). `null` si puede.
+ */
+function porQueNoAbre(yo: EstadoConversacion | null): string | null {
+  if (!yo) return null;
+  if (yo.suspendido_hasta) return `Tu cuenta está suspendida hasta el ${formatFecha(yo.suspendido_hasta)}.`;
+  if (!yo.correo) return "Verifica tu correo para votar.";
+  if (!yo.cedula) return "La primera palabra sobre un registro la da alguien con cédula registrada; después vota cualquier cuenta.";
+  if (!yo.nombre || !yo.normas) return "Para abrir la conversación, elige tu nombre de firma y acepta las normas (aquí abajo).";
+  return null;
 }
 
 /* ------------------------------------------------------------- el árbol */

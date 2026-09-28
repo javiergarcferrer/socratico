@@ -66,6 +66,8 @@ N = "00000000-0000-0000-0000-0000000000a4"  # correo sin confirmar
 X = "00000000-0000-0000-0000-0000000000a5"  # registró cédula y será suspendida
 M = "00000000-0000-0000-0000-0000000000a6"  # moderadora, con cédula
 Y = "00000000-0000-0000-0000-0000000000a7"  # cuenta nueva de X, con la misma cédula
+Z = "00000000-0000-0000-0000-0000000000a8"  # registra cédula, la borra y luego es suspendida
+Z2 = "00000000-0000-0000-0000-0000000000a9"  # cuenta nueva de Z, con la misma cédula
 B1 = "00000000-0000-0000-0000-0000000000b1"  # correos desechables, sin cédula
 B2 = "00000000-0000-0000-0000-0000000000b2"
 B3 = "00000000-0000-0000-0000-0000000000b3"
@@ -88,9 +90,10 @@ with psycopg.connect(uri, autocommit=True) as cx:
     cx.execute(
         f"insert into auth.users values ('{V}','vera@x.do',now()),('{W}','walter@x.do',now()),"
         f"('{S}','sara@x.do',now()),('{N}','nico@x.do',null),('{X}','ximena@x.do',now()),('{M}','mode@x.do',now()),"
-        f"('{Y}','xime2@x.do',now()),('{B1}','b1@x.do',now()),('{B2}','b2@x.do',now()),('{B3}','b3@x.do',now())"
+        f"('{Y}','xime2@x.do',now()),('{B1}','b1@x.do',now()),('{B2}','b2@x.do',now()),('{B3}','b3@x.do',now()),"
+        f"('{Z}','zoe@x.do',now()),('{Z2}','zoe2@x.do',now())"
     )
-    cx.execute(f"insert into democracia.votantes values ('{V}','h1'),('{W}','h2'),('{X}','h3'),('{M}','h4')")
+    cx.execute(f"insert into democracia.votantes values ('{V}','h1'),('{W}','h2'),('{X}','h3'),('{M}','h4'),('{Z}','h5')")
     cx.execute(f"insert into espacios.moderadores values ('{M}')")
 
 fallos = 0
@@ -172,6 +175,14 @@ esperar("proveedor con ceros a la izquierda", comentar(V, "vera@x.do", "hola", h
 esperar("hilo de tipo sin ficha (sentencia)", comentar(V, "vera@x.do", "hola", hilo=("sentencia", "/constitucional/1", "t", "/constitucional/1")), "error")
 esperar("hilo de investigación no publicada", comentar(V, "vera@x.do", "hola", hilo=("investigacion", "no-existe", "t", "/p/no-existe")), "error")
 
+# ---- un código de proceso con espacios y tildes llega codificado (12 % de la DGCP)
+PE = ("proceso", "/procesos/MINISTERIO%20HACIENDA-DAF-CM-2026-0093", "Compra de Hacienda", "/procesos/MINISTERIO%20HACIENDA-DAF-CM-2026-0093")
+PT = ("proceso", "/procesos/DIRECCI%C3%93N-CCC-2026-1", "Compra con tilde", "/procesos/DIRECCI%C3%93N-CCC-2026-1")
+esperar("proceso con %20 abre conversación", comentar(V, "vera@x.do", "pregunta sobre Hacienda", hilo=PE), "ok")
+esperar("proceso con tilde codificada abre conversación", comentar(V, "vera@x.do", "pregunta con tilde", hilo=PT), "ok")
+esperar("proceso con % mal formado", comentar(V, "vera@x.do", "hola", hilo=("proceso", "/procesos/X%ZZ", "t", "/procesos/X%ZZ")), "error")
+admin(f"update espacios.comentarios set creado = creado - interval '1 hour' where usuario = '{V}'")
+
 # ---- comentar y responder
 r = esperar("V comenta", comentar(V, "vera@x.do", "¿Por qué el monto subió 40 %?"), "ok")
 c1 = str(r[1][0][0])
@@ -227,12 +238,16 @@ antes = admin("select actividad from espacios.hilos where ref='/obras/123'")[0][
 como(V, "vera@x.do", VOTAR_HILO, params=("obra", "/obras/123", "Acueducto", "/obras/123"))
 despues = admin("select actividad from espacios.hilos where ref='/obras/123'")[0][0]
 afirmar("repetir un voto no reaviva el hilo", antes == despues)
+for _ in range(5):
+    como(V, "vera@x.do", "select espacios.votar_hilo('obra','/obras/123','Acueducto','/obras/123',false)")
+    como(V, "vera@x.do", VOTAR_HILO, params=("obra", "/obras/123", "Acueducto", "/obras/123"))
+afirmar("votar y retirar en bucle no reaviva el hilo", admin("select actividad from espacios.hilos where ref='/obras/123'")[0][0] == antes)
 
 # ---- el feed
-esperar("feed destacado trae 2 hilos", como(None, None, "select jsonb_array_length(espacios.comunidad('destacado', 30, 0))", rol="anon"), [(2,)])
+esperar("feed destacado trae 4 hilos", como(None, None, "select jsonb_array_length(espacios.comunidad('destacado', 30, 0))", rol="anon"), [(4,)])
 esperar("feed votado: el proceso primero", como(None, None, "select espacios.comunidad('votado', 30, 0)->0->>'ref'", rol="anon"), [("/procesos/INAPA-2026-1",)])
 esperar("feed nuevo: la obra primero", como(None, None, "select espacios.comunidad('nuevo', 30, 0)->0->>'ref'", rol="anon"), [("/obras/123",)])
-esperar("feed con límite 1, página 1 trae el otro", como(None, None, "select espacios.comunidad('nuevo', 1, 1)->0->>'ref'", rol="anon"), [("/procesos/INAPA-2026-1",)])
+esperar("feed con límite 1, página 3 trae el más antiguo", como(None, None, "select espacios.comunidad('nuevo', 1, 3)->0->>'ref'", rol="anon"), [(PE[1],)])
 
 # ---- denuncias: correos desechables no ocultan nada
 for u, e in [(B1, "b1@x.do"), (B2, "b2@x.do"), (B3, "b3@x.do")]:
@@ -276,11 +291,28 @@ esperar("X suspendida no denuncia", como(X, "ximena@x.do", "select espacios.denu
 admin(f"delete from democracia.votantes where id = '{X}'; insert into democracia.votantes values ('{Y}','h3')")
 firmar(Y, "xime2@x.do", "Xime")
 esperar("Y (misma cédula que X) sigue suspendida", comentar(Y, "xime2@x.do", "volví"), "error")
+# Z escribe, borra su registro de votante ANTES de que la suspendan, y vuelve.
+firmar(Z, "zoe@x.do", "Zoe")
+esperar("Z comenta", comentar(Z, "zoe@x.do", "algo que rompe las normas"), "ok")
+admin(f"delete from democracia.votantes where id = '{Z}'")
+esperar("M suspende a Z (ya sin registro de votante)", como(M, "mode@x.do", "select espacios.suspender(%s, 7, 'datos personales')", params=(Z,)), [(True,)])
+afirmar("la suspensión de Z guarda la huella de lo que escribió", admin(f"select cedula from espacios.suspensiones where usuario='{Z}'") == [("h5",)])
+admin(f"insert into democracia.votantes values ('{Z2}','h5')")
+firmar(Z2, "zoe2@x.do", "Zoe dos")
+esperar("Z2 (misma cédula, cuenta nueva) sigue suspendida", comentar(Z2, "zoe2@x.do", "volví"), "error")
 esperar("M levanta la suspensión", como(M, "mode@x.do", "select espacios.suspender(%s, 0, 'cumplió')", params=(X,)), [(True,)])
 esperar("Y ya comenta", comentar(Y, "xime2@x.do", "gracias"), "ok")
 admin("update espacios.suspensiones set hasta = now() - interval '1 day'")
 como(M, "mode@x.do", "select espacios.suspender(%s, 0, 'purga')", params=(Y,))
 afirmar("las suspensiones vencidas se purgan con su huella", admin("select count(*) from espacios.suspensiones")[0][0] == 0)
+
+# ---- las huellas se olvidan a los 90 días
+admin(f"update espacios.comentarios set creado = now() - interval '100 days' where usuario = '{Y}'")
+admin(f"update espacios.hilos set creado = now() - interval '100 days' where abierto_por = '{V}' and ref = '/obras/123'")
+comentar(V, "vera@x.do", "comentario que dispara el olvido")
+afirmar("huella de un comentario de hace 100 días vaciada", admin(f"select count(*) from espacios.comentarios where usuario='{Y}' and cedula is not null")[0][0] == 0)
+afirmar("huella de un hilo de hace 100 días vaciada", admin("select abierto_cedula from espacios.hilos where ref='/obras/123'") == [(None,)])
+afirmar("huella reciente conservada", admin(f"select count(*) from espacios.comentarios where usuario='{V}' and cedula is not null")[0][0] > 0)
 
 # ---- borrar lo propio
 esperar("W no borra lo de V", como(W, "walter@x.do", "select espacios.borrar_comentario(%s)", params=(c1,)), [(False,)])
@@ -307,6 +339,7 @@ afirmar("el contador del hilo cuenta lo visible que queda",
 for u, e in [(V, "vera@x.do"), (M, "mode@x.do"), (Y, "xime2@x.do")]:
     como(u, e, "select espacios.denunciar('hilo', 'obra:/obras/123', 'falso', 'título engañoso')")
 esperar("hilo denunciado 3 veces sale del feed", como(None, None, "select count(*) from jsonb_array_elements(espacios.comunidad('nuevo', 30, 0)) e where e->>'ref' = '/obras/123'", rol="anon"), [(0,)])
+esperar("la cola dice quién abrió el hilo denunciado", como(M, "mode@x.do", "select h->>'abierto_por_nombre' from jsonb_array_elements(espacios.cola_moderacion()->'hilos') h where h->>'ref' = '/obras/123'"), [("Vera",)])
 esperar("M retira el hilo", como(M, "mode@x.do", "select espacios.moderar('hilo', 'obra:/obras/123', 'retirar', 'título falso')"), [(True,)])
 esperar("hilo retirado no admite comentarios", comentar(V, "vera@x.do", "hola", hilo=("obra", "/obras/123", "Acueducto", "/obras/123")), "error")
 
@@ -318,7 +351,9 @@ como(V, "vera@x.do", "update espacios.proyectos set publico=false where slug='ca
 esperar("retirada, sale del feed", como(None, None, "select count(*) from jsonb_array_elements(espacios.comunidad('nuevo', 30, 0)) e where e->>'tipo'='investigacion'", rol="anon"), [(0,)])
 esperar("retirada, no se lee", como(None, None, "select jsonb_array_length((espacios.hilo('investigacion','caso-inapa-ab12'))->'lista')", rol="anon"), [(0,)])
 esperar("retirada, no se comenta", comentar(Y, "xime2@x.do", "sigo aquí", hilo=INV), "error")
+como(Y, "xime2@x.do", "select espacios.denunciar('hilo', 'investigacion:caso-inapa-ab12', 'spam', '')")
 como(V, "vera@x.do", "update espacios.proyectos set publico=true, slug='caso-inapa-nuevo' where slug='caso-inapa-ab12'")
+afirmar("la denuncia pendiente sigue a la nueva dirección", admin("select count(*) from espacios.denuncias where objetivo='investigacion:caso-inapa-nuevo'")[0][0] == 1)
 afirmar("cambiar la dirección se lleva la conversación", admin("select count(*) from espacios.comentarios where hilo_ref='caso-inapa-nuevo'")[0][0] == 1)
 como(V, "vera@x.do", "delete from espacios.proyectos where slug='caso-inapa-nuevo'")
 afirmar("borrar la investigación borra su conversación", admin("select count(*) from espacios.hilos where tipo='investigacion'")[0][0] == 0)

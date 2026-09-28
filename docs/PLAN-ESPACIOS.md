@@ -203,16 +203,24 @@ y ningún permiso. Todo pasa por funciones definidoras, que aplican las reglas:
 - como mucho 3 enlaces por comentario;
 - no responder a lo que no está visible.
 
-La huella se guarda en `comentarios.cedula` y `hilos.abierto_cedula` (solo
-para el ritmo) y en `suspensiones.cedula` solo mientras dura la suspensión:
-al vencer, se purga.
+La huella (el HMAC con clave de `democracia.hash_cedula`, nunca la cédula) se
+guarda en `comentarios.cedula` y `hilos.abierto_cedula` **90 días**. Sirve
+para el ritmo y para que `suspender` alcance la cédula de quien borró su
+registro de votante antes de ser suspendido: toma la huella de lo último que
+escribió. `suspensiones.cedula` dura lo que la suspensión. `olvidar_huellas`
+vacía lo vencido cada vez que alguien comenta o se suspende a alguien; no
+hace falta un trabajo programado, y una fila puede pasar de los 90 días
+hasta la próxima de esas llamadas. ⚠️ Un registro de votante borrado (Ley
+172-13) deja sus huellas en la conversación hasta ese plazo; `/cuenta` lo
+dice.
 
 **Los contadores los llevan disparadores** (`contar_voto_comentario`,
 `contar_voto_hilo`, `contar_comentario`), por incremento y bajo el candado de
 la fila. Son exactos con votos simultáneos y cuando se borra una cuenta, que
 arrastra sus votos y comentarios. Las respuestas de otros a un comentario
-borrado quedan sueltas (`padre on delete set null`), no se pierden. Repetir
-un voto no reaviva una conversación.
+borrado quedan sueltas (`padre on delete set null`), no se pierden. Un voto
+no reaviva una conversación: la actividad es de lo que se escribe, así que
+votar y retirar en bucle no la sube en «Destacado».
 
 **La clave de un hilo es la ruta canónica de su ficha.** Se cumple `ref =
 href`, y `ruta_de_tipo` exige la forma exacta que produce `enlace` en
@@ -222,8 +230,11 @@ nadie abre la conversación de «un proceso» que lleva a otra página, y un
 registro no se parte en dos conversaciones si cambia de nombre. Sentencias,
 documentos, datos y búsquedas no tienen ficha propia, así que no tienen
 conversación. Una investigación que cambia de dirección se lleva su
-conversación; una que se borra, la borra (otro proyecto no hereda
-comentarios ajenos con el slug).
+conversación y sus denuncias pendientes; una que se borra, la borra (otro
+proyecto no hereda comentarios ajenos con el slug). ⚠️ Eso quiere decir que
+quien publicó una investigación puede, al borrarla, hacer desaparecer los
+comentarios de otros sobre ella sin pasar por moderación: es su obra, y la
+conversación va con ella.
 
 **Moderación posterior.**
 - Cualquier cuenta verificada puede denunciar. Tres denuncias de personas
@@ -232,7 +243,8 @@ comentarios ajenos con el slug).
   `moderar`, `retitular`, `suspender`). Tres correos desechables no ocultan
   nada.
 - Un título falso u ofensivo se corrige (`retitular`) sin cerrar la
-  conversación del registro.
+  conversación del registro, y quien la abrió se puede suspender desde la
+  cola.
 - Cada decisión cierra sus denuncias y queda en `acciones_moderacion` con
   quién, qué y la nota.
 - Lo retirado se muestra como retirado, sin texto, para que sus respuestas
@@ -265,7 +277,7 @@ comentarios ajenos con el slug).
   no lee la base. Mientras la conversación no esté abierta, esa sección no se
   pinta, ni siquiera como silueta.
 
-✅ Probado el 2026-09-28 con `supabase/pruebas/conversacion_rls.py`: 116
+✅ Probado el 2026-09-28 con `supabase/pruebas/conversacion_rls.py`: 128
 casos.
 - Recorre la conversación desde siete lugares: quien registró su cédula,
   quien solo tiene cuenta, correos desechables, un correo sin confirmar, una
@@ -274,5 +286,10 @@ casos.
 - Las tres migraciones se aplicaron dos veces.
 - Cubre los hallazgos de la revisión del mismo día: hilos abiertos por
   desechables, suspensión esquivada, denuncias de desechables, contadores al
-  borrar una cuenta, slug reutilizado, rutas no canónicas.
+  borrar una cuenta, slug reutilizado, rutas no canónicas; y los de la
+  segunda revisión: códigos de proceso con espacios y tildes (el 12 % de los
+  77 790 de la instantánea, comprobados todos contra la regla), suspensión
+  después de borrar el registro de votante, votar y retirar en bucle, olvido
+  de huellas a los 90 días, denuncias que siguen a una investigación que
+  cambia de dirección.
 - `FALLOS: 0`.
