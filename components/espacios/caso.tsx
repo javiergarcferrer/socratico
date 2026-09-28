@@ -14,7 +14,7 @@ import {
   type Enlace,
   type Entrada,
 } from "@/lib/espacios-cliente";
-import { FECHA_CASO, TIPOS_ENLACE, VERBO_ENLACE, esTipoEnlace, type NodoNarrativa, type TipoEnlace } from "@/lib/espacios";
+import { ENLACES_PRIVADOS, FECHA_CASO, TIPOS_ENLACE, VERBO_ENLACE, esTipoEnlace, type NodoNarrativa, type TipoEnlace } from "@/lib/espacios";
 import { formatFecha } from "@/lib/format";
 import Antiguedad from "@/components/antiguedad";
 import { Button } from "@/components/ui/button";
@@ -223,7 +223,7 @@ function SelectVerbo({ value, onChange, etiqueta }: { value: TipoEnlace; onChang
       </SelectTrigger>
       <SelectContent>
         {TIPOS_ENLACE.map((t) => (
-          <SelectItem key={t} value={t}>
+          <SelectItem key={t} value={t} ayuda={ENLACES_PRIVADOS.includes(t) ? "Queda en el caso: no se publica" : undefined}>
             {VERBO_ENLACE[t]}
           </SelectItem>
         ))}

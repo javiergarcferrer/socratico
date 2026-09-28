@@ -201,6 +201,8 @@ r = esperar("anon lee publicado", como(None, None, "select espacios.publicado('c
 t = r[1][0][0]
 pub = json.loads(t)
 esperar("publicado trae la narración", ("ok", [pub["narrativa"]["type"]]), ["doc"])
+esperar("A anota un parentesco en su caso", como(A, "ana@x.do", f"insert into espacios.enlaces (proyecto,desde,hasta,tipo) values ('{pid}','{e2}','{e1}','familia') returning tipo"), [("familia",)])
+pub = json.loads(como(None, None, "select espacios.publicado('caso-inapa')::text", rol="anon")[1][0][0])
 esperar("publicado trae el verbo de cada enlace", ("ok", sorted(l["tipo"] for l in pub["enlaces"])), ["adjudico", "pago"])
 esperar("publicado trae fecha y tablero", ("ok", sorted(((e["fecha"] or ""), e["x"]) for e in pub["entradas"])), [("", 300.0), ("2024-03-12", 5.0)])
 esperar("publicado sin uuid de usuario ni correo", ("ok", ["0000000a" not in t and "0000000b" not in t and "@x.do" not in t]), ["True" == "True"] and [True])

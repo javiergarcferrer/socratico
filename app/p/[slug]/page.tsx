@@ -22,11 +22,12 @@ import { IconArrowRight, IconLink } from "@/components/icons";
   lo que enlaza son las fichas vivas de la plataforma, que leen cada cifra de
   su fuente.
 
-  El orden es el de entender (docs/IDENTIDAD.md §4): qué sostiene el autor
-  (narración), cómo se conectan las piezas (tablero), en qué orden pasaron
-  (línea de tiempo), cada pieza con su nota, y después la conversación. El
-  tablero es lo único que necesita JavaScript, y lo que dice está entero en
-  las listas.
+  El orden es el de entender (docs/IDENTIDAD.md §4): los datos responden y el
+  lector concluye. Primero cómo se conectan las piezas (tablero), en qué
+  orden pasaron (línea de tiempo), cada pieza con su nota y lo que las une;
+  después lo que sostiene el autor (narración), y al final la conversación.
+  El tablero es lo único que necesita JavaScript, y lo que dice está entero
+  en las listas.
 */
 
 const cargar = cache((slug: string) => leerPublicado(slug));
@@ -94,15 +95,6 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
           abre su ficha, que lee la cifra de su fuente oficial.
         </p>
       </header>
-
-      {hayNarrativa && p.narrativa && (
-        <Card as="section" className="p-5">
-          <CardTitle>Lo que sostiene</CardTitle>
-          <div className="mt-2">
-            <NarrativaLectura doc={p.narrativa} registros={p.entradas} ajeno />
-          </div>
-        </Card>
-      )}
 
       {p.entradas.length > 1 && p.enlaces.length > 0 && (
         <Card as="section" className="space-y-3 p-5">
@@ -176,6 +168,15 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
               );
             })}
           </ul>
+        </Card>
+      )}
+
+      {hayNarrativa && p.narrativa && (
+        <Card as="section" className="p-5">
+          <CardTitle>Lo que sostiene su autor</CardTitle>
+          <div className="mt-2">
+            <NarrativaLectura doc={p.narrativa} registros={p.entradas} ajeno />
+          </div>
         </Card>
       )}
 

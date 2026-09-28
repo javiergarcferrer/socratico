@@ -145,6 +145,12 @@ export const VERBO_ENLACE: Record<TipoEnlace, string> = {
   relaciona: "se relaciona con",
 };
 
+/**
+ * Los verbos que se quedan en el caso privado: `espacios.publicado` no los
+ * devuelve y `/p` los filtra otra vez. Un parentesco es un dato personal.
+ */
+export const ENLACES_PRIVADOS: readonly TipoEnlace[] = ["familia"];
+
 /** Una fecha de la línea de tiempo: la anota el investigador, `AAAA-MM-DD`. */
 export const FECHA_CASO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -251,7 +257,7 @@ export async function leerPublicado(slug: string): Promise<LecturaPublicada> {
         // filtro) tampoco se muestra; un verbo que no se conoce se lee «se
         // relaciona con».
         enlaces: (datos.enlaces ?? [])
-          .filter((l) => ids.has(l.desde) && ids.has(l.hasta))
+          .filter((l) => ids.has(l.desde) && ids.has(l.hasta) && !ENLACES_PRIVADOS.includes(l.tipo))
           .map((l) => ({ ...l, tipo: esTipoEnlace(l.tipo) ? l.tipo : "relaciona" })),
       },
     };

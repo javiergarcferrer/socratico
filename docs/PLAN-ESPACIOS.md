@@ -377,6 +377,10 @@ Lo que hay que saber antes de tocarlo:
   marcas, elementos de React, profundidad 24. Una mención guarda solo el id
   de la entrada; título y enlace salen del registro vivo del caso. Sin
   enlaces libres (`link: false` en el editor).
+- **«Es familiar de» se queda en el caso privado** (`ENLACES_PRIVADOS`):
+  `publicado` no lo devuelve y `/p` lo filtra otra vez. ✅ Probado en
+  `espacios_rls.py`.
+- **En `/p` los datos van antes que la narración** (DECISIONES, 28-09-2026).
 - **Mover una tarjeta no «actualiza»** la investigación: el disparador de
   `entradas.actualizado` mira título, nota y fecha, no `x`/`y`.
 - **El tablero no importa Supabase**: guardar es de quien lo monta. En `/p`

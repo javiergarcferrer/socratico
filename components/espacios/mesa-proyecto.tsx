@@ -497,8 +497,8 @@ function Publicar({ p, onCambio }: { p: ProyectoConCuenta; onCambio: () => void 
       <CardTitle className="text-base">Publicar</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         {p.publico
-          ? "Cualquiera con la dirección ve el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma. No ve quién colabora ni tu correo."
-          : "Al publicar, cualquiera con la dirección verá el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma. Puedes retirarla cuando quieras; la dirección se conserva."}
+          ? "Cualquiera con la dirección ve el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma. No ve quién colabora, ni tu correo, ni los parentescos («es familiar de»)."
+          : "Al publicar, cualquiera con la dirección verá el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma; los parentescos («es familiar de») nunca se publican. Puedes retirarla cuando quieras; la dirección se conserva."}
       </p>
       {p.publico && url && (
         <div className="mt-3 flex flex-wrap items-center gap-2">

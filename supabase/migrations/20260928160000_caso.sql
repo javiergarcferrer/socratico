@@ -100,7 +100,9 @@ grant execute on function espacios.guardar_narrativa(uuid, jsonb, integer) to au
 
 -- ─────────────────────────────────────────────── lo publicado
 -- Lo mismo que antes, más el tablero, las fechas, el verbo de cada enlace y
--- la narración. Sigue sin ids de usuario ni correos.
+-- la narración. Sigue sin ids de usuario ni correos. «Es familiar de» no se
+-- publica nunca: un parentesco entre personas con nombre es un dato personal
+-- (Ley 172-13) y queda en el caso privado (decisión del dueño, 28-09-2026).
 create or replace function espacios.publicado(p_slug text)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
@@ -121,7 +123,7 @@ returns jsonb language sql stable security definer set search_path = '' as $$
       from espacios.entradas e where e.proyecto = pr.id), '[]'::jsonb),
     'enlaces', coalesce((
       select jsonb_agg(jsonb_build_object('desde', l.desde, 'hasta', l.hasta, 'tipo', l.tipo, 'nota', l.nota) order by l.creado)
-      from espacios.enlaces l where l.proyecto = pr.id), '[]'::jsonb)
+      from espacios.enlaces l where l.proyecto = pr.id and l.tipo <> 'familia'), '[]'::jsonb)
   )
   from espacios.proyectos pr
   left join espacios.perfiles pf on pf.id = pr.dueno

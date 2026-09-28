@@ -105,13 +105,6 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crear claves del Gateway ni tokens OIDC (403, verificado 24-09-2026): la
   crea el dueño en su panel, con tope de gasto.
 
-- **¿Se permite el verbo «es familiar de» en un caso publicado?** Deja que
-  cualquiera publique en `/p` un parentesco sobre personas con nombre: es un
-  dato personal (Ley 172-13). Hoy existe, `/p` dice que cada flecha es
-  afirmación de su autor y la conversación se modera después. Las opciones:
-  quitarlo de `TIPOS_ENLACE` (y del `check`), dejarlo solo en casos privados,
-  o mantenerlo. Decide el dueño.
-
 ## Cerradas, para que nadie las reabra
 
 - **«Confirm email» encendido (28-09-2026).** Con `mailer_autoconfirm: true`
@@ -123,6 +116,18 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   altas nuevas reciben `confirm-signup.html`, que lleva `{{ .Token }}`: el
   código sigue sirviendo. La interfaz igual nunca da de alta con contraseña
   (`lib/sesion.ts`): no se relaja si alguien vuelve a apagarlo.
+
+- **«Es familiar de» no se publica (28-09-2026).** Un parentesco entre
+  personas con nombre es un dato personal (Ley 172-13). El verbo existe para
+  trabajar el caso en privado, pero `espacios.publicado` no lo devuelve y
+  `/p` lo filtra otra vez (`ENLACES_PRIVADOS` en `lib/espacios.ts`). El
+  selector lo avisa y el panel de publicar lo dice. El dueño aprobó la
+  recomendación.
+
+- **En `/p` los datos van antes que la tesis (28-09-2026).** Primero el
+  tablero, la línea de tiempo, los registros y lo que los une; después «Lo
+  que sostiene su autor». Es la regla de la casa: los datos responden y el
+  lector concluye (docs/IDENTIDAD.md §4). El dueño aprobó la recomendación.
 
 - **El caso, armado con piezas abiertas (28-09-2026).** El dueño pidió
   «una solución completa» para armar casos. No se adoptó una plataforma
