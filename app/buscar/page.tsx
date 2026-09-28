@@ -396,7 +396,7 @@ function sueldoDe(r: Resultado): string | null {
 
 function FilaResultado({ r, q, corte }: { r: Resultado; q: string; corte?: string }) {
   const titulo = EN_MAYUSCULAS.has(r.tipo) ? desdeMayusculas(r.titulo) : r.titulo;
-  return (
+  const fila = (
     <Fila
       href={r.href}
       externo={r.externo}
@@ -410,6 +410,20 @@ function FilaResultado({ r, q, corte }: { r: Resultado; q: string; corte?: strin
         ) : null
       }
     />
+  );
+  /*
+    Una sentencia no tiene ficha propia en la plataforma (la fila lleva al
+    Tribunal), así que se guarda desde aquí; lo demás se guarda en su ficha.
+  */
+  if (r.tipo !== "sentencia" || !r.href) return fila;
+  return (
+    <div className="flex items-center gap-2 pr-3 sm:pr-4">
+      <div className="min-w-0 flex-1">{fila}</div>
+      <Guardar
+        referencia={{ tipo: "sentencia", ref: r.href, titulo: `Sentencia ${titulo}`.slice(0, 300), href: r.href }}
+        className="h-9 shrink-0"
+      />
+    </div>
   );
 }
 

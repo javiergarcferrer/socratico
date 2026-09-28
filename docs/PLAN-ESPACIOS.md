@@ -103,6 +103,11 @@ sola, editor que mueve entradas, `href` con `/\`).
   una página ajena es decisión abierta (`docs/DECISIONES.md`).
 - **«Guardar»** en cada ficha (`AccionesFicha`, `AccionesProceso`): en la
   bandeja o directo a un proyecto.
+- ✅ **Las sentencias no tienen ficha propia** (la fila lleva al Tribunal), así
+  que «Guardar» va en cada fila de `/constitucional`, `/tse` y en las
+  sentencias de `/buscar`. La clave es la URL de la ficha del Tribunal, no el
+  número: en el TSE un mismo número puede tener dos fichas. Antes no había
+  desde dónde guardarlas (28-09-2026).
 - **La portada** explica para qué sirve la cuenta (`app/page.tsx`).
 
 La sincronización de lo seguido (`sincronizarSeguidos`, `reflejarSeguidos`,

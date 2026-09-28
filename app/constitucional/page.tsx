@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Guardar from "@/components/espacios/guardar";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { aniosTC, anioActualTC, listarSentencias, urlListadoTC } from "@/lib/tc";
@@ -199,6 +200,20 @@ export default async function ConstitucionalPage({
                     <span className="sr-only"> (abre la ficha en el sitio del Tribunal)</span>
                   </a>
                   <Antiguedad iso={s.fecha} />
+                  {/*
+                    La sentencia no tiene ficha propia aquí: se guarda desde su
+                    fila, con la ficha del Tribunal como dirección (un mismo
+                    número puede tener dos fichas, así que la clave es la ficha).
+                  */}
+                  <Guardar
+                    referencia={{
+                      tipo: "sentencia",
+                      ref: s.ficha,
+                      titulo: `Sentencia ${s.numero}${s.relativo ? `: ${recortarTitulo(s.relativo)}` : ""}`,
+                      href: s.ficha,
+                    }}
+                    className="relative z-10 ml-auto h-9 self-center"
+                  />
                 </span>
                 <span className="mt-1 block text-[15px] leading-snug text-ink [overflow-wrap:anywhere]">
                   {s.relativo ? <TextoEnlazado texto={s.relativo} soloForma /> : "Sin resumen en el listado"}
@@ -237,4 +252,10 @@ export default async function ConstitucionalPage({
       </p>
     </div>
   );
+}
+
+/** El «relativo a» del listado, corto para el título de lo guardado. */
+function recortarTitulo(t: string): string {
+  const limpio = t.replace(/\s+/g, " ").trim();
+  return limpio.length > 160 ? `${limpio.slice(0, 159).trimEnd()}…` : limpio;
 }
