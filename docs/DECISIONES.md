@@ -114,6 +114,15 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Cerradas, para que nadie las reabra
 
+- **Titulares en Geist, no en Instrument Serif (28-09-2026).** El dueño juzgó
+  la serif de titular «horrible»: condensada y a 400, se leía floja y
+  anticuada. Se compararon en pantalla Geist, Inter Tight, Schibsted Grotesk,
+  Bricolage Grotesque, Instrument Sans, Newsreader y Fraunces sobre papel y
+  junto a Public Sans; ganó **Geist a 600, −0,025 em**: la más nítida a
+  tamaño de titular y la que mejor separa el titular del cuerpo sin pelearse
+  con él. Instrument Serif queda solo en la palabra «socrático» y la «s» del
+  ícono (`font-marca`): la marca es decisión aparte (24-09-2026) y no se tocó.
+
 - **«Confirm email» encendido (28-09-2026).** Con `mailer_autoconfirm: true`
   cualquiera podía `POST /auth/v1/signup` con contraseña y quedar con
   `email_confirmed_at` sobre un correo ajeno: `espacios.mi_correo()` le habría

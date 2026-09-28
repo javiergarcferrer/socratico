@@ -29,6 +29,7 @@ import {
 } from "@/lib/espacios-cliente";
 import { esTipoEntrada, hrefValido, type Referencia, type TipoEntrada } from "@/lib/espacios";
 import { correoValido } from "@/lib/sesion";
+import { enviarConModificador } from "@/components/teclas";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -152,10 +153,20 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
   const [titulo, setTitulo] = useState(p.titulo);
   const [descripcion, setDescripcion] = useState(p.descripcion);
   const [error, setError] = useState<string | null>(null);
+  const [tituloMal, setTituloMal] = useState(false);
+  const [guardando, setGuardando] = useState(false);
 
   async function guardarCambios(e: React.FormEvent) {
     e.preventDefault();
-    const r = await editarProyecto(p.id, { titulo: titulo.trim(), descripcion: descripcion.trim() });
+    const limpio = titulo.trim();
+    if (!limpio) {
+      setTituloMal(true);
+      document.getElementById("titulo-proyecto")?.focus();
+      return;
+    }
+    setGuardando(true);
+    const r = await editarProyecto(p.id, { titulo: limpio, descripcion: descripcion.trim() });
+    setGuardando(false);
     if (!r.ok) return setError(r.error);
     setEditando(false);
     onCambio();
@@ -171,19 +182,36 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
       {editando ? (
         <form onSubmit={guardarCambios} className="mt-2 space-y-2.5">
           <Label htmlFor="titulo-proyecto" className="sr-only">Título</Label>
-          <Input id="titulo-proyecto" value={titulo} maxLength={140} onChange={(e) => setTitulo(e.target.value)} />
+          <Input
+            id="titulo-proyecto"
+            name="titulo"
+            autoComplete="off"
+            value={titulo}
+            maxLength={140}
+            onChange={(e) => {
+              setTitulo(e.target.value);
+              if (tituloMal) setTituloMal(false);
+            }}
+            aria-invalid={tituloMal || undefined}
+            aria-describedby={tituloMal ? "titulo-proyecto-error" : undefined}
+          />
+          <p id="titulo-proyecto-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+            {tituloMal ? "La investigación necesita un título." : ""}
+          </p>
           <Label htmlFor="descripcion-proyecto" className="sr-only">De qué trata</Label>
           <Textarea
             id="descripcion-proyecto"
+            name="descripcion"
             rows={4}
             value={descripcion}
             maxLength={5000}
             onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Qué investigas, qué preguntas quieres responder, qué ya sabes."
+            onKeyDown={enviarConModificador}
+            placeholder="Qué investigas, qué preguntas quieres responder, qué ya sabes…"
           />
           {error && <p className="text-xs text-alerta-700">{error}</p>}
           <div className="flex gap-2">
-            <Button type="submit" disabled={!titulo.trim()}>Guardar</Button>
+            <Button type="submit" disabled={guardando}>{guardando ? "Guardando…" : "Guardar"}</Button>
             <Button type="button" variant="outline" onClick={() => setEditando(false)}>Cancelar</Button>
           </div>
         </form>
@@ -246,10 +274,16 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
   const buscando = busqueda.isFetching;
   const errorBusqueda = busqueda.isError ? "El buscador no respondió. Vuelve a intentarlo." : null;
 
+  const [corta, setCorta] = useState(false);
   function buscar(e: React.FormEvent) {
     e.preventDefault();
     const t = q.trim();
-    if (t.length < 2) return;
+    if (t.length < 2) {
+      setCorta(true);
+      document.getElementById("agregar-q")?.focus();
+      return;
+    }
+    setCorta(false);
     setError(null);
     // La misma consulta otra vez es «vuelve a intentarlo»: se pide de nuevo.
     if (t === enviada) void busqueda.refetch();
@@ -269,16 +303,26 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
         <Label htmlFor="agregar-q" className="sr-only">Buscar en toda la plataforma</Label>
         <Input
           id="agregar-q"
+          name="q"
           type="search"
+          autoComplete="off"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            if (corta) setCorta(false);
+          }}
+          aria-invalid={corta || undefined}
+          aria-describedby={corta ? "agregar-q-error" : undefined}
           placeholder="Una institución, un proveedor, una ley, una compra…"
         />
-        <Button type="submit" variant="secondary" disabled={q.trim().length < 2 || buscando} className="shrink-0">
+        <Button type="submit" variant="secondary" disabled={buscando} className="shrink-0">
           <IconSearch className="h-4 w-4" />
           <span className="sr-only sm:not-sr-only">Buscar</span>
         </Button>
       </form>
+      <p id="agregar-q-error" aria-live="polite" className="mt-1.5 text-xs text-sello-700 empty:hidden">
+        {corta ? "Escribe al menos dos letras." : ""}
+      </p>
       <p className="mt-1.5 text-xs text-ink-soft">
         El mismo índice de «Buscar en todo». También puedes guardar desde la ficha de cada registro.
       </p>
@@ -328,6 +372,10 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
   const [rol, setRol] = useState<"editor" | "lector">("editor");
   const [error, setError] = useState<string | null>(null);
   const esDueno = p.rol === "dueno";
+  // Quitar a alguien o salirse no se deshace desde aquí (hace falta otra
+  // invitación): se pregunta antes, con el «Sí, …» / «No» de `Borrar`.
+  const [aQuitar, setAQuitar] = useState<string | null>(null);
+  const [saliendo, setSaliendo] = useState(false);
 
   const cargar = useCallback(async () => {
     const m = await miembrosDe(p.id);
@@ -342,10 +390,22 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
     void cargar();
   }, [cargar]);
 
+  // El botón queda activo aunque el correo esté a medias: pulsarlo es la
+  // manera de preguntar qué falta, y la respuesta va junto al campo.
+  const [invitando, setInvitando] = useState(false);
+  const [correoMal, setCorreoMal] = useState(false);
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    if (!correoValido(email)) return;
-    const r = await invitar(p.id, email, rol);
+    const limpio = email.trim();
+    if (!correoValido(limpio)) {
+      setCorreoMal(true);
+      document.getElementById("invitar-correo")?.focus();
+      return;
+    }
+    setCorreoMal(false);
+    setInvitando(true);
+    const r = await invitar(p.id, limpio, rol);
+    setInvitando(false);
     if (!r.ok) return setError(r.error);
     setEmail("");
     setError(null);
@@ -389,9 +449,26 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
                       <SelectItem value="lector">Lee</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="ghost" size="icon" aria-label={`Quitar a ${m.nombre}`} onClick={() => void hacer(quitarMiembro(p.id, m.usuario))}>
-                    <IconTrash className="h-4 w-4" />
-                  </Button>
+                  {aQuitar === m.usuario ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setAQuitar(null);
+                          void hacer(quitarMiembro(p.id, m.usuario));
+                        }}
+                      >
+                        Sí, quitar
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setAQuitar(null)}>No</Button>
+                    </>
+                  ) : (
+                    <Button type="button" variant="ghost" size="icon" aria-label={`Quitar a ${m.nombre}`} onClick={() => setAQuitar(m.usuario)}>
+                      <IconTrash className="h-4 w-4" />
+                    </Button>
+                  )}
                 </span>
               ) : (
                 <Badge variant="neutro">{NOMBRE_ROL[m.rol]}</Badge>
@@ -406,13 +483,24 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
           <Label htmlFor="invitar-correo" className="text-sm font-semibold">Invitar por correo</Label>
           <Input
             id="invitar-correo"
+            name="invitado"
             type="email"
+            autoComplete="off"
+            spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (correoMal) setCorreoMal(false);
+            }}
             placeholder="colega@medio.com"
+            aria-invalid={correoMal || undefined}
+            aria-describedby={correoMal ? "invitar-correo-error" : undefined}
           />
+          <p id="invitar-correo-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+            {correoMal ? "Escribe un correo completo, como colega@medio.com." : ""}
+          </p>
           <div className="flex gap-2">
             <Select value={rol} onValueChange={(v) => setRol(v as "editor" | "lector")}>
               <SelectTrigger className="flex-1" aria-label="Qué podrá hacer">
@@ -423,7 +511,9 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
                 <SelectItem value="lector" ayuda="Ve todo, no cambia nada">Lee</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="submit" variant="secondary" disabled={!correoValido(email)}>Invitar</Button>
+            <Button type="submit" variant="secondary" disabled={invitando}>
+              {invitando ? "Invitando…" : "Invitar"}
+            </Button>
           </div>
           <p className="text-xs leading-relaxed text-ink-soft">
             No enviamos correos: avísale tú. Cuando entre en esta plataforma con ese correo ya
@@ -448,11 +538,19 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
         </div>
       )}
 
-      {!esDueno && (
-        <Button type="button" variant="outline" size="sm" className="mt-4" onClick={irme}>
-          Salir de esta investigación
-        </Button>
-      )}
+      {!esDueno &&
+        (saliendo ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="button" variant="destructive" size="sm" onClick={irme}>
+              Sí, salir
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setSaliendo(false)}>No</Button>
+          </div>
+        ) : (
+          <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => setSaliendo(true)}>
+            Salir de esta investigación
+          </Button>
+        ))}
       {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
     </Card>
   );

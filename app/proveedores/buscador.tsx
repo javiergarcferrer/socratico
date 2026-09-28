@@ -48,7 +48,7 @@ export default function BuscadorProveedores({
         ir("");
       }}
       etiqueta="Buscar un proveedor del Estado"
-      placeholder="Nombre, RNC, cédula o número de RPE"
+      placeholder="Nombre, RNC, cédula o número de RPE…"
       ayuda={ayuda}
       pendiente={pendiente}
     />

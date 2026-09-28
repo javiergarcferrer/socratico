@@ -75,7 +75,12 @@ function TabsContent({
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn("outline-none", className)}
+      // Radix le pone `tabIndex=0` al panel: entra en el orden del Tab, y con
+      // teclado tiene que verse dónde está el foco.
+      className={cn(
+        "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+        className,
+      )}
       {...props}
     />
   );

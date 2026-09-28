@@ -67,8 +67,11 @@ lo que **deroga**, y el punto del rótulo. En ningún otro sitio sin motivo.
 
 ## Tipografía — tres familias, tres oficios
 
-- **Instrument Serif** (`font-display`) — *la pregunta*. Titulares de página
-  (h1) y de sección grande. Peso 400 siempre: es serif, no necesita negrita.
+- **Geist** (`font-display`) — *la pregunta*. Titulares de página (h1) y de
+  sección grande, a 600 y con −0,025 em de interletra (la base de
+  `app/globals.css` lo pone en `h1`, `h2` y `.font-display`; no hace falta
+  repetir peso). Desde el 2026-09-28 (decisión del dueño): la serif de antes
+  se leía floja y anticuada.
 - **Public Sans** (`font-sans`) — *la explicación*. Cuerpo, interfaz,
   etiquetas, botones. La letra del estándar web de gobierno, puesta a servir
   al ciudadano.
@@ -77,16 +80,20 @@ lo que **deroga**, y el punto del rótulo. En ningún otro sitio sin motivo.
   clase `.rotulo`: versalitas espaciadas que encabezan una sección, como el
   epígrafe de un formulario.
 
-Regla de reparto: **si es una pregunta o un titular, serif; si es un dato que
-se verifica, mono; todo lo demás, sans.** Un título de panel pequeño (14px) es
-sans en negrita, no serif: la serif a ese tamaño se lee floja.
+Regla de reparto: **si es una pregunta o un titular, Geist; si es un dato que
+se verifica, mono; todo lo demás, Public Sans.** Un título de panel pequeño
+(14px) es Public Sans en negrita, no `font-display`: a ese tamaño dos
+grotescas juntas no se distinguen y el titular pierde su oficio.
+
+**La marca no es un oficio:** Instrument Serif (`font-marca`) dibuja solo la
+palabra «socrático» y la «s» del ícono. Nada más la usa.
 
 ## La marca — «socrático», el acento es el sello
 
 `components/marca.tsx`. Desde el 2026-09-24 (decisión del dueño) la marca es
 una sola palabra en minúscula, **sin «.do»**: el nombre es Socrático.
 
-- `Logotipo` — «socrático» en Instrument Serif; **el acento de la «á» es el
+- `Logotipo` — «socrático» en Instrument Serif (`font-marca`); **el acento de la «á» es el
   sello**, un trazo inclinado en `marca-acento`. **La palabra vive solo sobre el
   azul `marca`** (decisión del dueño, 2026-09-25): la cabecera, la placa azul
   del pie, la tarjeta para compartir. Nunca sobre blanco ni sobre papel; sobre

@@ -196,12 +196,20 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
   const [titulo, setTitulo] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sinTitulo, setSinTitulo] = useState(false);
 
   async function crear(e: React.FormEvent) {
     e.preventDefault();
-    if (!titulo.trim()) return;
+    const limpio = titulo.trim();
+    // Vacío no apaga el botón: pulsarlo dice qué falta, junto al campo.
+    if (!limpio) {
+      setSinTitulo(true);
+      document.getElementById("nueva-investigacion")?.focus();
+      return;
+    }
+    setSinTitulo(false);
     setCargando(true);
-    const r = await crearProyecto(titulo);
+    const r = await crearProyecto(limpio);
     setCargando(false);
     if (!r.ok) return setError(r.error);
     setTitulo("");
@@ -221,16 +229,26 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
         <Label htmlFor="nueva-investigacion" className="sr-only">Título de la nueva investigación</Label>
         <Input
           id="nueva-investigacion"
+          name="titulo"
+          autoComplete="off"
           value={titulo}
           maxLength={140}
-          onChange={(e) => setTitulo(e.target.value)}
+          onChange={(e) => {
+            setTitulo(e.target.value);
+            if (sinTitulo) setSinTitulo(false);
+          }}
           placeholder="Ej.: Compras de INAPA en 2026"
+          aria-invalid={sinTitulo || undefined}
+          aria-describedby={sinTitulo ? "nueva-investigacion-error" : undefined}
         />
-        <Button type="submit" disabled={!titulo.trim() || cargando} className="shrink-0">
+        <Button type="submit" disabled={cargando} className="shrink-0">
           <IconPlus className="h-4 w-4" />
-          Crear
+          {cargando ? "Creando…" : "Crear"}
         </Button>
       </form>
+      <p id="nueva-investigacion-error" aria-live="polite" className="mt-1.5 text-xs text-sello-700 empty:hidden">
+        {sinTitulo ? "Ponle un título a la investigación." : ""}
+      </p>
       {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
 
       {proyectos === null ? (
@@ -277,6 +295,8 @@ function Guardado({
 }) {
   const editables = (proyectos ?? []).filter((p) => p.rol !== "lector");
   const [aviso, setAviso] = useState<string | null>(null);
+  // Quitar se lleva la nota del registro: se pregunta antes.
+  const [aQuitar, setAQuitar] = useState<string | null>(null);
 
   // Mover es copiar con su nota y borrar el original. Si el borrado falla, se
   // deshace la copia: el registro no queda en dos sitios sin que se sepa.
@@ -335,9 +355,26 @@ function Guardado({
                     </SelectContent>
                   </Select>
                 )}
-                <Button type="button" variant="ghost" size="icon" onClick={() => quitar(e)} aria-label={`Quitar «${e.titulo}»`}>
-                  <IconTrash className="h-4 w-4" />
-                </Button>
+                {aQuitar === e.id ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setAQuitar(null);
+                        void quitar(e);
+                      }}
+                    >
+                      Sí, quitar
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setAQuitar(null)}>No</Button>
+                  </>
+                ) : (
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setAQuitar(e.id)} aria-label={`Quitar «${e.titulo}»`}>
+                    <IconTrash className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </li>
           ))}

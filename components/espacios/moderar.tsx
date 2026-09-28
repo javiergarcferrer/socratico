@@ -194,11 +194,15 @@ function Decidir({
   const [nota, setNota] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [enCurso, setEnCurso] = useState(false);
+  // Retirar saca lo publicado de la vista de todos y la decisión cierra el
+  // caso en la cola: se confirma antes, como el borrar de una investigación.
+  const [seguro, setSeguro] = useState(false);
   const id = `nota-${objetivo.tipo === "comentario" ? objetivo.id : objetivo.clave}`;
 
   async function decidir(accion: "restaurar" | "retirar") {
+    setSeguro(false);
     setEnCurso(true);
-    const r = await moderar(objetivo, accion, nota);
+    const r = await moderar(objetivo, accion, nota.trim());
     setEnCurso(false);
     if (!r.ok) return setError(r.error);
     await onHecho();
@@ -207,10 +211,19 @@ function Decidir({
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <Label htmlFor={id} className="sr-only">Nota de la decisión</Label>
-      <Input id={id} value={nota} maxLength={500} onChange={(e) => setNota(e.target.value)} placeholder="Por qué (queda en el registro)" />
+      <Input id={id} value={nota} maxLength={500} onChange={(e) => setNota(e.target.value)} placeholder="Por qué (queda en el registro)…" />
       <div className="flex shrink-0 gap-2">
         <Button type="button" variant="secondary" disabled={enCurso} onClick={() => void decidir("restaurar")}>Restaurar</Button>
-        <Button type="button" variant="destructive" disabled={enCurso} onClick={() => void decidir("retirar")}>Retirar</Button>
+        {seguro ? (
+          <>
+            <Button type="button" variant="destructive" disabled={enCurso} onClick={() => void decidir("retirar")}>Sí, retirar</Button>
+            <Button type="button" variant="ghost" onClick={() => setSeguro(false)}>No</Button>
+          </>
+        ) : (
+          <Button type="button" variant="destructive" disabled={enCurso} onClick={() => setSeguro(true)}>
+            {enCurso ? "Decidiendo…" : "Retirar"}
+          </Button>
+        )}
       </div>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
     </div>
@@ -222,23 +235,50 @@ function Retitular({ clave, actual, onHecho }: { clave: string; actual: string; 
   const [titulo, setTitulo] = useState(actual);
   const [nota, setNota] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const cambia = titulo.trim().length > 0 && titulo.trim() !== actual;
+  // Sin título, o con el mismo, no hay nada que corregir: el botón sigue
+  // activo y lo dice junto al campo en vez de apagarse sin explicación.
+  const [aviso, setAviso] = useState("");
+  const [enCurso, setEnCurso] = useState(false);
+  const idTitulo = `titulo-${clave}`;
   return (
     <form
       className="flex flex-col gap-2 sm:flex-row sm:items-center"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!cambia) return;
-        const r = await retitular(clave, titulo, nota);
+        const limpio = titulo.trim();
+        if (!limpio || limpio === actual) {
+          setAviso(limpio ? "Es el mismo título: cámbialo para corregirlo." : "Escribe el título corregido.");
+          document.getElementById(idTitulo)?.focus();
+          return;
+        }
+        setAviso("");
+        setEnCurso(true);
+        const r = await retitular(clave, limpio, nota.trim());
+        setEnCurso(false);
         if (!r.ok) return setError(r.error);
         await onHecho();
       }}
     >
-      <Label htmlFor={`titulo-${clave}`} className="sr-only">Título corregido</Label>
-      <Input id={`titulo-${clave}`} value={titulo} maxLength={300} onChange={(e) => setTitulo(e.target.value)} />
+      <Label htmlFor={idTitulo} className="sr-only">Título corregido</Label>
+      <Input
+        id={idTitulo}
+        name="titulo"
+        autoComplete="off"
+        value={titulo}
+        maxLength={300}
+        onChange={(e) => {
+          setTitulo(e.target.value);
+          if (aviso) setAviso("");
+        }}
+        aria-invalid={aviso ? true : undefined}
+        aria-describedby={aviso ? `${idTitulo}-error` : undefined}
+      />
       <Label htmlFor={`nota-titulo-${clave}`} className="sr-only">Por qué</Label>
-      <Input id={`nota-titulo-${clave}`} value={nota} maxLength={500} onChange={(e) => setNota(e.target.value)} placeholder="Por qué (queda en el registro)" className="sm:w-56" />
-      <Button type="submit" variant="secondary" disabled={!cambia} className="shrink-0">Corregir título</Button>
+      <Input id={`nota-titulo-${clave}`} name="nota" autoComplete="off" value={nota} maxLength={500} onChange={(e) => setNota(e.target.value)} placeholder="Por qué (queda en el registro)…" className="sm:w-56" />
+      <Button type="submit" variant="secondary" disabled={enCurso} className="shrink-0">
+        {enCurso ? "Corrigiendo…" : "Corregir título"}
+      </Button>
+      <p id={`${idTitulo}-error`} aria-live="polite" className="text-xs text-sello-700 empty:hidden">{aviso}</p>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
     </form>
   );
@@ -252,6 +292,8 @@ function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: stri
   const [dias, setDias] = useState("7");
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [falta, setFalta] = useState<"dias" | "motivo" | null>(null);
+  const [enCurso, setEnCurso] = useState(false);
 
   if (!abierto) {
     return (
@@ -260,28 +302,63 @@ function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: stri
       </Button>
     );
   }
-  const n = Number(dias);
-  const valido = Number.isInteger(n) && n >= 1 && n <= 3650 && motivo.trim().length > 0;
+  const n = Number(dias.trim());
   return (
     <form
       className="flex flex-col gap-2 sm:flex-row sm:items-center"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!valido) return;
-        const r = await suspender(usuario, n, motivo);
+        const razon = motivo.trim();
+        const mal = !(Number.isInteger(n) && n >= 1 && n <= 3650) ? "dias" : !razon ? "motivo" : null;
+        setFalta(mal);
+        if (mal) {
+          document.getElementById(`${mal}-${u}`)?.focus();
+          return;
+        }
+        setEnCurso(true);
+        const r = await suspender(usuario, n, razon);
+        setEnCurso(false);
         if (!r.ok) return setError(r.error);
         await onHecho();
       }}
     >
       <Label htmlFor={`dias-${u}`} className="sr-only">Días</Label>
-      <Input id={`dias-${u}`} inputMode="numeric" value={dias} onChange={(e) => setDias(e.target.value)} className="sm:w-20" aria-describedby={`ayuda-${u}`} />
+      <Input
+        id={`dias-${u}`}
+        name="dias"
+        inputMode="numeric"
+        autoComplete="off"
+        value={dias}
+        onChange={(e) => {
+          setDias(e.target.value);
+          if (falta === "dias") setFalta(null);
+        }}
+        className="sm:w-20"
+        aria-invalid={falta === "dias" || undefined}
+        aria-describedby={`ayuda-${u}`}
+      />
       <Label htmlFor={`motivo-${u}`} className="sr-only">Motivo</Label>
-      <Input id={`motivo-${u}`} value={motivo} maxLength={500} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (queda en el registro)" />
+      <Input
+        id={`motivo-${u}`}
+        name="motivo"
+        autoComplete="off"
+        value={motivo}
+        maxLength={500}
+        onChange={(e) => {
+          setMotivo(e.target.value);
+          if (falta === "motivo") setFalta(null);
+        }}
+        placeholder="Motivo (queda en el registro)…"
+        aria-invalid={falta === "motivo" || undefined}
+        aria-describedby={`ayuda-${u}`}
+      />
       <div className="flex shrink-0 gap-2">
-        <Button type="submit" variant="destructive" disabled={!valido}>Suspender</Button>
+        <Button type="submit" variant="destructive" disabled={enCurso}>{enCurso ? "Suspendiendo…" : "Suspender"}</Button>
         <Button type="button" variant="ghost" onClick={() => setAbierto(false)}>Cancelar</Button>
       </div>
-      <p id={`ayuda-${u}`} className="text-xs text-ink-soft">{valido ? "" : "Días (1 a 3650) y un motivo."}</p>
+      <p id={`ayuda-${u}`} aria-live="polite" className={falta ? "text-xs text-sello-700" : "text-xs text-ink-soft"}>
+        {falta === "dias" ? "Los días van de 1 a 3650." : falta === "motivo" ? "Escribe el motivo: queda en el registro." : "Días (1 a 3650) y un motivo."}
+      </p>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
     </form>
   );

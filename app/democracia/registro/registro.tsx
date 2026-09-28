@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase, db } from "@/lib/supabase";
-import { abrirSesion as abrirSesionCon, leerEntrada, mensajeDeEnvio, type Entrada } from "@/lib/sesion";
+import { abrirSesion as abrirSesionCon, correoValido, leerEntrada, mensajeDeEnvio, type Entrada } from "@/lib/sesion";
 import { cedulaValida, formatearCedula, limpiarCedula } from "@/lib/cedula";
 import { rutaPropia } from "@/lib/espacios";
 import { IconArrowLeft, IconCheck, IconShield } from "@/components/icons";
@@ -44,11 +44,17 @@ export default function Registro() {
   const [codigo, setCodigo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  // Qué campo falló al pulsar enviar. El botón no se apaga por un campo a
+  // medias: pulsarlo es la manera de preguntar qué falta, y la respuesta va
+  // junto al campo.
+  const [cedulaMal, setCedulaMal] = useState(false);
+  const [emailMal, setEmailMal] = useState(false);
+  const [codigoMal, setCodigoMal] = useState<string | null>(null);
   /** De dónde viene la identidad del votante: cédula tecleada o Cuenta Única. */
   const [origen, setOrigen] = useState<"declarada" | "cuenta_unica" | null>(null);
 
   /** Abre sesión con lo que haya llegado (`lib/sesion.ts`); `null` si quedó abierta. */
-  const abrirSesion = (entrada: Entrada) => abrirSesionCon(email, entrada);
+  const abrirSesion = (entrada: Entrada) => abrirSesionCon(email.trim(), entrada);
 
   // Si ya hay sesión con votante, saltar directo al estado final. Y si la URL
   // trae la respuesta del enlace, consumirla antes de nada.
@@ -85,11 +91,18 @@ export default function Registro() {
   }, []);
 
   const cedulaOk = cedulaValida(cedula);
-  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  const correo = email.trim();
+  const emailOk = correoValido(correo);
 
   async function enviarCodigo(e: React.FormEvent) {
     e.preventDefault();
-    if (!cedulaOk || !emailOk) return;
+    setCedulaMal(!cedulaOk);
+    setEmailMal(!emailOk);
+    if (!cedulaOk || !emailOk) {
+      document.getElementById(cedulaOk ? "registro-correo" : "registro-cedula")?.focus();
+      return;
+    }
+    setEmail(correo);
     setError(null);
     setCargando(true);
     /*
@@ -103,7 +116,7 @@ export default function Registro() {
       completa solo, sin pegar nada.
     */
     const { error: err } = await supabase().auth.signInWithOtp({
-      email,
+      email: correo,
       options: {
         shouldCreateUser: true,
         // La vuelta del correo conserva a dónde regresar al terminar (ya
@@ -127,11 +140,15 @@ export default function Registro() {
     const entrada = leerEntrada(codigo);
     if (!entrada) {
       // El callejón sin salida era un botón apagado sin explicación.
-      setError(
-        "Eso no parece ni un código de seis dígitos ni una dirección de verificación. Pega la dirección completa, la que empieza por «http».",
+      setCodigoMal(
+        codigo.trim()
+          ? "Eso no parece ni un código de seis dígitos ni una dirección de verificación. Pega la dirección completa, la que empieza por «http»."
+          : "Escribe el código de 6 dígitos o pega la dirección del correo.",
       );
+      document.getElementById("registro-codigo")?.focus();
       return;
     }
+    setCodigoMal(null);
     setError(null);
     setCargando(true);
     const fallo = await abrirSesion(entrada);
@@ -187,7 +204,11 @@ export default function Registro() {
 
   async function registrarConSesion(e: React.FormEvent) {
     e.preventDefault();
-    if (!cedulaOk) return;
+    setCedulaMal(!cedulaOk);
+    if (!cedulaOk) {
+      document.getElementById("cedula-pendiente")?.focus();
+      return;
+    }
     setError(null);
     await completarRegistro("cedula-pendiente");
   }
@@ -261,16 +282,24 @@ export default function Registro() {
               una cédula a medio teclear. El formato se pone solo.
             */}
             <Input
+              id="registro-cedula"
+              name="cedula"
               inputMode="numeric"
               value={formatearCedula(cedula)}
-              onChange={(e) => setCedula(limpiarCedula(e.target.value).slice(0, 11))}
+              onChange={(e) => {
+                setCedula(limpiarCedula(e.target.value).slice(0, 11));
+                if (cedulaMal) setCedulaMal(false);
+              }}
               placeholder="001-0000000-0"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
+              aria-invalid={cedulaMal || undefined}
+              aria-describedby={cedulaMal ? "registro-cedula-error" : undefined}
               className="h-11 bg-canvas font-mono tabular-nums"
             />
+            <ErrorCampo id="registro-cedula-error">{cedulaMal ? MENSAJE_CEDULA : ""}</ErrorCampo>
           </Campo>
           <Campo etiqueta="Correo electrónico" hint="Te enviaremos un código de un solo uso">
             {/*
@@ -279,17 +308,27 @@ export default function Registro() {
               falla por una mayúscula que el visitante no tecleó.
             */}
             <Input
+              id="registro-correo"
+              name="email"
               type="email"
               inputMode="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailMal) setEmailMal(false);
+              }}
               placeholder="tu@correo.do"
               autoComplete="email"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
+              aria-invalid={emailMal || undefined}
+              aria-describedby={emailMal ? "registro-correo-error" : undefined}
               className="h-11 bg-canvas"
             />
+            <ErrorCampo id="registro-correo-error">
+              {emailMal ? "Escribe un correo completo, como tu@correo.do." : ""}
+            </ErrorCampo>
           </Campo>
           {error && (
             <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">
@@ -298,7 +337,7 @@ export default function Registro() {
           )}
           <Button
             type="submit"
-            disabled={!cedulaOk || !emailOk || cargando}
+            disabled={cargando}
             className="h-11 w-full bg-brand-600 hover:bg-brand-700"
           >
             {cargando ? "Enviando…" : "Enviar código"}
@@ -330,16 +369,23 @@ export default function Registro() {
             </label>
             <Input
               id="cedula-pendiente"
+              name="cedula"
               inputMode="numeric"
               value={formatearCedula(cedula)}
-              onChange={(e) => setCedula(limpiarCedula(e.target.value).slice(0, 11))}
+              onChange={(e) => {
+                setCedula(limpiarCedula(e.target.value).slice(0, 11));
+                if (cedulaMal) setCedulaMal(false);
+              }}
               placeholder="000-0000000-0"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
+              aria-invalid={cedulaMal || undefined}
+              aria-describedby={cedulaMal ? "cedula-pendiente-error" : undefined}
               className="mt-1.5 h-11 bg-canvas font-mono tabular-nums"
             />
+            <ErrorCampo id="cedula-pendiente-error">{cedulaMal ? MENSAJE_CEDULA : ""}</ErrorCampo>
           </div>
           {error && (
             <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">
@@ -348,10 +394,10 @@ export default function Registro() {
           )}
           <Button
             type="submit"
-            disabled={!cedulaOk || cargando}
+            disabled={cargando}
             className="h-11 w-full bg-brand-600 hover:bg-brand-700"
           >
-            Completar el registro
+            {cargando ? "Registrando…" : "Completar el registro"}
             </Button>
           </form>
         </Card>
@@ -396,18 +442,35 @@ export default function Registro() {
             apagados, iOS pone en mayúscula la primera letra de una dirección
             pegada y la deja inservible.
           */}
+          {/*
+            Enter envía aunque sea un área de texto: un código o una dirección
+            pegada no llevan saltos de línea.
+          */}
           <Textarea
+            id="registro-codigo"
+            name="codigo"
             rows={codigo.length > 40 ? 3 : 1}
             value={codigo}
-            onChange={(e) => setCodigo(e.target.value)}
+            onChange={(e) => {
+              setCodigo(e.target.value);
+              if (codigoMal) setCodigoMal(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }}
             placeholder="000000 — o pega aquí la dirección del correo"
             autoComplete="one-time-code"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
             aria-label="Código de verificación o enlace del correo"
+            aria-invalid={codigoMal ? true : undefined}
+            aria-describedby={codigoMal ? "registro-codigo-error" : undefined}
             className="min-h-11 resize-none bg-canvas px-3 py-3 font-mono tabular-nums"
           />
+          <ErrorCampo id="registro-codigo-error">{codigoMal ?? ""}</ErrorCampo>
           {error && (
             <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">
               {error}
@@ -415,7 +478,7 @@ export default function Registro() {
           )}
           <Button
             type="submit"
-            disabled={!codigo.trim() || cargando || paso === "registrando"}
+            disabled={cargando || paso === "registrando"}
             className="h-11 w-full bg-brand-600 hover:bg-brand-700"
           >
             {paso === "registrando"
@@ -427,7 +490,7 @@ export default function Registro() {
           <Button
             type="button"
             variant="link"
-            onClick={() => { setPaso("datos"); setCodigo(""); setError(null); }}
+            onClick={() => { setPaso("datos"); setCodigo(""); setCodigoMal(null); setError(null); }}
             // Es la puerta de atrás del paso más frágil del registro: 44 px.
             className="h-11 w-full text-xs font-medium text-ink-soft hover:text-ink"
           >
@@ -537,5 +600,19 @@ function Campo({
       </div>
       {children}
     </label>
+  );
+}
+
+const MENSAJE_CEDULA = "Revisa la cédula: son 11 dígitos, como 001-0000000-0.";
+
+/**
+ * El error de un campo, junto al campo; vacío no ocupa sitio. `span` y no `p`
+ * porque en el primer paso vive dentro de la `label` de `Campo`.
+ */
+function ErrorCampo({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <span id={id} aria-live="polite" className="mt-1.5 block text-xs text-sello-700 empty:hidden">
+      {children}
+    </span>
   );
 }

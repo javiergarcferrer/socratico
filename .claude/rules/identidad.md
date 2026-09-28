@@ -93,9 +93,10 @@ registers the finding instead of fixing it.
   `sello-*` (stamp red) is scarce: the dot of «¿», the «.do», the compras
   vertical, «Deroga». `alerta-*` ochre for deadlines, `valido-*` green for
   what is fulfilled, `--color-v-*` only for orientation, never content.
-- Instrument Serif (`font-display`, weight 400) asks: h1/h2. Public Sans
-  explains: body/UI. IBM Plex Mono registers: amounts, codes, dates, `.rotulo`.
-  A 14 px panel title is sans bold, not serif.
+- Geist (`font-display`, 600, tracking set in base CSS) asks: h1/h2. Public
+  Sans explains: body/UI. IBM Plex Mono registers: amounts, codes, dates,
+  `.rotulo`. A 14 px panel title is Public Sans bold, not `font-display`.
+  Instrument Serif (`font-marca`) is the wordmark only.
 - The dot is always seal red (`.punto-sello`). No exception.
 
 ## Voice and cognitive ergonomics (docs/IDENTIDAD.md §Ergonomía)

@@ -158,7 +158,8 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
               return (
                 <li key={k} className="flex items-start gap-2 py-3 text-sm leading-relaxed">
                   <IconLink className="mt-1 h-4 w-4 shrink-0 text-ink-soft" />
-                  <p>
+                  {/* Los títulos los escribe el lector: uno sin espacios no empuja la fila fuera del papel. */}
+                  <p className="min-w-0 break-words">
                     <EnlaceRegistro titulo={a.titulo} href={a.href} ajeno />
                     <span className="mx-1.5 text-brand-700">— {VERBO_ENLACE[l.tipo]} →</span>
                     <EnlaceRegistro titulo={b.titulo} href={b.href} ajeno />

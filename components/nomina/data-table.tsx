@@ -211,12 +211,16 @@ function HeaderCell({
       type="button"
       onClick={() => onSort(col)}
       className={cn(
-        "flex min-h-11 items-center gap-1 transition-colors hover:text-brand-700 sm:min-h-0",
+        "flex min-h-11 items-center gap-1 rounded-sm transition-colors hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:min-h-0",
         align === "right" && "justify-end",
         activeSort && "text-brand-700",
       )}
     >
       {label}
+      {/* La cabecera es una rejilla y no un `<th>`: sin `aria-sort`, el orden se dice en palabras. */}
+      {activeSort && (
+        <span className="sr-only">{sortDir === "asc" ? ", orden ascendente" : ", orden descendente"}</span>
+      )}
       <SortGlyph active={activeSort} dir={sortDir} />
     </button>
   );

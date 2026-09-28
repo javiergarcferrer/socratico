@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { IconChat, IconFlag, IconShield, IconTrash, IconVoto } from "@/components/icons";
 import { cn } from "@/lib/cn";
+import { enviarConModificador } from "@/components/teclas";
 import { formatFecha } from "@/lib/format";
 import { NORMAS } from "./normas";
 import { porQueNoVota } from "./razones";
@@ -556,10 +557,18 @@ function Primera({ nombre: inicial, onListo }: { nombre: string | null; onListo:
   const [acepto, setAcepto] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  // Lo que falta se dice al pulsar «Seguir», junto al campo, y el foco va ahí.
+  const [falta, setFalta] = useState<"nombre" | "acepto" | null>(null);
 
   async function seguir(e: React.FormEvent) {
     e.preventDefault();
-    if (!nombre.trim() || !acepto) return;
+    const firma = nombre.trim();
+    const mal = !firma ? "nombre" : !acepto ? "acepto" : null;
+    setFalta(mal);
+    if (mal) {
+      document.getElementById(mal === "nombre" ? "firma-conversacion" : "acepto-normas")?.focus();
+      return;
+    }
     setCargando(true);
     const c = await import("@/lib/espacios-cliente");
     const u = await c.sesionActual();
@@ -567,8 +576,8 @@ function Primera({ nombre: inicial, onListo }: { nombre: string | null; onListo:
       setCargando(false);
       return setError("Tu sesión venció. Vuelve a entrar.");
     }
-    if (nombre.trim() !== inicial) {
-      const r = await c.guardarNombre(u, nombre);
+    if (firma !== inicial) {
+      const r = await c.guardarNombre(u, firma);
       if (!r.ok) {
         setCargando(false);
         return setError(r.error);
@@ -586,7 +595,20 @@ function Primera({ nombre: inicial, onListo }: { nombre: string | null; onListo:
         <CardTitle className="text-base">Antes de tu primer comentario</CardTitle>
         <div className="space-y-1.5">
           <Label htmlFor="firma-conversacion">El nombre con que firmas</Label>
-          <Input id="firma-conversacion" value={nombre} maxLength={80} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre o el de tu medio" autoComplete="name" />
+          <Input
+            id="firma-conversacion"
+            name="name"
+            value={nombre}
+            maxLength={80}
+            onChange={(e) => {
+              setNombre(e.target.value);
+              if (falta === "nombre") setFalta(null);
+            }}
+            placeholder="Tu nombre o el de tu medio…"
+            autoComplete="name"
+            aria-invalid={falta === "nombre" || undefined}
+            aria-describedby={falta === "nombre" ? "primera-error" : undefined}
+          />
           <p className="text-xs text-ink-soft">Sale junto a cada comentario tuyo. Nadie ve tu correo ni tu cédula.</p>
         </div>
         <ol className="space-y-2 border-t border-hairline pt-3">
@@ -598,14 +620,24 @@ function Primera({ nombre: inicial, onListo }: { nombre: string | null; onListo:
           ))}
         </ol>
         <Label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-normal text-ink">
-          <Checkbox checked={acepto} onCheckedChange={(v) => setAcepto(v === true)} />
+          <Checkbox
+            id="acepto-normas"
+            name="acepto"
+            checked={acepto}
+            onCheckedChange={(v) => {
+              setAcepto(v === true);
+              if (falta === "acepto") setFalta(null);
+            }}
+            aria-invalid={falta === "acepto" || undefined}
+            aria-describedby={falta === "acepto" ? "primera-error" : undefined}
+          />
           Acepto las normas de la conversación
         </Label>
         {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
-        {(!nombre.trim() || !acepto) && (
-          <p className="text-xs text-ink-soft">{!nombre.trim() ? "Escribe tu nombre de firma" : "Marca que aceptas las normas"} para seguir.</p>
-        )}
-        <Button type="submit" disabled={!nombre.trim() || !acepto || cargando}>
+        <p id="primera-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+          {falta === "nombre" ? "Escribe tu nombre de firma para seguir." : falta === "acepto" ? "Marca que aceptas las normas para seguir." : ""}
+        </p>
+        <Button type="submit" disabled={cargando}>
           {cargando ? "Guardando…" : "Seguir"}
         </Button>
       </form>
@@ -630,14 +662,20 @@ function Redactar({
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const id = `redactar-${padre ?? "hilo"}`;
-  const largo = texto.trim().length;
+  const [corto, setCorto] = useState(false);
 
   async function publicar(e: React.FormEvent) {
     e.preventDefault();
-    if (largo < 2) return;
+    const limpio = texto.trim();
+    if (limpio.length < 2) {
+      setCorto(true);
+      document.getElementById(id)?.focus();
+      return;
+    }
+    setCorto(false);
     setCargando(true);
     const c = await import("@/lib/espacios-cliente");
-    const r = await c.comentar(referencia, texto, padre);
+    const r = await c.comentar(referencia, limpio, padre);
     setCargando(false);
     if (!r.ok) return setError(r.error);
     setTexto("");
@@ -652,16 +690,26 @@ function Redactar({
       </Label>
       <Textarea
         id={id}
+        name="comentario"
         rows={padre ? 3 : 4}
         maxLength={4000}
         value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        placeholder={padre ? "Tu respuesta" : "Una pregunta concreta, un dato que falta, de dónde sale lo que dices."}
+        onChange={(e) => {
+          setTexto(e.target.value);
+          if (corto) setCorto(false);
+        }}
+        onKeyDown={enviarConModificador}
+        aria-invalid={corto || undefined}
+        aria-describedby={corto ? `${id}-error` : undefined}
+        placeholder={padre ? "Tu respuesta…" : "Una pregunta concreta, un dato que falta, de dónde sale lo que dices…"}
         className="text-base sm:text-[15px]"
       />
+      <p id={`${id}-error`} aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+        {corto ? "Escribe algo antes de publicar." : ""}
+      </p>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={largo < 2 || cargando}>
+        <Button type="submit" disabled={cargando}>
           {cargando ? "Publicando…" : "Publicar"}
         </Button>
         {onCancelar && (
@@ -692,6 +740,8 @@ function Denunciar({
   const [detalle, setDetalle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [hecho, setHecho] = useState(false);
+  const [sinMotivo, setSinMotivo] = useState(false);
+  const [enviando, setEnviando] = useState(false);
   const [motivos, setMotivos] = useState<Record<string, { nombre: string; ayuda: string }> | null>(null);
 
   useEffect(() => {
@@ -700,14 +750,22 @@ function Denunciar({
     setDetalle("");
     setError(null);
     setHecho(false);
+    setSinMotivo(false);
     void import("@/lib/espacios-cliente").then((c) => setMotivos(c.MOTIVOS_DENUNCIA));
   }, [abierto]);
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    if (!objetivo || !motivo) return;
+    if (!objetivo) return;
+    if (!motivo) {
+      setSinMotivo(true);
+      document.getElementById("motivo-denuncia")?.focus();
+      return;
+    }
+    setEnviando(true);
     const c = await import("@/lib/espacios-cliente");
-    const r = await c.denunciar(objetivo, motivo, detalle);
+    const r = await c.denunciar(objetivo, motivo, detalle.trim());
+    setEnviando(false);
     if (!r.ok) return setError(r.error);
     setHecho(true);
     await onHecho();
@@ -729,8 +787,20 @@ function Denunciar({
           </div>
         ) : (
           <form onSubmit={enviar} className="space-y-3">
-            <Select value={motivo} onValueChange={(v) => setMotivo(v as MotivoDenuncia)}>
-              <SelectTrigger aria-label="Motivo">
+            <Select
+              name="motivo"
+              value={motivo}
+              onValueChange={(v) => {
+                setMotivo(v as MotivoDenuncia);
+                setSinMotivo(false);
+              }}
+            >
+              <SelectTrigger
+                id="motivo-denuncia"
+                aria-label="Motivo"
+                aria-invalid={sinMotivo || undefined}
+                aria-describedby={sinMotivo ? "motivo-denuncia-error" : undefined}
+              >
                 <SelectValue placeholder="¿Qué pasa?" />
               </SelectTrigger>
               <SelectContent>
@@ -742,12 +812,14 @@ function Denunciar({
                   ))}
               </SelectContent>
             </Select>
+            <p id="motivo-denuncia-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+              {sinMotivo ? "Elige un motivo para enviar." : ""}
+            </p>
             <Label htmlFor="detalle-denuncia" className="sr-only">Detalle</Label>
-            <Textarea id="detalle-denuncia" rows={3} maxLength={500} value={detalle} onChange={(e) => setDetalle(e.target.value)} placeholder="Detalle (opcional)" className="text-base sm:text-sm" />
+            <Textarea id="detalle-denuncia" name="detalle" rows={3} maxLength={500} value={detalle} onChange={(e) => setDetalle(e.target.value)} onKeyDown={enviarConModificador} placeholder="Detalle (opcional)…" className="text-base sm:text-sm" />
             {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
-            {!motivo && <p className="text-xs text-ink-soft">Elige un motivo para enviar.</p>}
             <div className="flex gap-2">
-              <Button type="submit" disabled={!motivo}>Enviar denuncia</Button>
+              <Button type="submit" disabled={enviando}>{enviando ? "Enviando…" : "Enviar denuncia"}</Button>
               <Button type="button" variant="ghost" onClick={onCerrar}>Cancelar</Button>
             </div>
           </form>

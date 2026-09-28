@@ -149,7 +149,7 @@ export function SelloCompacto({
  */
 export function Logotipo({ className = "text-[19px]" }: { className?: string }) {
   return (
-    <span className={`font-display leading-none tracking-[-0.035em] whitespace-nowrap ${className}`}>
+    <span translate="no" className={`font-marca leading-none tracking-[-0.035em] whitespace-nowrap ${className}`}>
       <span className="sr-only">Socrático</span>
       <span aria-hidden>
         socr

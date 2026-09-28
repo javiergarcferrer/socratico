@@ -22,7 +22,7 @@ export default function PuertaCuenta() {
   const texto = hay ? "Tu espacio" : "Entrar";
   const activo = pathname === "/espacio" || pathname.startsWith("/espacio/") || pathname === "/cuenta";
   return (
-    <Button asChild variant="tinta" size="icon" className="w-auto gap-1.5 px-2.5 sm:px-3" data-activo={activo}>
+    <Button asChild variant="tinta" size="icon" className="w-auto gap-1.5 px-2.5 sm:w-auto sm:px-3" data-activo={activo}>
       <Link href={href} aria-label={hay === null ? "Tu cuenta" : texto}>
         <IconUser className="h-5 w-5" />
         <span className="hidden text-sm font-medium md:inline" aria-hidden={hay === null}>

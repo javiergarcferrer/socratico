@@ -43,7 +43,7 @@ export default function BuscadorLegisladores({
         ir("");
       }}
       etiqueta="Buscar un legislador por nombre"
-      placeholder="Nombre o apellido"
+      placeholder="Nombre o apellido…"
       ayuda={`Busca por nombre entre los ${total} legisladores del directorio del SIL, sin importar tildes.`}
       pendiente={pendiente}
     />

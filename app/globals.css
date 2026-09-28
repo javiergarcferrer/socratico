@@ -9,7 +9,7 @@
   se puede accionar. Nada imita lo oficial; todo lo interroga.
 
   Tres familias con tres oficios:
-    · Instrument Serif  — la pregunta (titulares).
+    · Geist             — la pregunta (titulares), seminegrita y apretada.
     · Public Sans       — la explicación (cuerpo e interfaz).
     · IBM Plex Mono     — el registro (montos, códigos, expedientes).
 
@@ -26,8 +26,10 @@
 @theme {
   --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-instrument-serif), Georgia, "Times New Roman",
-    serif;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Solo la palabra «socrático» y la «s» del ícono: es la marca, no un oficio. */
+  --font-marca: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo,
     "Courier New", monospace;
 
@@ -312,15 +314,40 @@
   }
 
   /*
-    Los titulares llevan la serif —son las preguntas—; los rótulos pequeños de
-    sección se quedan en sans, y se marcan con la clase `rotulo`.
+    Los titulares llevan la letra de titular —son las preguntas—; los rótulos
+    pequeños de sección se quedan en sans, y se marcan con la clase `rotulo`.
+    Geist a 600 y apretada (2026-09-28, decisión del dueño: la serif de antes
+    se leía floja y anticuada). El peso vive aquí, en la base, y no en la
+    utilidad: `font-display` suelto hereda el mismo titular, y un `font-medium`
+    explícito sigue ganando porque las utilidades van después de la base.
   */
+  h1,
+  h2,
+  .font-display {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
   h1,
   h2 {
     font-family: var(--font-display);
-    font-weight: 400;
-    letter-spacing: -0.005em;
     text-wrap: balance;
+  }
+
+  /*
+    Sin el retardo del doble toque: en un control, el navegador del teléfono
+    esperaba ~300 ms por si el segundo toque era un zoom. El zoom con dos
+    dedos sigue intacto.
+  */
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  label,
+  summary,
+  [role="button"] {
+    touch-action: manipulation;
   }
 
   /*

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQueryStates } from "nuqs";
 import { useEffect, useRef, useState } from "react";
 import { getRecientes, pushReciente } from "@/lib/recientes";
@@ -53,7 +53,6 @@ const BUSCADOR = "/licitaciones";
 const ALCANCE = BUSQUEDAS.find((b) => b.href === BUSCADOR)?.alcance;
 
 export default function CampoLicitaciones() {
-  const router = useRouter();
   const [url, setUrl] = useQueryStates(FILTROS_LICITACIONES);
   /*
     Este campo solo vive en el buscador, así que el `?q=` que refleja es
@@ -126,12 +125,10 @@ export default function CampoLicitaciones() {
   /*
     Una guardada sí es una navegación —se apila en el historial y «atrás»
     vuelve a la búsqueda de antes—, y su querystring es crudo: puede traer el
-    `?estado=` de entonces, que el buscador traduce al leerlo.
+    `?estado=` de entonces, que el buscador traduce al leerlo. Por eso es un
+    enlace y no un botón: se abre en otra pestaña y se copia como cualquiera.
   */
-  function aplicarGuardada(b: Busqueda) {
-    router.push(`${BUSCADOR}${b.qs ? `?${b.qs}` : ""}`);
-    setOpen(false);
-  }
+  const hrefGuardada = (b: Busqueda) => `${BUSCADOR}${b.qs ? `?${b.qs}` : ""}`;
 
   function guardarActual() {
     const qs = typeof window !== "undefined"
@@ -330,15 +327,15 @@ export default function CampoLicitaciones() {
             <ul>
               {busquedas.map((b) => (
                 <li key={b.id} className="flex items-center gap-1">
-                  <button
-                    type="button"
+                  <Link
+                    href={hrefGuardada(b)}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => aplicarGuardada(b)}
+                    onClick={() => setOpen(false)}
                     className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-canvas sm:min-h-0"
                   >
                     <IconBookmark className="h-4 w-4 shrink-0 text-brand-600" filled />
                     <span className="truncate font-medium">{b.nombre}</span>
-                  </button>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="icon-sm"

@@ -32,6 +32,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/cn";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { IconArrowRight, IconCheck, IconGoogle } from "@/components/icons";
 import { avisarCambioDeSesion } from "./presencia";
@@ -74,6 +75,10 @@ export default function Entrar({ volver }: { volver: string | null }) {
   const [contrasena, setContrasena] = useState("");
   const [nueva, setNueva] = useState("");
   const [contrasenaGuardada, setContrasenaGuardada] = useState(false);
+  // Qué campo falló al pulsar. Los botones no se apagan por un campo a
+  // medias: pulsar es preguntar qué falta, y la respuesta va junto al campo.
+  const [falta, setFalta] = useState<"correo" | "contrasena" | "codigo" | "nombre" | "nueva" | null>(null);
+  const [codigoMal, setCodigoMal] = useState("");
   const destino = volverSeguro(volver);
 
   async function dentro(u: Usuario, recienLlegado: boolean) {
@@ -139,18 +144,24 @@ export default function Entrar({ volver }: { volver: string | null }) {
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    if (!correoValido(email)) return;
+    const correo = email.trim();
+    const mal = !correoValido(correo) ? "correo" : modo === "contrasena" && !contrasena ? "contrasena" : null;
+    setFalta(mal);
+    if (mal) {
+      document.getElementById(mal === "correo" ? "correo-cuenta" : "contrasena-cuenta")?.focus();
+      return;
+    }
+    setEmail(correo);
     if (modo === "contrasena") return entrarConClave();
     setError(null);
     setCargando(true);
-    const fallo = await pedirCodigo(email.trim(), "/cuenta");
+    const fallo = await pedirCodigo(correo, "/cuenta");
     setCargando(false);
     if (fallo) setError(fallo);
     else setPaso("codigo");
   }
 
   async function entrarConClave() {
-    if (!contrasena) return;
     setError(null);
     setCargando(true);
     const fallo = await entrarConContrasena(email.trim(), contrasena);
@@ -166,7 +177,12 @@ export default function Entrar({ volver }: { volver: string | null }) {
 
   async function guardarContrasena(e: React.FormEvent) {
     e.preventDefault();
-    if (nueva.length < LARGO_MINIMO) return;
+    if (nueva.length < LARGO_MINIMO) {
+      setFalta("nueva");
+      document.getElementById("contrasena-nueva")?.focus();
+      return;
+    }
+    setFalta(null);
     setError(null);
     setCargando(true);
     const fallo = await ponerContrasena(nueva);
@@ -191,9 +207,15 @@ export default function Entrar({ volver }: { volver: string | null }) {
     e.preventDefault();
     const entrada = leerEntrada(codigo);
     if (!entrada) {
-      setError("Eso no parece ni un código de seis dígitos ni una dirección de verificación. Pega la dirección completa, la que empieza por «http».");
+      setCodigoMal(
+        codigo.trim()
+          ? "Eso no parece ni un código de seis dígitos ni una dirección de verificación. Pega la dirección completa, la que empieza por «http»."
+          : "Escribe el código de 6 dígitos o pega la dirección del correo.",
+      );
+      document.getElementById("codigo-cuenta")?.focus();
       return;
     }
+    setCodigoMal("");
     setError(null);
     setCargando(true);
     const fallo = await abrirSesion(email.trim(), entrada);
@@ -208,11 +230,20 @@ export default function Entrar({ volver }: { volver: string | null }) {
 
   async function firmarComo(e: React.FormEvent) {
     e.preventDefault();
-    if (!usuario || !nombre.trim()) return;
+    const firma = nombre.trim();
+    if (!usuario) return;
+    if (!firma) {
+      setFalta("nombre");
+      document.getElementById("nombre-firma")?.focus();
+      return;
+    }
+    // Ya guardado tal cual: el botón dice «Guardado» y no hay nada que enviar.
+    if (firma === nombreGuardado) return;
+    setFalta(null);
     setCargando(true);
-    const r = await guardarNombre(usuario, nombre);
+    const r = await guardarNombre(usuario, firma);
     setCargando(false);
-    if (r.ok) setNombreGuardado(nombre.trim());
+    if (r.ok) setNombreGuardado(firma);
     else setError(r.error);
   }
 
@@ -251,16 +282,25 @@ export default function Entrar({ volver }: { volver: string | null }) {
             <div className="flex gap-2">
               <Input
                 id="nombre-firma"
+                name="name"
                 value={nombre}
                 maxLength={80}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Tu nombre o el de tu medio"
+                onChange={(e) => {
+                  setNombre(e.target.value);
+                  if (falta === "nombre") setFalta(null);
+                }}
+                placeholder="Tu nombre o el de tu medio…"
                 autoComplete="name"
+                aria-invalid={falta === "nombre" || undefined}
+                aria-describedby={falta === "nombre" ? "nombre-firma-error" : undefined}
               />
-              <Button type="submit" variant="secondary" disabled={cargando || !nombre.trim() || nombre.trim() === nombreGuardado}>
+              <Button type="submit" variant="secondary" disabled={cargando}>
                 {nombreGuardado && nombre.trim() === nombreGuardado ? "Guardado" : "Guardar"}
               </Button>
             </div>
+            <p id="nombre-firma-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+              {falta === "nombre" ? "Escribe el nombre con que firmas." : ""}
+            </p>
           </form>
         </Card>
         <Card className="p-5">
@@ -275,22 +315,32 @@ export default function Entrar({ volver }: { volver: string | null }) {
             <div className="flex gap-2">
               <Input
                 id="contrasena-nueva"
+                name="password"
                 type="password"
                 autoComplete="new-password"
                 value={nueva}
                 onChange={(e) => {
                   setNueva(e.target.value);
                   setContrasenaGuardada(false);
+                  if (falta === "nueva" && e.target.value.length >= LARGO_MINIMO) setFalta(null);
                 }}
-                placeholder="Crea o cambia tu contraseña"
+                placeholder="Crea o cambia tu contraseña…"
+                aria-invalid={falta === "nueva" || undefined}
+                aria-describedby="contrasena-nueva-error"
               />
-              <Button type="submit" variant="secondary" disabled={cargando || nueva.length < LARGO_MINIMO}>
+              <Button type="submit" variant="secondary" disabled={cargando}>
                 {contrasenaGuardada ? "Guardada" : "Guardar"}
               </Button>
             </div>
-            {nueva.length > 0 && nueva.length < LARGO_MINIMO && (
-              <p className="text-xs text-ink-soft">Faltan {LARGO_MINIMO - nueva.length} caracteres.</p>
-            )}
+            <p
+              id="contrasena-nueva-error"
+              aria-live="polite"
+              className={cn("text-xs empty:hidden", falta === "nueva" ? "text-sello-700" : "text-ink-soft")}
+            >
+              {(nueva.length > 0 || falta === "nueva") && nueva.length < LARGO_MINIMO
+                ? `Faltan ${LARGO_MINIMO - nueva.length} caracteres.`
+                : ""}
+            </p>
           </form>
         </Card>
         {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs">{error}</Alert>}
@@ -335,6 +385,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
               if (!v) return;
               setModo(v as Modo);
               setError(null);
+              setFalta(null);
             }}
             aria-label="Cómo entrar con tu correo"
             className="w-full p-0.5"
@@ -349,6 +400,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
           <Label htmlFor="correo-cuenta" className="sr-only">Correo</Label>
           <Input
             id="correo-cuenta"
+            name="email"
             type="email"
             inputMode="email"
             autoComplete="email"
@@ -356,34 +408,48 @@ export default function Entrar({ volver }: { volver: string | null }) {
             autoCorrect="off"
             spellCheck={false}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (falta === "correo") setFalta(null);
+            }}
             placeholder="tu@correo.com"
+            aria-invalid={falta === "correo" || undefined}
+            aria-describedby={falta === "correo" ? "entrar-error" : undefined}
           />
           {modo === "contrasena" && (
             <>
               <Label htmlFor="contrasena-cuenta" className="sr-only">Contraseña</Label>
               <Input
                 id="contrasena-cuenta"
+                name="password"
                 type="password"
                 autoComplete="current-password"
                 value={contrasena}
-                onChange={(e) => setContrasena(e.target.value)}
-                placeholder="Tu contraseña"
+                onChange={(e) => {
+                  setContrasena(e.target.value);
+                  if (falta === "contrasena") setFalta(null);
+                }}
+                placeholder="Tu contraseña…"
+                aria-invalid={falta === "contrasena" || undefined}
+                aria-describedby={falta === "contrasena" ? "entrar-error" : undefined}
               />
             </>
           )}
           {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">{error}</Alert>}
-          {/* Apagado explica por qué antes del toque (docs/IDENTIDAD.md §6). */}
-          {!correoValido(email) && email.length > 3 && (
-            <p className="text-xs text-ink-soft">Escribe un correo completo: nombre@dominio.</p>
-          )}
+          <p id="entrar-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+            {falta === "correo"
+              ? "Escribe un correo completo: nombre@dominio."
+              : falta === "contrasena"
+                ? "Escribe tu contraseña."
+                : ""}
+          </p>
           {modo === "codigo" ? (
-            <Button type="submit" className="w-full" disabled={!correoValido(email) || cargando}>
+            <Button type="submit" className="w-full" disabled={cargando}>
               {cargando ? "Enviando…" : "Enviarme el código"}
             </Button>
           ) : (
             <>
-              <Button type="submit" className="w-full" disabled={!correoValido(email) || !contrasena || cargando}>
+              <Button type="submit" className="w-full" disabled={cargando}>
                 {cargando ? "Entrando…" : "Entrar"}
               </Button>
               <Button
@@ -408,21 +474,35 @@ export default function Entrar({ volver }: { volver: string | null }) {
             aquí. Si el correo trae un enlace en vez de un código, no lo pulses: copia su dirección y
             pégala aquí.
           </p>
-          {/* `one-time-code`: iOS ofrece el código encima del teclado. */}
+          {/* `one-time-code`: iOS ofrece el código encima del teclado. Enter
+              envía: un código o una dirección pegada no llevan saltos de línea. */}
           <Textarea
+            id="codigo-cuenta"
+            name="codigo"
             rows={codigo.length > 40 ? 3 : 1}
             value={codigo}
-            onChange={(e) => setCodigo(e.target.value)}
+            onChange={(e) => {
+              setCodigo(e.target.value);
+              if (codigoMal) setCodigoMal("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }}
             placeholder="000000 — o pega la dirección del correo"
             autoComplete="one-time-code"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
             aria-label="Código de verificación o enlace del correo"
+            aria-invalid={codigoMal ? true : undefined}
+            aria-describedby={codigoMal ? "codigo-cuenta-error" : undefined}
             className="min-h-11 resize-none bg-canvas px-3 py-3 font-mono tabular-nums"
           />
+          <p id="codigo-cuenta-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">{codigoMal}</p>
           {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">{error}</Alert>}
-          <Button type="submit" className="w-full" disabled={!codigo.trim() || cargando}>
+          <Button type="submit" className="w-full" disabled={cargando}>
             {cargando ? "Verificando…" : "Entrar"}
           </Button>
           <Button
@@ -431,6 +511,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
             onClick={() => {
               setPaso("correo");
               setCodigo("");
+              setCodigoMal("");
               setError(null);
             }}
             className="h-11 w-full text-xs font-medium text-ink-soft hover:text-ink"

@@ -40,6 +40,8 @@ export default function Guardar({ referencia, className }: { referencia: Referen
   const pathname = usePathname();
   const [carga, setCarga] = useState<Carga>({ estado: "cargando" });
   const [nuevo, setNuevo] = useState("");
+  const [sinTitulo, setSinTitulo] = useState(false);
+  const [creando, setCreando] = useState(false);
   const [guardado, setGuardado] = useState(false);
 
   useEffect(() => {
@@ -92,9 +94,19 @@ export default function Guardar({ referencia, className }: { referencia: Referen
 
   async function crearCon(e: React.FormEvent) {
     e.preventDefault();
-    if (!nuevo.trim() || carga.estado !== "listo") return;
+    if (carga.estado !== "listo") return;
+    const titulo = nuevo.trim();
+    // Vacío no apaga el botón: pulsarlo dice qué falta, junto al campo.
+    if (!titulo) {
+      setSinTitulo(true);
+      document.getElementById("guardar-nueva")?.focus();
+      return;
+    }
+    setSinTitulo(false);
+    setCreando(true);
     const c = await import("@/lib/espacios-cliente");
-    const p = await c.crearProyecto(nuevo);
+    const p = await c.crearProyecto(titulo);
+    setCreando(false);
     if (!p.ok) return setCarga({ estado: "error", error: p.error });
     const r = await c.guardar(referencia, p.datos.id);
     if (!r.ok) return setCarga({ estado: "error", error: r.error });
@@ -146,7 +158,7 @@ export default function Guardar({ referencia, className }: { referencia: Referen
         ) : (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-ink-soft">Guardar en</p>
-            <ul className="max-h-60 space-y-0.5 overflow-y-auto">
+            <ul className="max-h-60 space-y-0.5 overflow-y-auto overscroll-contain">
               {[{ id: BANDEJA, titulo: "Guardado sin ordenar" }, ...carga.proyectos].map((d) => (
                 <li key={d.id}>
                   <Label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md px-1.5 text-sm font-normal text-ink hover:bg-brand-50 sm:min-h-9">
@@ -160,16 +172,32 @@ export default function Guardar({ referencia, className }: { referencia: Referen
               <Label htmlFor="guardar-nueva" className="sr-only">Nueva investigación con este registro</Label>
               <Input
                 id="guardar-nueva"
+                name="titulo"
+                autoComplete="off"
                 value={nuevo}
                 maxLength={140}
-                onChange={(e) => setNuevo(e.target.value)}
+                onChange={(e) => {
+                  setNuevo(e.target.value);
+                  if (sinTitulo) setSinTitulo(false);
+                }}
+                aria-invalid={sinTitulo || undefined}
+                aria-describedby={sinTitulo ? "guardar-nueva-error" : undefined}
                 placeholder="Nueva investigación…"
                 className="h-11 text-base sm:h-9 sm:text-sm"
               />
-              <Button type="submit" size="icon" variant="secondary" disabled={!nuevo.trim()} aria-label="Crear la investigación con este registro">
+              <Button
+                type="submit"
+                size="icon"
+                variant="secondary"
+                disabled={creando}
+                aria-label={creando ? "Creando la investigación…" : "Crear la investigación con este registro"}
+              >
                 <IconPlus className="h-4 w-4" />
               </Button>
             </form>
+            <p id="guardar-nueva-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+              {sinTitulo ? "Ponle un título a la investigación." : ""}
+            </p>
             <Link href="/espacio" className="block pt-1 text-xs font-medium text-brand-700 hover:underline">
               Ir a tu espacio
             </Link>

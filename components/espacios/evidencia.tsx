@@ -102,7 +102,7 @@ export default function Evidencia({
           type="search"
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
-          placeholder="Filtrar por nombre, tipo o nota"
+          placeholder="Filtrar por nombre, tipo o nota…"
         />
         <p aria-live="polite" className="mt-1.5 text-xs text-ink-soft">
           {filtro.trim()

@@ -253,7 +253,8 @@ export default function Narracion({ proyecto, registros }: { proyecto: string; r
   return (
     <div className="space-y-3">
       <BarraFormato editor={editor} />
-      <div className="rounded-lg border border-hairline bg-surface focus-within:border-brand-600">
+      {/* El editor se queda sin contorno propio: el foco lo muestra la hoja entera, con el mismo anillo que un campo. */}
+      <div className="rounded-lg border border-hairline bg-surface focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-ring/25">
         <EditorContent editor={editor} />
       </div>
       <Popover open={!!menu}>

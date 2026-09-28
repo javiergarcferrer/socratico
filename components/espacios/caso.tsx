@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { IconTrash, IconX } from "@/components/icons";
+import { enviarConModificador } from "@/components/teclas";
 import Evidencia from "./evidencia";
 import LineaDeTiempo, { type HitoTiempo } from "./linea-tiempo";
 import NarrativaLectura, { narrativaConTexto } from "./narrativa-lectura";
@@ -271,7 +272,7 @@ function DialogoConectar({
             <DialogTitle>¿Qué los une?</DialogTitle>
             <DialogDescription className="sr-only">Elige el verbo que se lee de un registro al otro.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 overflow-y-auto px-4 py-4">
+          <div className="space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
             <p className="text-sm leading-relaxed">
               <span className="font-semibold">{x.titulo}</span>
               <span className="mx-1.5 text-brand-700">— {VERBO_ENLACE[tipo]} →</span>
@@ -355,11 +356,17 @@ function PanelRegistro({
     return r.ok;
   }
 
+  const [sinOtro, setSinOtro] = useState(false);
   async function unir(ev: React.FormEvent) {
     ev.preventDefault();
-    if (!otro) return;
+    if (!otro) {
+      setSinOtro(true);
+      document.getElementById(`${id}-otro`)?.focus();
+      return;
+    }
+    setSinOtro(false);
     const [d, h] = alReves ? [otro, e.id] : [e.id, otro];
-    if (await hacer(enlazar(proyecto, d, h, por, tipo), "Enlace guardado.")) {
+    if (await hacer(enlazar(proyecto, d, h, por.trim(), tipo), "Enlace guardado.")) {
       setOtro("");
       setPor("");
     }
@@ -397,11 +404,13 @@ function PanelRegistro({
           <Label htmlFor={`${id}-nota`} className="text-sm font-semibold">Nota</Label>
           <Textarea
             id={`${id}-nota`}
+            name="nota"
             rows={3}
             maxLength={5000}
             value={nota}
             onChange={(ev) => setNota(ev.target.value)}
-            placeholder="Qué encontraste aquí, qué falta verificar, de dónde sale."
+            onKeyDown={enviarConModificador}
+            placeholder="Qué encontraste aquí, qué falta verificar, de dónde sale…"
           />
           <Button type="submit" size="sm" disabled={nota.trim() === e.nota}>Guardar nota</Button>
         </form>
@@ -443,8 +452,20 @@ function PanelRegistro({
         <form onSubmit={unir} className="space-y-2 border-t border-hairline pt-4">
           <p className="text-sm font-semibold">Enlazar con otro registro</p>
           <SelectVerbo value={tipo} onChange={setTipo} etiqueta="Qué hace uno con el otro" />
-          <Select value={otro} onValueChange={setOtro}>
-            <SelectTrigger aria-label="El otro registro">
+          <Select
+            name="otro"
+            value={otro}
+            onValueChange={(v) => {
+              setOtro(v);
+              setSinOtro(false);
+            }}
+          >
+            <SelectTrigger
+              id={`${id}-otro`}
+              aria-label="El otro registro"
+              aria-invalid={sinOtro || undefined}
+              aria-describedby={sinOtro ? `${id}-otro-error` : undefined}
+            >
               <SelectValue placeholder="¿Con cuál?" />
             </SelectTrigger>
             <SelectContent>
@@ -462,8 +483,11 @@ function PanelRegistro({
             </Label>
           </div>
           <Label htmlFor={`${id}-por`} className="sr-only">Nota del enlace</Label>
-          <Input id={`${id}-por`} value={por} maxLength={1000} onChange={(ev) => setPor(ev.target.value)} placeholder="De dónde lo sabes (opcional)" />
-          <Button type="submit" size="sm" variant="secondary" disabled={!otro}>Enlazar</Button>
+          <Input id={`${id}-por`} name="por" autoComplete="off" value={por} maxLength={1000} onChange={(ev) => setPor(ev.target.value)} placeholder="De dónde lo sabes (opcional)…" />
+          <p id={`${id}-otro-error`} aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+            {sinOtro ? "Elige con cuál registro enlazarlo." : ""}
+          </p>
+          <Button type="submit" size="sm" variant="secondary">Enlazar</Button>
         </form>
       )}
 
@@ -507,6 +531,8 @@ function PanelEnlace({
 }) {
   const [nota, setNota] = useState(l?.nota ?? "");
   const [error, setError] = useState<string | null>(null);
+  // Como «Quitar del caso»: se pregunta antes, porque la nota se va con él.
+  const [seguro, setSeguro] = useState(false);
   const id = useId();
   const a = l && porId.get(l.desde);
   const b = l && porId.get(l.hasta);
@@ -538,13 +564,22 @@ function PanelEnlace({
             className="space-y-2"
           >
             <Label htmlFor={`${id}-nota`} className="text-sm font-semibold">De dónde lo sabes</Label>
-            <Input id={`${id}-nota`} value={nota} maxLength={1000} onChange={(ev) => setNota(ev.target.value)} />
+            <Input id={`${id}-nota`} name="nota" autoComplete="off" value={nota} maxLength={1000} onChange={(ev) => setNota(ev.target.value)} />
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="sm" disabled={nota.trim() === l.nota}>Guardar nota</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => void hacer(quitarEnlace(l.id))}>
-                <IconTrash className="h-3.5 w-3.5" />
-                Quitar el enlace
-              </Button>
+              {seguro ? (
+                <>
+                  <Button type="button" size="sm" variant="destructive" onClick={() => void hacer(quitarEnlace(l.id))}>
+                    Sí, quitar el enlace
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(false)}>No</Button>
+                </>
+              ) : (
+                <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(true)}>
+                  <IconTrash className="h-3.5 w-3.5" />
+                  Quitar el enlace
+                </Button>
+              )}
             </div>
           </form>
         </>
@@ -562,18 +597,40 @@ function CampoFecha({ e, onGuardar }: { e: Entrada; onGuardar: (f: string | null
   const [valor, setValor] = useState(e.fecha ?? "");
   const id = useId();
   useEffect(() => setValor(e.fecha ?? ""), [e.fecha]);
-  const valida = FECHA_CASO.test(valor) && valor >= "1844-01-01" && valor <= "2100-12-31";
+  const [mal, setMal] = useState(false);
   return (
     <form
       onSubmit={(ev) => {
         ev.preventDefault();
-        if (valida) void onGuardar(valor);
+        const f = valor.trim();
+        const valida = FECHA_CASO.test(f) && f >= "1844-01-01" && f <= "2100-12-31";
+        setMal(!valida);
+        if (!valida) {
+          document.getElementById(id)?.focus();
+          return;
+        }
+        // La misma fecha ya guardada: no hay nada que enviar.
+        if (f !== e.fecha) void onGuardar(f);
       }}
       className="mt-1 flex flex-wrap items-center gap-2"
     >
       <Label htmlFor={id} className="sr-only">Fecha de «{e.titulo}»</Label>
-      <Input id={id} type="date" min="1844-01-01" max="2100-12-31" value={valor} onChange={(ev) => setValor(ev.target.value)} className="w-44" />
-      <Button type="submit" size="sm" variant="secondary" disabled={!valida || valor === e.fecha}>
+      <Input
+        id={id}
+        name="fecha"
+        type="date"
+        min="1844-01-01"
+        max="2100-12-31"
+        value={valor}
+        onChange={(ev) => {
+          setValor(ev.target.value);
+          if (mal) setMal(false);
+        }}
+        aria-invalid={mal || undefined}
+        aria-describedby={mal ? `${id}-error` : undefined}
+        className="w-44"
+      />
+      <Button type="submit" size="sm" variant="secondary">
         Guardar fecha
       </Button>
       {e.fecha && (
@@ -581,6 +638,9 @@ function CampoFecha({ e, onGuardar }: { e: Entrada; onGuardar: (f: string | null
           Quitar
         </Button>
       )}
+      <p id={`${id}-error`} aria-live="polite" className="w-full text-xs text-sello-700 empty:hidden">
+        {mal ? "Elige una fecha entre 1844 y 2100." : ""}
+      </p>
     </form>
   );
 }

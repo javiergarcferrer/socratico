@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Instrument_Serif, Public_Sans } from "next/font/google";
+import { Geist, IBM_Plex_Mono, Instrument_Serif, Public_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
@@ -20,15 +20,23 @@ import { Card } from "@/components/ui/card";
 
 /*
   Tres familias, tres oficios (ver app/globals.css):
-    · Instrument Serif — la pregunta: titulares.
+    · Geist            — la pregunta: titulares, en seminegrita y apretada.
     · Public Sans      — la explicación: cuerpo e interfaz. Es la tipografía
       del estándar web de gobierno, puesta a servir al ciudadano.
     · IBM Plex Mono    — el registro: montos, códigos, expedientes y fechas,
       todo lo que se copia y se verifica.
+  Y una cuarta que no es oficio sino marca: Instrument Serif dibuja solo la
+  palabra «socrático» y la «s» del ícono (decisión del dueño, 2026-09-24).
 */
 const publicSans = Public_Sans({
   subsets: ["latin"],
   variable: "--font-public-sans",
+  display: "swap",
+});
+
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
   display: "swap",
 });
 
@@ -80,7 +88,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${publicSans.variable} ${instrumentSerif.variable} ${plexMono.variable}`}>
+    <html lang="es" className={`${publicSans.variable} ${geist.variable} ${instrumentSerif.variable} ${plexMono.variable}`}>
       <body className="min-h-dvh pb-[calc(4.5rem+env(safe-area-inset-bottom))] antialiased lg:pb-0">
         {/*
           `NuqsAdapter` es el puente entre la URL y el estado de los
