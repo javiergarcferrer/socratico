@@ -166,6 +166,25 @@ existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
   following schemas are exposed: public, storage, graphql_public,
   democracia»). Hasta que se añada `espacios`, las pantallas de cuenta dicen
   que los proyectos aún no están abiertos.
+- ✅ Paso 4, con aprobación del dueño (2026-09-28): `conversacion` aplicada a
+  `Transac`. Comprobado en vivo:
+  - las ocho tablas nuevas con RLS y cero permisos;
+  - `anon` no ejecuta `comentar` y sí `comunidad`;
+  - `authenticated` no lee `mi_cedula`;
+  - la regla de proceso acepta `%20` y rechaza `%41`;
+  - la de institución acepta `/instituciones/635` y rechaza
+    `/instituciones/635-inapa`.
+
+  Un recorrido entero en una transacción revertida, con dos usuarios de
+  prueba, pasó: comentar con cédula, «Importa» y voto de comentario sin
+  cédula, lectura anónima del hilo y del feed, retiro por moderación con su
+  contador y su registro. Después, cero filas de prueba.
+  - Moderador nombrado a mano: la cuenta del dueño (1 fila en
+    `espacios.moderadores`).
+  - `notify pgrst, 'reload schema'` enviado.
+  - Los avisos de seguridad de `espacios` son los esperados: «RLS sin
+    políticas» (las tablas se tocan solo por funciones) y funciones
+    definidoras ejecutables, que son exactamente la superficie de la app.
 
 ## 6. La conversación
 
