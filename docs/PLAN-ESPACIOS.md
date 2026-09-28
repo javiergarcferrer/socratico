@@ -136,6 +136,8 @@ La migración **no se aplica** sin que el dueño lo diga. Los pasos, en orden:
      select id from auth.users where lower(email) = '<correo del dueño>'`.
      Se corre a mano y no va en la migración, para que ningún correo quede en
      el repositorio;
+   - recargar el caché de PostgREST (`notify pgrst, 'reload schema'`) para
+     que las funciones nuevas respondan enseguida;
    - comprobar que `select espacios.comunidad('destacado', 5, 0)` devuelve
      `[]` como `anon`.
 
@@ -169,14 +171,19 @@ en el mismo esquema `espacios`: es de lo que pone el lector, no del Estado.
 **Quién puede qué.**
 - **Leer**: cualquiera, sin cuenta, por dos funciones públicas: `hilo(tipo,
   ref)` y `comunidad(orden, límite, página)`. Devuelven lo visible con el
-  nombre de firma; nunca ids de usuario, correos ni cédulas.
-- **Votar**: cualquier cuenta con correo verificado. «Importa» es un voto solo
-  a favor sobre el registro (`votar_hilo`); los comentarios se votan arriba o
-  abajo (`votar_comentario`); lo propio no se vota.
-- **Comentar**: solo quien registró su cédula (una fila en
-  `democracia.votantes`, la misma puerta del voto). Además tiene que firmar
-  con nombre y haber aceptado las normas (`perfiles.normas`,
-  `components/espacios/normas.ts`, publicadas en `/comunidad/normas`).
+  nombre de firma; nunca ids de usuario, correos ni cédulas. La conversación
+  de una investigación retirada no se lee.
+- **Escribir texto público** —un comentario, o el título con que se abre una
+  conversación— solo quien registró su cédula (una fila en
+  `democracia.votantes`, la misma puerta del voto), firma con nombre y aceptó
+  las normas (`perfiles.normas`, `components/espacios/normas.ts`, publicadas
+  en `/comunidad/normas`). Todo pasa por `exigir_autoria`.
+- **Votar**: cualquier cuenta con correo verificado, sobre una conversación
+  ya abierta. «Importa» es un voto solo a favor sobre el registro
+  (`votar_hilo`); los comentarios se votan arriba o abajo
+  (`votar_comentario`); lo propio no se vota. Si nadie abrió la conversación,
+  el primer voto la abre, y eso pide cédula. La ficha lo dice junto al botón
+  antes del toque.
 - ⚠️ **Límite de la cédula.** Hoy el registro de la cédula comprueba el
   dígito verificador y que nadie más la usó, no la coteja con la JCE; eso
   llega con Cuenta Única (PLAN-DEMOCRACIA §9). `/comunidad/normas` lo dice.
@@ -185,23 +192,47 @@ en el mismo esquema `espacios`: es de lo que pone el lector, no del Estado.
 (`hilos`, `comentarios`, `votos_hilo`, `votos_comentario`, `denuncias`,
 `moderadores`, `suspensiones`, `acciones_moderacion`) tienen RLS sin políticas
 y ningún permiso. Todo pasa por funciones definidoras, que aplican las reglas:
-- cédula, nombre y normas;
-- suspensión;
-- ritmo: 5 comentarios en 10 minutos y 40 al día; 120 votos «Importa» por
-  hora; 30 denuncias al día;
+- cédula, nombre y normas para escribir;
+- correo verificado y sin suspensión para votar y denunciar;
+- **por la huella de la cédula** (`mi_cedula`, que no sale de la base):
+  - suspensión: quien borra su registro de votante y vuelve con otra cuenta y
+    la misma cédula sigue suspendido;
+  - ritmo: 5 comentarios en 10 minutos y 40 al día;
+  - 20 conversaciones nuevas al día;
+- por cuenta: 120 votos «Importa» por hora y 30 denuncias al día;
 - como mucho 3 enlaces por comentario;
 - no responder a lo que no está visible.
 
-**La clave de un hilo es la ruta de su ficha.** Se cumple `ref = href`, y
-`ruta_de_tipo` exige el prefijo que le toca a cada tipo en `lib/grafo.ts`: un
-«proceso» es `/procesos/…`. Sentencias, documentos, datos y búsquedas no
-tienen ficha propia, así que no tienen conversación. El título lo pone quien
-abre la conversación, desde la ficha; si es falso, se denuncia y se retira.
+La huella se guarda en `comentarios.cedula` y `hilos.abierto_cedula` (solo
+para el ritmo) y en `suspensiones.cedula` solo mientras dura la suspensión:
+al vencer, se purga.
+
+**Los contadores los llevan disparadores** (`contar_voto_comentario`,
+`contar_voto_hilo`, `contar_comentario`), por incremento y bajo el candado de
+la fila. Son exactos con votos simultáneos y cuando se borra una cuenta, que
+arrastra sus votos y comentarios. Las respuestas de otros a un comentario
+borrado quedan sueltas (`padre on delete set null`), no se pierden. Repetir
+un voto no reaviva una conversación.
+
+**La clave de un hilo es la ruta canónica de su ficha.** Se cumple `ref =
+href`, y `ruta_de_tipo` exige la forma exacta que produce `enlace` en
+`lib/grafo.ts` con el identificador del registro: `/instituciones/635`, no
+`/instituciones/635-inapa`; `/proveedores/7`, no `/proveedores/007`. Así
+nadie abre la conversación de «un proceso» que lleva a otra página, y un
+registro no se parte en dos conversaciones si cambia de nombre. Sentencias,
+documentos, datos y búsquedas no tienen ficha propia, así que no tienen
+conversación. Una investigación que cambia de dirección se lleva su
+conversación; una que se borra, la borra (otro proyecto no hereda
+comentarios ajenos con el slug).
 
 **Moderación posterior.**
-- Tres denuncias de cuentas distintas ocultan un comentario o un hilo hasta
+- Cualquier cuenta verificada puede denunciar. Tres denuncias de personas
+  distintas **con cédula registrada** ocultan un comentario o un hilo hasta
   que un moderador decida en `/espacio/moderar` (`cola_moderacion`,
-  `moderar`, `suspender`).
+  `moderar`, `retitular`, `suspender`). Tres correos desechables no ocultan
+  nada.
+- Un título falso u ofensivo se corrige (`retitular`) sin cerrar la
+  conversación del registro.
 - Cada decisión cierra sus denuncias y queda en `acciones_moderacion` con
   quién, qué y la nota.
 - Lo retirado se muestra como retirado, sin texto, para que sus respuestas
@@ -215,19 +246,33 @@ abre la conversación, desde la ficha; si es falso, se denuncia y se retira.
   norma, iniciativa, expediente del Senado, legislador, proveedor,
   institución y obra, y en `/p/[slug]`.
   - No carga nada hasta que el lector se acerca (IntersectionObserver).
-  - Sin sesión lee por HTTP (`leerHilo` en `lib/espacios.ts`), sin supabase-js.
+  - Sin sesión lee por HTTP (`leerHilo` en `lib/espacios.ts`), sin
+    supabase-js.
+  - Distingue sus tres estados: vacío, «no se pudo mirar» (también si falla
+    la lectura del estado del lector) y «abre pronto» (`PGRST106`,
+    `PGRST202`, `42883`).
 - `components/espacios/voto-hilo.tsx` es el voto «Importa».
 - `/comunidad` es el feed, leído en el servidor con 30 s de caché. Tiene tres
   órdenes:
-  - Destacado: `(votos + 2·comentarios + 1) / (horas desde la última
-    actividad + 2)^1,5`, como Hacker News.
+  - Destacado: `(votos + 2·comentarios) / (horas desde la última actividad +
+    2)^1,5`, como Hacker News. Una conversación vacía no puntúa.
   - Nuevo.
   - Más votado.
-- La portada muestra las cinco destacadas desde el navegador
-  (`conversaciones-vivas.tsx`). La portada no lee la base, y mientras la
-  conversación no esté abierta esa sección no se pinta.
 
-✅ Probado el 2026-09-28 con `supabase/pruebas/conversacion_rls.py`: 82
-casos, desde quien registró su cédula, quien solo tiene cuenta, un correo sin
-confirmar, una cuenta suspendida, la moderadora y `anon`. Las tres
-migraciones se aplicaron dos veces. `FALLOS: 0`.
+  Desempata por la clave, para que las páginas no se solapen.
+- La portada muestra las cinco destacadas desde el navegador
+  (`conversaciones-vivas.tsx`), y solo cuando el lector se acerca. La portada
+  no lee la base. Mientras la conversación no esté abierta, esa sección no se
+  pinta, ni siquiera como silueta.
+
+✅ Probado el 2026-09-28 con `supabase/pruebas/conversacion_rls.py`: 116
+casos.
+- Recorre la conversación desde siete lugares: quien registró su cédula,
+  quien solo tiene cuenta, correos desechables, un correo sin confirmar, una
+  cuenta suspendida y su cuenta nueva con la misma cédula, la moderadora y
+  `anon`.
+- Las tres migraciones se aplicaron dos veces.
+- Cubre los hallazgos de la revisión del mismo día: hilos abiertos por
+  desechables, suspensión esquivada, denuncias de desechables, contadores al
+  borrar una cuenta, slug reutilizado, rutas no canónicas.
+- `FALLOS: 0`.

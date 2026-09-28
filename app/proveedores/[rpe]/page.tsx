@@ -442,7 +442,8 @@ export default async function ProveedorPage({
           </ul>
         </Card>
       </div>
-      <Conversacion className="mt-6" referencia={{ tipo: "proveedor", ref: enlace.proveedor(rpe), titulo: nombre ?? `RPE ${rpe}`, href: enlace.proveedor(rpe) }} />
+      {/* El RPE sin ceros a la izquierda: un proveedor, una conversación. */}
+      <Conversacion className="mt-6" referencia={{ tipo: "proveedor", ref: enlace.proveedor(String(Number(rpe))), titulo: nombre ?? `RPE ${rpe}`, href: enlace.proveedor(String(Number(rpe))) }} />
     </div>
   );
 }

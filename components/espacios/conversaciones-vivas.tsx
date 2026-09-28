@@ -1,50 +1,67 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { leerComunidad, NOMBRE_HILO, type FilaComunidad, type Lectura } from "@/lib/espacios";
 import Antiguedad from "@/components/antiguedad";
+import { EstadoVacio } from "@/components/estado-vacio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { IconArrowRight, IconChat, IconVoto } from "@/components/icons";
 
 /**
  * «¿De qué está hablando la gente?» en la portada: las cinco conversaciones
  * destacadas. La portada es una superficie sin base de datos, así que no lee
  * nada en el servidor: esto pregunta por HTTP en el navegador, con la clave
- * publicable y sin supabase-js.
+ * publicable y sin supabase-js, y solo cuando el lector se acerca a esta
+ * altura de la página: quien no baja hasta aquí no le cuesta una consulta.
  *
- * Mientras la conversación no esté abierta en el API (`cerrado`) no se pinta
+ * No pinta nada hasta tener respuesta —ni título ni silueta que luego
+ * desaparezcan— y, mientras la conversación no esté abierta (`cerrado`),
  * nada: no se vende lo que todavía no existe. Si no contestó, lo dice.
  */
 export default function ConversacionesVivas({ encabezado }: { encabezado: ReactNode }) {
   const [r, setR] = useState<Lectura<FilaComunidad[]> | null>(null);
+  const marca = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const el = marca.current;
+    if (!el) return;
     let vivo = true;
-    leerComunidad("destacado", 5).then((x) => vivo && setR(x));
+    const traer = () => leerComunidad("destacado", 5).then((x) => vivo && setR(x));
+    if (typeof IntersectionObserver === "undefined") {
+      void traer();
+      return () => {
+        vivo = false;
+      };
+    }
+    const io = new IntersectionObserver(
+      (e) => {
+        if (e.some((x) => x.isIntersecting)) {
+          io.disconnect();
+          void traer();
+        }
+      },
+      { rootMargin: "800px 0px" },
+    );
+    io.observe(el);
     return () => {
       vivo = false;
+      io.disconnect();
     };
   }, []);
 
-  if (r?.estado === "cerrado") return null;
+  if (r === null) return <div ref={marca} aria-hidden />;
+  if (r.estado === "cerrado") return null;
   return (
     <section aria-labelledby="comunidad-portada" className="space-y-4">
       {encabezado}
       <Card>
-        {r === null ? (
-          <div aria-busy="true" className="space-y-3 p-5">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : r.estado === "caida" ? (
-          <p className="p-5 text-sm text-ink-soft">
-            El servidor de cuentas no respondió; las conversaciones siguen en cada ficha.
-          </p>
+        {r.estado === "caida" ? (
+          <EstadoVacio variante="caida" className="m-5" titulo="No pudimos traer las conversaciones">
+            El servidor de cuentas no respondió. Cada conversación sigue al final de su ficha.
+          </EstadoVacio>
         ) : r.datos.length === 0 ? (
           <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-prose text-sm leading-relaxed text-ink-soft">

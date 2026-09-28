@@ -114,9 +114,10 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
     revise;
   - se construye en el Postgres de Supabase que ya existe, no en Discourse.
 
-  Se implementó en `/comunidad` y en el final de cada ficha
-  (docs/PLAN-ESPACIOS.md §6). Aplicar su migración es un paso aparte que
-  requiere aprobación.
+  Se implementó en `/comunidad` y al final de las fichas con página propia:
+  proceso, norma, iniciativa, expediente, legislador, proveedor, institución,
+  obra e investigación publicada (docs/PLAN-ESPACIOS.md §6). Aplicar su
+  migración es un paso aparte que requiere aprobación.
 
 - **Código abierto probado, nunca proyectos pequeños sin probar (28-09-2026).**
   Antes de escribir algo propio se busca una pieza de código abierto que lo

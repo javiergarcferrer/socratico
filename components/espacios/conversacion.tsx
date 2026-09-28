@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { IconChat, IconFlag, IconShield, IconTrash, IconVoto } from "@/components/icons";
 import { cn } from "@/lib/cn";
+import { formatFecha } from "@/lib/format";
 import { NORMAS } from "./normas";
 import { useHaySesion } from "./presencia";
 import VotoHilo from "./voto-hilo";
@@ -75,7 +76,10 @@ export default function Conversacion({ referencia, className }: { referencia: Re
       const c = await import("@/lib/espacios-cliente");
       const [h, yo] = await Promise.all([c.hiloConSesion(referencia.tipo, referencia.ref), c.estadoConversacion()]);
       if (!h.ok) return setCarga({ estado: h.cerrado ? "cerrado" : "caida" });
-      setCarga({ estado: "ok", hilo: h.datos ?? HILO_VACIO, yo: yo.ok ? yo.datos : null });
+      // Sin saber qué le falta al lector no se le puede decir qué hacer: eso es
+      // «no se pudo mirar», no «no tienes sesión».
+      if (!yo.ok) return setCarga({ estado: yo.cerrado ? "cerrado" : "caida" });
+      setCarga({ estado: "ok", hilo: h.datos ?? HILO_VACIO, yo: yo.datos });
       return;
     }
     const r = await leerHilo(referencia.tipo, referencia.ref);
@@ -95,7 +99,7 @@ export default function Conversacion({ referencia, className }: { referencia: Re
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 id="conversacion-titulo" className="font-display text-2xl text-ink">
-            ¿Qué opinan quienes lo siguen?
+            ¿Qué dice la gente de esto?
           </h2>
           <p className="mt-1 max-w-prose text-xs leading-relaxed text-ink-soft">
             Conversación pública. Comentan personas con cédula registrada, con su nombre de firma;
@@ -106,7 +110,18 @@ export default function Conversacion({ referencia, className }: { referencia: Re
           </p>
         </div>
         {carga.estado === "ok" && carga.hilo.estado === "visible" && (
-          <VotoHilo referencia={referencia} votos={carga.hilo.votos} miVoto={carga.hilo.mi_voto} />
+          <VotoHilo
+            referencia={referencia}
+            votos={carga.hilo.votos}
+            miVoto={carga.hilo.mi_voto}
+            // Una conversación que nadie abrió la abre este voto, y abrirla es
+            // escribir su título: eso pide cédula.
+            cerradoPorque={
+              hay && !carga.hilo.existe && !carga.yo?.cedula
+                ? "La primera palabra sobre un registro la da alguien con cédula registrada; después vota cualquier cuenta."
+                : null
+            }
+          />
         )}
       </div>
 
@@ -222,7 +237,8 @@ function Cuerpo({
       {hay && (
         <p className="mt-5 text-xs text-ink-soft">
           ¿El título o el tema de esta conversación engañan?{" "}
-          <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => setDenunciando({ tipo: "hilo" })}>
+          <Button type="button" variant="ghost" size="sm" className="h-11 text-ink-soft sm:h-9" onClick={() => setDenunciando({ tipo: "hilo" })}>
+            <IconFlag className="h-3.5 w-3.5" />
             Denunciar la conversación
           </Button>
         </p>
@@ -260,8 +276,11 @@ interface Arbol {
 function construir(lista: Comentario[], orden: Orden): Arbol {
   const hijos = new Map<string, Comentario[]>();
   const raices: Comentario[] = [];
+  // Una respuesta cuyo comentario de arriba no llegó (la lista trae los mil
+  // más recientes) se muestra suelta, no se pierde.
+  const ids = new Set(lista.map((c) => c.id));
   for (const c of lista) {
-    if (c.padre) hijos.set(c.padre, [...(hijos.get(c.padre) ?? []), c]);
+    if (c.padre && ids.has(c.padre)) hijos.set(c.padre, [...(hijos.get(c.padre) ?? []), c]);
     else raices.push(c);
   }
   const vive = new Map<string, boolean>();
@@ -308,6 +327,7 @@ function Nodo({
   const [miVoto, setMiVoto] = useState(c.mi_voto);
   const [error, setError] = useState<string | null>(null);
   const [borrar, setBorrar] = useState(false);
+  const [votando, setVotando] = useState(false);
   const respuestas = hijos.get(c.id) ?? [];
 
   useEffect(() => {
@@ -316,13 +336,16 @@ function Nodo({
   }, [c.puntos, c.mi_voto]);
 
   async function votar(v: -1 | 1) {
-    if (!hay) return setError("Entra para votar.");
+    // Un voto a la vez: dos respuestas que llegan en desorden no se pisan.
+    if (votando) return;
     const nuevo = miVoto === v ? 0 : v;
     const antes = { puntos, miVoto };
     setMiVoto(nuevo);
     setPuntos(puntos - miVoto + nuevo);
+    setVotando(true);
     const cl = await import("@/lib/espacios-cliente");
     const r = await cl.votarComentario(c.id, nuevo);
+    setVotando(false);
     if (!r.ok) {
       setPuntos(antes.puntos);
       setMiVoto(antes.miVoto);
@@ -352,17 +375,26 @@ function Nodo({
             </p>
             <p className="mt-1 whitespace-pre-line break-words text-[15px] leading-relaxed text-ink">{c.cuerpo}</p>
             <div className="-ml-2 mt-1 flex flex-wrap items-center gap-x-1 gap-y-1">
-              <span className="inline-flex items-center">
-                <Button type="button" variant="ghost" size="icon" aria-pressed={miVoto === 1} aria-label="Votar a favor" onClick={() => void votar(1)} className={cn(miVoto === 1 && "text-brand-700")}>
-                  <IconVoto className="h-4 w-4" />
-                </Button>
-                <span className="min-w-6 text-center font-mono text-xs tabular-nums text-ink" aria-label={`${puntos} puntos`}>
-                  {puntos}
+              {c.mio || !hay ? (
+                // Lo propio no se vota; sin sesión, el recuadro de arriba dice
+                // que votar pide entrar. Se ven los puntos, sin mandos mudos.
+                <span className="inline-flex min-h-11 items-center gap-1.5 px-2 font-mono text-xs tabular-nums text-ink-soft sm:min-h-9">
+                  <IconVoto className="h-3.5 w-3.5" />
+                  {puntos} {Math.abs(puntos) === 1 ? "punto" : "puntos"}
                 </span>
-                <Button type="button" variant="ghost" size="icon" aria-pressed={miVoto === -1} aria-label="Votar en contra" onClick={() => void votar(-1)} className={cn(miVoto === -1 && "text-sello-700")}>
-                  <IconVoto className="h-4 w-4 rotate-180" />
-                </Button>
-              </span>
+              ) : (
+                <span className="inline-flex items-center">
+                  <Button type="button" variant="ghost" size="icon" aria-pressed={miVoto === 1} aria-label="Votar a favor" disabled={votando} onClick={() => void votar(1)} className={cn(miVoto === 1 && "text-brand-700")}>
+                    <IconVoto className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-6 text-center font-mono text-xs tabular-nums text-ink" aria-label={`${puntos} puntos`}>
+                    {puntos}
+                  </span>
+                  <Button type="button" variant="ghost" size="icon" aria-pressed={miVoto === -1} aria-label="Votar en contra" disabled={votando} onClick={() => void votar(-1)} className={cn(miVoto === -1 && "text-ink")}>
+                    <IconVoto className="h-4 w-4 rotate-180" />
+                  </Button>
+                </span>
+              )}
               {puede && (
                 <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" onClick={() => setRespondiendo(respondiendo === c.id ? null : c.id)}>
                   Responder
@@ -473,8 +505,7 @@ function Participar({
   if (yo.suspendido_hasta) {
     return (
       <Alert variant="aviso" className="px-4 py-3 text-sm">
-        Tu cuenta no puede comentar ni votar hasta el{" "}
-        {new Date(yo.suspendido_hasta).toLocaleDateString("es-DO", { timeZone: "America/Santo_Domingo" })}.
+        Tu cuenta no puede comentar ni votar hasta el {formatFecha(yo.suspendido_hasta)}.
       </Alert>
     );
   }
@@ -676,7 +707,7 @@ function Denunciar({
         <DialogHeader>
           <DialogTitle>{objetivo?.tipo === "hilo" ? "Denunciar la conversación" : "Denunciar el comentario"}</DialogTitle>
           <DialogDescription>
-            Lo revisa una persona. Con tres denuncias de cuentas distintas se oculta mientras tanto.
+            Lo revisa una persona. Con tres denuncias de personas con cédula registrada se oculta mientras tanto.
           </DialogDescription>
         </DialogHeader>
         {hecho ? (

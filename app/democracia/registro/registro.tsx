@@ -106,7 +106,9 @@ export default function Registro() {
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${window.location.origin}/democracia/registro`,
+        // La vuelta del correo conserva a dónde regresar al terminar (ya
+        // validado con `rutaPropia`): quien vino de una conversación vuelve a ella.
+        emailRedirectTo: `${window.location.origin}/democracia/registro${volver ? `?volver=${encodeURIComponent(volver)}` : ""}`,
       },
     });
     setCargando(false);

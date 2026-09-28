@@ -6,16 +6,21 @@
 --  · Vive en el esquema `espacios`: es de lo que el lector pone, no del Estado.
 --    Un hilo es una REFERENCIA al registro (tipo, ref, título, enlace); la cifra
 --    se sigue leyendo en su ficha, del origen.
---  · Comenta solo quien registró su cédula (`democracia.votantes`), firma con
---    nombre y aceptó las normas. Vota cualquier cuenta con correo verificado.
---  · Nadie escribe en una tabla: todo pasa por funciones definidoras que
---    aplican las reglas (cédula, suspensión, topes de ritmo, denuncias). Las
+--  · Escribe texto público —un comentario, o el título con que se abre una
+--    conversación— solo quien registró su cédula (`democracia.votantes`),
+--    firma con nombre y aceptó las normas. Vota cualquier cuenta con correo
+--    verificado, sobre conversaciones ya abiertas.
+--  · Suspensiones y topes de ritmo van por la **huella de la cédula**, no por
+--    la cuenta: quien es suspendido no vuelve con otro correo.
+--  · Nadie escribe en una tabla: todo pasa por funciones definidoras. Las
 --    tablas tienen RLS y ningún permiso para `anon` ni `authenticated`.
 --  · Se lee en público (`hilo`, `comunidad`): lo visible, con el nombre de
 --    firma; nunca ids de usuario, correos ni cédulas.
---  · Moderación posterior: tres denuncias de cuentas distintas ocultan un
---    comentario o un hilo hasta que un moderador lo revise. Cada acción de
---    moderación queda registrada.
+--  · Moderación posterior: tres denuncias de cuentas distintas con cédula
+--    registrada ocultan un comentario o un hilo hasta que un moderador lo
+--    revise. Cada acción de moderación queda registrada.
+--  · Los contadores (votos, puntos, comentarios) los llevan disparadores por
+--    incremento: son exactos con votos simultáneos y cuando se borra una cuenta.
 --
 -- Idempotente: se puede volver a correr sin romper nada. Requiere
 -- 20260928120000_espacios.sql.
@@ -36,20 +41,21 @@ returns boolean language sql immutable set search_path = '' as $$
   );
 $$;
 
--- La ruta que corresponde a cada tipo (las de `enlace` en lib/grafo.ts). La
--- clave de un hilo es la ruta de su ficha: así nadie abre la conversación de
--- «un proceso» que en realidad lleva a otra página.
+-- La ruta **canónica** de cada tipo: la que produce `enlace` en lib/grafo.ts
+-- con el identificador del registro (sin el nombre que acompaña a veces).
+-- La clave de un hilo es esa ruta: nadie abre la conversación de «un proceso»
+-- que lleva a otra página, y un registro no se parte en dos conversaciones.
 create or replace function espacios.ruta_de_tipo(t text, h text)
 returns boolean language sql immutable set search_path = '' as $$
   select espacios.href_valido(h, false) and case t
-    when 'institucion'       then h ~ '^/instituciones/[^/]+$'
-    when 'proveedor'         then h ~ '^/proveedores/[^/]+$'
-    when 'proceso'           then h ~ '^/procesos/[^/]+$'
-    when 'norma'             then h ~ '^/normativa/[^/]+/[^/]+$'
-    when 'proyecto'          then h ~ '^/congreso/[0-9]+$'
-    when 'expediente-senado' then h ~ '^/congreso/senado/[^/]+/[^/]+$'
-    when 'legislador'        then h ~ '^/congreso/legisladores/[^/]+$'
-    when 'obra'              then h ~ '^/obras/[^/]+$'
+    when 'institucion'       then h ~ '^/instituciones/[1-9][0-9]{0,6}$'
+    when 'proveedor'         then h ~ '^/proveedores/[1-9][0-9]{0,9}$'
+    when 'proceso'           then h ~ '^/procesos/[A-Za-z0-9._~-]{3,120}$'
+    when 'norma'             then h ~ '^/normativa/[a-z]+(-[a-z]+)*/[0-9]{1,4}-[0-9]{2,4}$'
+    when 'proyecto'          then h ~ '^/congreso/[1-9][0-9]{0,9}$'
+    when 'expediente-senado' then h ~ '^/congreso/senado/[0-9]{4}-[0-9]{4}/[1-9][0-9]{0,9}$'
+    when 'legislador'        then h ~ '^/congreso/legisladores/[1-9][0-9]{0,9}$'
+    when 'obra'              then h ~ '^/obras/[1-9][0-9]{0,6}$'
     when 'investigacion'     then h ~ '^/p/[a-z0-9]+(-[a-z0-9]+)*$'
     else false
   end;
@@ -61,44 +67,57 @@ create table if not exists espacios.moderadores (
   creado   timestamptz not null default now()
 );
 
+-- Una suspensión es de la persona: su cuenta y la huella de su cédula. La
+-- huella se guarda solo mientras dura (se purga al vencer).
 create table if not exists espacios.suspensiones (
-  usuario  uuid primary key references auth.users (id) on delete cascade,
+  id       uuid primary key default gen_random_uuid(),
+  usuario  uuid unique references auth.users (id) on delete set null,
+  cedula   text,
   hasta    timestamptz not null,
   motivo   text not null check (char_length(btrim(motivo)) between 1 and 500),
   por      uuid references auth.users (id) on delete set null,
   creado   timestamptz not null default now()
 );
+create index if not exists suspensiones_cedula on espacios.suspensiones (cedula) where cedula is not null;
 
 create table if not exists espacios.hilos (
-  tipo         text not null check (espacios.tipo_hilo_valido(tipo)),
-  ref          text not null check (char_length(ref) between 1 and 300),
-  titulo       text not null check (char_length(btrim(titulo)) between 1 and 300),
-  href         text not null check (espacios.href_valido(href, false)),
-  estado       text not null default 'visible' check (estado in ('visible', 'oculto', 'retirado')),
-  votos        integer not null default 0,
-  comentarios  integer not null default 0,
-  creado       timestamptz not null default now(),
-  actividad    timestamptz not null default now(),
+  tipo            text not null check (espacios.tipo_hilo_valido(tipo)),
+  ref             text not null check (char_length(ref) between 1 and 300),
+  titulo          text not null check (char_length(btrim(titulo)) between 1 and 300),
+  href            text not null check (espacios.href_valido(href, false)),
+  estado          text not null default 'visible' check (estado in ('visible', 'oculto', 'retirado')),
+  votos           integer not null default 0,
+  comentarios     integer not null default 0,
+  -- Quién abrió la conversación (y puso su título), para el tope diario.
+  abierto_por     uuid references auth.users (id) on delete set null,
+  abierto_cedula  text,
+  creado          timestamptz not null default now(),
+  actividad       timestamptz not null default now(),
   primary key (tipo, ref)
 );
 create index if not exists hilos_actividad on espacios.hilos (actividad desc) where estado = 'visible';
 create index if not exists hilos_creado on espacios.hilos (creado desc) where estado = 'visible';
 create index if not exists hilos_votos on espacios.hilos (votos desc) where estado = 'visible';
+create index if not exists hilos_abierto on espacios.hilos (abierto_cedula, creado desc);
 
 create table if not exists espacios.comentarios (
   id         uuid primary key default gen_random_uuid(),
   hilo_tipo  text not null,
   hilo_ref   text not null,
-  padre      uuid references espacios.comentarios (id) on delete cascade,
+  -- Si el comentario de arriba desaparece (se borra su cuenta), las
+  -- respuestas de otros se quedan, como comentarios sueltos.
+  padre      uuid references espacios.comentarios (id) on delete set null,
   usuario    uuid not null references auth.users (id) on delete cascade,
+  -- La huella de la cédula de quien escribió: solo para el tope de ritmo.
+  cedula     text not null,
   cuerpo     text not null check (char_length(cuerpo) <= 4000),
   estado     text not null default 'visible' check (estado in ('visible', 'oculto', 'retirado', 'borrado')),
   puntos     integer not null default 0,
   creado     timestamptz not null default now(),
-  foreign key (hilo_tipo, hilo_ref) references espacios.hilos (tipo, ref) on delete cascade
+  foreign key (hilo_tipo, hilo_ref) references espacios.hilos (tipo, ref) on delete cascade on update cascade
 );
 create index if not exists comentarios_hilo on espacios.comentarios (hilo_tipo, hilo_ref, creado);
-create index if not exists comentarios_usuario on espacios.comentarios (usuario, creado desc);
+create index if not exists comentarios_cedula on espacios.comentarios (cedula, creado desc);
 
 create table if not exists espacios.votos_comentario (
   comentario  uuid not null references espacios.comentarios (id) on delete cascade,
@@ -114,7 +133,7 @@ create table if not exists espacios.votos_hilo (
   usuario  uuid not null references auth.users (id) on delete cascade,
   creado   timestamptz not null default now(),
   primary key (tipo, ref, usuario),
-  foreign key (tipo, ref) references espacios.hilos (tipo, ref) on delete cascade
+  foreign key (tipo, ref) references espacios.hilos (tipo, ref) on delete cascade on update cascade
 );
 create index if not exists votos_hilo_usuario on espacios.votos_hilo (usuario, creado desc);
 
@@ -124,6 +143,8 @@ create table if not exists espacios.denuncias (
   -- Un comentario por su id; un hilo como «tipo:ref».
   objetivo        text not null check (char_length(objetivo) between 1 and 320),
   usuario         uuid not null references auth.users (id) on delete cascade,
+  -- Solo las de quien registró su cédula cuentan para ocultar.
+  con_cedula      boolean not null default false,
   motivo          text not null check (motivo in ('difamacion', 'datos-personales', 'acoso', 'spam', 'falso', 'otro')),
   detalle         text not null default '' check (char_length(detalle) <= 500),
   resuelta        boolean not null default false,
@@ -137,7 +158,7 @@ create table if not exists espacios.acciones_moderacion (
   moderador       uuid references auth.users (id) on delete set null,
   objetivo_tipo   text not null check (objetivo_tipo in ('comentario', 'hilo', 'usuario')),
   objetivo        text not null,
-  accion          text not null check (accion in ('restaurar', 'retirar', 'suspender', 'levantar')),
+  accion          text not null check (accion in ('restaurar', 'retirar', 'retitular', 'suspender', 'levantar')),
   nota            text not null default '' check (char_length(nota) <= 500),
   creado          timestamptz not null default now()
 );
@@ -156,15 +177,102 @@ revoke all on espacios.moderadores, espacios.suspensiones, espacios.hilos, espac
   espacios.votos_comentario, espacios.votos_hilo, espacios.denuncias, espacios.acciones_moderacion
   from anon, authenticated, public;
 
+-- ─────────────────────────────────────────────── contadores (disparadores)
+-- Por incremento, bajo el candado de la fila: dos votos a la vez no se pisan,
+-- y borrar una cuenta (que arrastra sus votos y comentarios) no deja cifras
+-- viejas.
+create or replace function espacios.contar_voto_comentario()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    update espacios.comentarios set puntos = puntos + new.valor where id = new.comentario;
+  elsif tg_op = 'DELETE' then
+    update espacios.comentarios set puntos = puntos - old.valor where id = old.comentario;
+  elsif new.valor <> old.valor then
+    update espacios.comentarios set puntos = puntos + new.valor - old.valor where id = new.comentario;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists votos_comentario_cuenta on espacios.votos_comentario;
+create trigger votos_comentario_cuenta after insert or update or delete on espacios.votos_comentario
+  for each row execute function espacios.contar_voto_comentario();
+
+create or replace function espacios.contar_voto_hilo()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    update espacios.hilos set votos = votos + 1, actividad = now() where tipo = new.tipo and ref = new.ref;
+  else
+    update espacios.hilos set votos = greatest(votos - 1, 0) where tipo = old.tipo and ref = old.ref;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists votos_hilo_cuenta on espacios.votos_hilo;
+create trigger votos_hilo_cuenta after insert or delete on espacios.votos_hilo
+  for each row execute function espacios.contar_voto_hilo();
+
+-- `comentarios` cuenta solo lo visible. Toda entrada y salida de «visible»
+-- —publicar, borrar, ocultar por denuncias, moderar, borrar la cuenta— pasa
+-- por aquí.
+create or replace function espacios.contar_comentario()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare
+  antes boolean := tg_op in ('UPDATE', 'DELETE') and old.estado = 'visible';
+  ahora boolean := tg_op in ('INSERT', 'UPDATE') and new.estado = 'visible';
+begin
+  if ahora and not antes then
+    update espacios.hilos set comentarios = comentarios + 1, actividad = now()
+     where tipo = new.hilo_tipo and ref = new.hilo_ref;
+  elsif antes and not ahora then
+    update espacios.hilos set comentarios = greatest(comentarios - 1, 0)
+     where tipo = old.hilo_tipo and ref = old.hilo_ref;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists comentarios_cuenta on espacios.comentarios;
+create trigger comentarios_cuenta after insert or update of estado or delete on espacios.comentarios
+  for each row execute function espacios.contar_comentario();
+
+-- Una investigación que cambia de dirección se lleva su conversación; una
+-- que se borra, la cierra del todo (su slug queda libre y otro proyecto no
+-- debe heredar comentarios ajenos).
+create or replace function espacios.hilo_de_investigacion()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if tg_op = 'DELETE' then
+    if old.slug is not null then
+      delete from espacios.hilos where tipo = 'investigacion' and ref = old.slug;
+    end if;
+    return null;
+  end if;
+  if old.slug is not null and new.slug is distinct from old.slug then
+    if new.slug is null then
+      delete from espacios.hilos where tipo = 'investigacion' and ref = old.slug;
+    else
+      update espacios.hilos set ref = new.slug, href = '/p/' || new.slug
+       where tipo = 'investigacion' and ref = old.slug;
+    end if;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists proyectos_hilo on espacios.proyectos;
+create trigger proyectos_hilo after update of slug or delete on espacios.proyectos
+  for each row execute function espacios.hilo_de_investigacion();
+
 -- ─────────────────────────────────────────────── quién puede qué
 create or replace function espacios.es_moderador()
 returns boolean language sql stable security definer set search_path = '' as $$
   select auth.uid() is not null and exists (select 1 from espacios.moderadores where usuario = auth.uid());
 $$;
 
-create or replace function espacios.suspendido_hasta()
-returns timestamptz language sql stable security definer set search_path = '' as $$
-  select hasta from espacios.suspensiones where usuario = auth.uid() and hasta > now();
+-- La huella de la cédula de quien pregunta (interna: nunca sale de la base).
+create or replace function espacios.mi_cedula()
+returns text language sql stable security definer set search_path = '' as $$
+  select cedula_hash from democracia.votantes where id = auth.uid();
 $$;
 
 -- Registró su cédula en el piloto de voto: una fila en `democracia.votantes`
@@ -172,7 +280,15 @@ $$;
 -- unicidad); la verificación contra la JCE llega con Cuenta Única.
 create or replace function espacios.cedula_registrada()
 returns boolean language sql stable security definer set search_path = '' as $$
-  select auth.uid() is not null and exists (select 1 from democracia.votantes where id = auth.uid());
+  select auth.uid() is not null and espacios.mi_cedula() is not null;
+$$;
+
+-- Hasta cuándo está suspendida la persona: por su cuenta o por su cédula.
+create or replace function espacios.suspendido_hasta()
+returns timestamptz language sql stable security definer set search_path = '' as $$
+  select max(hasta) from espacios.suspensiones
+   where hasta > now()
+     and (usuario = auth.uid() or (cedula is not null and cedula = espacios.mi_cedula()));
 $$;
 
 -- Lo que la pantalla necesita para decir qué falta antes del primer toque.
@@ -203,12 +319,43 @@ begin
 end;
 $$;
 
+-- Puede escribir texto público: cédula, nombre, normas, sin suspensión.
+create or replace function espacios.exigir_autoria()
+returns text language plpgsql stable security definer set search_path = '' as $$
+declare
+  c text := espacios.mi_cedula();
+  s timestamptz := espacios.suspendido_hasta();
+begin
+  if auth.uid() is null then
+    raise exception 'hace falta entrar' using errcode = '42501';
+  end if;
+  if s is not null then
+    raise exception 'tu cuenta no puede escribir hasta el %',
+      to_char(s at time zone 'America/Santo_Domingo', 'DD-MM-YYYY') using errcode = '42501';
+  end if;
+  if c is null then
+    raise exception 'para escribir hace falta registrar tu cédula' using errcode = '42501';
+  end if;
+  if not exists (select 1 from espacios.perfiles where id = auth.uid() and normas is not null) then
+    raise exception 'primero acepta las normas de la conversación' using errcode = '42501';
+  end if;
+  return c;
+end;
+$$;
+
 -- ─────────────────────────────────────────────── abrir un hilo (interna)
--- El título lo pone quien abre la conversación; lo ve el feed. Un moderador
--- puede retirar un hilo con un título falso u ofensivo.
+-- Abrir es escribir el título que verá el feed: lo hace solo quien puede
+-- escribir, hasta veinte conversaciones nuevas al día por cédula. Un título
+-- falso u ofensivo lo corrige un moderador (`retitular`).
 create or replace function espacios.abrir_hilo(p_tipo text, p_ref text, p_titulo text, p_href text)
 returns void language plpgsql security definer set search_path = '' as $$
+declare
+  c text;
 begin
+  if exists (select 1 from espacios.hilos where tipo = p_tipo and ref = p_ref) then
+    return;
+  end if;
+  c := espacios.exigir_autoria();
   if p_tipo = 'investigacion' then
     if not exists (select 1 from espacios.proyectos where slug = p_ref and publico) then
       raise exception 'esa investigación no está publicada' using errcode = '22023';
@@ -220,10 +367,23 @@ begin
   if not espacios.tipo_hilo_valido(p_tipo) or not espacios.ruta_de_tipo(p_tipo, p_href) then
     raise exception 'ahí no se abre una conversación' using errcode = '22023';
   end if;
-  insert into espacios.hilos (tipo, ref, titulo, href)
-  values (p_tipo, p_ref, left(btrim(p_titulo), 300), p_href)
+  if (select count(*) from espacios.hilos where abierto_cedula = c and creado > now() - interval '1 day') >= 20 then
+    raise exception 'abriste muchas conversaciones hoy: vuelve mañana' using errcode = '54000';
+  end if;
+  insert into espacios.hilos (tipo, ref, titulo, href, abierto_por, abierto_cedula)
+  values (p_tipo, p_ref, left(btrim(p_titulo), 300), p_href, auth.uid(), c)
   on conflict (tipo, ref) do nothing;
 end;
+$$;
+
+-- El estado de una conversación para escribir en ella: la de una
+-- investigación que se retiró de la publicación está cerrada.
+create or replace function espacios.estado_para_escribir(p_tipo text, p_ref text)
+returns text language sql stable security definer set search_path = '' as $$
+  select case
+    when p_tipo = 'investigacion' and not exists (select 1 from espacios.proyectos where slug = p_ref and publico) then 'cerrado'
+    else (select estado from espacios.hilos where tipo = p_tipo and ref = p_ref)
+  end;
 $$;
 
 -- ─────────────────────────────────────────────── comentar
@@ -231,23 +391,11 @@ create or replace function espacios.comentar(
   p_tipo text, p_ref text, p_titulo text, p_href text, p_padre uuid, p_cuerpo text
 ) returns uuid language plpgsql security definer set search_path = '' as $$
 declare
-  uid uuid := auth.uid();
+  c text := espacios.exigir_autoria();
   cuerpo text := btrim(coalesce(p_cuerpo, ''));
   nuevo uuid;
   estado_hilo text;
 begin
-  if uid is null then
-    raise exception 'hace falta entrar' using errcode = '42501';
-  end if;
-  if espacios.suspendido_hasta() is not null then
-    raise exception 'tu cuenta no puede comentar hasta el %', to_char(espacios.suspendido_hasta(), 'DD-MM-YYYY') using errcode = '42501';
-  end if;
-  if not espacios.cedula_registrada() then
-    raise exception 'para comentar hace falta registrar tu cédula' using errcode = '42501';
-  end if;
-  if not exists (select 1 from espacios.perfiles where id = uid and normas is not null) then
-    raise exception 'primero acepta las normas de la conversación' using errcode = '42501';
-  end if;
   if char_length(cuerpo) < 2 or char_length(cuerpo) > 4000 then
     raise exception 'un comentario va de 2 a 4000 caracteres' using errcode = '23514';
   end if;
@@ -255,15 +403,15 @@ begin
   if (select count(*) from regexp_matches(cuerpo, 'https?://', 'g')) > 3 then
     raise exception 'un comentario lleva como mucho tres enlaces' using errcode = '23514';
   end if;
-  -- Ritmo: cinco en diez minutos, cuarenta al día.
-  if (select count(*) from espacios.comentarios where usuario = uid and creado > now() - interval '10 minutes') >= 5
-     or (select count(*) from espacios.comentarios where usuario = uid and creado > now() - interval '1 day') >= 40 then
+  -- Ritmo, por cédula: cinco en diez minutos, cuarenta al día.
+  if (select count(*) from espacios.comentarios where cedula = c and creado > now() - interval '10 minutes') >= 5
+     or (select count(*) from espacios.comentarios where cedula = c and creado > now() - interval '1 day') >= 40 then
     raise exception 'vas muy rápido: espera unos minutos antes de volver a comentar' using errcode = '54000';
   end if;
 
   perform espacios.abrir_hilo(p_tipo, p_ref, p_titulo, p_href);
-  select estado into estado_hilo from espacios.hilos where tipo = p_tipo and ref = p_ref;
-  if estado_hilo <> 'visible' then
+  estado_hilo := espacios.estado_para_escribir(p_tipo, p_ref);
+  if estado_hilo is distinct from 'visible' then
     raise exception 'esta conversación está cerrada' using errcode = '42501';
   end if;
   if p_padre is not null and not exists (
@@ -273,12 +421,9 @@ begin
     raise exception 'no se puede responder a ese comentario' using errcode = '22023';
   end if;
 
-  insert into espacios.comentarios (hilo_tipo, hilo_ref, padre, usuario, cuerpo)
-  values (p_tipo, p_ref, p_padre, uid, cuerpo)
+  insert into espacios.comentarios (hilo_tipo, hilo_ref, padre, usuario, cedula, cuerpo)
+  values (p_tipo, p_ref, p_padre, auth.uid(), c, cuerpo)
   returning id into nuevo;
-  update espacios.hilos
-     set comentarios = comentarios + 1, actividad = now()
-   where tipo = p_tipo and ref = p_ref;
   return nuevo;
 end;
 $$;
@@ -287,40 +432,34 @@ $$;
 -- y queda la marca «borrado por su autor» para que las respuestas no floten.
 create or replace function espacios.borrar_comentario(p_id uuid)
 returns boolean language plpgsql security definer set search_path = '' as $$
-declare
-  c record;
 begin
-  select * into c from espacios.comentarios where id = p_id and usuario = auth.uid();
-  if not found then
-    return false;
-  end if;
-  if c.estado = 'borrado' then
-    return true;
-  end if;
-  update espacios.comentarios set estado = 'borrado', cuerpo = '' where id = p_id;
-  if c.estado = 'visible' then
-    update espacios.hilos set comentarios = greatest(comentarios - 1, 0)
-     where tipo = c.hilo_tipo and ref = c.hilo_ref;
-  end if;
-  return true;
+  update espacios.comentarios set estado = 'borrado', cuerpo = ''
+   where id = p_id and usuario = auth.uid() and estado <> 'borrado';
+  return exists (select 1 from espacios.comentarios where id = p_id and usuario = auth.uid());
 end;
 $$;
 
 -- ─────────────────────────────────────────────── votar
--- Cualquier cuenta con correo verificado. `p_valor` 1, -1, o 0 para quitarlo.
-create or replace function espacios.votar_comentario(p_id uuid, p_valor smallint)
-returns integer language plpgsql security definer set search_path = '' as $$
-declare
-  uid uuid := auth.uid();
-  autor uuid;
-  total integer;
+create or replace function espacios.exigir_votante()
+returns void language plpgsql stable security definer set search_path = '' as $$
 begin
-  if uid is null or espacios.mi_correo() is null then
+  if auth.uid() is null or espacios.mi_correo() is null then
     raise exception 'para votar hace falta una cuenta con el correo verificado' using errcode = '42501';
   end if;
   if espacios.suspendido_hasta() is not null then
     raise exception 'tu cuenta no puede votar por ahora' using errcode = '42501';
   end if;
+end;
+$$;
+
+-- `p_valor` 1, -1, o 0 para quitarlo. Devuelve los puntos nuevos.
+create or replace function espacios.votar_comentario(p_id uuid, p_valor smallint)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare
+  uid uuid := auth.uid();
+  autor uuid;
+begin
+  perform espacios.exigir_votante();
   if p_valor not in (-1, 0, 1) then
     raise exception 'un voto es 1, -1 o 0' using errcode = '22023';
   end if;
@@ -335,48 +474,44 @@ begin
     delete from espacios.votos_comentario where comentario = p_id and usuario = uid;
   else
     insert into espacios.votos_comentario (comentario, usuario, valor) values (p_id, uid, p_valor)
-    on conflict (comentario, usuario) do update set valor = excluded.valor, creado = now();
+    on conflict (comentario, usuario) do update set valor = excluded.valor;
   end if;
-  select coalesce(sum(valor), 0) into total from espacios.votos_comentario where comentario = p_id;
-  update espacios.comentarios set puntos = total where id = p_id;
-  return total;
+  return (select puntos from espacios.comentarios where id = p_id);
 end;
 $$;
 
--- «Importa»: el voto sobre un registro o una investigación. Solo hacia
--- arriba: no se vota en contra de un hecho.
+-- «Importa»: el voto sobre un registro o una investigación, solo hacia
+-- arriba. Vota cualquier cuenta sobre una conversación ya abierta; si nadie
+-- la abrió, la abre este voto, y eso —escribir su título— pide cédula.
 create or replace function espacios.votar_hilo(p_tipo text, p_ref text, p_titulo text, p_href text, p_si boolean)
 returns integer language plpgsql security definer set search_path = '' as $$
 declare
   uid uuid := auth.uid();
-  total integer;
+  estado_hilo text;
 begin
-  if uid is null or espacios.mi_correo() is null then
-    raise exception 'para votar hace falta una cuenta con el correo verificado' using errcode = '42501';
-  end if;
-  if espacios.suspendido_hasta() is not null then
-    raise exception 'tu cuenta no puede votar por ahora' using errcode = '42501';
-  end if;
-  if (select count(*) from espacios.votos_hilo where usuario = uid and creado > now() - interval '1 hour') >= 120 then
-    raise exception 'vas muy rápido: espera un momento' using errcode = '54000';
-  end if;
+  perform espacios.exigir_votante();
   if p_si then
+    if (select count(*) from espacios.votos_hilo where usuario = uid and creado > now() - interval '1 hour') >= 120 then
+      raise exception 'vas muy rápido: espera un momento' using errcode = '54000';
+    end if;
     perform espacios.abrir_hilo(p_tipo, p_ref, p_titulo, p_href);
+    estado_hilo := espacios.estado_para_escribir(p_tipo, p_ref);
+    if estado_hilo is distinct from 'visible' then
+      raise exception 'esta conversación está cerrada' using errcode = '42501';
+    end if;
     insert into espacios.votos_hilo (tipo, ref, usuario) values (p_tipo, p_ref, uid)
     on conflict do nothing;
   else
     delete from espacios.votos_hilo where tipo = p_tipo and ref = p_ref and usuario = uid;
   end if;
-  select count(*) into total from espacios.votos_hilo where tipo = p_tipo and ref = p_ref;
-  update espacios.hilos set votos = total, actividad = greatest(actividad, case when p_si then now() else actividad end)
-   where tipo = p_tipo and ref = p_ref;
-  return total;
+  return coalesce((select votos from espacios.hilos where tipo = p_tipo and ref = p_ref), 0);
 end;
 $$;
 
 -- ─────────────────────────────────────────────── denunciar
--- Cualquier cuenta con correo verificado, una vez por cosa. Tres denuncias de
--- cuentas distintas ocultan lo denunciado hasta que un moderador decida.
+-- Cualquier cuenta con correo verificado y sin suspensión, una vez por cosa.
+-- Para ocultar cuentan solo las denuncias de quien registró su cédula: tres
+-- correos desechables no silencian a nadie.
 create or replace function espacios.denunciar(p_objetivo_tipo text, p_objetivo text, p_motivo text, p_detalle text)
 returns boolean language plpgsql security definer set search_path = '' as $$
 declare
@@ -385,9 +520,7 @@ declare
   t text;
   r text;
 begin
-  if uid is null or espacios.mi_correo() is null then
-    raise exception 'para denunciar hace falta una cuenta con el correo verificado' using errcode = '42501';
-  end if;
+  perform espacios.exigir_votante();
   if p_objetivo_tipo = 'comentario' then
     if not exists (select 1 from espacios.comentarios where id::text = p_objetivo and estado in ('visible', 'oculto')) then
       raise exception 'ese comentario no existe' using errcode = '22023';
@@ -404,19 +537,14 @@ begin
   if (select count(*) from espacios.denuncias where usuario = uid and creado > now() - interval '1 day') >= 30 then
     raise exception 'llegaste al tope de denuncias de hoy' using errcode = '54000';
   end if;
-  insert into espacios.denuncias (objetivo_tipo, objetivo, usuario, motivo, detalle)
-  values (p_objetivo_tipo, p_objetivo, uid, p_motivo, left(btrim(coalesce(p_detalle, '')), 500))
+  insert into espacios.denuncias (objetivo_tipo, objetivo, usuario, con_cedula, motivo, detalle)
+  values (p_objetivo_tipo, p_objetivo, uid, espacios.cedula_registrada(), p_motivo, left(btrim(coalesce(p_detalle, '')), 500))
   on conflict (objetivo_tipo, objetivo, usuario) do nothing;
   select count(distinct usuario) into n from espacios.denuncias
-   where objetivo_tipo = p_objetivo_tipo and objetivo = p_objetivo and not resuelta;
+   where objetivo_tipo = p_objetivo_tipo and objetivo = p_objetivo and not resuelta and con_cedula;
   if n >= 3 then
     if p_objetivo_tipo = 'comentario' then
       update espacios.comentarios set estado = 'oculto' where id::text = p_objetivo and estado = 'visible';
-      if found then
-        update espacios.hilos h set comentarios = greatest(h.comentarios - 1, 0)
-          from espacios.comentarios c
-         where c.id::text = p_objetivo and h.tipo = c.hilo_tipo and h.ref = c.hilo_ref;
-      end if;
     else
       update espacios.hilos set estado = 'oculto' where tipo = t and ref = r and estado = 'visible';
     end if;
@@ -426,9 +554,10 @@ end;
 $$;
 
 -- ─────────────────────────────────────────────── leer (público)
--- Una conversación entera: el hilo y sus comentarios. Lo que no está visible
--- sale sin texto ni autor, con su estado, para que sus respuestas conserven
--- el sitio. `mio` y `mi_voto` solo con sesión.
+-- Una conversación entera: el hilo y sus comentarios (los mil más recientes).
+-- Lo que no está visible sale sin texto ni autor, con su estado, para que sus
+-- respuestas conserven el sitio. `mio` y `mi_voto` solo con sesión. La de una
+-- investigación retirada no se lee.
 create or replace function espacios.hilo(p_tipo text, p_ref text)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
@@ -454,20 +583,23 @@ returns jsonb language sql stable security definer set search_path = '' as $$
       from (
         select * from espacios.comentarios
          where hilo_tipo = p_tipo and hilo_ref = p_ref
-         order by creado
+         order by creado desc
          limit 1000
       ) c
       left join espacios.perfiles pf on pf.id = c.usuario
     ), '[]'::jsonb) end
   )
   from (select 1) uno
-  left join espacios.hilos h on h.tipo = p_tipo and h.ref = p_ref;
+  left join espacios.hilos h on h.tipo = p_tipo and h.ref = p_ref
+   and (p_tipo <> 'investigacion' or exists (select 1 from espacios.proyectos p where p.slug = p_ref and p.publico));
 $$;
 
 -- El feed: las conversaciones visibles. `destacado` pesa votos y comentarios
 -- contra el tiempo desde la última actividad (como Hacker News: puntos /
--- (horas + 2)^1.5); `nuevo`, lo último abierto; `votado`, lo que más importa.
--- Una investigación que se retiró no aparece.
+-- (horas + 2)^1.5; una conversación sin votos ni comentarios no puntúa);
+-- `nuevo`, lo último abierto; `votado`, lo que más importa. Desempate por la
+-- clave, para que las páginas no se solapen. Una investigación retirada no
+-- aparece.
 create or replace function espacios.comunidad(p_orden text default 'destacado', p_limite integer default 30, p_pagina integer default 0)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_agg(fila order by orden_n), '[]'::jsonb)
@@ -480,12 +612,12 @@ returns jsonb language sql stable security definer set search_path = '' as $$
                select 1 from espacios.votos_hilo v where v.tipo = h.tipo and v.ref = h.ref and v.usuario = auth.uid())
            ) as fila,
            row_number() over (order by
-             case when p_orden = 'nuevo' then extract(epoch from h.creado) end desc nulls last,
+             case when p_orden = 'nuevo' then h.creado end desc nulls last,
              case when p_orden = 'votado' then h.votos end desc nulls last,
              case when p_orden not in ('nuevo', 'votado') then
-               (h.votos + 2 * h.comentarios + 1) / power(extract(epoch from (now() - h.actividad)) / 3600 + 2, 1.5)
+               (h.votos + 2 * h.comentarios) / power(extract(epoch from (now() - h.actividad)) / 3600 + 2, 1.5)
              end desc nulls last,
-             h.actividad desc
+             h.actividad desc, h.tipo, h.ref
            ) as orden_n
     from espacios.hilos h
     where h.estado = 'visible'
@@ -508,7 +640,7 @@ begin
         'id', c.id, 'estado', c.estado, 'cuerpo', c.cuerpo, 'creado', c.creado,
         'autor', coalesce(pf.nombre, 'Sin nombre'), 'usuario', c.usuario,
         'hilo', jsonb_build_object('tipo', h.tipo, 'ref', h.ref, 'titulo', h.titulo, 'href', h.href),
-        'denuncias', (select jsonb_agg(jsonb_build_object('motivo', d.motivo, 'detalle', d.detalle, 'creado', d.creado) order by d.creado)
+        'denuncias', (select jsonb_agg(jsonb_build_object('motivo', d.motivo, 'detalle', d.detalle, 'creado', d.creado, 'con_cedula', d.con_cedula) order by d.creado)
                         from espacios.denuncias d where d.objetivo_tipo = 'comentario' and d.objetivo = c.id::text and not d.resuelta)
       ) order by c.creado)
       from espacios.comentarios c
@@ -520,7 +652,7 @@ begin
     'hilos', coalesce((
       select jsonb_agg(jsonb_build_object(
         'tipo', h.tipo, 'ref', h.ref, 'titulo', h.titulo, 'href', h.href, 'estado', h.estado,
-        'denuncias', (select jsonb_agg(jsonb_build_object('motivo', d.motivo, 'detalle', d.detalle, 'creado', d.creado) order by d.creado)
+        'denuncias', (select jsonb_agg(jsonb_build_object('motivo', d.motivo, 'detalle', d.detalle, 'creado', d.creado, 'con_cedula', d.con_cedula) order by d.creado)
                         from espacios.denuncias d where d.objetivo_tipo = 'hilo' and d.objetivo = h.tipo || ':' || h.ref and not d.resuelta)
       ) order by h.creado)
       from espacios.hilos h
@@ -538,14 +670,12 @@ end;
 $$;
 
 -- Restaurar o retirar un comentario o un hilo. Cierra sus denuncias y deja
--- constancia de quién, qué y por qué.
+-- constancia de quién, qué y por qué. Los contadores los ajusta el disparador.
 create or replace function espacios.moderar(p_objetivo_tipo text, p_objetivo text, p_accion text, p_nota text)
 returns boolean language plpgsql security definer set search_path = '' as $$
 declare
-  antes text;
   t text;
   r text;
-  c record;
 begin
   if not espacios.es_moderador() then
     raise exception 'solo quien modera' using errcode = '42501';
@@ -554,18 +684,11 @@ begin
     raise exception 'acción desconocida' using errcode = '22023';
   end if;
   if p_objetivo_tipo = 'comentario' then
-    select * into c from espacios.comentarios where id::text = p_objetivo;
-    if not found or c.estado = 'borrado' then
-      return false;
-    end if;
     update espacios.comentarios
        set estado = case when p_accion = 'restaurar' then 'visible' else 'retirado' end
-     where id = c.id;
-    -- El contador del hilo cuenta solo lo visible.
-    if c.estado = 'visible' and p_accion = 'retirar' then
-      update espacios.hilos set comentarios = greatest(comentarios - 1, 0) where tipo = c.hilo_tipo and ref = c.hilo_ref;
-    elsif c.estado <> 'visible' and p_accion = 'restaurar' then
-      update espacios.hilos set comentarios = comentarios + 1 where tipo = c.hilo_tipo and ref = c.hilo_ref;
+     where id::text = p_objetivo and estado <> 'borrado';
+    if not found then
+      return false;
     end if;
   elsif p_objetivo_tipo = 'hilo' then
     t := split_part(p_objetivo, ':', 1);
@@ -587,7 +710,33 @@ begin
 end;
 $$;
 
--- Suspender (días > 0) o levantar (días = 0) a una cuenta.
+-- Corregir el título de una conversación sin cerrarla: el registro sigue
+-- teniendo su conversación, con un título que dice lo que es.
+create or replace function espacios.retitular(p_clave text, p_titulo text, p_nota text)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare
+  t text := split_part(p_clave, ':', 1);
+  r text := substr(p_clave, char_length(split_part(p_clave, ':', 1)) + 2);
+begin
+  if not espacios.es_moderador() then
+    raise exception 'solo quien modera' using errcode = '42501';
+  end if;
+  if char_length(btrim(coalesce(p_titulo, ''))) = 0 then
+    raise exception 'un título no puede ir vacío' using errcode = '22023';
+  end if;
+  update espacios.hilos set titulo = left(btrim(p_titulo), 300) where tipo = t and ref = r;
+  if not found then
+    return false;
+  end if;
+  insert into espacios.acciones_moderacion (moderador, objetivo_tipo, objetivo, accion, nota)
+  values (auth.uid(), 'hilo', p_clave, 'retitular', left(coalesce(p_nota, ''), 500));
+  return true;
+end;
+$$;
+
+-- Suspender (días > 0) o levantar (días = 0) a una persona: su cuenta y la
+-- huella de su cédula. Las suspensiones vencidas se purgan de paso, y con
+-- ellas la huella.
 create or replace function espacios.suspender(p_usuario uuid, p_dias integer, p_motivo text)
 returns boolean language plpgsql security definer set search_path = '' as $$
 begin
@@ -597,6 +746,7 @@ begin
   if p_usuario = auth.uid() then
     raise exception 'no te suspendes a ti' using errcode = '22023';
   end if;
+  delete from espacios.suspensiones where hasta <= now();
   if p_dias <= 0 then
     delete from espacios.suspensiones where usuario = p_usuario;
     insert into espacios.acciones_moderacion (moderador, objetivo_tipo, objetivo, accion, nota)
@@ -606,9 +756,12 @@ begin
   if char_length(btrim(coalesce(p_motivo, ''))) = 0 then
     raise exception 'una suspensión dice por qué' using errcode = '22023';
   end if;
-  insert into espacios.suspensiones (usuario, hasta, motivo, por)
-  values (p_usuario, now() + make_interval(days => least(p_dias, 3650)), btrim(p_motivo), auth.uid())
-  on conflict (usuario) do update set hasta = excluded.hasta, motivo = excluded.motivo, por = excluded.por, creado = now();
+  insert into espacios.suspensiones (usuario, cedula, hasta, motivo, por)
+  values (p_usuario, (select cedula_hash from democracia.votantes where id = p_usuario),
+          now() + make_interval(days => least(p_dias, 3650)), btrim(p_motivo), auth.uid())
+  on conflict (usuario) do update
+    set cedula = coalesce(excluded.cedula, espacios.suspensiones.cedula), hasta = excluded.hasta,
+        motivo = excluded.motivo, por = excluded.por, creado = now();
   insert into espacios.acciones_moderacion (moderador, objetivo_tipo, objetivo, accion, nota)
   values (auth.uid(), 'usuario', p_usuario::text, 'suspender', left(p_motivo, 500));
   return true;
@@ -616,9 +769,19 @@ end;
 $$;
 
 -- ─────────────────────────────────────────────── permisos de las funciones
+-- Internas: ni `anon` ni `authenticated` las llaman directamente.
 revoke all on function espacios.tipo_hilo_valido(text) from public, anon, authenticated;
 revoke all on function espacios.ruta_de_tipo(text, text) from public, anon, authenticated;
 revoke all on function espacios.abrir_hilo(text, text, text, text) from public, anon, authenticated;
+revoke all on function espacios.mi_cedula() from public, anon, authenticated;
+revoke all on function espacios.exigir_autoria() from public, anon, authenticated;
+revoke all on function espacios.exigir_votante() from public, anon, authenticated;
+revoke all on function espacios.estado_para_escribir(text, text) from public, anon, authenticated;
+revoke all on function espacios.contar_voto_comentario() from public, anon, authenticated;
+revoke all on function espacios.contar_voto_hilo() from public, anon, authenticated;
+revoke all on function espacios.contar_comentario() from public, anon, authenticated;
+revoke all on function espacios.hilo_de_investigacion() from public, anon, authenticated;
+-- De la sesión.
 revoke all on function espacios.es_moderador() from public, anon;
 revoke all on function espacios.suspendido_hasta() from public, anon;
 revoke all on function espacios.cedula_registrada() from public, anon;
@@ -631,6 +794,7 @@ revoke all on function espacios.votar_hilo(text, text, text, text, boolean) from
 revoke all on function espacios.denunciar(text, text, text, text) from public, anon;
 revoke all on function espacios.cola_moderacion() from public, anon;
 revoke all on function espacios.moderar(text, text, text, text) from public, anon;
+revoke all on function espacios.retitular(text, text, text) from public, anon;
 revoke all on function espacios.suspender(uuid, integer, text) from public, anon;
 revoke all on function espacios.hilo(text, text) from public;
 revoke all on function espacios.comunidad(text, integer, integer) from public;
@@ -647,6 +811,7 @@ grant execute on function espacios.votar_hilo(text, text, text, text, boolean) t
 grant execute on function espacios.denunciar(text, text, text, text) to authenticated;
 grant execute on function espacios.cola_moderacion() to authenticated;
 grant execute on function espacios.moderar(text, text, text, text) to authenticated;
+grant execute on function espacios.retitular(text, text, text) to authenticated;
 grant execute on function espacios.suspender(uuid, integer, text) to authenticated;
 grant execute on function espacios.hilo(text, text) to anon, authenticated;
 grant execute on function espacios.comunidad(text, integer, integer) to anon, authenticated;

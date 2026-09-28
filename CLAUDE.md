@@ -36,7 +36,7 @@ una DB, una API key ni un secreto en licitaciones, congreso, nómina, finanzas,
 normativa, deuda, el panorama ni `/fuentes`.
 
 **Dos excepciones, ambas de lo que es del lector y no del Estado:** `/democracia` (voto,
-esquema `democracia`) y la cuenta con sus espacios (`/cuenta`, `/espacio`, `/p`; esquema
+esquema `democracia`) y la cuenta con sus espacios (`/cuenta`, `/espacio`, `/p`, `/comunidad`; esquema
 `espacios`). Supabase, solo claves **publicables**; lo sensible vive en Postgres y en una Edge
 Function. Ningún dato del Estado entra a la DB: una ficha no la lee, pinta un componente de
 `components/espacios/`. Los hooks lo impiden antes de que se escriba.

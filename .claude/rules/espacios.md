@@ -40,10 +40,14 @@ Read §1 (contract) and §5 (applying) before changing anything here.
 
 ## The conversation (PLAN §6)
 - Threads, comments, votes and reports live in `espacios`; nobody writes a
-  table. Every write is a definer function that enforces cédula
-  (`democracia.votantes`), name + rules, suspension and rate limits. Reads are
-  the public `hilo`/`comunidad` functions: visible text and signing names,
-  never ids or emails.
+  table. Every write is a definer function. Public text (a comment, or the
+  title that opening a thread writes) needs a registered cédula
+  (`exigir_autoria`); voting and reporting need a verified email. Suspensions
+  and rate limits key on the cédula hash (`mi_cedula`, never returned), so a
+  new account does not escape them; only cédula holders' reports count toward
+  hiding. Counters are trigger-maintained increments. Reads are the public
+  `hilo`/`comunidad` functions: visible text and signing names, never ids,
+  emails or hashes.
 - A thread's key is its ficha's path (`ref = href`, `ruta_de_tipo`). A new
   ficha that wants a conversation adds its type there and in `TIPOS_HILO`.
 - `Conversacion` goes at the **end** of a ficha (understand first, opine

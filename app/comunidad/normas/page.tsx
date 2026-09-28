@@ -44,7 +44,9 @@ export default function NormasPage() {
         <h2 className="text-base font-semibold text-ink">Quién puede qué</h2>
         <p>
           <strong className="font-medium text-ink">Votar</strong> —decir que un registro importa,
-          votar un comentario— lo hace cualquier cuenta con el correo verificado.
+          votar un comentario— lo hace cualquier cuenta con el correo verificado, sobre una
+          conversación ya abierta. Abrirla es escribir el título que verá el feed, así que la
+          primera palabra sobre un registro la da alguien con cédula registrada.
         </p>
         <p>
           <strong className="font-medium text-ink">Comentar</strong> lo hace quien registró su
@@ -58,9 +60,11 @@ export default function NormasPage() {
         </p>
         <p>
           <strong className="font-medium text-ink">Se modera después.</strong> Lo que publicas sale
-          enseguida. Tres denuncias de cuentas distintas lo ocultan hasta que una persona lo revise;
-          si rompe las normas se retira y queda marcado como retirado, y la cuenta puede ser
-          suspendida. Cada decisión de moderación queda registrada.
+          enseguida. Tres denuncias de personas distintas con cédula registrada lo ocultan hasta que
+          una persona lo revise (cualquier cuenta puede denunciar; para ocultar cuentan esas);
+          si rompe las normas se retira y queda marcado como retirado, y quien lo escribió puede
+          ser suspendido: la suspensión va con su cédula, así que otra cuenta no la esquiva. Cada
+          decisión de moderación queda registrada.
         </p>
         <p>
           <strong className="font-medium text-ink">Lo tuyo es tuyo.</strong> Puedes borrar tus

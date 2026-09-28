@@ -11,7 +11,7 @@ import FeedComunidad from "@/components/espacios/feed-comunidad";
 export const metadata: Metadata = {
   title: "Comunidad",
   description:
-    "Lo que la gente discute de cada compra pública, ley, decreto e investigación: votos y conversación de personas con cédula registrada.",
+    "Lo que la gente discute de cada compra pública, ley, decreto e investigación: comentarios de personas con cédula registrada y votos de cualquier cuenta.",
   alternates: { canonical: "/comunidad" },
 };
 

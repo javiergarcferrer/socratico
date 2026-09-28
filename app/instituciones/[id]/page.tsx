@@ -364,7 +364,8 @@ export default async function InstitucionPage({ params }: Props) {
         </Link>
         .
       </p>
-      <Conversacion className="mt-6" referencia={{ tipo: "institucion", ref: hrefInstitucion(i), titulo: i.nombre, href: hrefInstitucion(i) }} />
+      {/* La clave es la ruta con solo el código: si cambia el nombre, la conversación sigue siendo la misma. */}
+      <Conversacion className="mt-6" referencia={{ tipo: "institucion", ref: enlace.institucion(i.id), titulo: i.nombre, href: enlace.institucion(i.id) }} />
     </div>
   );
 }

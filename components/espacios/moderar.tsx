@@ -7,11 +7,13 @@ import {
   estadoConversacion,
   MOTIVOS_DENUNCIA,
   moderar,
+  retitular,
   suspender,
   type ColaModeracion,
   type DenunciaEnCola,
 } from "@/lib/espacios-cliente";
 import { NOMBRE_HILO, rutaPropia } from "@/lib/espacios";
+import { formatFecha } from "@/lib/format";
 import Antiguedad from "@/components/antiguedad";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { Rotulo } from "@/components/papel";
@@ -134,6 +136,7 @@ function Cola() {
                   <span className="font-mono text-xs text-ink-soft">{h.href}</span>
                 </p>
                 <Denuncias lista={h.denuncias} />
+                <Retitular clave={`${h.tipo}:${h.ref}`} actual={h.titulo} onHecho={cargar} />
                 <Decidir objetivo={{ tipo: "hilo", clave: `${h.tipo}:${h.ref}` }} onHecho={cargar} />
               </li>
             ))}
@@ -153,7 +156,7 @@ function Cola() {
               <li key={s.usuario} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                 <span>
                   <span className="font-semibold text-ink">{s.nombre}</span>
-                  <span className="text-ink-soft"> · hasta el {new Date(s.hasta).toLocaleDateString("es-DO", { timeZone: "America/Santo_Domingo" })} · {s.motivo}</span>
+                  <span className="text-ink-soft"> · hasta el {formatFecha(s.hasta)} · {s.motivo}</span>
                 </span>
                 <Levantar usuario={s.usuario} onHecho={cargar} />
               </li>
@@ -172,7 +175,8 @@ function Denuncias({ lista }: { lista: DenunciaEnCola[] | null }) {
       {lista.map((d, i) => (
         <li key={i}>
           <span className="font-medium text-ink">{MOTIVOS_DENUNCIA[d.motivo]?.nombre ?? d.motivo}</span>
-          {d.detalle ? `: ${d.detalle}` : ""} · <Antiguedad iso={d.creado} />
+          {d.detalle ? `: ${d.detalle}` : ""} · {d.con_cedula ? "con cédula" : "sin cédula (no cuenta para ocultar)"} ·{" "}
+          <Antiguedad iso={d.creado} />
         </li>
       ))}
     </ul>
@@ -212,6 +216,33 @@ function Decidir({
   );
 }
 
+/** Corregir el título falso u ofensivo de una conversación sin cerrarla. */
+function Retitular({ clave, actual, onHecho }: { clave: string; actual: string; onHecho: () => Promise<void> }) {
+  const [titulo, setTitulo] = useState(actual);
+  const [nota, setNota] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const cambia = titulo.trim().length > 0 && titulo.trim() !== actual;
+  return (
+    <form
+      className="flex flex-col gap-2 sm:flex-row sm:items-center"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!cambia) return;
+        const r = await retitular(clave, titulo, nota);
+        if (!r.ok) return setError(r.error);
+        await onHecho();
+      }}
+    >
+      <Label htmlFor={`titulo-${clave}`} className="sr-only">Título corregido</Label>
+      <Input id={`titulo-${clave}`} value={titulo} maxLength={300} onChange={(e) => setTitulo(e.target.value)} />
+      <Label htmlFor={`nota-titulo-${clave}`} className="sr-only">Por qué</Label>
+      <Input id={`nota-titulo-${clave}`} value={nota} maxLength={500} onChange={(e) => setNota(e.target.value)} placeholder="Por qué (queda en el registro)" className="sm:w-56" />
+      <Button type="submit" variant="secondary" disabled={!cambia} className="shrink-0">Corregir título</Button>
+      {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+    </form>
+  );
+}
+
 function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: string; onHecho: () => Promise<void> }) {
   const [abierto, setAbierto] = useState(false);
   const [dias, setDias] = useState("7");
@@ -241,7 +272,7 @@ function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: stri
       <Label htmlFor={`dias-${usuario}`} className="sr-only">Días</Label>
       <Input id={`dias-${usuario}`} inputMode="numeric" value={dias} onChange={(e) => setDias(e.target.value)} className="sm:w-20" aria-describedby={`ayuda-${usuario}`} />
       <Label htmlFor={`motivo-${usuario}`} className="sr-only">Motivo</Label>
-      <Input id={`motivo-${usuario}`} value={motivo} maxLength={500} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (lo ve la persona)" />
+      <Input id={`motivo-${usuario}`} value={motivo} maxLength={500} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (queda en el registro)" />
       <div className="flex shrink-0 gap-2">
         <Button type="submit" variant="destructive" disabled={!valido}>Suspender</Button>
         <Button type="button" variant="ghost" onClick={() => setAbierto(false)}>Cancelar</Button>

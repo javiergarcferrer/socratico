@@ -289,9 +289,10 @@ export function leerHilo(tipo: TipoHilo, ref: string): Promise<Lectura<Hilo>> {
 }
 
 /**
- * El feed de la comunidad. En el servidor se cachea medio minuto: una
- * conversación nueva aparece enseguida y el feed no golpea la base en cada
- * visita. Solo filas cuyo enlace es una ruta propia.
+ * El feed de la comunidad. En el servidor (`/comunidad`) se cachea medio
+ * minuto; en el navegador (la portada) no hay caché y cada lectura es una
+ * consulta, por eso allí solo se pide al acercarse. Solo filas cuyo enlace es
+ * una ruta propia.
  */
 export async function leerComunidad(orden: OrdenComunidad, limite = 50): Promise<Lectura<FilaComunidad[]>> {
   const r = await rpcPublica<FilaComunidad[]>(

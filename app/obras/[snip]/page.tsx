@@ -281,7 +281,7 @@ export default async function ObraPage({ params }: Props) {
         son los que MapaInversiones asocia al código SNIP; la ficha de cada uno
         consulta la DGCP en vivo.
       </p>
-      <Conversacion className="mt-6" referencia={{ tipo: "obra", ref: enlace.obra(snip), titulo: tituloLegible(o.nombre), href: enlace.obra(snip) }} />
+      <Conversacion className="mt-6" referencia={{ tipo: "obra", ref: enlace.obra(String(Number(snip))), titulo: tituloLegible(o.nombre), href: enlace.obra(String(Number(snip))) }} />
     </div>
   );
 }
