@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EstadoVacio } from "@/components/estado-vacio";
+import Conversacion from "@/components/espacios/conversacion";
 import { Rotulo } from "@/components/papel";
 import { IconArrowRight, IconExternal, IconLink } from "@/components/icons";
 
@@ -123,6 +124,8 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
           </ul>
         </Card>
       )}
+
+      <Conversacion referencia={{ tipo: "investigacion", ref: slug, titulo: p.titulo, href: `/p/${slug}` }} />
 
       <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
         <p className="max-w-md text-sm leading-relaxed text-ink-soft">

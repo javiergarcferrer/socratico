@@ -41,6 +41,7 @@ export const FUERA_DEL_INDICE: Record<string, string> = {
   "/democracia/cuenta-unica/callback": "Retorno del inicio de sesión de Cuenta Única.",
   "/cuenta": "Trámite: se llega desde «Entrar» o «Guardar», no se elige.",
   "/espacio/proyecto": "Una investigación concreta: se abre desde tu espacio, no desde el índice.",
+  "/espacio/moderar": "Privada: la cola de quien modera la conversación.",
 };
 
 function construir(): Destino[] {

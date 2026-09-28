@@ -37,6 +37,7 @@ import { ConectadoCon } from "@/components/conectado-con";
 import { obrasDeProceso } from "@/lib/obras";
 import { enlace } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
+import Conversacion from "@/components/espacios/conversacion";
 
 const DOC_CLAVE =
   /pliego|ficha tecnica|especificacion|termino de referencia|tdr|condiciones/;
@@ -749,6 +750,7 @@ export default async function ProcesoPage({
       </Card>
 
       <AccionesProceso codigo={p.codigo_proceso} titulo={p.titulo} url={p.url} huella={huellaDe({ estado: p.estado_proceso })} />
+      <Conversacion className="mt-6" referencia={{ tipo: "proceso", ref: enlace.proceso(p.codigo_proceso), titulo: p.titulo, href: enlace.proceso(p.codigo_proceso) }} />
     </div>
   );
 }

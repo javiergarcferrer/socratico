@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase, db } from "@/lib/supabase";
 import { abrirSesion as abrirSesionCon, leerEntrada, mensajeDeEnvio, type Entrada } from "@/lib/sesion";
 import { cedulaValida, formatearCedula, limpiarCedula } from "@/lib/cedula";
+import { rutaPropia } from "@/lib/espacios";
 import { IconArrowLeft, IconCheck, IconShield } from "@/components/icons";
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
@@ -31,6 +32,13 @@ type Paso =
 
 export default function Registro() {
   const [paso, setPaso] = useState<Paso>("datos");
+  // A dónde volver al terminar: la conversación desde la que se vino a
+  // registrar la cédula (`?volver=`), solo si es una ruta de esta plataforma.
+  const [volver, setVolver] = useState<string | null>(null);
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("volver");
+    if (rutaPropia(v)) setVolver(v);
+  }, []);
   const [cedula, setCedula] = useState("");
   const [email, setEmail] = useState("");
   const [codigo, setCodigo] = useState("");
@@ -209,7 +217,7 @@ export default function Registro() {
           {/* Pantalla de una sola acción: en el teléfono el botón ocupa el
               ancho, porque no compite con nada. */}
           <Button asChild size="lg" className="mt-4 w-full bg-brand-600 hover:bg-brand-700 sm:w-auto">
-            <Link href="/congreso">Ir a las iniciativas</Link>
+            <Link href={volver ?? "/congreso"}>{volver ? "Volver a la conversación" : "Ir a las iniciativas"}</Link>
           </Button>
         </Alert>
         {cuentaUnicaHabilitada() && origen !== "cuenta_unica" && (

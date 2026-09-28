@@ -18,6 +18,7 @@ import { EstadoVacio } from "@/components/estado-vacio";
 import { Button } from "@/components/ui/button";
 import { enlace, numeroCanonico } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
+import Conversacion from "@/components/espacios/conversacion";
 
 export const revalidate = 86400;
 
@@ -153,6 +154,12 @@ export default async function NormaPage({ params }: Props) {
         </Link>
         .
       </p>
+      {enlace.norma(slug, numero) && (
+        <Conversacion
+          className="mt-6"
+          referencia={{ tipo: "norma", ref: enlace.norma(slug, numero)!, titulo: `${tipo} ${norma.numero}: ${desdeMayusculas(norma.titulo)}`, href: enlace.norma(slug, numero)! }}
+        />
+      )}
     </div>
   );
 }

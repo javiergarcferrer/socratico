@@ -19,6 +19,7 @@ import { diasEntre, getRegistroTributario } from "@/lib/rnc";
 import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
+import Conversacion from "@/components/espacios/conversacion";
 
 /** Días o años, en llano. */
 function plazoDias(dias: number): string {
@@ -441,6 +442,7 @@ export default async function ProveedorPage({
           </ul>
         </Card>
       </div>
+      <Conversacion className="mt-6" referencia={{ tipo: "proveedor", ref: enlace.proveedor(rpe), titulo: nombre ?? `RPE ${rpe}`, href: enlace.proveedor(rpe) }} />
     </div>
   );
 }

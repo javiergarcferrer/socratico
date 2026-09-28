@@ -30,6 +30,7 @@ import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import { filtrarObras, getObras } from "@/lib/obras";
+import Conversacion from "@/components/espacios/conversacion";
 
 export const revalidate = 3600;
 
@@ -174,6 +175,7 @@ export default async function LegisladorPage({ params, searchParams }: Props) {
           aquí.
         </p>
       )}
+      <Conversacion className="mt-6" referencia={{ tipo: "legislador", ref: enlace.legislador(id), titulo: l.nombre, href: enlace.legislador(id) }} />
     </div>
   );
 }

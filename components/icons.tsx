@@ -298,3 +298,24 @@ export const IconGoogle = (p: P) => (
     <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.44-3.44A11.5 11.5 0 0 0 12 0 12 12 0 0 0 1.27 6.61l4.01 3.11C6.22 6.88 8.87 4.77 12 4.77z" />
   </svg>
 );
+
+/** El globo: una conversación. */
+export const IconChat = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 5h16v11H9l-5 4V5z" />
+  </Svg>
+);
+
+/** La bandera: denunciar algo para que alguien lo revise. */
+export const IconFlag = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+  </Svg>
+);
+
+/** La flecha que sube: un voto a favor. Hacia abajo, con `rotate-180`. */
+export const IconVoto = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 5l7 8h-4.5v6h-5v-6H5l7-8z" />
+  </Svg>
+);

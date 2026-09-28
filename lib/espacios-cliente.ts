@@ -14,7 +14,17 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { espacios, supabase } from "@/lib/supabase";
-import { rutaPropia, slugDe, type Referencia, type TipoEntrada } from "@/lib/espacios";
+import {
+  rutaPropia,
+  slugDe,
+  type FilaComunidad,
+  type Hilo,
+  type OrdenComunidad,
+  type Referencia,
+  type ReferenciaHilo,
+  type TipoEntrada,
+  type TipoHilo,
+} from "@/lib/espacios";
 import { getSeguidos, onSeguimientoCambio, reemplazarSeguidos, type Seguido } from "@/lib/seguimiento";
 
 export type Hecho<T> = { ok: true; datos: T } | { ok: false; error: string; cerrado?: boolean };
@@ -32,6 +42,13 @@ function traducir(e: FalloSupabase): { ok: false; error: string; cerrado?: boole
   // PLAN-ESPACIOS §5); 42P01/3F000: la migración aún no se aplicó.
   if (codigo === "PGRST106" || codigo === "42P01" || codigo === "3F000" || texto.includes("schema must be one of")) {
     return { ok: false, cerrado: true, error: "Los proyectos todavía no están abiertos en esta plataforma." };
+  }
+  // Las funciones de la conversación dicen el porqué en español (`raise
+  // exception 'vas muy rápido…'`): se muestra tal cual, con mayúscula y punto.
+  // Un fallo de Postgres (un check, un permiso) no pasa por aquí: está en inglés.
+  const propio = e.message ?? "";
+  if (["22023", "23514", "54000", "42501"].includes(codigo) && /^[a-záéíóúñ¿]/.test(propio) && !/violates|permission denied|row-level|does not exist/.test(propio)) {
+    return { ok: false, error: `${propio.charAt(0).toUpperCase()}${propio.slice(1)}.` };
   }
   if (codigo === "54000") return { ok: false, error: `Llegaste a un tope: ${e.message}.` };
   if (codigo === "23505") return { ok: false, error: "Eso ya está guardado ahí." };
@@ -604,3 +621,133 @@ export function reflejarSeguidos(u: Usuario): () => void {
 
 /** El reflejo activo, para que `salir` lo apague antes de vaciar la lista. */
 let dejarDeReflejar: (() => void) | null = null;
+
+/* ---------------------------------------------------- la conversación */
+
+/** Lo que falta para participar, dicho antes del primer toque. */
+export interface EstadoConversacion {
+  cuenta: boolean;
+  correo: boolean;
+  cedula: boolean;
+  nombre: string | null;
+  normas: boolean;
+  suspendido_hasta: string | null;
+  moderador: boolean;
+}
+
+export async function estadoConversacion(): Promise<Hecho<EstadoConversacion>> {
+  return hecho<EstadoConversacion>(espacios().rpc("mi_estado_conversacion"));
+}
+
+export async function aceptarNormas(): Promise<Hecho<boolean>> {
+  return hecho<boolean>(espacios().rpc("aceptar_normas"));
+}
+
+/** La conversación con la sesión: trae además lo propio y los votos propios. */
+export async function hiloConSesion(tipo: TipoHilo, ref: string): Promise<Hecho<Hilo>> {
+  return hecho<Hilo>(espacios().rpc("hilo", { p_tipo: tipo, p_ref: ref }));
+}
+
+/** El feed con la sesión: trae qué filas ya votó el lector. */
+export async function comunidadConSesion(orden: OrdenComunidad): Promise<Hecho<FilaComunidad[]>> {
+  const r = await hecho<FilaComunidad[] | null>(espacios().rpc("comunidad", { p_orden: orden, p_limite: 100, p_pagina: 0 }));
+  return r.ok ? { ok: true, datos: r.datos ?? [] } : r;
+}
+
+export async function comentar(r: ReferenciaHilo, cuerpo: string, padre: string | null): Promise<Hecho<string>> {
+  return hecho<string>(
+    espacios().rpc("comentar", {
+      p_tipo: r.tipo,
+      p_ref: r.ref,
+      p_titulo: r.titulo.slice(0, 300),
+      p_href: r.href,
+      p_padre: padre,
+      p_cuerpo: cuerpo,
+    }),
+  );
+}
+
+export async function borrarComentario(id: string): Promise<Hecho<boolean>> {
+  return hecho<boolean>(espacios().rpc("borrar_comentario", { p_id: id }));
+}
+
+/** 1, -1, o 0 para quitar el voto. Devuelve los puntos nuevos. */
+export async function votarComentario(id: string, valor: -1 | 0 | 1): Promise<Hecho<number>> {
+  return hecho<number>(espacios().rpc("votar_comentario", { p_id: id, p_valor: valor }));
+}
+
+/** «Importa»: sí o no. Devuelve cuántas cuentas lo dicen. */
+export async function votarHilo(r: ReferenciaHilo, si: boolean): Promise<Hecho<number>> {
+  return hecho<number>(
+    espacios().rpc("votar_hilo", { p_tipo: r.tipo, p_ref: r.ref, p_titulo: r.titulo.slice(0, 300), p_href: r.href, p_si: si }),
+  );
+}
+
+export const MOTIVOS_DENUNCIA = {
+  difamacion: { nombre: "Difamación", ayuda: "Acusa a alguien de algo sin sustento" },
+  "datos-personales": { nombre: "Datos personales", ayuda: "Publica teléfonos, direcciones, cédulas o datos de salud" },
+  acoso: { nombre: "Acoso o amenaza", ayuda: "Ataca a una persona en vez de discutir el registro" },
+  spam: { nombre: "Propaganda o spam", ayuda: "Vende algo o repite lo mismo" },
+  falso: { nombre: "Engañoso", ayuda: "Afirma como hecho algo que el registro contradice" },
+  otro: { nombre: "Otro motivo", ayuda: "Explícalo en el detalle" },
+} as const;
+
+export type MotivoDenuncia = keyof typeof MOTIVOS_DENUNCIA;
+
+export async function denunciar(
+  objetivo: { tipo: "comentario"; id: string } | { tipo: "hilo"; hilo: ReferenciaHilo },
+  motivo: MotivoDenuncia,
+  detalle: string,
+): Promise<Hecho<boolean>> {
+  const clave = objetivo.tipo === "comentario" ? objetivo.id : `${objetivo.hilo.tipo}:${objetivo.hilo.ref}`;
+  return hecho<boolean>(
+    espacios().rpc("denunciar", { p_objetivo_tipo: objetivo.tipo, p_objetivo: clave, p_motivo: motivo, p_detalle: detalle }),
+  );
+}
+
+/* ---------------------------------------------------------- moderación */
+
+export interface DenunciaEnCola {
+  motivo: MotivoDenuncia;
+  detalle: string;
+  creado: string;
+}
+
+export interface ColaModeracion {
+  comentarios: {
+    id: string;
+    estado: string;
+    cuerpo: string;
+    creado: string;
+    autor: string;
+    usuario: string;
+    hilo: ReferenciaHilo;
+    denuncias: DenunciaEnCola[] | null;
+  }[];
+  hilos: (ReferenciaHilo & { estado: string; denuncias: DenunciaEnCola[] | null })[];
+  suspensiones: { usuario: string; nombre: string; hasta: string; motivo: string }[];
+}
+
+export async function colaModeracion(): Promise<Hecho<ColaModeracion>> {
+  return hecho<ColaModeracion>(espacios().rpc("cola_moderacion"));
+}
+
+export async function moderar(
+  objetivo: { tipo: "comentario"; id: string } | { tipo: "hilo"; clave: string },
+  accion: "restaurar" | "retirar",
+  nota: string,
+): Promise<Hecho<boolean>> {
+  return hecho<boolean>(
+    espacios().rpc("moderar", {
+      p_objetivo_tipo: objetivo.tipo,
+      p_objetivo: objetivo.tipo === "comentario" ? objetivo.id : objetivo.clave,
+      p_accion: accion,
+      p_nota: nota,
+    }),
+  );
+}
+
+/** Días > 0 suspende; 0 levanta la suspensión. */
+export async function suspender(usuario: string, dias: number, motivo: string): Promise<Hecho<boolean>> {
+  return hecho<boolean>(espacios().rpc("suspender", { p_usuario: usuario, p_dias: dias, p_motivo: motivo }));
+}

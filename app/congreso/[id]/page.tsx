@@ -37,6 +37,7 @@ import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import { TextoEnlazado } from "@/components/texto-enlazado";
+import Conversacion from "@/components/espacios/conversacion";
 
 export const revalidate = 300;
 
@@ -454,6 +455,7 @@ export default async function IniciativaPage({ params }: Props) {
           />
         </dl>
       </Plegable>
+      <Conversacion className="mt-6" referencia={{ tipo: "proyecto", ref: enlace.iniciativa(ini.id), titulo, href: enlace.iniciativa(ini.id) }} />
     </div>
   );
 }

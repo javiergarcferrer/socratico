@@ -164,6 +164,8 @@ export const MENU: GrupoMenu[] = [
         titulo: "La plataforma",
         enlaces: [
           { href: "/", label: "Inicio", nota: "Qué es Socrático, qué pasa hoy y todo lo que hay", tarea: "vigilar" },
+          { href: "/comunidad", label: "Comunidad", nota: "De qué habla la gente: votos y conversación sobre cada registro", tarea: "participar" },
+          { href: "/comunidad/normas", label: "Normas de la conversación", nota: "Quién comenta, qué no se permite y cómo se modera", tarea: "entender" },
           { href: "/espacio", label: "Tu espacio", nota: "Tus investigaciones, lo que guardaste y lo que sigues", tarea: "participar" },
           { href: "/seguimiento", label: "Mi seguimiento", nota: "Lo que sigues y qué cambió", tarea: "participar" },
           { href: "/fuentes", label: "Estado de las fuentes", nota: "Qué leemos, con qué límites y qué está bloqueado", tarea: "entender" },
