@@ -107,6 +107,19 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Cerradas, para que nadie las reabra
 
+- **Código abierto probado, nunca proyectos pequeños sin probar (28-09-2026).**
+  Antes de escribir algo propio se busca una pieza de código abierto que lo
+  resuelva; antes de adoptarla, pasa este criterio: uso amplio en producción
+  (organizaciones conocidas, descargas o instalaciones en el orden de
+  cientos de miles), más de un mantenedor o respaldo de una fundación o
+  empresa, versiones publicadas en los últimos seis meses, historial de
+  seguridad atendido y licencia permisiva (MIT, Apache 2.0, BSD, MPL; GPL
+  solo para un servicio aparte, nunca dentro del código de la app). Lo que
+  no lo pasa no entra aunque ahorre trabajo. La pila actual ya lo cumple:
+  Next.js, React, Tailwind, Radix/shadcn, zod, cheerio, pdf.js, vaul, cmdk,
+  PostgreSQL vía Supabase. Una dependencia nueva se justifica en el cuerpo
+  del commit contra estos puntos.
+
 - **La cabecera es la palabra, sin placa (28-09-2026).** El dueño pidió quitar
   la «s» en placa de la cabecera: la marca ahí es «socrático» sola, más
   grande, con fibra, canto y un asentarse atado al desplazamiento
