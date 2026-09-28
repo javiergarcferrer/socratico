@@ -52,7 +52,11 @@ returns boolean language sql immutable set search_path = '' as $$
     when 'proveedor'         then h ~ '^/proveedores/[1-9][0-9]{0,9}$'
     -- `enlace.proceso` pasa el código por encodeURIComponent: un código con
     -- espacios o tildes (el 12 % de los de la DGCP) llega como %20, %C3%B3…
+    -- Un octeto codificado que encodeURIComponent nunca produciría (una letra,
+    -- un dígito, «-»…) es otra forma de escribir el mismo código: se rechaza,
+    -- para que un proceso no tenga dos conversaciones.
     when 'proceso'           then h ~ '^/procesos/(?:[A-Za-z0-9._~!*''()-]|%[0-9A-F]{2})+$'
+                                  and h !~ '%(2[1789ADE]|3[0-9]|[46][1-9A-F]|[57][0-9A]|5F|7E)'
     when 'norma'             then h ~ '^/normativa/[a-z]+(-[a-z]+)*/[0-9]{1,4}-[0-9]{2,4}$'
     when 'proyecto'          then h ~ '^/congreso/[1-9][0-9]{0,9}$'
     when 'expediente-senado' then h ~ '^/congreso/senado/[0-9]{4}-[0-9]{4}/[1-9][0-9]{0,9}$'
@@ -101,6 +105,7 @@ create index if not exists hilos_actividad on espacios.hilos (actividad desc) wh
 create index if not exists hilos_creado on espacios.hilos (creado desc) where estado = 'visible';
 create index if not exists hilos_votos on espacios.hilos (votos desc) where estado = 'visible';
 create index if not exists hilos_abierto on espacios.hilos (abierto_cedula, creado desc);
+create index if not exists hilos_con_huella on espacios.hilos (creado) where abierto_cedula is not null;
 
 create table if not exists espacios.comentarios (
   id         uuid primary key default gen_random_uuid(),
@@ -252,12 +257,16 @@ begin
   if tg_op = 'DELETE' then
     if old.slug is not null then
       delete from espacios.hilos where tipo = 'investigacion' and ref = old.slug;
+      -- Sus denuncias se van con ella: otro proyecto que publique en esa
+      -- dirección no hereda denuncias ajenas.
+      delete from espacios.denuncias where objetivo_tipo = 'hilo' and objetivo = 'investigacion:' || old.slug;
     end if;
     return null;
   end if;
   if old.slug is not null and new.slug is distinct from old.slug then
     if new.slug is null then
       delete from espacios.hilos where tipo = 'investigacion' and ref = old.slug;
+      delete from espacios.denuncias where objetivo_tipo = 'hilo' and objetivo = 'investigacion:' || old.slug;
     else
       update espacios.hilos set ref = new.slug, href = '/p/' || new.slug
        where tipo = 'investigacion' and ref = old.slug;
@@ -422,6 +431,9 @@ begin
   if char_length(cuerpo) < 2 or char_length(cuerpo) > 4000 then
     raise exception 'un comentario va de 2 a 4000 caracteres' using errcode = '23514';
   end if;
+  -- El olvido de huellas va antes de tomar ningún candado propio: dos
+  -- comentarios a la vez no se esperan el uno al otro.
+  perform espacios.olvidar_huellas();
   -- Más de tres enlaces en un comentario es propaganda, no conversación.
   if (select count(*) from regexp_matches(cuerpo, 'https?://', 'g')) > 3 then
     raise exception 'un comentario lleva como mucho tres enlaces' using errcode = '23514';
@@ -447,7 +459,6 @@ begin
   insert into espacios.comentarios (hilo_tipo, hilo_ref, padre, usuario, cedula, cuerpo)
   values (p_tipo, p_ref, p_padre, auth.uid(), c, cuerpo)
   returning id into nuevo;
-  perform espacios.olvidar_huellas();
   return nuevo;
 end;
 $$;

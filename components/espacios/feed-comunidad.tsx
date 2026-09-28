@@ -7,6 +7,7 @@ import Antiguedad from "@/components/antiguedad";
 import { Badge } from "@/components/ui/badge";
 import { IconChat } from "@/components/icons";
 import { useHaySesion } from "./presencia";
+import { porQueNoVota } from "./razones";
 import VotoHilo from "./voto-hilo";
 
 /**
@@ -20,15 +21,17 @@ import VotoHilo from "./voto-hilo";
 export default function FeedComunidad({ filas, orden }: { filas: FilaComunidad[]; orden: OrdenComunidad }) {
   const hay = useHaySesion();
   const [votadas, setVotadas] = useState<Set<string>>(new Set());
+  const [razon, setRazon] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hay) return;
     let vivo = true;
     (async () => {
       const c = await import("@/lib/espacios-cliente");
-      const r = await c.comunidadConSesion(orden);
-      if (!vivo || !r.ok) return;
-      setVotadas(new Set(r.datos.filter((f) => f.mi_voto).map((f) => `${f.tipo}:${f.ref}`)));
+      const [r, yo] = await Promise.all([c.comunidadConSesion(orden), c.estadoConversacion()]);
+      if (!vivo) return;
+      if (yo.ok) setRazon(porQueNoVota(yo.datos));
+      if (r.ok) setVotadas(new Set(r.datos.filter((f) => f.mi_voto).map((f) => `${f.tipo}:${f.ref}`)));
     })();
     return () => {
       vivo = false;
@@ -36,6 +39,8 @@ export default function FeedComunidad({ filas, orden }: { filas: FilaComunidad[]
   }, [hay, orden]);
 
   return (
+    <>
+    {razon && <p role="status" className="pt-4 text-sm text-ink-soft">{razon}</p>}
     <ol className="divide-y divide-hairline">
       {filas.map((f, i) => (
         <li key={`${f.tipo}:${f.ref}`} className="flex items-start gap-3 py-3.5 sm:gap-4">
@@ -47,6 +52,8 @@ export default function FeedComunidad({ filas, orden }: { filas: FilaComunidad[]
             referencia={{ tipo: f.tipo, ref: f.ref, titulo: f.titulo, href: f.href }}
             votos={f.votos}
             miVoto={votadas.has(`${f.tipo}:${f.ref}`)}
+            cerradoPorque={razon}
+            razonVisible={false}
             className="shrink-0"
           />
           <div className="relative min-w-0 flex-1">
@@ -67,5 +74,6 @@ export default function FeedComunidad({ filas, orden }: { filas: FilaComunidad[]
         </li>
       ))}
     </ol>
+    </>
   );
 }

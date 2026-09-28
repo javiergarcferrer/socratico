@@ -283,7 +283,7 @@ conversación va con ella.
   no lee la base. Mientras la conversación no esté abierta, esa sección no se
   pinta, ni siquiera como silueta.
 
-✅ Probado el 2026-09-28 con `supabase/pruebas/conversacion_rls.py`: 128
+✅ Probado el 2026-09-28 con `supabase/pruebas/conversacion_rls.py`: 130
 casos.
 - Recorre la conversación desde siete lugares: quien registró su cédula,
   quien solo tiene cuenta, correos desechables, un correo sin confirmar, una

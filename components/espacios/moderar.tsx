@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import {
   colaModeracion,
   estadoConversacion,
@@ -245,6 +245,9 @@ function Retitular({ clave, actual, onHecho }: { clave: string; actual: string; 
 }
 
 function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: string; onHecho: () => Promise<void> }) {
+  // La misma persona puede salir dos veces en la cola (autora y quien abrió
+  // una conversación): los ids del formulario no pueden repetirse.
+  const u = useId();
   const [abierto, setAbierto] = useState(false);
   const [dias, setDias] = useState("7");
   const [motivo, setMotivo] = useState("");
@@ -270,15 +273,15 @@ function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: stri
         await onHecho();
       }}
     >
-      <Label htmlFor={`dias-${usuario}`} className="sr-only">Días</Label>
-      <Input id={`dias-${usuario}`} inputMode="numeric" value={dias} onChange={(e) => setDias(e.target.value)} className="sm:w-20" aria-describedby={`ayuda-${usuario}`} />
-      <Label htmlFor={`motivo-${usuario}`} className="sr-only">Motivo</Label>
-      <Input id={`motivo-${usuario}`} value={motivo} maxLength={500} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (queda en el registro)" />
+      <Label htmlFor={`dias-${u}`} className="sr-only">Días</Label>
+      <Input id={`dias-${u}`} inputMode="numeric" value={dias} onChange={(e) => setDias(e.target.value)} className="sm:w-20" aria-describedby={`ayuda-${u}`} />
+      <Label htmlFor={`motivo-${u}`} className="sr-only">Motivo</Label>
+      <Input id={`motivo-${u}`} value={motivo} maxLength={500} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (queda en el registro)" />
       <div className="flex shrink-0 gap-2">
         <Button type="submit" variant="destructive" disabled={!valido}>Suspender</Button>
         <Button type="button" variant="ghost" onClick={() => setAbierto(false)}>Cancelar</Button>
       </div>
-      <p id={`ayuda-${usuario}`} className="text-xs text-ink-soft">{valido ? "" : "Días (1 a 3650) y un motivo."}</p>
+      <p id={`ayuda-${u}`} className="text-xs text-ink-soft">{valido ? "" : "Días (1 a 3650) y un motivo."}</p>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
     </form>
   );

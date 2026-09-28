@@ -22,6 +22,7 @@ import { IconChat, IconFlag, IconShield, IconTrash, IconVoto } from "@/component
 import { cn } from "@/lib/cn";
 import { formatFecha } from "@/lib/format";
 import { NORMAS } from "./normas";
+import { porQueNoVota } from "./razones";
 import { useHaySesion } from "./presencia";
 import VotoHilo from "./voto-hilo";
 
@@ -116,7 +117,7 @@ export default function Conversacion({ referencia, className }: { referencia: Re
             miVoto={carga.hilo.mi_voto}
             // Una conversación que nadie abrió la abre este voto, y abrirla es
             // escribir su título: eso pide cédula.
-            cerradoPorque={hay && !carga.hilo.existe ? porQueNoAbre(carga.yo) : null}
+            cerradoPorque={hay ? (carga.hilo.existe ? porQueNoVota(carga.yo) : porQueNoAbre(carga.yo)) : null}
           />
         )}
       </div>
@@ -264,9 +265,8 @@ function Cuerpo({
  * primer voto la abriría). `null` si puede.
  */
 function porQueNoAbre(yo: EstadoConversacion | null): string | null {
-  if (!yo) return null;
-  if (yo.suspendido_hasta) return `Tu cuenta está suspendida hasta el ${formatFecha(yo.suspendido_hasta)}.`;
-  if (!yo.correo) return "Verifica tu correo para votar.";
+  const voto = porQueNoVota(yo);
+  if (!yo || voto) return voto;
   if (!yo.cedula) return "La primera palabra sobre un registro la da alguien con cédula registrada; después vota cualquier cuenta.";
   if (!yo.nombre || !yo.normas) return "Para abrir la conversación, elige tu nombre de firma y acepta las normas (aquí abajo).";
   return null;

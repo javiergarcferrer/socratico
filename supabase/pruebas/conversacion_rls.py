@@ -180,6 +180,7 @@ PE = ("proceso", "/procesos/MINISTERIO%20HACIENDA-DAF-CM-2026-0093", "Compra de 
 PT = ("proceso", "/procesos/DIRECCI%C3%93N-CCC-2026-1", "Compra con tilde", "/procesos/DIRECCI%C3%93N-CCC-2026-1")
 esperar("proceso con %20 abre conversación", comentar(V, "vera@x.do", "pregunta sobre Hacienda", hilo=PE), "ok")
 esperar("proceso con tilde codificada abre conversación", comentar(V, "vera@x.do", "pregunta con tilde", hilo=PT), "ok")
+esperar("proceso con una letra codificada (%41 = A): mismo código, otra forma", comentar(V, "vera@x.do", "hola", hilo=("proceso", "/procesos/%41BC-2026", "t", "/procesos/%41BC-2026")), "error")
 esperar("proceso con % mal formado", comentar(V, "vera@x.do", "hola", hilo=("proceso", "/procesos/X%ZZ", "t", "/procesos/X%ZZ")), "error")
 admin(f"update espacios.comentarios set creado = creado - interval '1 hour' where usuario = '{V}'")
 
@@ -357,6 +358,7 @@ afirmar("la denuncia pendiente sigue a la nueva dirección", admin("select count
 afirmar("cambiar la dirección se lleva la conversación", admin("select count(*) from espacios.comentarios where hilo_ref='caso-inapa-nuevo'")[0][0] == 1)
 como(V, "vera@x.do", "delete from espacios.proyectos where slug='caso-inapa-nuevo'")
 afirmar("borrar la investigación borra su conversación", admin("select count(*) from espacios.hilos where tipo='investigacion'")[0][0] == 0)
+afirmar("…y sus denuncias: otro proyecto en esa dirección no las hereda", admin("select count(*) from espacios.denuncias where objetivo='investigacion:caso-inapa-nuevo'")[0][0] == 0)
 
 for t in ["moderadores", "suspensiones", "hilos", "comentarios", "votos_comentario", "votos_hilo", "denuncias", "acciones_moderacion"]:
     afirmar(f"RLS encendida en espacios.{t}", admin(f"select relrowsecurity from pg_class where oid='espacios.{t}'::regclass")[0][0])

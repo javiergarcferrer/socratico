@@ -23,6 +23,7 @@ export default function VotoHilo({
   miVoto: miVotoInicial,
   vertical = false,
   cerradoPorque = null,
+  razonVisible = true,
   className,
 }: {
   referencia: ReferenciaHilo;
@@ -30,6 +31,11 @@ export default function VotoHilo({
   miVoto: boolean;
   /** Por qué este lector no puede votar aquí todavía: se dice antes del toque. */
   cerradoPorque?: string | null;
+  /**
+   * En el feed la razón se dice una vez encima de la lista; aquí queda solo
+   * para el lector de pantalla.
+   */
+  razonVisible?: boolean;
   /** En el feed: la cifra debajo de la flecha, como una columna. */
   vertical?: boolean;
   className?: string;
@@ -97,7 +103,7 @@ export default function VotoHilo({
         )}
       </Button>
       {cerradoPorque && (
-        <span id={idRazon} className="mt-1 max-w-56 text-center text-xs leading-snug text-ink-soft">
+        <span id={idRazon} className={razonVisible ? "mt-1 max-w-56 text-center text-xs leading-snug text-ink-soft" : "sr-only"}>
           {cerradoPorque}
         </span>
       )}

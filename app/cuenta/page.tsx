@@ -64,7 +64,8 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
               </Link>
               : tus comentarios (públicos, con tu nombre de firma), tus votos y tus denuncias (estos
               dos, privados), cuándo aceptaste las normas y, junto a lo que escribes, una huella
-              irreversible de tu cédula (un HMAC con clave, nunca la cédula) durante 90 días: sirve
+              de tu cédula (un HMAC que no se puede revertir sin la clave de la plataforma; nunca la
+              cédula) durante 90 días: sirve
               para los topes de ritmo y para que una suspensión no se esquive con otra cuenta.
             </li>
             <li>
