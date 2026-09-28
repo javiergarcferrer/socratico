@@ -12,6 +12,7 @@ import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { Portada, PortadaCifra, PortadaCifras } from "@/components/portada";
 import { NavFiltros, FiltroEnlace } from "@/components/nav-filtros";
+import FiltrosPlegados from "@/components/filtros-plegados";
 import { BuscadorUrl } from "@/components/buscador-url";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { Paginador } from "@/components/paginador";
@@ -36,6 +37,9 @@ const TIPOS: { clave: TipoDocumento | "hojas" | ""; nombre: string }[] = [
   { clave: "hojas", nombre: "Hojas de cálculo" },
   { clave: "docx", nombre: "Word" },
 ];
+
+/** Instituciones a la vista antes de «Ver todas»: dos renglones en el teléfono. */
+const VISIBLES = 5;
 
 const ETIQUETA_TIPO: Record<TipoDocumento, string> = {
   pdf: "PDF",
@@ -89,6 +93,12 @@ export default async function DocumentosPage({
   });
   const bloqueadas = indice.fuentes.filter((f) => f.documentos === 0);
 
+  // Las instituciones por peso: las de más documentos primero. A la vista, las
+  // primeras VISIBLES y la elegida si estaba más abajo.
+  const porPeso = [...conDocs].sort((a, b) => b.documentos - a.documentos);
+  const visibles = porPeso.filter((f, i) => i < VISIBLES || f.host === fuente?.host);
+  const resto = porPeso.filter((f) => !visibles.includes(f));
+
   const url = (cambios: Record<string, string | undefined>) => {
     const u = new URLSearchParams();
     const todo = { q: q || undefined, inst: fuente?.host, tipo, ...cambios };
@@ -96,6 +106,12 @@ export default async function DocumentosPage({
     const s = u.toString();
     return s ? `/documentos?${s}` : "/documentos";
   };
+
+  const chip = (f: (typeof conDocs)[number]) => (
+    <FiltroEnlace key={f.host} href={url({ inst: f.host, p: undefined })} activo={fuente?.host === f.host}>
+      {siglas(f.nombre, f.uc)} · {formatInt(f.documentos)}
+    </FiltroEnlace>
+  );
 
   return (
     <div className="space-y-5">
@@ -136,15 +152,24 @@ export default async function DocumentosPage({
         ))}
       </NavFiltros>
 
+      {/*
+        Veintitrés chips llenaban la pantalla del teléfono antes del primer
+        resultado. Se ven las de más documentos y la elegida; el resto, a un
+        toque, en la misma fila.
+      */}
       <NavFiltros etiqueta="Institución">
-        <FiltroEnlace href={url({ inst: undefined, p: undefined })} activo={!fuente}>
-          Todas
-        </FiltroEnlace>
-        {conDocs.map((f) => (
-          <FiltroEnlace key={f.host} href={url({ inst: f.host, p: undefined })} activo={fuente?.host === f.host}>
-            {siglas(f.nombre, f.uc)} · {formatInt(f.documentos)}
-          </FiltroEnlace>
-        ))}
+        <FiltrosPlegados
+          total={porPeso.length}
+          visibles={
+            <>
+              <FiltroEnlace href={url({ inst: undefined, p: undefined })} activo={!fuente}>
+                Todas
+              </FiltroEnlace>
+              {visibles.map(chip)}
+            </>
+          }
+          resto={resto.map(chip)}
+        />
       </NavFiltros>
 
       {!r ? (
