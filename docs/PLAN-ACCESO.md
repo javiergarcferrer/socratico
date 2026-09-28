@@ -261,6 +261,15 @@ Pendiente, por valor ÷ esfuerzo (archivo:línea verificados el 2026-09-26):
    de `Intl.DateTimeFormat` (sin dependencia). `numeroMes` exige que la
    palabra sea el mes o una abreviatura suya: «Mayor» o «Total» ya no son
    mayo ni nada.
+10. ✅ **Lecturas del navegador** (cinco `fetch` en efectos, cada uno con su
+   `AbortController`, su bandera de cancelación o su comprobación de «¿es la
+   respuesta de lo tecleado?»). → `@tanstack/react-query`, hecho 2026-09-28:
+   `components/consultas.tsx` y `lib/consultas.ts`; detalle en
+   `docs/ARQUITECTURA.md` §Bibliotecas de cliente. Supabase y el canje de
+   Cuenta Única quedan fuera, con su porqué allí.
+11. ❌ **Tablas** → `@tanstack/react-table`, descartado tras medirlo: ~1.1 s
+   para montar las filas de la nómina contra ~20 ms del orden propio (misma
+   sección).
 
 Verificación del lote 1–5 y 9: una ruta de sonda llamó a los 24 lectores en
 vivo antes y después (caché vaciada): 22 salidas idénticas byte a byte; TC y

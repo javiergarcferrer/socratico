@@ -2,6 +2,9 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { buscarEnPlataforma, claves as clavesConsulta } from "@/lib/consultas";
+import { useRebotado } from "@/components/rebotado";
 import { BUSQUEDAS, SECCIONES, seccionDe, type DestinoBusqueda } from "@/lib/secciones";
 import { INDICE, porTarea, type Destino } from "@/lib/indice";
 import { TAREAS } from "@/lib/tareas";
@@ -117,48 +120,20 @@ export default function Paleta() {
   }, [abierta]);
 
   // Lo que el índice de la plataforma encuentra (`/api/buscar`), pedido al
-  // servidor a medida que se teclea: el corpus y el modelo no viajan al
-  // navegador.
-  // Van con la consulta que las trajo: al seguir tecleando, las de la
-  // anterior se dejan de ver en el acto. Antes seguían en pantalla bajo el
-  // texto nuevo y un Intro rápido abría un resultado de «agua potable»
-  // buscando «MINERD».
-  const [sugeridasDe, setSugeridasDe] = useState<{ q: string; lista: Sugerida[]; pantallas: PantallaSugerida[] }>({
-    q: "",
-    lista: [],
-    pantallas: [],
+  // servidor a medida que se teclea (tras 180 ms de pausa): el corpus y el
+  // modelo no viajan al navegador. La consulta es de TanStack Query: seguir
+  // tecleando cancela la anterior, y volver a una ya hecha no la repite.
+  const consultaRebotada = useRebotado(texto.trim(), 180);
+  const sugerencias = useQuery({
+    queryKey: clavesConsulta.buscar(consultaRebotada, 6),
+    queryFn: ({ signal }) => buscarEnPlataforma<Sugerida, PantallaSugerida>(consultaRebotada, 6, signal),
+    // Solo lo que sigue tecleado: al reabrir, el texto se vacía y la
+    // consulta rebotada aún dice el de la vez anterior.
+    enabled: abierta && consultaRebotada.length >= 2 && consultaRebotada === texto.trim(),
   });
-  // «No respondió» no es «no hay nada»: se dice, en una línea.
-  const [fallo, setFallo] = useState(false);
-  useEffect(() => {
-    const q = texto.trim();
-    setFallo(false);
-    if (!abierta || q.length < 2) {
-      setSugeridasDe({ q: "", lista: [], pantallas: [] });
-      return;
-    }
-    const control = new AbortController();
-    const t = setTimeout(() => {
-      fetch(`/api/buscar?q=${encodeURIComponent(q)}&n=6`, { signal: control.signal })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((r: { resultados?: Sugerida[]; pantallas?: PantallaSugerida[] } | null) => {
-          setFallo(r === null);
-          setSugeridasDe({
-            q,
-            lista: Array.isArray(r?.resultados) ? r.resultados.filter((s) => s.href) : [],
-            pantallas: Array.isArray(r?.pantallas) ? r.pantallas : [],
-          });
-        })
-        .catch((err: unknown) => {
-          // Abortar al seguir tecleando no es una caída.
-          if ((err as { name?: string })?.name !== "AbortError") setFallo(true);
-        });
-    }, 180);
-    return () => {
-      clearTimeout(t);
-      control.abort();
-    };
-  }, [texto, abierta]);
+  // «No respondió» no es «no hay nada»: se dice, en una línea. Solo el de lo
+  // que está tecleado ahora, no el de una consulta que ya se dejó atrás.
+  const fallo = sugerencias.isError && consultaRebotada === texto.trim();
 
   const ir = (href: string) => {
     setAbierta(false);
@@ -173,12 +148,17 @@ export default function Paleta() {
   };
 
   const consulta = texto.trim();
-  const sugeridas = sugeridasDe.q === consulta ? sugeridasDe.lista : [];
+  // Van con la consulta que las trajo: al seguir tecleando, las de la
+  // anterior se dejan de ver en el acto. Antes seguían en pantalla bajo el
+  // texto nuevo y un Intro rápido abría un resultado de «agua potable»
+  // buscando «MINERD».
+  const deAhora = consulta.length >= 2 && consultaRebotada === consulta ? sugerencias.data : undefined;
+  const sugeridas = Array.isArray(deAhora?.resultados) ? deAhora.resultados.filter((s) => s.href) : [];
   // Las pantallas que el índice halló por significado, salvo las que ya
   // salen arriba porque lo tecleado las nombra.
   const pantallas =
-    sugeridasDe.q === consulta
-      ? sugeridasDe.pantallas.filter((p) => {
+    Array.isArray(deAhora?.pantallas)
+      ? deAhora.pantallas.filter((p) => {
           const d = INDICE.find((x) => x.href === p.href);
           return !d || !coincide(consulta, claves(d));
         })

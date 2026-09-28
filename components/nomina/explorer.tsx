@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   createParser,
   debounce,
@@ -64,18 +65,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { agujas, plano, pruebas } from "@/lib/raiz";
+import { claves } from "@/lib/consultas";
+import { useRebotado } from "@/components/rebotado";
 
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function useDebounced<T>(value: T, ms = 250): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
-}
 
 type View = "resumen" | "tabla" | "comparar";
 const VISTAS: View[] = ["resumen", "tabla", "comparar"];
@@ -97,16 +92,21 @@ export type FichasNomina = Record<string, string>;
   puertas; no se cambian.
 */
 export function Explorer({ fichas = {} }: { fichas?: FichasNomina }) {
-  const [data, setData] = useState<NominaData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadNomina().then(setData).catch((e) => setError(String(e)));
-  }, []);
+  /*
+    La instantánea entera, una vez por pestaña: no cambia hasta el próximo
+    despliegue, así que volver a `/nomina` no la pide otra vez.
+  */
+  const { data, error } = useQuery({
+    queryKey: claves.nomina,
+    queryFn: () => loadNomina(),
+    staleTime: Infinity,
+    // Un archivo estático: si falla, es la red del lector, y un reintento vale.
+    retry: 1,
+  });
 
   if (error) {
     return (
-      <Card className="p-6 text-sm text-ink-soft">{error}</Card>
+      <Card className="p-6 text-sm text-ink-soft">{error.message}</Card>
     );
   }
   if (!data) return <ExplorerEsqueleto />;
@@ -194,13 +194,13 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
   // ---- filters
   const queryInput = url.q;
   const setQueryInput = (v: string) => setUrl({ q: v });
-  const query = useDebounced(queryInput.trim(), 250);
+  const query = useRebotado(queryInput.trim(), 250);
   const instId = useMemo(() => indiceDe(data, url.inst), [data, url.inst]);
   const setInstId = (id: number | null) =>
     setUrl({ inst: id != null ? (data.instituciones[id]?.codigo ?? null) : null });
   const cargoInput = url.cargo;
   const setCargoInput = (v: string) => setUrl({ cargo: v });
-  const cargo = useDebounced(cargoInput.trim(), 250);
+  const cargo = useRebotado(cargoInput.trim(), 250);
   const [salMin, setSalMin] = useState<string>("");
   const [salMax, setSalMax] = useState<string>("");
 

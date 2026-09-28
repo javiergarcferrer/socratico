@@ -26,7 +26,7 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/`.
 | Tu espacio | `/cuenta`, `/espacio`, `/p/[slug]`, `/comunidad` | Supabase, esquema `espacios` — **excepción**: lo guardado, proyectos, notas, alertas, conversación | `lib/espacios.ts`, `lib/espacios-cliente.ts`, `lib/sesion.ts` |
 
 `lib/secciones.ts` es la fuente única de verticales; `lib/indice.ts` (de `lib/menu.ts`) la de destinos y su tarea. `/` es la portada (misión, hoy, el mapa); `/indicadores` el panorama; `/fuentes` declara
-qué alimenta la plataforma, qué está bloqueado y con qué límites de cobertura — mantenerlo cierto es parte de tocar una fuente. Toda lectura pasa por `lib/pedir.ts` (el contrato, con `zod`); HTML por `lib/html.ts`, XLSX por `lib/xlsx.ts`; todo enlace a una entidad sale de `lib/grafo.ts` (y `lib/grafo-servidor.ts`).
+qué alimenta la plataforma, qué está bloqueado y con qué límites de cobertura — mantenerlo cierto es parte de tocar una fuente. Toda lectura pasa por `lib/pedir.ts` (el contrato, con `zod`); la del navegador a una ruta propia, por TanStack Query (`lib/consultas.ts`); HTML por `lib/html.ts`, XLSX por `lib/xlsx.ts`; todo enlace a una entidad sale de `lib/grafo.ts` (y `lib/grafo-servidor.ts`).
 
 ## La invariante
 

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { claves } from "@/lib/consultas";
 import type { Proceso } from "@/lib/dgcp";
 import ProcesoCard from "@/components/proceso-card";
 import {
@@ -85,7 +87,6 @@ async function leerEstado(s: Seguido): Promise<Lectura> {
 
 export default function SeguimientoPage() {
   const [items, setItems] = useState<Seguido[] | null>(null);
-  const [lecturas, setLecturas] = useState<Record<string, Lectura>>({});
   const [cambios, setCambios] = useState<Cambio[]>([]);
   /*
     La última visita se fija **al abrir** la página, antes de que esta misma
@@ -93,7 +94,7 @@ export default function SeguimientoPage() {
     momento».
   */
   const [ultimaVisita, setUltimaVisita] = useState<string | null>(null);
-  const pedidos = useRef<Set<string>>(new Set());
+  const comparados = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const inicial = getSeguidos();
@@ -109,46 +110,58 @@ export default function SeguimientoPage() {
     return onSeguimientoCambio(sync);
   }, []);
 
-  // Pide el estado de hoy de lo que tiene estado, una sola vez por pieza.
-  useEffect(() => {
-    if (!items) return;
-    const nuevos = items.filter(
-      (s) => TIPOS_CON_ESTADO.has(s.tipo) && !pedidos.current.has(clave(s)),
-    );
-    if (nuevos.length === 0) return;
-    nuevos.forEach((s) => pedidos.current.add(clave(s)));
-    setLecturas((prev) => {
-      const next = { ...prev };
-      for (const s of nuevos) next[clave(s)] = { estado: "cargando" };
-      return next;
-    });
+  /*
+    El estado de hoy de lo que tiene estado, una consulta por pieza
+    (TanStack Query). Se pide una sola vez por visita a la página
+    (`staleTime: Infinity`) y se olvida al salir (`gcTime: 0`): volver mañana
+    tiene que leer el estado de mañana, no el que quedó en memoria. El modo
+    estricto de React, que monta dos veces en desarrollo, ya no puede perder
+    una respuesta: la consulta es del cliente, no del efecto.
+  */
+  const conEstadoItems = useMemo(
+    () => (items ?? []).filter((s) => TIPOS_CON_ESTADO.has(s.tipo)),
+    [items],
+  );
+  const consultas = useQueries({
+    queries: conEstadoItems.map((s) => ({
+      queryKey: claves.seguimiento(s.tipo, s.id),
+      queryFn: () => leerEstado(s),
+      staleTime: Infinity,
+      gcTime: 0,
+      // `leerEstado` no lanza: una caída vuelve como `{ estado: "caida" }`.
+      retry: false,
+    })),
+  });
+  const lecturas: Record<string, Lectura> = {};
+  conEstadoItems.forEach((s, i) => {
+    lecturas[clave(s)] = consultas[i]?.data ?? { estado: "cargando" };
+  });
 
-    /*
-      Sin bandera de cancelación a propósito: cada pieza se pide una sola vez
-      (`pedidos`), y si el efecto se desmontara y volviera a montar —el modo
-      estricto de React lo hace en desarrollo— la segunda pasada no repetiría
-      la consulta y la respuesta de la primera se perdería.
-    */
-    Promise.all(nuevos.map(async (s) => [s, await leerEstado(s)] as const)).then((res) => {
-      const detectados: Cambio[] = [];
-      const vistos: Parameters<typeof marcarVistos>[0] = [];
-      for (const [s, l] of res) {
-        if (l.estado !== "ok") continue;
-        if (s.huella !== undefined && s.huella !== l.huella) {
-          detectados.push({ item: s, antes: s.huella, ahora: l.huella });
-        }
-        vistos.push({ tipo: s.tipo, id: s.id, huella: l.huella, titulo: l.titulo });
+  /*
+    Cuando han llegado todas, cada lectura se compara una sola vez con la
+    huella guardada, y las huellas nuevas se guardan de una vez (una
+    escritura y un aviso, no uno por pieza). Lo que cambió se enseña arriba y
+    solo después se guarda: la próxima visita compara contra lo de hoy.
+  */
+  const firma = conEstadoItems.map((s) => `${clave(s)}=${lecturas[clave(s)].estado}`).join("|");
+  useEffect(() => {
+    if (conEstadoItems.some((s) => lecturas[clave(s)].estado === "cargando")) return;
+    const detectados: Cambio[] = [];
+    const vistos: Parameters<typeof marcarVistos>[0] = [];
+    for (const s of conEstadoItems) {
+      const l = lecturas[clave(s)];
+      if (l.estado !== "ok" || comparados.current.has(clave(s))) continue;
+      comparados.current.add(clave(s));
+      if (s.huella !== undefined && s.huella !== l.huella) {
+        detectados.push({ item: s, antes: s.huella, ahora: l.huella });
       }
-      setLecturas((prev) => {
-        const next = { ...prev };
-        for (const [s, l] of res) next[clave(s)] = l;
-        return next;
-      });
-      setCambios((prev) => [...prev, ...detectados]);
-      // Después de enseñarlo: la próxima visita compara contra lo de hoy.
-      marcarVistos(vistos);
-    });
-  }, [items]);
+      vistos.push({ tipo: s.tipo, id: s.id, huella: l.huella, titulo: l.titulo });
+    }
+    if (detectados.length) setCambios((prev) => [...prev, ...detectados]);
+    if (vistos.length) marcarVistos(vistos);
+    // `firma` resume las lecturas: el efecto corre cuando una llega, no en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firma]);
 
   const grupos = useMemo(() => {
     const porTipo = new Map<TipoSeguido, Seguido[]>();
@@ -161,7 +174,7 @@ export default function SeguimientoPage() {
     }));
   }, [items]);
 
-  const conEstado = (items ?? []).filter((s) => TIPOS_CON_ESTADO.has(s.tipo));
+  const conEstado = conEstadoItems;
   const pendientes = conEstado.filter(
     (s) => (lecturas[clave(s)]?.estado ?? "cargando") === "cargando",
   ).length;
