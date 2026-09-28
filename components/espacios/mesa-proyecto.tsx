@@ -23,6 +23,7 @@ import {
   unProyecto,
   type Enlace,
   type Entrada,
+  type Hecho,
   type Invitacion,
   type Miembro,
   type ProyectoConCuenta,
@@ -451,7 +452,8 @@ function Registro({
       )}
 
       {abierto === "enlace" && (
-        <form onSubmit={unir} className="mt-2 space-y-2 rounded-lg border border-hairline bg-canvas p-3">
+        <Card asChild className="mt-2 space-y-2 bg-canvas p-3">
+        <form onSubmit={unir}>
           <p className="text-xs text-ink-soft">
             Une «{e.titulo}» con otro registro y di qué los une: «la adjudicó», «la firmó», «es su dueño».
           </p>
@@ -474,6 +476,7 @@ function Registro({
             <Button type="button" size="sm" variant="outline" onClick={() => setAbierto(null)}>Cancelar</Button>
           </div>
         </form>
+        </Card>
       )}
       {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
     </li>
@@ -494,6 +497,7 @@ function Enlaces({
   onCambio: () => void;
 }) {
   const por = useMemo(() => new Map(entradas.map((e) => [e.id, e])), [entradas]);
+  const [error, setError] = useState<string | null>(null);
   if (enlaces.length === 0) return null;
   return (
     <Card as="section" className="p-5">
@@ -518,8 +522,9 @@ function Enlaces({
                   variant="ghost"
                   size="icon"
                   onClick={async () => {
-                    await quitarEnlace(l.id);
-                    onCambio();
+                    const r = await quitarEnlace(l.id);
+                    setError(r.ok ? null : r.error);
+                    if (r.ok) onCambio();
                   }}
                   aria-label="Quitar este enlace"
                 >
@@ -530,6 +535,7 @@ function Enlaces({
           );
         })}
       </ul>
+      {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
     </Card>
   );
 }
@@ -570,6 +576,13 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
     void cargar();
   }
 
+  /** Una acción del dueño sobre la lista: si falla, lo dice; si sale, recarga. */
+  async function hacer(accion: Promise<Hecho<null>>) {
+    const r = await accion;
+    setError(r.ok ? null : r.error);
+    if (r.ok) void cargar();
+  }
+
   async function irme() {
     const r = await quitarMiembro(p.id, u.id);
     if (!r.ok) return setError(r.error);
@@ -590,9 +603,9 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
                 {m.usuario === u.id && <span className="text-ink-soft"> (tú)</span>}
               </span>
               {esDueno && m.rol !== "dueno" ? (
-                <span className="flex shrink-0 items-center gap-1">
-                  <Select value={m.rol} onValueChange={async (v) => { await cambiarRol(p.id, m.usuario, v as "editor" | "lector"); void cargar(); }}>
-                    <SelectTrigger className="h-9 w-24 text-xs" aria-label={`Rol de ${m.nombre}`}>
+                <span className="flex shrink-0 items-center gap-2">
+                  <Select value={m.rol} onValueChange={(v) => void hacer(cambiarRol(p.id, m.usuario, v as "editor" | "lector"))}>
+                    <SelectTrigger className="w-24 text-xs" aria-label={`Rol de ${m.nombre}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -600,7 +613,7 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
                       <SelectItem value="lector">Lee</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={`Quitar a ${m.nombre}`} onClick={async () => { await quitarMiembro(p.id, m.usuario); void cargar(); }}>
+                  <Button type="button" variant="ghost" size="icon" aria-label={`Quitar a ${m.nombre}`} onClick={() => void hacer(quitarMiembro(p.id, m.usuario))}>
                     <IconTrash className="h-4 w-4" />
                   </Button>
                 </span>
@@ -637,8 +650,8 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
             <Button type="submit" variant="secondary" disabled={!correoValido(email)}>Invitar</Button>
           </div>
           <p className="text-xs leading-relaxed text-ink-soft">
-            No enviamos correos: avísale tú. Cuando entre en esta plataforma con ese correo, la
-            investigación aparece en su espacio.
+            No enviamos correos: avísale tú. Cuando entre en esta plataforma con ese correo ya
+            verificado, verá la invitación en su espacio y decidirá si la acepta.
           </p>
         </form>
       )}
@@ -650,7 +663,7 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
             {invitaciones.map((i) => (
               <li key={i.id} className="flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate font-mono text-xs">{i.email}</span>
-                <Button type="button" variant="ghost" size="sm" onClick={async () => { await retirarInvitacion(i.id); void cargar(); }}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => void hacer(retirarInvitacion(i.id))}>
                   Retirar
                 </Button>
               </li>
@@ -689,8 +702,8 @@ function Publicar({ p, onCambio }: { p: ProyectoConCuenta; onCambio: () => void 
       <CardTitle className="text-base">Publicar</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         {p.publico
-          ? "Cualquiera con la dirección ve el título, la descripción, los registros, tus notas y los enlaces, firmados con tu nombre. No ve quién colabora ni tu correo."
-          : "Al publicar, cualquiera con la dirección verá el título, la descripción, los registros con tus notas y los enlaces. Puedes retirarla cuando quieras; la dirección se conserva."}
+          ? "Cualquiera con la dirección ve el título, la descripción, los registros, las notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma. No ve quién colabora ni tu correo."
+          : "Al publicar, cualquiera con la dirección verá el título, la descripción, los registros con las notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma. Puedes retirarla cuando quieras; la dirección se conserva."}
       </p>
       {p.publico && url && (
         <div className="mt-3 flex flex-wrap items-center gap-2">

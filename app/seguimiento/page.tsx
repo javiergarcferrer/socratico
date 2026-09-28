@@ -185,9 +185,12 @@ export default function SeguimientoPage() {
         </h1>
         <p className="mt-2 text-sm text-ink-soft">
           Lo que marcaste con «Seguir» en cualquier parte de la plataforma: compras,
-          proyectos de ley, proveedores, instituciones y normas. Se guarda solo en
-          este navegador, sin cuenta; si borras los datos del navegador, la lista
-          se borra también.
+          proyectos de ley, proveedores, instituciones y normas. Sin cuenta, se
+          guarda solo en este navegador y se borra si borras sus datos. Con{" "}
+          <Link href="/cuenta" className="font-medium text-brand-700 hover:underline">
+            cuenta
+          </Link>
+          , viaja con ella a cualquier dispositivo en que entres.
         </p>
       </Card>
 

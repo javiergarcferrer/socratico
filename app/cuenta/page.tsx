@@ -47,6 +47,15 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
             <li>
               Lo que eliges guardar: <strong className="font-medium text-ink">la referencia</strong> al
               registro —su tipo, su número, su título y su enlace—, tus notas y tus enlaces.
+              Una búsqueda guardada guarda el texto que buscaste.
+            </li>
+            <li>
+              Lo que sigues, con la marca de cuándo lo miraste por última vez, para decirte
+              qué cambió desde entonces.
+            </li>
+            <li>
+              Lo que el servicio de cuentas (Supabase) registra de cada entrada: fecha, dirección
+              IP y navegador.
             </li>
           </ul>
           <CardTitle className="mt-4 text-sm">Qué no</CardTitle>
@@ -55,7 +64,7 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
               Ninguna cifra del Estado: cada registro se sigue leyendo de su fuente oficial,
               igual que para quien no tiene cuenta.
             </li>
-            <li>Ni contraseña ni lo que buscas.</li>
+            <li>Ni contraseña ni lo que buscas, salvo la búsqueda que tú guardes.</li>
             <li>
               La cédula solo la pide el{" "}
               <Link href="/democracia/seguridad" className="font-medium text-brand-700 hover:underline">

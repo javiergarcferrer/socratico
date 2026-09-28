@@ -4,12 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
+  aceptarInvitacion,
   crearProyecto,
   entradasDe,
   guardar,
+  misInvitaciones,
   misProyectos,
   quitarEntrada,
+  rechazarInvitacion,
   type Entrada,
+  type InvitacionRecibida,
   type ProyectoConCuenta,
   type Usuario,
 } from "@/lib/espacios-cliente";
@@ -24,16 +28,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Rotulo } from "@/components/papel";
-import { IconArrowRight, IconBell, IconFolder, IconPlus, IconTrash } from "@/components/icons";
+import { IconArrowRight, IconBell, IconFolder, IconPlus, IconTrash, IconUser } from "@/components/icons";
 import { Cerrado, EnlaceRegistro, MarcaTipo, SinSesion, useUsuario } from "./comun";
 
 const ROL: Record<ProyectoConCuenta["rol"], string> = { dueno: "Tuyo", editor: "Editas", lector: "Lees" };
 
 /**
- * El espacio del lector: lo que sigue, sus investigaciones (propias y
- * compartidas) y lo guardado sin ordenar. El orden es el de la pregunta con
- * que se abre: ¿qué cambió? → ¿en qué estoy trabajando? → ¿qué dejé sin
- * ordenar? (docs/IDENTIDAD.md §4).
+ * El espacio del lector: las invitaciones que esperan respuesta, lo que sigue,
+ * sus investigaciones (propias y compartidas) y lo guardado sin ordenar. El
+ * orden es el de la pregunta con que se abre: ¿quién me espera? → ¿qué
+ * cambió? → ¿en qué estoy trabajando? → ¿qué dejé sin ordenar?
+ * (docs/IDENTIDAD.md §4).
  */
 export default function MiEspacio() {
   const sesion = useUsuario();
@@ -48,13 +53,15 @@ function Espacio({ u }: { u: Usuario }) {
   const [cerrado, setCerrado] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seguidos, setSeguidos] = useState(0);
+  const [invitaciones, setInvitaciones] = useState<InvitacionRecibida[]>([]);
 
   const cargar = useCallback(async () => {
-    const [p, e] = await Promise.all([misProyectos(u), entradasDe(u, null)]);
+    const [p, e, i] = await Promise.all([misProyectos(u), entradasDe(u, null), misInvitaciones()]);
     if ((!p.ok && p.cerrado) || (!e.ok && e.cerrado)) {
       setCerrado(true);
       return;
     }
+    if (i.ok) setInvitaciones(i.datos);
     if (!p.ok) setError(p.error);
     else setProyectos(p.datos);
     if (!e.ok) setError(e.error);
@@ -105,11 +112,80 @@ function Espacio({ u }: { u: Usuario }) {
       ) : (
         <>
           {error && <Alert variant="aviso" className="px-4 py-3 text-sm">{error}</Alert>}
+          {invitaciones.length > 0 && <Invitaciones lista={invitaciones} onCambio={cargar} />}
           <Proyectos proyectos={proyectos} onCreado={cargar} />
           <Guardado sueltas={sueltas} proyectos={proyectos} onCambio={cargar} />
         </>
       )}
     </div>
+  );
+}
+
+const ROL_INVITADO: Record<InvitacionRecibida["rol"], string> = {
+  editor: "para editar: guardar, anotar y enlazar",
+  lector: "para leer",
+};
+
+/**
+ * Las invitaciones a este correo verificado. No se aceptan solas: entrar en
+ * un proyecto ajeno es decisión de quien entra, y lo que anote ahí lo publica
+ * el dueño con su propio nombre si decide publicarlo.
+ */
+function Invitaciones({ lista, onCambio }: { lista: InvitacionRecibida[]; onCambio: () => void }) {
+  const router = useRouter();
+  const [enCurso, setEnCurso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  async function aceptar(i: InvitacionRecibida) {
+    setEnCurso(i.id);
+    const r = await aceptarInvitacion(i.id);
+    setEnCurso(null);
+    if (!r.ok) return setAviso(r.error);
+    router.push(`/espacio/proyecto?id=${r.datos}`);
+  }
+
+  async function rechazar(i: InvitacionRecibida) {
+    setEnCurso(i.id);
+    const r = await rechazarInvitacion(i.id);
+    setEnCurso(null);
+    if (!r.ok) return setAviso(r.error);
+    onCambio();
+  }
+
+  return (
+    <Card as="section" className="border-brand-200 p-5" aria-live="polite">
+      <CardTitle>{lista.length === 1 ? "Te invitaron a una investigación" : `Te invitaron a ${lista.length} investigaciones`}</CardTitle>
+      <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+        Si aceptas, quien invita y sus colaboradores ven tu nombre de firma. Lo que anotes ahí es
+        parte de su investigación: si la publica, sale bajo su nombre, no el tuyo.
+      </p>
+      {aviso && <p className="mt-2 text-xs text-alerta-700">{aviso}</p>}
+      <ul className="mt-3 divide-y divide-hairline">
+        {lista.map((i) => (
+          <li key={i.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <IconUser className="mt-0.5 h-5 w-5 shrink-0 text-ink-soft" />
+              <div className="min-w-0">
+                <p className="font-medium text-ink">{i.titulo}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-soft">
+                  <span>{i.invita ? `De ${i.invita}` : "De alguien sin nombre de firma"}, {ROL_INVITADO[i.rol]}</span>
+                  <span aria-hidden>·</span>
+                  <Antiguedad iso={i.creado} />
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button type="button" onClick={() => aceptar(i)} disabled={enCurso !== null}>
+                Aceptar
+              </Button>
+              <Button type="button" variant="outline" onClick={() => rechazar(i)} disabled={enCurso !== null}>
+                Rechazar
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
@@ -200,10 +276,16 @@ function Guardado({
   const editables = (proyectos ?? []).filter((p) => p.rol !== "lector");
   const [aviso, setAviso] = useState<string | null>(null);
 
+  // Mover es copiar con su nota y borrar el original. Si el borrado falla, se
+  // deshace la copia: el registro no queda en dos sitios sin que se sepa.
   async function mover(e: Entrada, proyecto: string) {
-    const r = await guardar(e, proyecto);
+    const r = await guardar(e, proyecto, e.nota);
     if (!r.ok) return setAviso(r.error);
-    await quitarEntrada(e.id);
+    const q = await quitarEntrada(e.id);
+    if (!q.ok) {
+      await quitarEntrada(r.datos.id);
+      return setAviso(q.error);
+    }
     setAviso(null);
     onCambio();
   }

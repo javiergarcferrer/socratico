@@ -25,6 +25,13 @@ Read §1 (contract) and §5 (applying) before changing anything here.
   renders `components/espacios/guardar.tsx`, which loads the client only when
   opened. The header only reads `components/espacios/presencia.ts` (a
   localStorage check), never supabase-js. Hooks enforce the file boundary.
+  Only readers **with a session** load supabase-js on every page
+  (`SincronizarCuenta` in the layout; `Guardar` then asks where a record is
+  saved); a visitor without one never downloads it.
+- Invitations need consent: `mis_invitaciones()` + `aceptar_invitacion(id)`,
+  matched on the **verified** email (`mi_correo()`), never the JWT claim.
+- Every redirect or internal link built from stored or query data passes
+  `rutaPropia` (`lib/espacios.ts`); `hrefValido` mirrors `espacios.href_valido`.
 - `anon` has no table grants: a published project is read server-side through
   `espacios.publicado(slug)` over HTTP (`lib/espacios.ts`), which returns no
   user ids and no emails.

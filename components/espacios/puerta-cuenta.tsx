@@ -17,7 +17,8 @@ import { useHaySesion } from "./presencia";
 export default function PuertaCuenta() {
   const hay = useHaySesion();
   const pathname = usePathname();
-  const href = hay ? "/espacio" : `/cuenta${pathname && pathname !== "/" ? `?volver=${encodeURIComponent(pathname)}` : ""}`;
+  const volver = pathname && pathname !== "/" && !pathname.startsWith("/cuenta") ? pathname : null;
+  const href = hay ? "/espacio" : `/cuenta${volver ? `?volver=${encodeURIComponent(volver)}` : ""}`;
   const texto = hay ? "Tu espacio" : "Entrar";
   const activo = pathname === "/espacio" || pathname.startsWith("/espacio/") || pathname === "/cuenta";
   return (

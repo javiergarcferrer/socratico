@@ -66,9 +66,9 @@ export default function NoEncontrada() {
           <li>
             <Link href="/" className="group block py-3">
               <span className="block text-sm font-semibold text-ink group-hover:text-brand-700">
-                Volver al panorama
+                Volver al inicio
               </span>
-              <span className="mt-0.5 block text-xs text-ink-soft">Todo lo importante en una página</span>
+              <span className="mt-0.5 block text-xs text-ink-soft">Qué es Socrático, lo de hoy y todo lo que hay</span>
             </Link>
           </li>
         </ul>

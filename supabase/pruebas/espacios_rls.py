@@ -2,108 +2,218 @@
 """Prueba las políticas del esquema `espacios` sin tocar el Supabase vivo.
 
 Levanta un Postgres desechable (`pgserver`), simula lo que Supabase pone
-debajo —los roles `anon` y `authenticated`, `auth.users`, `auth.uid()` y
-`auth.jwt()` leídos de la sesión— y aplica la migración **dos veces** (tiene
-que ser re-ejecutable). Después recorre el proyecto de una persona desde
-cuatro lugares: quien lo creó, una colaboradora invitada, una extraña con
-cuenta y alguien sin cuenta (`anon`). Cada caso dice qué debe pasar; al final
-imprime cuántos fallaron. Cero es la única cifra aceptable.
+debajo —los roles `anon` y `authenticated`, `auth.users` con
+`email_confirmed_at`, `auth.uid()` y `auth.jwt()` leídos de la sesión— y
+aplica las migraciones de `espacios` y del endurecimiento de
+`democracia.secretos` **dos veces** (tienen que ser re-ejecutables).
+
+Después recorre el proyecto de una persona desde cinco lugares: quien lo
+creó, una colaboradora invitada, una extraña con cuenta, alguien que reclama
+en su sesión un correo ajeno sin haberlo verificado, y alguien sin cuenta
+(`anon`). Incluye cada ataque que encontró la revisión del 2026-09-28: pasar
+un proyecto publicado a otra cuenta, meter a alguien como miembro sin
+invitación, abrir una invitación con un correo no verificado, guardar un
+enlace que el navegador lee como otro sitio, y que un editor se lleve un
+registro a otro proyecto. Cada caso dice qué debe pasar; al final imprime
+cuántos fallaron. Cero es la única cifra aceptable.
 
 Requiere: pip install pgserver "psycopg[binary]"
 
 Uso:
     python3 supabase/pruebas/espacios_rls.py
 """
+import json
 import pathlib
 import tempfile
 
+import pgserver
+import psycopg
+
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
-MIGRACION = RAIZ / "supabase" / "migrations" / "20260928120000_espacios.sql"
-DATOS = tempfile.mkdtemp(prefix="espacios-rls-")
-import pgserver, psycopg, json
-srv = pgserver.get_server(DATOS, cleanup_mode="stop")
-uri = srv.get_uri()
-MIG = open(MIGRACION).read()
+MIGRACIONES = [
+    RAIZ / "supabase" / "migrations" / "20260928120000_espacios.sql",
+    RAIZ / "supabase" / "migrations" / "20260928120100_democracia_secretos_rls.sql",
+]
+
 BASE = """
 do $$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
 end $$;
 drop schema if exists espacios cascade; drop schema if exists auth cascade; drop schema if exists democracia cascade;
-create schema auth; create table auth.users (id uuid primary key, email text);
+create schema auth;
+create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
 create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 create or replace function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 grant usage on schema auth to anon, authenticated; grant execute on all functions in schema auth to anon, authenticated;
 create schema democracia; create table democracia.secretos (clave text primary key, valor text);
+insert into democracia.secretos values ('cedula_pepper', 'p');
+create or replace function democracia.hash_cedula(p text) returns text language sql security definer
+  set search_path = democracia as $$ select md5(p || (select valor from democracia.secretos where clave = 'cedula_pepper')) $$;
+grant usage on schema democracia to authenticated; grant execute on function democracia.hash_cedula(text) to authenticated;
 """
-A='00000000-0000-0000-0000-00000000000a'; B='00000000-0000-0000-0000-00000000000b'; C='00000000-0000-0000-0000-00000000000c'
+
+A = "00000000-0000-0000-0000-00000000000a"  # dueña
+B = "00000000-0000-0000-0000-00000000000b"  # colaboradora invitada
+C = "00000000-0000-0000-0000-00000000000c"  # extraña con cuenta
+D = "00000000-0000-0000-0000-00000000000d"  # reclama el correo de B sin verificarlo
+E = "00000000-0000-0000-0000-00000000000e"  # correo sin confirmar
+
+srv = pgserver.get_server(tempfile.mkdtemp(prefix="espacios-rls-"), cleanup_mode="stop")
+uri = srv.get_uri()
 with psycopg.connect(uri, autocommit=True) as cx:
-    cx.execute(BASE); cx.execute(MIG); cx.execute(MIG)
-    cx.execute(f"insert into auth.users values ('{A}','ana@x.do'),('{B}','beto@x.do'),('{C}','carla@x.do')")
+    cx.execute(BASE)
+    for _ in range(2):
+        for m in MIGRACIONES:
+            cx.execute(m.read_text())
+    cx.execute(
+        f"insert into auth.users values ('{A}','ana@x.do',now()),('{B}','beto@x.do',now()),"
+        f"('{C}','carla@x.do',now()),('{D}','dario@x.do',now()),('{E}','eva@x.do',null)"
+    )
+
 fallos = 0
-def como(uid, email, sql, rol='authenticated'):
+
+
+def como(uid, email, sql, rol="authenticated", params=None):
     with psycopg.connect(uri, autocommit=True) as cx:
         cx.execute(f"set role {rol}")
-        cx.execute("select set_config('request.jwt.claim.sub', %s, false), set_config('request.jwt.claims', %s, false)",
-                   (uid or '', json.dumps({"email": email}) if email else ''))
+        cx.execute(
+            "select set_config('request.jwt.claim.sub', %s, false), set_config('request.jwt.claims', %s, false)",
+            (uid or "", json.dumps({"email": email}) if email else ""),
+        )
         try:
-            cur = cx.execute(sql)
+            cur = cx.execute(sql, params)
             return ("ok", cur.fetchall() if cur.description else None)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — el fallo es el resultado esperado de muchos casos
             return ("ERR", str(e).splitlines()[0])
+
+
 def esperar(t, r, debe):
     global fallos
-    bien = (r[0] == "ok") == (debe != "error") and (debe in ("ok","error") or r[1] == debe)
-    if not bien: fallos += 1
+    bien = (r[0] == "ok") == (debe != "error") and (debe in ("ok", "error") or r[1] == debe)
+    if not bien:
+        fallos += 1
     print(("PASS " if bien else "FAIL ") + f"{t}: {r}")
-r = como(A,'ana@x.do',"insert into espacios.proyectos (titulo) values ('Caso INAPA') returning id"); esperar("A crea proyecto", r, "ok"); pid = r[1][0][0]
-r = como(A,'ana@x.do',f"insert into espacios.entradas (proyecto,tipo,ref,titulo,href) values ('{pid}','institucion','635','INAPA','/instituciones/635-inapa'),('{pid}','proceso','X-1','Tuberías','/procesos/X-1') returning id"); esperar("A guarda 2", r, "ok"); e1, e2 = r[1][0][0], r[1][1][0]
-esperar("A enlaza", como(A,'ana@x.do',f"insert into espacios.enlaces (proyecto,desde,hasta,nota) values ('{pid}','{e1}','{e2}','compra') returning nota"), [("compra",)])
-esperar("C no ve proyecto", como(C,'carla@x.do',"select count(*) from espacios.proyectos"), [(0,)])
-esperar("C no ve entradas", como(C,'carla@x.do',"select count(*) from espacios.entradas"), [(0,)])
-esperar("C no escribe en proyecto ajeno", como(C,'carla@x.do',f"insert into espacios.entradas (proyecto,tipo,ref,titulo,href) values ('{pid}','norma','ley/1-20','x','/normativa/ley/1-20')"), "error")
-esperar("C no se auto-invita", como(C,'carla@x.do',f"insert into espacios.invitaciones (proyecto,email,rol) values ('{pid}','carla@x.do','editor')"), "error")
-esperar("C no se hace miembro", como(C,'carla@x.do',f"insert into espacios.miembros (proyecto,usuario,rol) values ('{pid}','{C}','editor')"), "error")
-esperar("C no edita proyecto ajeno (0 filas)", como(C,'carla@x.do',f"update espacios.proyectos set titulo='x' where id='{pid}' returning id"), [])
-esperar("A invita a BETO@ (mayúsculas)", como(A,'ana@x.do',f"insert into espacios.invitaciones (proyecto,email,rol) values ('{pid}','BETO@x.do','editor') returning rol"), [("editor",)])
-esperar("B ve su invitación", como(B,'beto@x.do',"select count(*) from espacios.invitaciones"), [(1,)])
-esperar("C no ve invitación ajena", como(C,'carla@x.do',"select count(*) from espacios.invitaciones"), [(0,)])
-esperar("C no acepta la de B", como(C,'carla@x.do',"select espacios.aceptar_invitaciones()"), [(0,)])
-esperar("B acepta", como(B,'beto@x.do',"select espacios.aceptar_invitaciones()"), [(1,)])
-esperar("B ve entradas", como(B,'beto@x.do',"select count(*) from espacios.entradas"), [(2,)])
-esperar("B edita nota", como(B,'beto@x.do',f"update espacios.entradas set nota='revisar' where id='{e2}' returning nota"), [("revisar",)])
-esperar("B no publica", como(B,'beto@x.do',f"update espacios.proyectos set publico=true, slug='caso-inapa' where id='{pid}'"), "error")
-esperar("B no borra proyecto (0 filas)", como(B,'beto@x.do',f"delete from espacios.proyectos where id='{pid}' returning id"), [])
-esperar("B no invita (no es dueño)", como(B,'beto@x.do',f"insert into espacios.invitaciones (proyecto,email,rol) values ('{pid}','z@x.do','lector')"), "error")
-r = como(B,'beto@x.do',f"select string_agg(rol||':'||nombre, ', ' order by rol) from espacios.miembros_de('{pid}')"); esperar("miembros_de por B", r, "ok"); print("     ", r[1])
-esperar("miembros_de por C vacío", como(C,'carla@x.do',f"select count(*) from espacios.miembros_de('{pid}')"), [(0,)])
-esperar("anon sin tablas", como(None,None,"select count(*) from espacios.proyectos",rol='anon'), "error")
-esperar("anon no ejecuta miembros_de", como(None,None,f"select * from espacios.miembros_de('{pid}')",rol='anon'), "error")
-esperar("anon: no publicado aún", como(None,None,"select espacios.publicado('caso-inapa') is null",rol='anon'), [(True,)])
-esperar("A publica", como(A,'ana@x.do',f"update espacios.proyectos set publico=true, slug='caso-inapa' where id='{pid}' returning publico"), [(True,)])
-esperar("publicar sin slug falla", como(A,'ana@x.do',f"update espacios.proyectos set slug=null where id='{pid}'"), "error")
-r = como(None,None,"select espacios.publicado('caso-inapa')::text",rol='anon'); esperar("anon lee publicado", r, "ok")
-t = r[1][0][0]; print("      sin uuid de usuario:", "0000000a" not in t and "0000000b" not in t, "| sin correo:", "@x.do" not in t)
-esperar("C (logueada) no ve publicado por tabla", como(C,'carla@x.do',"select count(*) from espacios.proyectos"), [(0,)])
-esperar("enlace cruzado rechazado", como(A,'ana@x.do',f"with p as (insert into espacios.proyectos (titulo) values ('Otro') returning id), e as (insert into espacios.entradas (proyecto,tipo,ref,titulo,href) select id,'norma','ley/2-20','L','/normativa/ley/2-20' from p returning id, proyecto) insert into espacios.enlaces (proyecto,desde,hasta) select e.proyecto, e.id, '{e1}' from e"), "error")
-esperar("href javascript: rechazado", como(A,'ana@x.do',"insert into espacios.entradas (tipo,ref,titulo,href) values ('norma','z','z','javascript:alert(1)')"), "error")
-esperar("href //evil rechazado", como(A,'ana@x.do',"insert into espacios.entradas (tipo,ref,titulo,href) values ('norma','z','z','//evil.com')"), "error")
-esperar("tipo inventado rechazado", como(A,'ana@x.do',"insert into espacios.entradas (tipo,ref,titulo,href) values ('foo','z','z','/x')"), "error")
-esperar("A guarda suelto", como(A,'ana@x.do',"insert into espacios.entradas (tipo,ref,titulo,href) values ('proveedor','34021','ADOCCO','/proveedores/34021') returning ref"), [("34021",)])
-esperar("mismo suelto duplicado rechazado", como(A,'ana@x.do',"insert into espacios.entradas (tipo,ref,titulo,href) values ('proveedor','34021','ADOCCO','/proveedores/34021')"), "error")
-esperar("A sigue", como(A,'ana@x.do',"insert into espacios.seguimientos (tipo,ref,titulo,href,huella) values ('proceso','X-1','T','/procesos/X-1','Abierto') returning huella"), [("Abierto",)])
-esperar("seguimiento con href externo rechazado", como(A,'ana@x.do',"insert into espacios.seguimientos (tipo,ref,titulo,href) values ('norma','n','n','https://x.com')"), "error")
-esperar("B no ve suelto de A", como(B,'beto@x.do',"select count(*) from espacios.entradas where proyecto is null"), [(0,)])
-esperar("B no ve seguimientos de A", como(B,'beto@x.do',"select count(*) from espacios.seguimientos"), [(0,)])
-esperar("B no se cambia a sí mismo de rol (0 filas)", como(B,'beto@x.do',f"update espacios.miembros set rol='editor' where usuario='{B}' returning rol"), [])
-esperar("B se va", como(B,'beto@x.do',f"delete from espacios.miembros where usuario='{B}' returning rol"), [("editor",)])
-esperar("B ya no ve", como(B,'beto@x.do',"select count(*) from espacios.entradas"), [(0,)])
-esperar("perfil propio", como(A,'ana@x.do',f"insert into espacios.perfiles (id,nombre) values ('{A}','Ana P.') returning nombre"), [("Ana P.",)])
-esperar("perfil ajeno rechazado", como(A,'ana@x.do',f"insert into espacios.perfiles (id,nombre) values ('{C}','X')"), "error")
-esperar("autor en publicado", como(None,None,"select espacios.publicado('caso-inapa')->>'autor'",rol='anon'), [("Ana P.",)])
+    return r
+
+
+# ---- la dueña arma su proyecto
+r = esperar("A crea proyecto", como(A, "ana@x.do", "insert into espacios.proyectos (titulo) values ('Caso INAPA') returning id"), "ok")
+pid = r[1][0][0]
+r = esperar("A guarda 2", como(A, "ana@x.do", f"insert into espacios.entradas (proyecto,tipo,ref,titulo,href) values ('{pid}','institucion','/instituciones/635','INAPA','/instituciones/635-inapa'),('{pid}','proceso','/procesos/X-1','Tuberías','/procesos/X-1') returning id"), "ok")
+e1, e2 = r[1][0][0], r[1][1][0]
+esperar("A enlaza", como(A, "ana@x.do", f"insert into espacios.enlaces (proyecto,desde,hasta,nota) values ('{pid}','{e1}','{e2}','compra') returning nota"), [("compra",)])
+
+# ---- una extraña no ve ni toca nada
+esperar("C no ve proyecto", como(C, "carla@x.do", "select count(*) from espacios.proyectos"), [(0,)])
+esperar("C no ve entradas", como(C, "carla@x.do", "select count(*) from espacios.entradas"), [(0,)])
+esperar("C no escribe en proyecto ajeno", como(C, "carla@x.do", f"insert into espacios.entradas (proyecto,tipo,ref,titulo,href) values ('{pid}','norma','/normativa/ley/1-20','x','/normativa/ley/1-20')"), "error")
+esperar("C no se auto-invita", como(C, "carla@x.do", f"insert into espacios.invitaciones (proyecto,email,rol) values ('{pid}','carla@x.do','editor')"), "error")
+esperar("C no se hace miembro", como(C, "carla@x.do", f"insert into espacios.miembros (proyecto,usuario,rol) values ('{pid}','{C}','editor')"), "error")
+esperar("C no edita proyecto ajeno (0 filas)", como(C, "carla@x.do", f"update espacios.proyectos set titulo='x' where id='{pid}' returning id"), [])
+
+# ---- invitación con consentimiento y correo verificado
+r = esperar("A invita a BETO@ (mayúsculas)", como(A, "ana@x.do", f"insert into espacios.invitaciones (proyecto,email,rol) values ('{pid}','BETO@x.do','editor') returning id"), "ok")
+inv_b = r[1][0][0]
+esperar("B ve su invitación con título", como(B, "beto@x.do", "select titulo, rol from espacios.mis_invitaciones()"), [("Caso INAPA", "editor")])
+esperar("B no es miembro antes de aceptar", como(B, "beto@x.do", "select count(*) from espacios.entradas"), [(0,)])
+esperar("C no ve invitación ajena", como(C, "carla@x.do", "select count(*) from espacios.invitaciones"), [(0,)])
+esperar("D (JWT con correo de B, sin verificar) no la ve", como(D, "beto@x.do", "select count(*) from espacios.mis_invitaciones()"), [(0,)])
+esperar("D (JWT con correo de B) no la acepta", como(D, "beto@x.do", f"select espacios.aceptar_invitacion('{inv_b}')"), [(None,)])
+esperar("D no la ve por tabla", como(D, "beto@x.do", "select count(*) from espacios.invitaciones"), [(0,)])
+r = esperar("A invita a eva@ (correo sin confirmar)", como(A, "ana@x.do", f"insert into espacios.invitaciones (proyecto,email,rol) values ('{pid}','eva@x.do','lector') returning id"), "ok")
+inv_e = r[1][0][0]
+esperar("E sin confirmar no la acepta", como(E, "eva@x.do", f"select espacios.aceptar_invitacion('{inv_e}')"), [(None,)])
+esperar("C no acepta la de B por id", como(C, "carla@x.do", f"select espacios.aceptar_invitacion('{inv_b}')"), [(None,)])
+esperar("B acepta la suya", como(B, "beto@x.do", f"select espacios.aceptar_invitacion('{inv_b}') = '{pid}'"), [(True,)])
+esperar("B ve entradas", como(B, "beto@x.do", "select count(*) from espacios.entradas"), [(2,)])
+esperar("B edita nota", como(B, "beto@x.do", f"update espacios.entradas set nota='revisar' where id='{e2}' returning nota"), [("revisar",)])
+
+# ---- lo que un editor no puede
+esperar("B no publica", como(B, "beto@x.do", f"update espacios.proyectos set publico=true, slug='caso-inapa' where id='{pid}'"), "error")
+esperar("B no borra proyecto (0 filas)", como(B, "beto@x.do", f"delete from espacios.proyectos where id='{pid}' returning id"), [])
+esperar("B no invita (no es dueño)", como(B, "beto@x.do", f"insert into espacios.invitaciones (proyecto,email,rol) values ('{pid}','z@x.do','lector')"), "error")
+esperar("B no se lleva una entrada a su bandeja", como(B, "beto@x.do", f"update espacios.entradas set proyecto=null where id='{e1}'"), "error")
+esperar("B no cambia el autor de una entrada", como(B, "beto@x.do", f"update espacios.entradas set usuario='{B}' where id='{e1}'"), "error")
+esperar("B no mueve un enlace de proyecto", como(B, "beto@x.do", f"update espacios.enlaces set proyecto='{pid}'"), "error")
+esperar("B no se cambia a sí mismo de rol (0 filas)", como(B, "beto@x.do", f"update espacios.miembros set rol='editor' where usuario='{B}' returning rol"), [])
+
+# ---- lo que ni la dueña puede
+esperar("A no pasa el proyecto a otra cuenta", como(A, "ana@x.do", f"update espacios.proyectos set dueno='{C}' where id='{pid}'"), "error")
+esperar("A no mete a C cambiando un miembro", como(A, "ana@x.do", f"update espacios.miembros set usuario='{C}' where usuario='{B}'"), "error")
+esperar("A no mete a C por inserción", como(A, "ana@x.do", f"insert into espacios.miembros (proyecto,usuario,rol) values ('{pid}','{C}','editor')"), "error")
+esperar("A sí cambia el rol de B", como(A, "ana@x.do", f"update espacios.miembros set rol='lector' where usuario='{B}' returning rol"), [("lector",)])
+esperar("B lectora ya no edita nota (0 filas)", como(B, "beto@x.do", f"update espacios.entradas set nota='x' where id='{e2}' returning id"), [])
+
+r = esperar("miembros_de por B", como(B, "beto@x.do", f"select string_agg(rol||':'||nombre, ', ' order by rol) from espacios.miembros_de('{pid}')"), "ok")
+print("     ", r[1])
+esperar("miembros_de por C vacío", como(C, "carla@x.do", f"select count(*) from espacios.miembros_de('{pid}')"), [(0,)])
+
+# ---- anon y lo publicado
+esperar("anon sin tablas", como(None, None, "select count(*) from espacios.proyectos", rol="anon"), "error")
+esperar("anon no ejecuta miembros_de", como(None, None, f"select * from espacios.miembros_de('{pid}')", rol="anon"), "error")
+esperar("anon no ejecuta mis_invitaciones", como(None, None, "select * from espacios.mis_invitaciones()", rol="anon"), "error")
+esperar("anon: no publicado aún", como(None, None, "select espacios.publicado('caso-inapa') is null", rol="anon"), [(True,)])
+esperar("A publica", como(A, "ana@x.do", f"update espacios.proyectos set publico=true, slug='caso-inapa' where id='{pid}' returning publico"), [(True,)])
+esperar("publicar sin slug falla", como(A, "ana@x.do", f"update espacios.proyectos set slug=null where id='{pid}'"), "error")
+r = esperar("anon lee publicado", como(None, None, "select espacios.publicado('caso-inapa')::text", rol="anon"), "ok")
+t = r[1][0][0]
+esperar("publicado sin uuid de usuario ni correo", ("ok", ["0000000a" not in t and "0000000b" not in t and "@x.do" not in t]), ["True" == "True"] and [True])
+antes = como(None, None, "select espacios.publicado('caso-inapa')->>'actualizado'", rol="anon")[1][0][0]
+como(A, "ana@x.do", f"update espacios.entradas set nota='nueva' where id='{e1}'")
+despues = como(None, None, "select espacios.publicado('caso-inapa')->>'actualizado'", rol="anon")[1][0][0]
+esperar("«actualizada» cuenta la nota nueva", ("ok", [despues > antes]), [True])
+esperar("C (con cuenta) no ve publicado por tabla", como(C, "carla@x.do", "select count(*) from espacios.proyectos"), [(0,)])
+
+# ---- enlaces y referencias
+r = como(A, "ana@x.do", "insert into espacios.proyectos (titulo) values ('Otro') returning id")
+pid2 = r[1][0][0]
+r = como(A, "ana@x.do", f"insert into espacios.entradas (proyecto,tipo,ref,titulo,href) values ('{pid2}','norma','/normativa/ley/2-20','L','/normativa/ley/2-20') returning id")
+e3 = r[1][0][0]
+esperar("el disparador rechaza un enlace entre dos proyectos de la misma dueña", como(A, "ana@x.do", f"insert into espacios.enlaces (proyecto,desde,hasta) values ('{pid}','{e1}','{e3}')"), "error")
+for nombre, h in [
+    ("javascript:", "javascript:alert(1)"),
+    ("//otro", "//evil.com"),
+    ("/\\otro", "/\\evil.com"),
+    ("/<tab>/otro", "/\t/evil.com"),
+    ("/<salto>/otro", "/\n/evil.com"),
+    ("https con espacio", "https://x.gob.do/a b"),
+    ("http sin s", "http://x.gob.do/a"),
+]:
+    esperar(f"href {nombre} rechazado", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('documento','z','z',%s)", params=(h,)), "error")
+esperar("href propio aceptado", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('norma','/normativa/ley/9-20','L','/normativa/ley/9-20') returning ref"), [("/normativa/ley/9-20",)])
+esperar("href https de institución aceptado", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('documento','doc','D','https://www.dgcp.gob.do/wp-content/uploads/a.pdf') returning ref"), [("doc",)])
+esperar("tipo inventado rechazado", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('foo','z','z','/x')"), "error")
+esperar("A guarda suelto", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('proveedor','/proveedores/34021','ADOCCO','/proveedores/34021') returning tipo"), [("proveedor",)])
+esperar("mismo suelto duplicado rechazado", como(A, "ana@x.do", "insert into espacios.entradas (tipo,ref,titulo,href) values ('proveedor','/proveedores/34021','ADOCCO','/proveedores/34021')"), "error")
+
+# ---- lo que se sigue
+esperar("A sigue", como(A, "ana@x.do", "insert into espacios.seguimientos (tipo,ref,titulo,href,huella) values ('proceso','X-1','T','/procesos/X-1','Abierto') returning huella"), [("Abierto",)])
+esperar("seguimiento con href externo rechazado", como(A, "ana@x.do", "insert into espacios.seguimientos (tipo,ref,titulo,href) values ('norma','n','n','https://x.com')"), "error")
+esperar("B no ve suelto de A", como(B, "beto@x.do", "select count(*) from espacios.entradas where proyecto is null"), [(0,)])
+esperar("B no ve seguimientos de A", como(B, "beto@x.do", "select count(*) from espacios.seguimientos"), [(0,)])
+como(A, "ana@x.do", "insert into espacios.seguimientos (tipo,ref,titulo,href) select 'proceso', 'P-'||g, 'T', '/procesos/P-'||g from generate_series(1, 999) g")
+esperar("en el tope, una pieza más se rechaza", como(A, "ana@x.do", "insert into espacios.seguimientos (tipo,ref,titulo,href) values ('proceso','P-extra','T','/procesos/P-extra')"), "error")
+esperar("en el tope, marcar visto (upsert) pasa", como(A, "ana@x.do", "insert into espacios.seguimientos (tipo,ref,titulo,href,visto) values ('proceso','X-1','T','/procesos/X-1',now()) on conflict (usuario,tipo,ref) do update set visto = excluded.visto returning ref"), [("X-1",)])
+
+# ---- irse, perfil
+esperar("B se va", como(B, "beto@x.do", f"delete from espacios.miembros where usuario='{B}' returning rol"), [("lector",)])
+esperar("B ya no ve", como(B, "beto@x.do", "select count(*) from espacios.entradas"), [(0,)])
+esperar("perfil propio", como(A, "ana@x.do", f"insert into espacios.perfiles (id,nombre) values ('{A}','Ana P.') returning nombre"), [("Ana P.",)])
+esperar("perfil ajeno rechazado", como(A, "ana@x.do", f"insert into espacios.perfiles (id,nombre) values ('{C}','X')"), "error")
+esperar("autor en publicado", como(None, None, "select espacios.publicado('caso-inapa')->>'autor'", rol="anon"), [("Ana P.",)])
+
+# ---- la otra excepción sigue funcionando con RLS en secretos
+esperar("hash_cedula sigue respondiendo con RLS en secretos", como(A, "ana@x.do", "select democracia.hash_cedula('00100000001') is not null"), [(True,)])
+esperar("secretos no se lee directo", como(A, "ana@x.do", "select * from democracia.secretos"), "error")
 with psycopg.connect(uri, autocommit=True) as cx:
-    print("secretos RLS:", cx.execute("select relrowsecurity from pg_class where oid='democracia.secretos'::regclass").fetchone())
-    for t in ['perfiles','proyectos','miembros','invitaciones','entradas','enlaces','seguimientos']:
-        assert cx.execute(f"select relrowsecurity from pg_class where oid='espacios.{t}'::regclass").fetchone()[0], t
+    for t in ["perfiles", "proyectos", "miembros", "invitaciones", "entradas", "enlaces", "seguimientos"]:
+        if not cx.execute(f"select relrowsecurity from pg_class where oid='espacios.{t}'::regclass").fetchone()[0]:
+            fallos += 1
+            print(f"FAIL RLS apagada en espacios.{t}")
+    if not cx.execute("select relrowsecurity from pg_class where oid='democracia.secretos'::regclass").fetchone()[0]:
+        fallos += 1
+        print("FAIL RLS apagada en democracia.secretos")
+
 print("FALLOS:", fallos)
 raise SystemExit(1 if fallos else 0)

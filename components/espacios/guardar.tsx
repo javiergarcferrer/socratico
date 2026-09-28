@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Referencia } from "@/lib/espacios";
 import type { ProyectoConCuenta } from "@/lib/espacios-cliente";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,9 @@ const BANDEJA = "__bandeja__";
  * pagarlo.
  *
  * Sin sesión, no finge: dice qué haría la cuenta y lleva a crearla,
- * volviendo después a esta misma ficha.
+ * volviendo después a esta misma ficha. Con sesión, el botón dice desde el
+ * principio si el registro ya está guardado: quien tiene sesión ya cargó el
+ * cliente (`SincronizarCuenta`), así que preguntarlo no cuesta otra descarga.
  */
 export default function Guardar({ referencia, className }: { referencia: Referencia; className?: string }) {
   const hay = useHaySesion();
@@ -39,6 +41,19 @@ export default function Guardar({ referencia, className }: { referencia: Referen
   const [carga, setCarga] = useState<Carga>({ estado: "cargando" });
   const [nuevo, setNuevo] = useState("");
   const [guardado, setGuardado] = useState(false);
+
+  useEffect(() => {
+    if (!hay) return setGuardado(false);
+    let vivo = true;
+    (async () => {
+      const c = await import("@/lib/espacios-cliente");
+      const d = await c.dondeEsta(referencia);
+      if (vivo && d.ok) setGuardado(d.datos.length > 0);
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [hay, referencia.tipo, referencia.ref]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function abrir(abierto: boolean) {
     if (!abierto || !hay) return;
@@ -63,11 +78,16 @@ export default function Guardar({ referencia, className }: { referencia: Referen
     const proyecto = destino === BANDEJA ? null : destino;
     const r = marcar ? await c.guardar(referencia, proyecto) : await c.quitarDe(referencia, u, proyecto);
     if (!r.ok) return setCarga({ estado: "error", error: r.error });
-    const donde = new Set(carga.donde);
-    if (marcar) donde.add(destino);
-    else donde.delete(destino);
-    setGuardado(donde.size > 0);
-    setCarga({ ...carga, donde });
+    // Sobre el estado de ahora, no el de cuando empezó: dos casillas marcadas
+    // seguidas no se pisan.
+    setCarga((ahora) => {
+      if (ahora.estado !== "listo") return ahora;
+      const donde = new Set(ahora.donde);
+      if (marcar) donde.add(destino);
+      else donde.delete(destino);
+      setGuardado(donde.size > 0);
+      return { ...ahora, donde };
+    });
   }
 
   async function crearCon(e: React.FormEvent) {
@@ -80,11 +100,15 @@ export default function Guardar({ referencia, className }: { referencia: Referen
     if (!r.ok) return setCarga({ estado: "error", error: r.error });
     setNuevo("");
     setGuardado(true);
-    setCarga({
-      ...carga,
-      proyectos: [{ ...p.datos, rol: "dueno", registros: 1 }, ...carga.proyectos],
-      donde: new Set([...carga.donde, p.datos.id]),
-    });
+    setCarga((ahora) =>
+      ahora.estado !== "listo"
+        ? ahora
+        : {
+            ...ahora,
+            proyectos: [{ ...p.datos, rol: "dueno", registros: 1 }, ...ahora.proyectos],
+            donde: new Set([...ahora.donde, p.datos.id]),
+          },
+    );
   }
 
   return (

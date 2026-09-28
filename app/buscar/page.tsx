@@ -233,7 +233,7 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
 
       {/* Una búsqueda también se guarda: vuelve a correrla sobre el índice del día. */}
       <div className="flex justify-end">
-        <Guardar referencia={{ tipo: "busqueda", ref: hrefBusqueda(q), titulo: `Búsqueda: «${q}»`, href: hrefBusqueda(q) }} />
+        <Guardar referencia={{ tipo: "busqueda", ref: hrefBusqueda(q), titulo: `Búsqueda: «${q}»`, href: hrefBusqueda(q) }} className="h-11 sm:h-9" />
       </div>
 
       <p aria-live="polite" className="px-1 text-xs leading-relaxed text-ink-soft">

@@ -10,6 +10,13 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Abiertas — solo el dueño
 
+- **Denuncias y retiro de investigaciones publicadas** (`/p/<slug>`,
+  docs/PLAN-ESPACIOS.md §3): cualquiera con cuenta puede publicar con el
+  nombre de firma que quiera. Hoy la página dice que ese nombre no está
+  verificado, no se indexa y no hay canal para denunciar una suplantación o
+  una difamación, ni forma de retirarla que no sea borrarla en la base.
+  Decidir: un correo de contacto, un botón «Denunciar» (tabla nueva) y quién
+  lo atiende.
 - **Credentials for BCRD / Superintendencia de Bancos** (AUDITORIA §8.3):
   would be the first env var on a stateless surface. Until decided, macro
   comes only from the BCRD CDN files (§A.6) or not at all.

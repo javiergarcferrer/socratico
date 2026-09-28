@@ -226,7 +226,7 @@ export default function Inicio() {
         Herramienta independiente y no oficial. Los datos se muestran tal como los
         publican sus fuentes; ninguna cifra del Estado se guarda en una base de datos
         propia. Las cifras del Congreso marcadas “de {PAGINAS_CONGRESO * SIL_PAGE_SIZE}”
-        salen de una muestra acotada —{" "}
+        salen de una muestra acotada, no del corpus completo —{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           ver el estado y los límites de cada fuente
         </Link>
@@ -414,12 +414,13 @@ function SeccionEspacio() {
           </div>
         </div>
 
-        <figure className="rounded-lg border border-hairline bg-canvas p-4">
+        <Card asChild className="bg-canvas p-4">
+        <figure>
           <figcaption className="rotulo text-ink-soft">Así se ve una investigación</figcaption>
           <ol className="mt-3">
             {ejemplo.map((e, i) => (
               <li key={e.tipo}>
-                <div className="rounded-md border border-hairline bg-surface px-3 py-2">
+                <Card className="px-3 py-2">
                   <Badge variant="neutro">{e.tipo}</Badge>
                   <p className="mt-1 text-sm text-ink">{e.que}</p>
                   {i === 1 && (
@@ -428,7 +429,7 @@ function SeccionEspacio() {
                       Tu nota: «revisar el monto adjudicado»
                     </p>
                   )}
-                </div>
+                </Card>
                 {e.une && (
                   <p className="flex items-center gap-1.5 py-1.5 pl-4 text-xs text-ink-soft">
                     <IconLink className="h-3.5 w-3.5" />
@@ -439,6 +440,7 @@ function SeccionEspacio() {
             ))}
           </ol>
         </figure>
+        </Card>
       </Card>
     </section>
   );
@@ -458,12 +460,12 @@ function Tema({ grupo }: { grupo: GrupoMenu }) {
       <div className="p-5 pb-4">
         <Rotulo>{grupo.label}</Rotulo>
         <p className="mt-1.5 text-sm leading-relaxed text-ink">{grupo.resumen}</p>
-        <div className="relative mt-3 rounded-lg border border-hairline bg-canvas px-3.5 py-3">
+        <Card className="relative mt-3 bg-canvas px-3.5 py-3">
           <Link href={grupo.destacado.href} className="estira text-sm font-semibold text-brand-700">
             {grupo.destacado.label}
           </Link>
           <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{grupo.destacado.nota}</p>
-        </div>
+        </Card>
       </div>
       <Plegable etiqueta={`Ver sus ${total} destinos`} className="mt-auto">
         <div className="space-y-4 px-5 pb-5 pt-1">
@@ -546,7 +548,7 @@ async function DominioCompras() {
         compras
           ? [
               {
-                etiqueta: "Abiertos ahora mismo",
+                etiqueta: "Abiertos, de lo publicado en 30 días",
                 valor: formatInt(abiertos.length),
                 destacar: true,
               },
@@ -556,7 +558,8 @@ async function DominioCompras() {
               },
               {
                 etiqueta: "Publicados (30 días)",
-                valor: formatInt(procesos.length),
+                // El pedido trae hasta 1.000: si llega al tope, lo dice.
+                valor: procesos.length >= 1000 ? `${formatInt(1000)} o más` : formatInt(procesos.length),
               },
             ]
           : []
@@ -744,6 +747,7 @@ async function PanelPerencion({
     <Panel
       titulo="Se archivan al cerrar la legislatura"
       nota={`${resumen.enRiesgo.length}`}
+      alcance={`De una muestra de ${formatInt(muestra.iniciativas.length)} iniciativas del SIL, no del total.`}
       href="/congreso/perencion"
       Icon={IconClock}
     >
@@ -932,12 +936,15 @@ function DominioEsqueleto({
 function Panel({
   titulo,
   nota,
+  alcance,
   href,
   Icon,
   children,
 }: {
   titulo: string;
   nota: string;
+  /** Lo que la lista no es —una muestra, un corte—, dicho junto a ella. */
+  alcance?: string;
   href: string;
   Icon: Icono;
   children: React.ReactNode;
@@ -962,6 +969,7 @@ function Panel({
         </CardAction>
       </CardHeader>
       {children}
+      {alcance && <p className="border-t border-hairline px-5 py-2.5 text-xs leading-relaxed text-ink-soft">{alcance}</p>}
       <span className="sr-only">{nota}</span>
     </Card>
   );

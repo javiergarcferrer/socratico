@@ -24,6 +24,16 @@ returns boolean language sql immutable set search_path = '' as $$
   );
 $$;
 
+-- Un enlace guardado: una ruta de esta plataforma o, si `externo`, un
+-- documento `https://` en el sitio de una institución. Lo mismo que
+-- `hrefValido` y `rutaPropia` en lib/espacios.ts.
+create or replace function espacios.href_valido(h text, externo boolean)
+returns boolean language sql immutable set search_path = '' as $$
+  select char_length(h) <= 1000
+     and h !~ '[[:space:][:cntrl:]\\]'
+     and (h ~ '^/([^/]|$)' or (externo and h ~* '^https://[a-z0-9.-]+(:[0-9]+)?(/|$)'));
+$$;
+
 -- ─────────────────────────────────────────────── tablas
 create table if not exists espacios.perfiles (
   id      uuid primary key references auth.users (id) on delete cascade,
@@ -55,7 +65,7 @@ create table if not exists espacios.miembros (
 create index if not exists miembros_usuario on espacios.miembros (usuario);
 
 -- Una invitación es a un correo: quien entra con ese correo la acepta
--- (`espacios.aceptar_invitaciones`). No se envía ningún correo desde aquí.
+-- (`espacios.aceptar_invitacion`, una a una y por decisión suya). No se envía ningún correo desde aquí.
 create table if not exists espacios.invitaciones (
   id            uuid primary key default gen_random_uuid(),
   proyecto      uuid not null references espacios.proyectos (id) on delete cascade,
@@ -75,7 +85,9 @@ create table if not exists espacios.entradas (
   ref          text not null check (char_length(ref) between 1 and 300),
   titulo       text not null check (char_length(titulo) between 1 and 500),
   -- Una ruta de la plataforma o un documento en el sitio de una institución.
-  href         text not null check (char_length(href) <= 1000 and (href ~ '^/[^/]' or href ~ '^https://')),
+  -- Sin «//» ni «/\» al principio (el navegador los lee como otro sitio) y sin
+  -- espacios ni caracteres de control, que el navegador quita y dejan «//».
+  href         text not null check (espacios.href_valido(href, true)),
   nota         text not null default '' check (char_length(nota) <= 5000),
   creado       timestamptz not null default now(),
   actualizado  timestamptz not null default now()
@@ -105,7 +117,7 @@ create table if not exists espacios.seguimientos (
   tipo     text not null check (tipo in ('proceso', 'proyecto', 'expediente-senado', 'proveedor', 'institucion', 'norma')),
   ref      text not null check (char_length(ref) between 1 and 300),
   titulo   text not null check (char_length(titulo) between 1 and 500),
-  href     text not null check (char_length(href) <= 1000 and href ~ '^/[^/]'),
+  href     text not null check (espacios.href_valido(href, false)),
   huella   text check (char_length(huella) <= 500),
   desde    timestamptz not null default now(),
   visto    timestamptz,
@@ -150,15 +162,18 @@ drop trigger if exists entradas_actualizado on espacios.entradas;
 create trigger entradas_actualizado before update on espacios.entradas
   for each row execute function espacios.tocar_actualizado();
 
--- Publicar, despublicar o cambiar de dueño es cosa del dueño; un editor edita
--- el contenido, no quién lo ve.
+-- El dueño no cambia nunca: pasarle un proyecto publicado a otra cuenta lo
+-- firmaría con un nombre que no lo escribió. Publicar o retirar es solo del
+-- dueño; un editor edita el contenido, no quién lo ve.
 create or replace function espacios.guardar_publicacion()
 returns trigger language plpgsql set search_path = '' as $$
 begin
-  if (new.publico is distinct from old.publico or new.slug is distinct from old.slug
-      or new.dueno is distinct from old.dueno)
+  if new.dueno is distinct from old.dueno then
+    raise exception 'un proyecto no cambia de dueño' using errcode = '42501';
+  end if;
+  if (new.publico is distinct from old.publico or new.slug is distinct from old.slug)
      and old.dueno is distinct from auth.uid() then
-    raise exception 'solo quien creó el proyecto puede publicarlo o cambiar su dueño' using errcode = '42501';
+    raise exception 'solo quien creó el proyecto puede publicarlo' using errcode = '42501';
   end if;
   return new;
 end;
@@ -205,7 +220,10 @@ begin
       raise exception 'tope de 5000 enlaces por proyecto' using errcode = '54000';
     end if;
   elsif tg_table_name = 'seguimientos' then
-    if (select count(*) from espacios.seguimientos where usuario = new.usuario) >= 1000 then
+    -- Un upsert sobre una fila que ya existe también pasa por aquí (BEFORE
+    -- INSERT): marcar «visto» con mil piezas seguidas no es una pieza más.
+    if not exists (select 1 from espacios.seguimientos where usuario = new.usuario and tipo = new.tipo and ref = new.ref)
+       and (select count(*) from espacios.seguimientos where usuario = new.usuario) >= 1000 then
       raise exception 'tope de 1000 piezas seguidas' using errcode = '54000';
     end if;
   elsif tg_table_name = 'invitaciones' then
@@ -226,6 +244,14 @@ drop trigger if exists seguimientos_topes on espacios.seguimientos;
 create trigger seguimientos_topes before insert on espacios.seguimientos for each row execute function espacios.topes();
 drop trigger if exists invitaciones_topes on espacios.invitaciones;
 create trigger invitaciones_topes before insert on espacios.invitaciones for each row execute function espacios.topes();
+
+-- El correo **verificado** de quien pregunta, de `auth.users` y no del JWT:
+-- el pool de Auth se comparte con otra app, y un reclamo de correo sin
+-- confirmar no puede abrir la invitación dirigida a esa dirección.
+create or replace function espacios.mi_correo()
+returns text language sql stable security definer set search_path = '' as $$
+  select lower(email) from auth.users where id = auth.uid() and email_confirmed_at is not null;
+$$;
 
 -- ─────────────────────────────────────────────── RLS
 alter table espacios.perfiles     enable row level security;
@@ -275,14 +301,14 @@ create policy miembro_quitar on espacios.miembros
 drop policy if exists invitacion_leer on espacios.invitaciones;
 create policy invitacion_leer on espacios.invitaciones
   for select to authenticated
-  using (espacios.rol_en(proyecto) = 'dueno' or lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+  using (espacios.rol_en(proyecto) = 'dueno' or lower(email) = espacios.mi_correo());
 drop policy if exists invitacion_crear on espacios.invitaciones;
 create policy invitacion_crear on espacios.invitaciones
   for insert to authenticated with check (espacios.rol_en(proyecto) = 'dueno' and invitado_por = auth.uid());
 drop policy if exists invitacion_borrar on espacios.invitaciones;
 create policy invitacion_borrar on espacios.invitaciones
   for delete to authenticated
-  using (espacios.rol_en(proyecto) = 'dueno' or lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+  using (espacios.rol_en(proyecto) = 'dueno' or lower(email) = espacios.mi_correo());
 
 -- entradas: las sueltas son de quien las guardó; las de un proyecto, del proyecto.
 drop policy if exists entrada_leer on espacios.entradas;
@@ -317,33 +343,62 @@ create policy seguimiento_propio on espacios.seguimientos
   for all to authenticated using (usuario = auth.uid()) with check (usuario = auth.uid());
 
 -- ─────────────────────────────────────────────── permisos: authenticated sí, anon no
-revoke all on all tables in schema espacios from anon;
-grant select, insert, update, delete on espacios.perfiles, espacios.proyectos, espacios.entradas,
-  espacios.enlaces, espacios.seguimientos to authenticated;
-grant select, update, delete on espacios.miembros to authenticated;
+-- Por columna donde la fila no debe cambiar de manos: el dueño de un
+-- proyecto, el proyecto y el autor de una entrada o un enlace, y quién es
+-- miembro no se tocan con un UPDATE (un editor no se lleva un registro a su
+-- bandeja; el dueño no mete a nadie sin invitación).
+revoke all on all tables in schema espacios from anon, authenticated, public;
+grant select, insert, update, delete on espacios.perfiles, espacios.seguimientos to authenticated;
+grant select, insert, delete on espacios.proyectos, espacios.entradas, espacios.enlaces to authenticated;
+grant update (titulo, descripcion, publico, slug) on espacios.proyectos to authenticated;
+grant update (titulo, nota) on espacios.entradas to authenticated;
+grant update (nota) on espacios.enlaces to authenticated;
+grant select, delete on espacios.miembros to authenticated;
+grant update (rol) on espacios.miembros to authenticated;
 grant select, insert, delete on espacios.invitaciones to authenticated;
 
 -- ─────────────────────────────────────────────── funciones de la app
--- Acepta las invitaciones al correo con que se entró. El correo está
--- verificado: la sesión solo existe tras el código o el enlace que llegó a él.
-create or replace function espacios.aceptar_invitaciones()
-returns integer language plpgsql security definer set search_path = '' as $$
+-- Las invitaciones a mi correo verificado, con lo necesario para decidir:
+-- el título del proyecto, quién invita y con qué rol. Antes de aceptar no se
+-- ve nada más del proyecto.
+create or replace function espacios.mis_invitaciones()
+returns table (id uuid, proyecto uuid, rol text, titulo text, invita text, creado timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select i.id, i.proyecto, i.rol, p.titulo,
+         coalesce(pf.nombre, regexp_replace(u.email, '^(.).*(@.*)$', '\1…\2')),
+         i.creado
+  from espacios.invitaciones i
+  join espacios.proyectos p on p.id = i.proyecto
+  join auth.users u on u.id = p.dueno
+  left join espacios.perfiles pf on pf.id = p.dueno
+  where lower(i.email) = espacios.mi_correo()
+  order by i.creado;
+$$;
+
+-- Acepta **una** invitación, la que la persona eligió: nadie entra a un
+-- proyecto —ni queda con su id a la vista del dueño— sin haberlo decidido.
+-- Devuelve el id del proyecto, o null si la invitación no es suya.
+create or replace function espacios.aceptar_invitacion(p_id uuid)
+returns uuid language plpgsql security definer set search_path = '' as $$
 declare
-  correo text := lower(coalesce(auth.jwt() ->> 'email', ''));
-  n integer;
+  correo text := espacios.mi_correo();
+  inv record;
 begin
-  if auth.uid() is null or correo = '' then
-    return 0;
+  if auth.uid() is null or correo is null then
+    return null;
+  end if;
+  select i.proyecto, i.rol into inv
+  from espacios.invitaciones i
+  join espacios.proyectos p on p.id = i.proyecto
+  where i.id = p_id and lower(i.email) = correo and p.dueno <> auth.uid();
+  if not found then
+    return null;
   end if;
   insert into espacios.miembros (proyecto, usuario, rol)
-    select i.proyecto, auth.uid(), i.rol
-    from espacios.invitaciones i
-    join espacios.proyectos p on p.id = i.proyecto
-    where lower(i.email) = correo and p.dueno <> auth.uid()
+    values (inv.proyecto, auth.uid(), inv.rol)
   on conflict (proyecto, usuario) do update set rol = excluded.rol;
-  get diagnostics n = row_count;
-  delete from espacios.invitaciones where lower(email) = correo;
-  return n;
+  delete from espacios.invitaciones where id = p_id;
+  return inv.proyecto;
 end;
 $$;
 
@@ -371,7 +426,12 @@ returns jsonb language sql stable security definer set search_path = '' as $$
     'titulo', pr.titulo,
     'descripcion', pr.descripcion,
     'autor', coalesce(pf.nombre, 'Anónimo'),
-    'actualizado', pr.actualizado,
+    -- La última vez que cambió algo de lo que se lee: el proyecto, un
+    -- registro o su nota, o un enlace.
+    'actualizado', greatest(
+      pr.actualizado,
+      (select max(e.actualizado) from espacios.entradas e where e.proyecto = pr.id),
+      (select max(l.creado) from espacios.enlaces l where l.proyecto = pr.id)),
     'entradas', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', e.id, 'tipo', e.tipo, 'ref', e.ref, 'titulo', e.titulo, 'href', e.href,
@@ -386,21 +446,18 @@ returns jsonb language sql stable security definer set search_path = '' as $$
   where pr.slug = p_slug and pr.publico;
 $$;
 
-revoke all on function espacios.aceptar_invitaciones() from public, anon;
+revoke all on function espacios.mis_invitaciones() from public, anon;
+revoke all on function espacios.aceptar_invitacion(uuid) from public, anon;
+revoke all on function espacios.mi_correo() from public, anon;
 revoke all on function espacios.miembros_de(uuid) from public, anon;
 revoke all on function espacios.rol_en(uuid) from public, anon;
 revoke all on function espacios.puede_leer(uuid) from public, anon;
 revoke all on function espacios.puede_editar(uuid) from public, anon;
-grant execute on function espacios.aceptar_invitaciones() to authenticated;
+grant execute on function espacios.mis_invitaciones() to authenticated;
+grant execute on function espacios.aceptar_invitacion(uuid) to authenticated;
+grant execute on function espacios.mi_correo() to authenticated;
 grant execute on function espacios.miembros_de(uuid) to authenticated;
 grant execute on function espacios.rol_en(uuid) to authenticated;
 grant execute on function espacios.puede_leer(uuid) to authenticated;
 grant execute on function espacios.puede_editar(uuid) to authenticated;
 grant execute on function espacios.publicado(text) to anon, authenticated;
-
--- ─────────────────────────────────────────────── endurecimiento de la otra excepción
--- `democracia.secretos` (el pepper) no tiene GRANT a anon ni a authenticated;
--- RLS encendida y sin políticas es la segunda cerradura. Las funciones
--- definidoras que leen el pepper corren como el dueño de la tabla, a quien RLS
--- no alcanza (no hay FORCE), así que el hash de la cédula sigue funcionando.
-alter table democracia.secretos enable row level security;

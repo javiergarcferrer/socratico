@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { rutaPropia } from "@/lib/espacios";
 import { abrirSesion, correoValido, leerEntrada, pedirCodigo } from "@/lib/sesion";
 import {
   alEntrar,
   guardarNombre,
   miNombre,
+  misInvitaciones,
   salir,
   sesionActual,
   type Usuario,
@@ -25,7 +27,7 @@ type Paso = "cargando" | "correo" | "codigo" | "dentro";
 
 /** Solo una ruta de esta plataforma: `?volver=` no puede mandar a otro sitio. */
 function volverSeguro(v: string | null): string | null {
-  return v && v.startsWith("/") && !v.startsWith("//") ? v : null;
+  return rutaPropia(v) && !v.startsWith("/cuenta") ? v : null;
 }
 
 /**
@@ -33,10 +35,11 @@ function volverSeguro(v: string | null): string | null {
  * (`lib/sesion.ts`). No hay contraseña que olvidar ni que filtrar: cada
  * entrada es un código de un solo uso que llega al correo.
  *
- * Al entrar se aceptan las invitaciones a ese correo y lo que el navegador
- * ya seguía pasa a la cuenta (`alEntrar`). Después, si la visita venía de
- * guardar algo (`?volver=`), vuelve ahí; si no, se queda para ofrecer el
- * nombre con que firma y el camino a su espacio.
+ * Al entrar, lo que el navegador ya seguía pasa a la cuenta (`alEntrar`) y,
+ * si hay invitaciones a ese correo, se avisa: se aceptan o no en «Tu
+ * espacio», nunca solas. Después, si la visita venía de guardar algo
+ * (`?volver=`), vuelve ahí; si no, se queda para ofrecer el nombre con que
+ * firma y el camino a su espacio.
  */
 export default function Entrar({ volver }: { volver: string | null }) {
   const router = useRouter();
@@ -56,15 +59,22 @@ export default function Entrar({ volver }: { volver: string | null }) {
     setPaso("dentro");
     avisarCambioDeSesion();
     if (recienLlegado) {
-      const r = await alEntrar(u);
-      if (r.ok && r.datos > 0) {
-        setAviso(r.datos === 1 ? "Te sumaste a un proyecto al que te invitaron." : `Te sumaste a ${r.datos} proyectos a los que te invitaron.`);
+      const [, inv] = await Promise.all([alEntrar(u), misInvitaciones()]);
+      const n = inv.ok ? inv.datos.length : 0;
+      if (n > 0) {
+        setAviso(n === 1 ? "Tienes una invitación a un proyecto: la aceptas o no en tu espacio." : `Tienes ${n} invitaciones a proyectos: las aceptas o no en tu espacio.`);
+        // Con una invitación pendiente, el camino es el espacio, no la vuelta.
+        return nombrar(u);
       }
       if (destino) {
         router.replace(destino);
         return;
       }
     }
+    await nombrar(u);
+  }
+
+  async function nombrar(u: Usuario) {
     const n = await miNombre(u);
     if (n.ok && n.datos) {
       setNombre(n.datos);
@@ -181,8 +191,8 @@ export default function Entrar({ volver }: { volver: string | null }) {
         {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs">{error}</Alert>}
         <div className="flex flex-wrap gap-2.5">
           <Button asChild size="lg">
-            <Link href={destino ?? "/espacio"}>
-              {destino ? "Volver a donde estabas" : "Ir a tu espacio"}
+            <Link href={destino && !aviso ? destino : "/espacio"}>
+              {destino && !aviso ? "Volver a donde estabas" : "Ir a tu espacio"}
               <IconArrowRight className="h-4 w-4" />
             </Link>
           </Button>

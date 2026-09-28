@@ -14,7 +14,7 @@
 
 import type { Session } from "@supabase/supabase-js";
 import { espacios, supabase } from "@/lib/supabase";
-import { slugDe, type Referencia, type TipoEntrada } from "@/lib/espacios";
+import { rutaPropia, slugDe, type Referencia, type TipoEntrada } from "@/lib/espacios";
 import { getSeguidos, onSeguimientoCambio, reemplazarSeguidos, type Seguido } from "@/lib/seguimiento";
 
 export type Hecho<T> = { ok: true; datos: T } | { ok: false; error: string; cerrado?: boolean };
@@ -76,20 +76,31 @@ export function alCambiarSesion(cb: (u: Usuario | null) => void): () => void {
   return () => data.subscription.unsubscribe();
 }
 
+/**
+ * Salir cierra la sesión y deja este navegador como lo encontró: la lista de
+ * lo seguido era de la cuenta y no se queda a la vista del siguiente lector
+ * del mismo equipo.
+ */
 export async function salir(): Promise<void> {
+  const u = await sesionActual();
   await supabase().auth.signOut();
+  reemplazarSeguidos([]);
+  if (u) {
+    try {
+      window.localStorage.removeItem(ULTIMA(u));
+    } catch {
+      /* sin almacenamiento: no quedó nada que borrar */
+    }
+  }
 }
 
 /**
- * Lo que se hace una vez al entrar: aceptar las invitaciones a este correo y
- * juntar lo que el navegador seguía con lo que sigue la cuenta. Devuelve
- * cuántos proyectos se sumaron por invitación.
+ * Lo que se hace una vez al entrar: juntar lo que el navegador seguía con lo
+ * que sigue la cuenta. Las invitaciones no se aceptan solas: se muestran en
+ * «Tu espacio» y el lector decide (`misInvitaciones`, `aceptarInvitacion`).
  */
-export async function alEntrar(u: Usuario): Promise<Hecho<number>> {
-  const aceptadas = await hecho<number>(espacios().rpc("aceptar_invitaciones"));
-  if (!aceptadas.ok) return aceptadas;
-  const sync = await sincronizarSeguidos(u, true);
-  return sync.ok ? aceptadas : sync;
+export async function alEntrar(u: Usuario): Promise<Hecho<null>> {
+  return sincronizarSeguidos(u);
 }
 
 /* ------------------------------------------------------------- perfil */
@@ -189,10 +200,24 @@ export async function borrarProyecto(id: string): Promise<Hecho<null>> {
  * ya circulan.
  */
 export async function publicar(p: Proyecto, publico: boolean): Promise<Hecho<Proyecto>> {
-  const slug = p.slug ?? slugDe(p.titulo);
-  return hecho<Proyecto>(
-    espacios().from("proyectos").update({ publico, slug }).eq("id", p.id).select(COLUMNAS_PROYECTO).single(),
-  );
+  // Una dirección nueva puede chocar con otra (el sufijo es corto): se sortea
+  // otra, hasta tres veces. La que ya tenía no se cambia nunca.
+  for (let intento = 0; ; intento++) {
+    const slug = p.slug ?? slugDe(p.titulo);
+    try {
+      const { data, error } = await espacios()
+        .from("proyectos")
+        .update({ publico, slug })
+        .eq("id", p.id)
+        .select(COLUMNAS_PROYECTO)
+        .single();
+      if (!error) return { ok: true, datos: data as Proyecto };
+      if (error.code === "23505" && !p.slug && intento < 2) continue;
+      return traducir(error);
+    } catch {
+      return { ok: false, error: "No hubo conexión con el servidor. Revisa tu internet." };
+    }
+  }
 }
 
 /* ------------------------------------------------------- lo guardado */
@@ -222,11 +247,11 @@ export async function dondeEsta(r: { tipo: TipoEntrada; ref: string }): Promise<
   return h.ok ? { ok: true, datos: h.datos.map((x) => x.proyecto) } : h;
 }
 
-export async function guardar(r: Referencia, proyecto: string | null): Promise<Hecho<Entrada>> {
+export async function guardar(r: Referencia, proyecto: string | null, nota = ""): Promise<Hecho<Entrada>> {
   return hecho<Entrada>(
     espacios()
       .from("entradas")
-      .insert({ tipo: r.tipo, ref: r.ref, titulo: r.titulo.slice(0, 500), href: r.href, proyecto })
+      .insert({ tipo: r.tipo, ref: r.ref, titulo: r.titulo.slice(0, 500), href: r.href, proyecto, nota })
       .select(COLUMNAS_ENTRADA)
       .single(),
   );
@@ -327,9 +352,31 @@ export async function cambiarRol(proyecto: string, usuario: string, rol: Exclude
   );
 }
 
-/** Las invitaciones pendientes a mi correo (las que se aceptan al entrar). */
-export async function misInvitaciones(): Promise<Hecho<{ id: string; proyecto: string }[]>> {
-  return hecho(espacios().from("invitaciones").select("id, proyecto"));
+/** Una invitación que me hicieron, con lo que hace falta para decidir. */
+export interface InvitacionRecibida {
+  id: string;
+  proyecto: string;
+  rol: Exclude<Rol, "dueno">;
+  titulo: string;
+  /** El nombre con que firma quien invita, o `null` si no puso ninguno. */
+  invita: string | null;
+  creado: string;
+}
+
+/** Las invitaciones pendientes a mi correo **verificado**. */
+export async function misInvitaciones(): Promise<Hecho<InvitacionRecibida[]>> {
+  const r = await hecho<InvitacionRecibida[] | null>(espacios().rpc("mis_invitaciones"));
+  return r.ok ? { ok: true, datos: r.datos ?? [] } : r;
+}
+
+/** Acepta una invitación: me hace miembro y la borra. Devuelve el proyecto. */
+export async function aceptarInvitacion(id: string): Promise<Hecho<string>> {
+  return hecho<string>(espacios().rpc("aceptar_invitacion", { p_id: id }));
+}
+
+/** Rechazar es borrarla: quien invitó ve que ya no está pendiente. */
+export async function rechazarInvitacion(id: string): Promise<Hecho<null>> {
+  return retirarInvitacion(id);
 }
 
 /* ------------------------------------------------ lo que sigue, en la cuenta */
@@ -355,92 +402,161 @@ const aFila = (u: Usuario, s: Seguido) => ({
   visto: s.visto ?? null,
 });
 
+const deFila = (f: FilaSeguimiento): Seguido => ({
+  tipo: f.tipo,
+  id: f.ref,
+  titulo: f.titulo,
+  href: f.href,
+  ...(f.huella !== null ? { huella: f.huella } : {}),
+  desde: f.desde,
+  ...(f.visto ? { visto: f.visto } : {}),
+});
+
 /** Última lista que la cuenta y este navegador tuvieron en común. */
 const ULTIMA = (u: Usuario) => `lrd:seguimiento-cuenta:${u.id}`;
 
+const clave = (s: { tipo: string; id?: string; ref?: string }) => `${s.tipo}:${s.id ?? s.ref}`;
+
 function claves(lista: { tipo: string; id?: string; ref?: string }[]): Set<string> {
-  return new Set(lista.map((s) => `${s.tipo}:${s.id ?? s.ref}`));
+  return new Set(lista.map(clave));
+}
+
+/** Lo que la tabla acepta: una ruta propia (el `check` de `espacios.seguimientos`). */
+const subible = (s: Seguido) => rutaPropia(s.href);
+
+function leerComun(u: Usuario): Set<string> | null {
+  try {
+    const guardada = window.localStorage.getItem(ULTIMA(u));
+    const lista: unknown = guardada ? JSON.parse(guardada) : null;
+    return Array.isArray(lista) ? new Set(lista.filter((x): x is string => typeof x === "string")) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Junta lo que sigue el navegador con lo que sigue la cuenta.
- *
- * - La **primera vez** en este navegador (`primera`), une las dos: nada que el
- *   lector marcó antes de tener cuenta se pierde.
- * - Después, la cuenta manda: lo que se dejó de seguir en otro dispositivo
- *   desaparece aquí, y lo que se marcó aquí sin conexión se sube.
+ * Solo entra en la lista común lo que la cuenta puede guardar: lo que no sube
+ * (un enlace que no es ruta propia) se queda en el navegador y nunca parece
+ * «quitado en otro dispositivo».
  */
-export async function sincronizarSeguidos(u: Usuario, primera = false): Promise<Hecho<null>> {
-  const remoto = await hecho<FilaSeguimiento[]>(
-    espacios().from("seguimientos").select("tipo, ref, titulo, href, huella, desde, visto"),
-  );
-  if (!remoto.ok) return remoto;
-  const local = getSeguidos();
-  let comun: Set<string> | null = null;
+function fijarComun(u: Usuario, lista: Seguido[]): void {
   try {
-    const guardada = window.localStorage.getItem(ULTIMA(u));
-    comun = guardada ? new Set(JSON.parse(guardada) as string[]) : null;
-  } catch {
-    comun = null;
-  }
-  const deCuenta = claves(remoto.datos);
-  // Lo local que la cuenta no tiene: si ya estaba en la última lista común,
-  // se borró en otro dispositivo; si no, es nuevo aquí y se sube.
-  const subir = local.filter((s) => !deCuenta.has(`${s.tipo}:${s.id}`) && (primera || !comun?.has(`${s.tipo}:${s.id}`)));
-  if (subir.length) {
-    const r = await hecho(espacios().from("seguimientos").upsert(subir.map((s) => aFila(u, s))).then((x) => ({ ...x, data: null })));
-    if (!r.ok) return r;
-  }
-  const lista: Seguido[] = [
-    ...remoto.datos.map((f) => ({
-      tipo: f.tipo,
-      id: f.ref,
-      titulo: f.titulo,
-      href: f.href,
-      ...(f.huella !== null ? { huella: f.huella } : {}),
-      desde: f.desde,
-      ...(f.visto ? { visto: f.visto } : {}),
-    })),
-    ...subir,
-  ];
-  reemplazarSeguidos(lista);
-  try {
-    window.localStorage.setItem(ULTIMA(u), JSON.stringify([...claves(lista)]));
+    window.localStorage.setItem(ULTIMA(u), JSON.stringify([...claves(lista.filter(subible))]));
   } catch {
     /* sin almacenamiento: la próxima vez vuelve a unir, sin perder nada */
+  }
+}
+
+async function subir(u: Usuario, lista: Seguido[]): Promise<Hecho<null>> {
+  const filas = lista.filter(subible).map((s) => aFila(u, s));
+  if (!filas.length) return { ok: true, datos: null };
+  return hecho(espacios().from("seguimientos").upsert(filas).then((x) => ({ ...x, data: null })));
+}
+
+async function borrar(lista: Seguido[]): Promise<Hecho<null>> {
+  for (const s of lista) {
+    const r = await hecho(espacios().from("seguimientos").delete().eq("tipo", s.tipo).eq("ref", s.id).then((x) => ({ ...x, data: null })));
+    if (!r.ok) return r;
   }
   return { ok: true, datos: null };
 }
 
 /**
+ * Junta lo que sigue el navegador con lo que sigue la cuenta, contra la última
+ * lista que ambos tuvieron en común (`ULTIMA`):
+ *
+ * - Sin lista común —la primera vez en este navegador—, une las dos: nada que
+ *   el lector marcó antes de tener cuenta se pierde.
+ * - Con ella, cada lado aporta lo que cambió desde entonces: lo nuevo en uno
+ *   pasa al otro; lo que estaba en común y falta en uno se dejó de seguir ahí,
+ *   y se quita del otro.
+ * - En lo que está en ambos gana la versión vista más tarde.
+ *
+ * La lista común solo avanza si todas las escrituras salieron: si una falla,
+ * la próxima vez se vuelve a comparar desde el mismo punto y nada se pierde.
+ */
+export async function sincronizarSeguidos(u: Usuario): Promise<Hecho<null>> {
+  const remoto = await hecho<FilaSeguimiento[]>(
+    espacios().from("seguimientos").select("tipo, ref, titulo, href, huella, desde, visto"),
+  );
+  if (!remoto.ok) return remoto;
+  const local = getSeguidos();
+  const comun = leerComun(u);
+  const deCuenta = new Map(remoto.datos.map((f) => [clave(f), deFila(f)]));
+  const deAqui = new Map(local.map((s) => [clave(s), s]));
+
+  const nuevosAqui = local.filter((s) => !deCuenta.has(clave(s)) && !comun?.has(clave(s)));
+  const quitadosAqui = [...deCuenta.values()].filter((s) => !deAqui.has(clave(s)) && comun?.has(clave(s)));
+  const quitadosAlla = new Set(local.filter((s) => !deCuenta.has(clave(s)) && comun?.has(clave(s))).map(clave));
+  const masVistosAqui = local.filter((s) => {
+    const r = deCuenta.get(clave(s));
+    return r && (s.visto ?? "") > (r.visto ?? "");
+  });
+
+  const subida = await subir(u, [...nuevosAqui, ...masVistosAqui]);
+  if (!subida.ok) return subida;
+  const borrado = await borrar(quitadosAqui);
+  if (!borrado.ok) return borrado;
+
+  const quitados = claves(quitadosAqui);
+  const lista: Seguido[] = [
+    // El orden del navegador manda; lo que llega de la cuenta va detrás.
+    ...local
+      .filter((s) => !quitadosAlla.has(clave(s)))
+      .map((s) => {
+        const r = deCuenta.get(clave(s));
+        return r && (r.visto ?? "") > (s.visto ?? "") ? r : s;
+      }),
+    ...[...deCuenta.values()].filter((s) => !deAqui.has(clave(s)) && !quitados.has(clave(s))),
+  ];
+  reemplazarSeguidos(lista);
+  fijarComun(u, lista);
+  return { ok: true, datos: null };
+}
+
+/**
  * Mientras hay sesión, cada cambio en lo que se sigue —seguir, dejar de
- * seguir, marcar visto— se refleja en la cuenta. Devuelve cómo dejar de
- * escuchar.
+ * seguir, marcar visto— se refleja en la cuenta. Un cambio que llega mientras
+ * otro se sube no se pierde: queda en cola y se sube después. Si una escritura
+ * falla, `previa` no avanza y el próximo cambio (o la próxima página) lo
+ * reintenta. Devuelve cómo dejar de escuchar.
  */
 export function reflejarSeguidos(u: Usuario): () => void {
   let previa = getSeguidos();
   let enCurso = false;
+  let pendiente = false;
+  let vivo = true;
   const alCambiar = async () => {
-    if (enCurso) return;
+    if (enCurso) {
+      pendiente = true;
+      return;
+    }
     enCurso = true;
     try {
-      const ahora = getSeguidos();
-      const antes = claves(previa);
-      const despues = claves(ahora);
-      const quitados = previa.filter((s) => !despues.has(`${s.tipo}:${s.id}`));
-      const cambiados = ahora.filter((s) => {
-        const p = previa.find((x) => x.tipo === s.tipo && x.id === s.id);
-        return !antes.has(`${s.tipo}:${s.id}`) || p?.huella !== s.huella || p?.visto !== s.visto || p?.titulo !== s.titulo;
-      });
-      if (cambiados.length) await espacios().from("seguimientos").upsert(cambiados.map((s) => aFila(u, s)));
-      for (const s of quitados) await espacios().from("seguimientos").delete().eq("tipo", s.tipo).eq("ref", s.id);
-      previa = ahora;
-      window.localStorage.setItem(ULTIMA(u), JSON.stringify([...despues]));
-    } catch {
-      /* sin conexión: la próxima sincronización lo sube */
+      do {
+        pendiente = false;
+        const ahora = getSeguidos();
+        const antes = new Map(previa.map((s) => [clave(s), s]));
+        const despues = claves(ahora);
+        const quitados = previa.filter((s) => !despues.has(clave(s)));
+        const cambiados = ahora.filter((s) => {
+          const p = antes.get(clave(s));
+          return !p || p.huella !== s.huella || p.visto !== s.visto || p.titulo !== s.titulo;
+        });
+        const a = await subir(u, cambiados);
+        if (!a.ok) return;
+        const b = await borrar(quitados);
+        if (!b.ok) return;
+        previa = ahora;
+        fijarComun(u, ahora);
+      } while (pendiente && vivo);
     } finally {
       enCurso = false;
     }
   };
-  return onSeguimientoCambio(() => void alCambiar());
+  const dejar = onSeguimientoCambio(() => void alCambiar());
+  return () => {
+    vivo = false;
+    dejar();
+  };
 }

@@ -67,9 +67,21 @@ export interface Referencia {
   href: string;
 }
 
-/** Lo que `espacios.entradas` acepta en `href` (el mismo `check` de la tabla). */
+/**
+ * Una ruta de esta misma plataforma: empieza con una sola «/», sin espacios,
+ * controles ni barra invertida. `//x`, `/\x` o `/<tab>/x` (un `%09` ya
+ * decodificado por `searchParams`) los navegadores los leen como otro sitio;
+ * aquí no pasan. Es la única puerta de un `?volver=` y de un enlace interno
+ * pintado con `Link`.
+ */
+export function rutaPropia(v: unknown): v is string {
+  return typeof v === "string" && v.length <= 1000 && /^\/(?![/\\])/.test(v) && !/[\s\p{Cc}\\]/u.test(v);
+}
+
+/** Lo que `espacios.entradas` acepta en `href`: el mismo `espacios.href_valido(h, true)`. */
 export function hrefValido(href: string): boolean {
-  return (/^\/[^/]/.test(href) || /^https:\/\//.test(href)) && href.length <= 1000;
+  const externo = href.length <= 1000 && !/[\s\p{Cc}\\]/u.test(href) && /^https:\/\/[a-z0-9.-]+(:[0-9]+)?(\/|$)/i.test(href);
+  return externo || rutaPropia(href);
 }
 
 /* --------------------------------------------------------- lo publicado */

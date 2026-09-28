@@ -21,11 +21,11 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/`.
 | Instituciones (transversal) | `/instituciones`, `/buscar` | Cruce versionado DGCP ↔ SIGEF ↔ nómina ↔ Consultoría; índice de búsqueda por palabra y por tema sobre las instantáneas (y leyes, procesos, sentencias, Congreso) | `lib/instituciones.ts`, `lib/buscar.ts`, `lib/busqueda.ts` |
 | Obra pública y país | `/obras`, `/pais` | MapaInversiones; robos y armas (MIP), matrícula (MINERD), licencias (MIVHED) (instantáneas) | `lib/obras.ts`, `lib/sociedad.ts` |
 | Gestión, control y datos | `/gestion`, `/auditorias`, `/documentos`, `/datos` | SISMAP; Contraloría y Cámara de Cuentas; bibliotecas WordPress de 22 instituciones; datos.gob.do (instantáneas) | `lib/sismap.ts`, `lib/auditorias.ts`, `lib/biblioteca.ts`, `lib/catalogo.ts` |
-| Indicadores del panorama | tarjetas en `/`, `/luz` | MICM, BCRD (CDN), SB (SIMBAD), Aduanas, OC (luz), mantenimientos de Edenorte y Edesur, INDOMET (alertas), OPSEVI (vías), en vivo | `lib/combustibles.ts`, `lib/tasa.ts`, `lib/macro.ts`, `lib/bcrd.ts`, `lib/banca.ts`, `lib/aduanas.ts`, `lib/energia.ts`, `lib/alertas.ts`, `lib/siniestralidad.ts`, `lib/cortes.ts` |
+| Indicadores del panorama | `/indicadores` (cuatro cifras en `/`), `/luz` | MICM, BCRD (CDN), SB (SIMBAD), Aduanas, OC (luz), mantenimientos de Edenorte y Edesur, INDOMET (alertas), OPSEVI (vías), en vivo | `lib/combustibles.ts`, `lib/tasa.ts`, `lib/macro.ts`, `lib/bcrd.ts`, `lib/banca.ts`, `lib/aduanas.ts`, `lib/energia.ts`, `lib/alertas.ts`, `lib/siniestralidad.ts`, `lib/cortes.ts` |
 | Democracia | `/democracia` | Supabase, esquema `democracia` — **excepción** | `lib/democracia.ts`, `lib/supabase.ts` |
 | Tu espacio | `/cuenta`, `/espacio`, `/p/[slug]` | Supabase, esquema `espacios` — **excepción**: lo guardado, proyectos, notas, alertas | `lib/espacios.ts`, `lib/espacios-cliente.ts`, `lib/sesion.ts` |
 
-`lib/secciones.ts` es la fuente única de verticales; `lib/indice.ts` (de `lib/menu.ts`) la de destinos y su tarea. `/` es el panorama; `/fuentes` declara
+`lib/secciones.ts` es la fuente única de verticales; `lib/indice.ts` (de `lib/menu.ts`) la de destinos y su tarea. `/` es la portada (misión, hoy, el mapa); `/indicadores` el panorama; `/fuentes` declara
 qué alimenta la plataforma, qué está bloqueado y con qué límites de cobertura — mantenerlo cierto es parte de tocar una fuente. Toda lectura pasa por `lib/pedir.ts` (el contrato, con `zod`); HTML por `lib/html.ts`, XLSX por `lib/xlsx.ts`; todo enlace a una entidad sale de `lib/grafo.ts` (y `lib/grafo-servidor.ts`).
 
 ## La invariante

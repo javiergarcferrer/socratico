@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { alCambiarSesion, sesionActual, type Usuario } from "@/lib/espacios-cliente";
-import { NOMBRE_TIPO, type TipoEntrada } from "@/lib/espacios";
+import { hrefValido, NOMBRE_TIPO, rutaPropia, type TipoEntrada } from "@/lib/espacios";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,9 +84,10 @@ export function MarcaTipo({ tipo }: { tipo: TipoEntrada }) {
  * el sitio de la institución: pestaña nueva y su icono.
  */
 export function EnlaceRegistro({ titulo, href, className }: { titulo: string; href: string; className?: string }) {
-  const externo = href.startsWith("https://");
   const clase = className ?? "font-medium text-ink hover:text-brand-700 hover:underline";
-  return externo ? (
+  // Lo que no pasa el mismo `check` de la tabla se lee, no se pulsa.
+  if (!hrefValido(href)) return <span className="font-medium text-ink">{titulo}</span>;
+  return !rutaPropia(href) ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={clase}>
       {titulo}
       <IconExternal className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-ink-soft" />

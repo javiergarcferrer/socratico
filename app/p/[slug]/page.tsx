@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
-import { leerPublicado, NOMBRE_TIPO, type EntradaPublicada } from "@/lib/espacios";
+import { leerPublicado, NOMBRE_TIPO, rutaPropia, type EntradaPublicada } from "@/lib/espacios";
 import { formatFecha } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
         titulo="No pudimos abrir esta investigación"
         accion={<Button asChild variant="secondary"><Link href="/buscar">Buscar en la plataforma</Link></Button>}
       >
-        El servidor de cuentas no respondió. La investigación sigue ahí: vuelve a intentarlo en un momento.
+        El servidor de cuentas no respondió, así que no sabemos si sigue publicada. Vuelve a intentarlo en un momento; los registros que reúne siguen en sus fichas.
       </EstadoVacio>
     );
   }
@@ -71,7 +71,8 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
         <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">{p.titulo}</h1>
         {p.descripcion && <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-ink">{p.descripcion}</p>}
         <p className="mt-3 text-xs leading-relaxed text-ink-soft">
-          La selección y las notas son de su autor, no de Socrático ni del Estado. Cada registro
+          La selección y las notas son de su autor, no de Socrático ni del Estado. «{p.autor}» es
+          el nombre de firma que escribió quien la publica: Socrático no lo verifica. Cada registro
           abre su ficha, que lee la cifra de su fuente oficial.
         </p>
       </header>
@@ -140,7 +141,9 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
 
 function Registro({ e }: { e: EntradaPublicada }) {
   const clase = "font-medium text-ink hover:text-brand-700 hover:underline";
-  return e.href.startsWith("https://") ? (
+  // `leerPublicado` ya filtró por `hrefValido`; aquí solo se decide si es
+  // propia (Link) o de una institución (pestaña nueva, sin referer).
+  return !rutaPropia(e.href) ? (
     <a href={e.href} target="_blank" rel="noopener noreferrer" className={clase}>
       {e.titulo}
       <IconExternal className="ml-1 inline h-3.5 w-3.5 align-[-2px] text-ink-soft" />
