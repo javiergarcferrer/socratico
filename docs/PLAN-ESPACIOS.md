@@ -162,10 +162,24 @@ existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
   avisos de seguridad no marcan nada de `espacios`; el único cambio es un aviso
   informativo esperado («RLS sin políticas» en `democracia.secretos`: es la
   cerradura).
-- ❌ Paso 2, pendiente del dueño: el API responde `PGRST106` («Only the
-  following schemas are exposed: public, storage, graphql_public,
-  democracia»). Hasta que se añada `espacios`, las pantallas de cuenta dicen
-  que los proyectos aún no están abiertos.
+- ✅ Paso 2 (2026-09-28): `espacios` expuesto en el Data API. El dueño lo
+  marcó en el panel dos veces y **el guardado no llegó al servidor**:
+  `authenticator` seguía con la lista vieja 7 minutos después. Con su
+  autorización se aplicó por SQL, que es lo mismo que escribe el panel:
+  `alter role authenticator set pgrst.db_schemas = 'public, storage,
+  graphql_public, democracia, espacios'` y `notify pgrst, 'reload config'`.
+  Comprobado en vivo:
+  - `comunidad`, `publicado` y `hilo` responden 200 a `anon`;
+  - `anon` recibe 42501 al leer cualquier tabla de `espacios` y al llamar a
+    `comentar` o `mi_cedula`;
+  - `democracia.agregados_publicos` y Storage (1.77.5) siguen igual;
+  - en producción, `/comunidad` pasó de «abre pronto» a «Todavía no hay
+    conversaciones».
+
+  ⚠️ El panel muestra otra lista (sin `storage`, que el panel ya no ofrece).
+  Si alguien guarda esa página con una lista sin `espacios`, cuentas y
+  conversación vuelven a «abre pronto». La comprobación es `select rolconfig
+  from pg_roles where rolname = 'authenticator'`.
 - ✅ Paso 4, con aprobación del dueño (2026-09-28): `conversacion` aplicada a
   `Transac`. Comprobado en vivo:
   - las ocho tablas nuevas con RLS y cero permisos;
