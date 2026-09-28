@@ -45,7 +45,7 @@ Function. Ningún dato del Estado entra a la DB: una ficha no la lee, pinta un c
 
 | La pregunta | La página |
 |---|---|
-| ¿Cómo debe **verse** y sonar? ¿Qué primitiva uso? | `docs/IDENTIDAD.md` — si la interfaz la contradice, la interfaz está mal |
+| ¿Cómo debe **verse**, sonar y **comportarse**? ¿Qué primitiva uso? | `docs/IDENTIDAD.md` (cómo se ve) y `docs/DESIGN.md` (cómo se comporta) — si la interfaz los contradice, la interfaz está mal |
 | ¿Dónde vive **X**? ¿Por qué está escrito así? | `docs/ARQUITECTURA.md` — capas, rutas de API, páginas, rendimiento percibido |
 | ¿Cómo se lee el **Congreso**? | `docs/RECON.md` — mecánica verificada del SIL, el consultante, cadenas de documentos |
 | ¿Y **cualquier otra fuente** del Estado? | `docs/AUDITORIA.md` — estado ✅/⚠️/❌, familias de acceso, bloqueos y su desbloqueo institucional |

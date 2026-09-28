@@ -10,6 +10,10 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Abiertas — solo el dueño
 
+- **Raya en el texto (28-09-2026).** `docs/DESIGN.md`, traída de RosetSoft,
+  prohíbe la raya (—) como muleta en el texto de cara al lector; la voz de
+  Socrático la usa como inciso unas 650 veces. Decidir: se queda como voz de
+  la casa, o se sustituye por punto, coma o «·» en una pasada.
 - **Denuncias y retiro de investigaciones publicadas** (`/p/<slug>`,
   docs/PLAN-ESPACIOS.md §3): cualquiera con cuenta puede publicar con el
   nombre de firma que quiera. Hoy la página dice que ese nombre no está

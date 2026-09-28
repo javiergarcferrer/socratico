@@ -78,6 +78,7 @@ decisiones del dueño vivían dentro del archivo de arranque.
 | Archivo | Disparador en `CLAUDE.md` | Qué cambia | Veredicto |
 |---|---|---|---|
 | `docs/IDENTIDAD.md` | «¿Cómo debe verse y sonar?» | El sistema visual, la voz y la ergonomía cognitiva. Si la interfaz lo contradice, la interfaz está mal. | mantener |
+| `docs/DESIGN.md` | «¿Cómo debe comportarse?» | La carta de comportamiento traída de RosetSoft (28-09-2026): accesibilidad, ergonomía, fricción, verdad, indexación. Lo que aún no se cumple lleva ⚠️. | **nuevo** |
 | `docs/ARQUITECTURA.md` | «¿Dónde vive X?» | Capas de datos por fuente, rutas de API, páginas, primitivas compartidas, rendimiento percibido. | **nuevo** (era el 48 % de `CLAUDE.md`) |
 | `docs/RECON.md` | «¿Cómo se lee el Congreso?» | Mecánica verificada del SIL y del consultante del Senado. | mantener |
 | `docs/AUDITORIA.md` | «¿Y cualquier otra fuente?» | Estado ✅/⚠️/❌ por fuente, familias de acceso, bloqueos y su desbloqueo institucional. | mantener |

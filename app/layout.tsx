@@ -88,7 +88,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${publicSans.variable} ${geist.variable} ${instrumentSerif.variable} ${plexMono.variable}`}>
+    <html lang="es-DO" className={`${publicSans.variable} ${geist.variable} ${instrumentSerif.variable} ${plexMono.variable}`}>
       <body className="min-h-dvh pb-[calc(4.5rem+env(safe-area-inset-bottom))] antialiased lg:pb-0">
         {/*
           `NuqsAdapter` es el puente entre la URL y el estado de los
