@@ -7,6 +7,7 @@ import {
   aceptarInvitacion,
   crearProyecto,
   entradasDe,
+  fechar,
   guardar,
   misInvitaciones,
   misProyectos,
@@ -31,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Rotulo } from "@/components/papel";
 import { IconArrowRight, IconBell, IconFolder, IconPlus, IconTrash, IconUser } from "@/components/icons";
 import { Cerrado, EnlaceRegistro, MarcaTipo, SinSesion, useUsuario } from "./comun";
+import { AvisoDeshacer, type Deshacible } from "./deshacer";
 
 const ROL: Record<ProyectoConCuenta["rol"], string> = { dueno: "Tuyo", editor: "Editas", lector: "Lees" };
 
@@ -162,7 +164,7 @@ function Invitaciones({ lista, onCambio }: { lista: InvitacionRecibida[]; onCamb
         correo enmascarado. Lo que anotes ahí es
         parte de su investigación: si la publica, sale bajo su nombre, no el tuyo.
       </p>
-      {aviso && <p className="mt-2 text-xs text-alerta-700">{aviso}</p>}
+      {aviso && <p role="alert" className="mt-2 text-xs text-alerta-700">{aviso}</p>}
       <ul className="mt-3 divide-y divide-hairline">
         {lista.map((i) => (
           <li key={i.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
@@ -223,8 +225,8 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
     <Card as="section" className="p-5">
       <CardTitle>Tus investigaciones</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Una investigación junta registros de toda la plataforma —compras, contratistas, normas,
-        iniciativas, sentencias, documentos— con tus notas y lo que los une.
+        Una investigación junta registros de toda la plataforma (compras, contratistas, normas,
+        iniciativas, sentencias, documentos) con tus notas y lo que los une.
       </p>
       <form onSubmit={crear} className="mt-3 flex gap-2">
         <Label htmlFor="nueva-investigacion" className="sr-only">Título de la nueva investigación</Label>
@@ -250,7 +252,7 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
       <ErrorCampo id="nueva-investigacion-error" className="mt-1.5">
         {sinTitulo ? "Ponle un título a la investigación." : ""}
       </ErrorCampo>
-      {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-alerta-700">{error}</p>}
 
       {proyectos === null ? (
         <Skeleton className="mt-4 h-24 w-full" />
@@ -296,9 +298,13 @@ function Guardado({
 }) {
   const editables = (proyectos ?? []).filter((p) => p.rol !== "lector");
   const [aviso, setAviso] = useState<string | null>(null);
-  // Quitar se lleva la nota del registro: se pregunta antes.
-  const [aQuitar, setAQuitar] = useState<string | null>(null);
-  const [quitando, setQuitando] = useState(false);
+  /*
+    Quitar algo guardado sin ordenar se deshace entero: vuelve a guardarse con
+    su nota y su fecha (no tiene enlaces ni sitio en un tablero). Por eso no se
+    pregunta antes; se ofrece «Deshacer» (docs/DESIGN.md §4.1).
+  */
+  const [deshacible, setDeshacible] = useState<Deshacible | null>(null);
+  const [quitando, setQuitando] = useState<string | null>(null);
 
   // Mover es copiar con su nota y borrar el original. Si el borrado falla, se
   // deshace la copia: el registro no queda en dos sitios sin que se sepa.
@@ -315,8 +321,21 @@ function Guardado({
   }
 
   async function quitar(e: Entrada) {
+    setQuitando(e.id);
     const r = await quitarEntrada(e.id);
+    setQuitando(null);
     if (!r.ok) return setAviso(r.error);
+    setAviso(null);
+    setDeshacible({
+      texto: `Quitaste «${e.titulo}» de lo guardado.`,
+      deshacer: async () => {
+        const g = await guardar(e, null, e.nota);
+        if (!g.ok) return g;
+        if (e.fecha) await fechar(g.datos.id, e.fecha);
+        onCambio();
+        return { ok: true };
+      },
+    });
     onCambio();
   }
 
@@ -326,7 +345,8 @@ function Guardado({
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         Lo que guardaste con «Guardar» sin elegir investigación. Llévalo a una cuando sepas dónde va.
       </p>
-      {aviso && <p className="mt-2 text-xs text-alerta-700">{aviso}</p>}
+      {aviso && <p role="alert" className="mt-2 text-xs text-alerta-700">{aviso}</p>}
+      <AvisoDeshacer aviso={deshacible} onCerrar={() => setDeshacible(null)} className="mt-3" />
       {sueltas === null ? (
         <Skeleton className="mt-4 h-24 w-full" />
       ) : sueltas.length === 0 ? (
@@ -357,30 +377,16 @@ function Guardado({
                     </SelectContent>
                   </Select>
                 )}
-                {aQuitar === e.id ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="h-11 sm:h-9"
-                      disabled={quitando}
-                      onClick={async () => {
-                        setQuitando(true);
-                        await quitar(e);
-                        setQuitando(false);
-                        setAQuitar(null);
-                      }}
-                    >
-                      {quitando ? "Quitando…" : "Sí, quitar"}
-                    </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" disabled={quitando} onClick={() => setAQuitar(null)}>No</Button>
-                  </>
-                ) : (
-                  <Button type="button" variant="ghost" size="icon" onClick={() => setAQuitar(e.id)} aria-label={`Quitar «${e.titulo}»`}>
-                    <IconTrash className="h-4 w-4" />
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={quitando !== null}
+                  onClick={() => void quitar(e)}
+                  aria-label={`Quitar «${e.titulo}» de lo guardado`}
+                >
+                  <IconTrash className="h-4 w-4" />
+                </Button>
               </div>
             </li>
           ))}

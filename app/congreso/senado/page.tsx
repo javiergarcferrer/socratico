@@ -62,7 +62,7 @@ export default async function SenadoPage({
         cualquier búsqueda es compartible — misma regla que en licitaciones.
       */}
       <form action="/congreso/senado" method="get" className="flex gap-2">
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
           {/*
             Esta búsqueda es un formulario GET de servidor —no hay estado de
@@ -80,7 +80,7 @@ export default async function SenadoPage({
             type="search"
             name="q"
             defaultValue={q}
-            placeholder="Buscar — p. ej. “código penal”"
+            placeholder="Por ejemplo: código penal…"
             aria-label="Buscar expedientes del Senado"
             aria-describedby="alcance-busqueda-senado"
             enterKeyHint="search"
@@ -159,7 +159,7 @@ async function ListadoSenado({ q, etiqueta }: { q: string; etiqueta: string }) {
               {q ? (
                 <>
                   {" para "}
-                  <span className="font-medium text-ink">{`“${q}”`}</span>
+                  <span className="font-medium text-ink">{`«${q}»`}</span>
                 </>
               ) : (
                 <> en la colección {cuatrienio.etiqueta}</>
@@ -180,7 +180,7 @@ async function ListadoSenado({ q, etiqueta }: { q: string; etiqueta: string }) {
             <EstadoVacio titulo="Sin resultados" className="mt-3">
               {q
                 ? "Ningún expediente lleva esas palabras en su descripción, ni tal cual ni con tildes. Prueba con menos palabras o con otra forma de decirlo."
-                : "El Senado no devolvió expedientes para esta colección."}
+                : "El Senado no devolvió expedientes para esta colección. Prueba con otro cuatrienio o busca por texto."}
             </EstadoVacio>
           )}
 
@@ -223,7 +223,7 @@ function ListadoEsqueleto({ q, etiqueta }: { q: string; etiqueta: string }) {
     <div role="status" aria-busy="true">
       <p className="mt-4 text-sm text-ink-soft">
         {q
-          ? `Buscando “${q}” en la colección ${etiqueta}…`
+          ? `Buscando «${q}» en la colección ${etiqueta}…`
           : `Consultando la colección ${etiqueta} del Senado…`}
       </p>
       <EsqueletoFilas n={10} className="mt-3" />
@@ -231,37 +231,38 @@ function ListadoEsqueleto({ q, etiqueta }: { q: string; etiqueta: string }) {
   );
 }
 
-/** Fila densa, hermana visual de la de Diputados. */
+/**
+ * Fila densa, hermana visual de la de Diputados: el titular es el enlace y se
+ * estira sobre la fila entera (`IniciativaCard` explica por qué).
+ */
 function ExpedienteRow({ exp }: { exp: ExpedienteSenado }) {
   return (
-    <li className="cv-auto group border-b border-hairline last:border-0">
+    <li className="cv-auto relative border-b border-hairline px-4 py-3.5 last:border-0 sm:px-5">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        <span className="font-mono text-xs font-semibold tabular-nums text-brand-700">
+          {exp.numero?.completo ?? `#${exp.id}`}
+        </span>
+        <CondicionBadge tono={exp.tono}>{exp.estado ?? "Sin estado"}</CondicionBadge>
+      </div>
+
       <Link
         href={enlace.expedienteSenado(exp.cuatrienio, exp.id)}
-        className="block px-4 py-3.5 transition-colors hover:bg-canvas/60 sm:px-5"
+        className="estira mt-1.5 block break-words text-[15px] leading-snug text-ink hover:text-brand-700"
       >
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-          <span className="font-mono text-xs font-semibold tabular-nums text-brand-700">
-            {exp.numero?.completo ?? `#${exp.id}`}
-          </span>
-          <CondicionBadge tono={exp.tono}>{exp.estado ?? "—"}</CondicionBadge>
-        </div>
-
-        <p className="mt-1.5 text-[15px] leading-snug text-ink group-hover:text-brand-700">
-          {exp.titulo}
-        </p>
-
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-soft">
-          {exp.tipo && <span>{exp.tipo}</span>}
-          {exp.fechaCreacion && (
-            <>
-              <span aria-hidden className="text-hairline">
-                ·
-              </span>
-              <Antiguedad iso={exp.fechaCreacion} prefijo="Creada" />
-            </>
-          )}
-        </div>
+        {exp.titulo}
       </Link>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-soft">
+        {exp.tipo && <span>{exp.tipo}</span>}
+        {exp.fechaCreacion && (
+          <>
+            <span aria-hidden className="text-hairline">
+              ·
+            </span>
+            <Antiguedad iso={exp.fechaCreacion} prefijo="Creada" />
+          </>
+        )}
+      </div>
     </li>
   );
 }

@@ -74,8 +74,8 @@ export function formatCompactDOP(n: number): string {
   const a = Math.abs(n);
   // Desde 999,500 el redondeo a miles diría «1000 mil»: pasa a millones.
   if (a >= 999_500) return formatPesos(n);
-  if (a >= 1e3) return `RD$ ${Math.round(n / 1e3)} mil`;
-  return `RD$ ${Math.round(n)}`;
+  if (a >= 1e3) return `RD$\u00A0${Math.round(n / 1e3)} mil`;
+  return `RD$\u00A0${Math.round(n)}`;
 }
 
 /** "May '26" para el período de una institución. */

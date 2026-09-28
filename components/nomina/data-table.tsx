@@ -122,8 +122,12 @@ export function DataTable({
       </div>
 
       {total === 0 ? (
-        <div className="px-4 py-16 text-center text-sm text-ink-soft">
-          No hay plazas que coincidan con los filtros.
+        <div className="px-4 py-9 text-center sm:py-14">
+          <p className="text-sm font-medium text-ink">Ninguna plaza coincide con los filtros</p>
+          <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-ink-soft">
+            Quita una palabra de la búsqueda, amplía el rango de sueldo o pulsa
+            «Limpiar» en la barra de filtros.
+          </p>
         </div>
       ) : (
         <div ref={scrollRef} className="h-[400px] overflow-auto sm:h-[600px]">

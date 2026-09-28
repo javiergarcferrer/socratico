@@ -6,7 +6,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Esqueleto } from "@/components/esqueleto";
 import { Cifra, TiraDeCifras } from "@/components/papel";
-import { IconCoins, IconTrendingUp } from "@/components/icons";
+import { IconCoins, IconTrendingUp, IconExternal } from "@/components/icons";
 
 /**
  * Indicadores del bolsillo para el panorama: el precio de los combustibles de
@@ -34,7 +34,7 @@ export function SeccionBolsillo() {
 }
 
 const pesos = (n: number, decimales = 2) =>
-  `RD$ ${n.toLocaleString("es-DO", { minimumFractionDigits: decimales, maximumFractionDigits: decimales })}`;
+  `RD$\u00A0${n.toLocaleString("es-DO", { minimumFractionDigits: decimales, maximumFractionDigits: decimales })}`;
 
 export async function IndicadorCombustibles() {
   const c = await getCombustibles();
@@ -52,7 +52,9 @@ export async function IndicadorCombustibles() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href="https://micm.gob.do/" target="_blank" rel="noopener noreferrer">
-            MICM ↗
+            MICM
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>
@@ -102,7 +104,9 @@ export async function IndicadorTasa() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href="https://www.bancentral.gov.do/a/d/2538-mercado-cambiario" target="_blank" rel="noopener noreferrer">
-            BCRD ↗
+            BCRD
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>

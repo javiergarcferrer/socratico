@@ -5,7 +5,7 @@ import { formatInt } from "@/lib/nomina";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Cifra, TiraDeCifras } from "@/components/papel";
-import { IconMapPin } from "@/components/icons";
+import { IconMapPin, IconExternal } from "@/components/icons";
 import { enlace } from "@/lib/grafo";
 
 /**
@@ -29,7 +29,9 @@ export async function SiniestralidadVial() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href="https://opsevi.intrant.gob.do/" target="_blank" rel="noopener noreferrer">
-            OPSEVI ↗
+            OPSEVI
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>

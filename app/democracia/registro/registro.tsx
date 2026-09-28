@@ -223,7 +223,13 @@ export default function Registro() {
     return (
       <div className="mx-auto max-w-lg">
         <VolverCongreso />
-        <Alert variant="firma" className="mt-4 border-brand-200/60 bg-brand-50/70 p-6 text-center">
+        <Alert
+          variant="firma"
+          // Llega sin cargar página al terminar el registro: se anuncia con
+          // cortesía, no como una alarma.
+          role="status"
+          className="mt-4 border-brand-200/60 bg-brand-50/70 p-6 text-center"
+        >
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-500 text-canvas">
             <IconCheck className="h-6 w-6" />
           </span>
@@ -387,7 +393,7 @@ export default function Registro() {
                 setCedula(limpiarCedula(e.target.value).slice(0, 11));
                 if (cedulaMal) setCedulaMal(false);
               }}
-              placeholder="000-0000000-0"
+              placeholder="001-0000000-0"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -457,6 +463,9 @@ export default function Registro() {
             Enter envía aunque sea un área de texto: un código o una dirección
             pegada no llevan saltos de línea.
           */}
+          <label htmlFor="registro-codigo" className="sr-only">
+            Código de verificación o dirección del correo
+          </label>
           <Textarea
             id="registro-codigo"
             name="codigo"
@@ -467,12 +476,11 @@ export default function Registro() {
               if (codigoMal) setCodigoMal(null);
             }}
             onKeyDown={enviarConEnter}
-            placeholder="000000 — o pega aquí la dirección del correo"
+            placeholder="000000, o pega la dirección del correo…"
             autoComplete="one-time-code"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            aria-label="Código de verificación o enlace del correo"
             aria-invalid={codigoMal ? true : undefined}
             aria-describedby={codigoMal ? "registro-codigo-error" : undefined}
             className="min-h-11 resize-none bg-canvas px-3 py-3 font-mono tabular-nums"
@@ -507,7 +515,7 @@ export default function Registro() {
         </Card>
       )}
 
-      <Alert className="mt-4 flex items-start gap-2.5 bg-canvas/60 p-3.5">
+      <Alert role="note" className="mt-4 flex items-start gap-2.5 bg-canvas/60 p-3.5">
         <IconShield className="mt-0.5 h-4 w-4 shrink-0 text-alerta-600" />
         <p className="text-xs leading-relaxed text-ink-soft">
           No guardamos tu cédula en claro: se convierte en un código irreversible

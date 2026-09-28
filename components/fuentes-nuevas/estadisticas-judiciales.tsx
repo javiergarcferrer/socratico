@@ -1,12 +1,12 @@
 import { getEstadisticasJudiciales } from "@/lib/justicia";
 import { puntos, variacion } from "@/lib/cifras";
-import { formatFecha } from "@/lib/format";
+import { formatFecha, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Cifra, TiraDeCifras } from "@/components/papel";
-import { IconChartBar } from "@/components/icons";
+import { IconChartBar, IconExternal } from "@/components/icons";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -22,7 +22,7 @@ function mesLargo(aaaamm: string): string {
 
 /** Salidas por cada 100 entradas, sin decimales engañosos. */
 function porCien(tasa: number | null): string {
-  return tasa == null ? "—" : formatInt(tasa * 100);
+  return tasa == null ? SIN_DATO : formatInt(tasa * 100);
 }
 
 /**
@@ -56,7 +56,9 @@ export async function EstadisticasJudiciales() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Poder Judicial ↗
+            Poder Judicial
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>
@@ -109,8 +111,8 @@ export async function EstadisticasJudiciales() {
             {a.preliminar
               ? "Cifras preliminares del Poder Judicial, «sujetas a verificación» según su propia hoja. "
               : "Cifras del Poder Judicial. "}
-            Cuenta solicitudes de servicio judicial —demandas, recursos,
-            pedidos al tribunal—, no expedientes ni personas, en la corte de
+            Cuenta solicitudes de servicio judicial (demandas, recursos,
+            pedidos al tribunal), no expedientes ni personas, en la corte de
             apelación, la primera instancia y los juzgados de paz; la Suprema Corte
             va aparte. Una «salida» es una solicitud que el tribunal cerró ese mes,
             {" "}<em>sin importar cuándo entró</em>: por eso la proporción dice si los

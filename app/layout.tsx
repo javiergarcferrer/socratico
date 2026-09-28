@@ -17,6 +17,7 @@ import SectionBar from "@/components/section-bar";
 import { SECCIONES } from "@/lib/secciones";
 import { Logotipo, Sello } from "@/components/marca";
 import { Card } from "@/components/ui/card";
+import { IconArrowRight } from "@/components/icons";
 
 /*
   Tres familias, tres oficios (ver app/globals.css):
@@ -59,7 +60,7 @@ export const metadata: Metadata = {
   // compartido y cada canónica salía relativa.
   metadataBase: new URL(SITIO),
   title: {
-    default: "Socrático — Preguntarle al Estado con sus propios datos",
+    default: "Socrático · Preguntarle al Estado con sus propios datos",
     template: "%s · Socrático",
   },
   description:
@@ -229,14 +230,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <li key={vista.href}>
                           {/*
                             En el teléfono cada enlace es una fila de 40 px, no
-                            un renglón de texto: medidos daban 32, y el pie es
+                            un renglón de texto (44 px): medidos daban 32, y el pie es
                             justo donde se navega con el pulgar cansado al final
                             de una página larga. Desde `sm` vuelve a ser una
                             lista compacta, que es donde hay puntero.
                           */}
                           <Link
                             href={vista.href}
-                            className="flex min-h-10 items-center hover:text-brand-700 sm:block sm:min-h-0"
+                            className="flex min-h-11 items-center hover:text-brand-700 sm:block sm:min-h-0"
                           >
                             {vista.label}
                           </Link>
@@ -264,9 +265,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </h2>
                 <Link
                   href="/seguridad"
-                  className="text-xs font-medium text-brand-700 hover:underline"
+                  className="inline-flex min-h-11 items-center gap-1 text-xs font-medium text-brand-700 hover:underline sm:min-h-6"
                 >
-                  Postura completa →
+                  Postura completa
+                  <IconArrowRight aria-hidden className="h-3.5 w-3.5" />
                 </Link>
               </div>
 
@@ -320,11 +322,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             */}
             <div className="mt-6 flex flex-col gap-2 border-t border-hairline pt-5 text-xs leading-relaxed sm:flex-row sm:items-center sm:justify-between">
               <p>
-                Fuentes: DGCP, los SIL de ambas cámaras del Congreso, la
-                Consultoría Jurídica del Poder Ejecutivo, Crédito Público y las
-                nóminas de transparencia institucional.
+                Cada cifra viene de una fuente oficial del Estado dominicano y
+                la cita junto a ella. Qué se lee, qué está bloqueado y con qué
+                límites, en el estado de las fuentes.
               </p>
-              <nav className="-mx-1 flex shrink-0 flex-wrap gap-x-2 sm:mx-0 sm:gap-x-4">
+              <nav aria-label="Pie de página" className="-mx-1 flex shrink-0 flex-wrap gap-x-2 sm:mx-0 sm:gap-x-4">
                 <Link href="/" className="inline-flex min-h-11 items-center px-1 hover:text-brand-700 sm:min-h-0 sm:px-0">Inicio</Link>
                 <Link href="/seguimiento" className="inline-flex min-h-11 items-center px-1 hover:text-brand-700 sm:min-h-0 sm:px-0">Mi seguimiento</Link>
                 <Link href="/seguridad" className="inline-flex min-h-11 items-center px-1 hover:text-brand-700 sm:min-h-0 sm:px-0">Seguridad</Link>

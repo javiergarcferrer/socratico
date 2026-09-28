@@ -199,7 +199,7 @@ export default function MobileTabBar() {
             // derecho a saberlo igual. El nombre accesible empieza por «Más»,
             // que es lo que se ve (WCAG 2.5.3), y dice después dónde se está.
             aria-current={enHoja ? "page" : undefined}
-            aria-label={aqui ? `Más secciones — estás en ${aqui}` : "Más secciones"}
+            aria-label={aqui ? `Más secciones, estás en ${aqui}` : "Más secciones"}
             className={cn(
               "group relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 pb-1.5 pt-2 text-[11px] font-medium leading-tight transition-colors active:scale-95",
               enHoja ? (actual?.hue.activo ?? "text-ink") : "text-ink-soft",

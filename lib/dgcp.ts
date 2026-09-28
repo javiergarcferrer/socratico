@@ -2,6 +2,7 @@ import { z } from "zod";
 import { etapaPorClave } from "@/lib/estados";
 import { pedirJsonOLanzar } from "@/lib/pedir";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
+import { SIN_DATO } from "@/lib/format";
 
 const BASE = "https://datosabiertos.dgcp.gob.do/api-dgcp/v1";
 const USER_AGENT = "Socratico-Inteligencia/1.0 (compras publicas; herramienta independiente)";
@@ -649,7 +650,7 @@ function fechaValida(iso: string | null | undefined): string | null {
 }
 
 function acumular(mapa: Map<string, AgregadoContrato>, clave: string, monto: number, rpe?: string) {
-  const k = clave || "—";
+  const k = clave || SIN_DATO;
   const a = mapa.get(k) ?? { clave: k, n: 0, monto: 0, rpe };
   a.n += 1;
   a.monto += monto;
@@ -668,8 +669,8 @@ function acumularInstitucion(
   monto: number,
 ) {
   const cod = codigo === null || codigo === undefined ? "" : String(codigo).trim();
-  const k = cod || `n:${nombre || "—"}`;
-  const a = mapa.get(k) ?? { clave: nombre || "—", n: 0, monto: 0, codigo: cod || undefined };
+  const k = cod || `n:${nombre || SIN_DATO}`;
+  const a = mapa.get(k) ?? { clave: nombre || SIN_DATO, n: 0, monto: 0, codigo: cod || undefined };
   a.n += 1;
   a.monto += monto;
   mapa.set(k, a);
@@ -757,7 +758,7 @@ export async function muestrearContratos(
       acumular(adjudicatarios, c.razon_social, monto, c.rpe);
       acumularInstitucion(instituciones, c.codigo_unidad_compra, c.unidad_compra, monto);
     }
-    acumular(estados, c.estado_contrato || "—", monto);
+    acumular(estados, c.estado_contrato || SIN_DATO, monto);
 
     const fecha = fechaValida(c.fecha_adjudicacion);
     if (fecha) {

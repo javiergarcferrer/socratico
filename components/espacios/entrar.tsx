@@ -301,6 +301,9 @@ export default function Entrar({ volver }: { volver: string | null }) {
               <Button type="submit" variant="secondary" disabled={cargando}>
                 {nombreGuardado && nombre.trim() === nombreGuardado ? "Guardado" : "Guardar"}
               </Button>
+              <span role="status" className="sr-only">
+                {nombreGuardado && nombre.trim() === nombreGuardado ? "Nombre de firma guardado." : ""}
+              </span>
             </div>
             <ErrorCampo id="nombre-firma-error">
               {falta === "nombre" ? "Escribe el nombre con que firmas." : ""}
@@ -335,6 +338,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
               <Button type="submit" variant="secondary" disabled={cargando}>
                 {contrasenaGuardada ? "Guardada" : "Guardar"}
               </Button>
+              <span role="status" className="sr-only">{contrasenaGuardada ? "Contraseña guardada." : ""}</span>
             </div>
             {/* La cuenta atrás se ve mientras se teclea, sin anunciarse a cada
                 tecla; solo el intento de guardar corto se anuncia. */}
@@ -491,7 +495,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
               if (codigoMal) setCodigoMal("");
             }}
             onKeyDown={enviarConEnter}
-            placeholder="000000 — o pega la dirección del correo"
+            placeholder="000000, o pega la dirección del correo…"
             autoComplete="one-time-code"
             autoCorrect="off"
             autoCapitalize="off"

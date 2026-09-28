@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import {
@@ -54,9 +55,9 @@ export default async function ObrasPage({ searchParams }: { searchParams: Promis
         className="mx-auto max-w-2xl"
         titulo="No pudimos leer las obras"
         accion={
-          <Link href="/fuentes" className="text-sm font-medium text-brand-700 hover:underline">
-            Ver el estado de las fuentes
-          </Link>
+          <Button asChild variant="secondary">
+            <Link href="/fuentes">Ver el estado de las fuentes</Link>
+          </Button>
         }
       >
         La copia de los datos abiertos de MapaInversiones no está disponible en
@@ -190,7 +191,16 @@ export default async function ObrasPage({ searchParams }: { searchParams: Promis
       )}
 
       {visibles.length === 0 ? (
-        <EstadoVacio titulo="Ninguna obra coincide con esa búsqueda">
+        <EstadoVacio
+          titulo="Ninguna obra coincide con esa búsqueda"
+          accion={
+            filtrado ? (
+              <Button asChild variant="secondary">
+                <Link href="/obras">Quitar la búsqueda y los filtros</Link>
+              </Button>
+            ) : undefined
+          }
+        >
           Prueba con otra palabra del nombre, con el código SNIP o quitando un
           filtro. Si buscas una obra ya terminada, no estará aquí: MapaInversiones
           solo publica las que están en ejecución, paralizadas, en reevaluación o

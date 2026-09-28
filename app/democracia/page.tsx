@@ -93,13 +93,13 @@ export default async function DemocraciaPage() {
         */}
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-lg tracking-tight">
+            <CardTitle className="text-lg">
               ¿Qué dice la ciudadanía?
             </CardTitle>
             <p className="mt-0.5 text-sm text-ink-soft">
               {totalVotos > 0
                 ? `${totalVotos.toLocaleString("es-DO")} votos sobre ${conVotos.length} iniciativas`
-                : "Aún no hay votos — sé quien empiece"}
+                : "Aún no hay votos. Sé quien empiece."}
             </p>
           </div>
           <Link
@@ -127,21 +127,22 @@ export default async function DemocraciaPage() {
       </section>
 
       {/* franja de seguridad */}
-      <Card asChild className="hover:bg-canvas/60">
+      {/* La tarjeta que es un enlace toma el relieve sola (app/globals.css). */}
+      <Card asChild>
         <Link
           href="/democracia/seguridad"
           className="flex items-center gap-4 px-5 py-4"
         >
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
-          <IconShield className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-ink">Cómo protegemos tu identidad y tu voto</p>
-          <p className="mt-0.5 text-xs text-ink-soft">
-            Cédula cifrada con clave que no sale de la base, voto privado a nivel de
-            base de datos, minimización de datos según la Ley 172-13.
-          </p>
-        </div>
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
+            <IconShield className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-ink">Cómo protegemos tu identidad y tu voto</p>
+            <p className="mt-0.5 text-xs text-ink-soft">
+              Cédula cifrada con clave que no sale de la base, voto privado a nivel de
+              base de datos, minimización de datos según la Ley 172-13.
+            </p>
+          </div>
           <IconArrowRight className="h-4 w-4 shrink-0 text-ink-soft" />
         </Link>
       </Card>
@@ -172,7 +173,8 @@ function Paso({ n, titulo, children }: { n: number; titulo: string; children: Re
         {n}
       </span>
       <div className="min-w-0 sm:mt-3">
-        <h3 className="text-sm font-semibold text-ink">{titulo}</h3>
+        {/* h2 y no h3: la página salta de la portada (h1) a los pasos. */}
+        <h2 className="font-sans text-sm font-semibold text-ink">{titulo}</h2>
         <p className="mt-1 text-xs leading-relaxed text-ink-soft">{children}</p>
       </div>
     </Card>
@@ -186,31 +188,36 @@ function FilaRanking({ item }: { item: RankingItem }) {
       ? enlace.expedienteSenado(item.ref.split(":")[0], item.ref.split(":")[1] ?? "")
       : enlace.iniciativa(item.ref);
   return (
-    <li className="border-b border-hairline last:border-0">
-      <Link href={href} className="block px-4 py-3.5 transition-colors hover:bg-canvas/60 sm:px-5">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-mono font-semibold tabular-nums text-brand-700">
-            {item.numero ?? `${item.camara}·${item.ref}`}
-          </span>
-          <Badge forma="etiqueta" variant="contorno" className="bg-canvas font-medium">
-            {item.camara === "senado" ? "Senado" : "Diputados"}
-          </Badge>
-          {item.grupo && <span className="text-ink-soft">{item.grupo}</span>}
-        </div>
-        <p className="mt-1.5 line-clamp-2 text-[15px] leading-snug text-ink">
-          {item.titulo ?? "(iniciativa)"}
-        </p>
-        <div className="mt-2 flex items-center gap-3">
-          <Progress
-            value={pct}
-            aria-label={`${pct} % a favor`}
-            className="flex-1 bg-ink-soft/30 ring-1 ring-inset ring-hairline"
-          />
-          <span className="font-mono shrink-0 text-xs tabular-nums text-ink-soft">
-            <span className="font-semibold text-brand-600">{pct}%</span> · {item.total.toLocaleString("es-DO")} votos
-          </span>
-        </div>
+    <li className="relative border-b border-hairline px-4 py-3.5 last:border-0 sm:px-5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <span className="font-mono font-semibold tabular-nums text-brand-700">
+          {item.numero ?? `${item.camara}·${item.ref}`}
+        </span>
+        <Badge forma="etiqueta" variant="contorno" className="bg-canvas font-medium">
+          {item.camara === "senado" ? "Senado" : "Diputados"}
+        </Badge>
+        {item.grupo && <span className="text-ink-soft">{item.grupo}</span>}
+      </div>
+      {/* El titular es el enlace y se estira sobre la fila; el recorte a dos
+          renglones se declara con el título entero en `title`. */}
+      <Link
+        href={href}
+        title={item.titulo ?? undefined}
+        className="estira mt-1.5 line-clamp-2 break-words text-[15px] leading-snug text-ink hover:text-brand-700"
+      >
+        {item.titulo ?? "Iniciativa sin título en el registro"}
       </Link>
+      <div className="mt-2 flex items-center gap-3">
+        <Progress
+          value={pct}
+          aria-label={`${pct} % a favor`}
+          className="flex-1 bg-ink-soft/30 ring-1 ring-inset ring-hairline"
+        />
+        <span className="font-mono shrink-0 text-xs tabular-nums text-ink-soft">
+          <span className="font-semibold text-brand-600">{pct}&nbsp;%</span> a favor ·{" "}
+          {item.total.toLocaleString("es-DO")} {item.total === 1 ? "voto" : "votos"}
+        </span>
+      </div>
     </li>
   );
 }

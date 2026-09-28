@@ -3,7 +3,7 @@ import { formatFecha, hace } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { IconBell } from "@/components/icons";
+import { IconBell, IconExternal } from "@/components/icons";
 
 const SEVERIDAD: Record<Severidad, { texto: string; variante: "alerta" | "sello" | "neutro" }> = {
   // El ocre es el color del aviso; el sello rojo dice «se anuló»: no se usa aquí.
@@ -48,7 +48,9 @@ export async function AlertasTiempo() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href="https://indomet.gob.do/" target="_blank" rel="noopener noreferrer">
-            INDOMET ↗
+            INDOMET
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>
@@ -82,7 +84,7 @@ export async function AlertasTiempo() {
                   </p>
                 )}
                 <p className="mt-1 font-mono text-xs tabular-nums text-ink-soft">
-                  {x.desde ? `Desde ${momento(x.desde)} · ` : ""}hasta {x.hasta ? momento(x.hasta) : "—"} ·{" "}
+                  {x.desde ? `Desde ${momento(x.desde)} · ` : ""}{x.hasta ? `hasta ${momento(x.hasta)}` : "sin fecha de fin"} ·{" "}
                   <a href={x.url} target="_blank" rel="noopener noreferrer" className="text-brand-700 hover:underline">
                     alerta oficial (XML)
                   </a>

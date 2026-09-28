@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSerieDeuda, periodoDeFecha, type CierreDeuda } from "@/lib/deuda";
-import { formatFecha, formatMagnitud } from "@/lib/format";
+import { formatFecha, formatMagnitud, SIN_DATO } from "@/lib/format";
 import { variacion } from "@/lib/cifras";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ function conSigno(millones: number): string {
 /** Una variación entre dos cierres, en monto y en por ciento. */
 function cambio(actual: number, anterior: number | undefined): string {
   const v = variacion(actual, anterior);
-  if (!v) return "—";
+  if (!v) return SIN_DATO;
   return v.pct === null
     ? conSigno(v.abs)
     : `${conSigno(v.abs)} (${v.pct >= 0 ? "+" : "−"}${Math.abs(v.pct).toFixed(1)} %)`;
@@ -53,6 +53,7 @@ export default async function DeudaPage() {
     return (
       <EstadoVacio
         variante="caida"
+        como="h1"
         className="mx-auto max-w-2xl"
         titulo="No pudimos leer la serie de deuda"
         accion={
@@ -113,7 +114,7 @@ export default async function DeudaPage() {
         }
         aviso={
           ultimo.desdeInstantanea
-            ? `Instantánea verificada del ${generadoEn}: el servidor del origen no acepta lecturas desde la nube`
+            ? `Instantánea verificada el ${formatFecha(generadoEn)}: el servidor del origen no acepta lecturas desde la nube`
             : undefined
         }
       >
@@ -172,7 +173,7 @@ export default async function DeudaPage() {
                       <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">{formatMagnitud(a.externa)}</TableCell>
                       <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">{formatMagnitud(a.interna)}</TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
-                        {a.pctPib != null ? `${a.pctPib.toFixed(1)} %` : "—"}
+                        {a.pctPib != null ? `${a.pctPib.toFixed(1)} %` : SIN_DATO}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -226,8 +227,9 @@ export default async function DeudaPage() {
                 <span className="min-w-0">
                   <span className="block font-mono tabular-nums">{formatFecha(c.fecha)}</span>
                   <span className="block text-xs text-ink-soft">
-                    {cambio(c.total, previoDe(c)?.total)}
-                    {previoDe(c) ? ` desde ${periodoDeFecha(previoDe(c)!.fecha)}` : ""}
+                    {previoDe(c)
+                      ? `${cambio(c.total, previoDe(c)!.total)} desde ${periodoDeFecha(previoDe(c)!.fecha)}`
+                      : "primer cierre publicado"}
                   </span>
                 </span>
                 <span className="shrink-0 font-mono font-semibold tabular-nums">
@@ -243,7 +245,7 @@ export default async function DeudaPage() {
 
       <Card as="section" className="p-5 sm:p-6">
         <CardTitle>Cómo leer estas cifras</CardTitle>
-        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+        <dl className="mt-3 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="rotulo text-ink-soft">Sector Público No Financiero</dt>
             <dd className="text-ink-soft">
@@ -254,8 +256,8 @@ export default async function DeudaPage() {
           <div>
             <dt className="rotulo text-ink-soft">Externa e interna</dt>
             <dd className="text-ink-soft">
-              Externa es la que se debe a acreedores de fuera —organismos como el
-              BID, otros países, bonos vendidos afuera—; interna, la que se debe
+              Externa es la que se debe a acreedores de fuera: organismos como el
+              BID, otros países, bonos vendidos afuera. Interna, la que se debe
               dentro del país. Toda se expresa en dólares.
             </dd>
           </div>
@@ -281,7 +283,7 @@ export default async function DeudaPage() {
           cierre; los años, del archivo «Saldo Deuda Histórico», metodología
           nueva. El origen no conserva los meses intermedios de años pasados, y
           su servidor no acepta conexiones desde la nube: la serie es una
-          instantánea generada el {generadoEn} con{" "}
+          instantánea generada el {formatFecha(generadoEn)} con{" "}
           <span className="font-mono">python3 scripts/build-deuda.py</span>.
         </p>
       </Card>

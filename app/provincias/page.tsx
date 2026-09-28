@@ -47,12 +47,16 @@ export default function ProvinciasPage() {
 
       <Card as="section" className="p-5 sm:p-6">
         <CardTitle>Provincias</CardTitle>
-        <ul className="mt-3 grid gap-x-4 gap-y-1 text-[15px] sm:grid-cols-2 lg:grid-cols-3">
+        {/*
+          Dos columnas ya en el teléfono: los nombres son cortos y en una sola
+          la lista medía dos pantallas de enlaces de una palabra.
+        */}
+        <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[15px] lg:grid-cols-3">
           {PROVINCIAS.map((p) => (
-            <li key={p.slug}>
+            <li key={p.slug} className="min-w-0">
               <Link
                 href={enlace.provincia(p.slug)}
-                className="flex min-h-11 items-center text-brand-700 hover:underline sm:min-h-9"
+                className="flex min-h-11 items-center break-words leading-snug text-brand-700 hover:underline sm:min-h-9"
               >
                 {p.nombre}
               </Link>
@@ -104,7 +108,7 @@ async function Reparto() {
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         Muestra: los {formatInt(r.consultados)} proveedores que más adjudicaron en
         los {formatInt(r.contratosEscaneados)} contratos más recientes de la DGCP
-        {r.desde && r.hasta ? ` (${formatFecha(r.desde)} — ${formatFecha(r.hasta)})` : ""}, de{" "}
+        {r.desde && r.hasta ? ` (del ${formatFecha(r.desde)} al ${formatFecha(r.hasta)})` : ""}, de{" "}
         {formatInt(r.enVentana)} con contratos en esa ventana, según la provincia de
         su ficha en el Registro de Proveedores. No es el padrón de cada provincia.
       </p>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import type { ReferenciaHilo } from "@/lib/espacios";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,6 @@ export default function VotoHilo({
   className?: string;
 }) {
   const hay = useHaySesion();
-  const router = useRouter();
   const pathname = usePathname();
   const [votos, setVotos] = useState(votosIniciales);
   const [mio, setMio] = useState(miVotoInicial);
@@ -56,10 +56,6 @@ export default function VotoHilo({
   }, [votosIniciales, miVotoInicial]);
 
   async function alternar() {
-    if (!hay) {
-      router.push(`/cuenta?volver=${encodeURIComponent(pathname)}`);
-      return;
-    }
     const antes = { votos, mio };
     setMio(!mio);
     setVotos(votos + (mio ? -1 : 1));
@@ -78,37 +74,53 @@ export default function VotoHilo({
   }
 
   const etiqueta = mio ? "Ya dijiste que importa; pulsa para retirarlo" : "Decir que esto importa";
+  const cuenta = `${votos} ${votos === 1 ? "cuenta lo dice" : "cuentas lo dicen"}.`;
+  const forma = cn(vertical ? "h-auto w-12 flex-col gap-0.5 py-1.5 sm:w-11" : "gap-2", mio && "text-brand-700");
+  const contenido = (
+    <>
+      <IconVoto className="h-4 w-4" />
+      {vertical ? (
+        <span className="font-mono text-xs tabular-nums">{votos}</span>
+      ) : (
+        <>
+          Importa
+          <span className="font-mono tabular-nums text-ink-soft">{votos}</span>
+        </>
+      )}
+    </>
+  );
   return (
     <span className={cn("inline-flex flex-col items-center", className)}>
-      <Button
-        type="button"
-        variant="outline"
-        size={vertical ? "icon" : "default"}
-        aria-pressed={mio}
-        aria-label={`${etiqueta}. ${votos} ${votos === 1 ? "cuenta lo dice" : "cuentas lo dicen"}.`}
-        title={hay ? etiqueta : "Entra para votar"}
-        disabled={enCurso || !!cerradoPorque}
-        aria-describedby={cerradoPorque ? idRazon : undefined}
-        onClick={alternar}
-        className={cn(vertical ? "h-auto w-12 flex-col gap-0.5 py-1.5 sm:w-11" : "gap-2", mio && "text-brand-700")}
-      >
-        <IconVoto className="h-4 w-4" />
-        {vertical ? (
-          <span className="font-mono text-xs tabular-nums">{votos}</span>
-        ) : (
-          <>
-            Importa
-            <span className="font-mono tabular-nums text-ink-soft">{votos}</span>
-          </>
-        )}
-      </Button>
+      {hay ? (
+        <Button
+          type="button"
+          variant="outline"
+          size={vertical ? "icon" : "default"}
+          aria-pressed={mio}
+          aria-label={`${etiqueta}. ${cuenta}`}
+          title={etiqueta}
+          disabled={enCurso || !!cerradoPorque}
+          aria-describedby={cerradoPorque ? idRazon : undefined}
+          onClick={alternar}
+          className={forma}
+        >
+          {contenido}
+        </Button>
+      ) : (
+        // Sin sesión, votar empieza por entrar: es un enlace, no un botón que navega.
+        <Button asChild variant="outline" size={vertical ? "icon" : "default"} className={forma}>
+          <Link href={`/cuenta?volver=${encodeURIComponent(pathname)}`} aria-label={`Entra para decir que esto importa. ${cuenta}`} title="Entra para votar">
+            {contenido}
+          </Link>
+        </Button>
+      )}
       {cerradoPorque && (
         <span id={idRazon} className={razonVisible ? "mt-1 max-w-56 text-center text-xs leading-snug text-ink-soft" : "sr-only"}>
           {cerradoPorque}
         </span>
       )}
       {error && (
-        <span role="status" className="mt-1 max-w-48 text-center text-xs leading-snug text-alerta-700">
+        <span role="alert" className="mt-1 max-w-48 text-center text-xs leading-snug text-alerta-700">
           {error}
         </span>
       )}

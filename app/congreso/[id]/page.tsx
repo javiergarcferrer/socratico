@@ -17,13 +17,14 @@ import {
   normalizarIniciativa,
   normalizarProponente,
 } from "@/lib/congreso";
-import { formatFecha, hace } from "@/lib/format";
+import { formatFecha, hace, SIN_DATO } from "@/lib/format";
 import { getAgregado, refIniciativa } from "@/lib/democracia";
 import VotoWidget from "@/components/democracia/voto-widget";
 import Dossier from "@/components/congreso/dossier";
 import Plegable from "@/components/plegable";
 import ListaPlegada from "../lista-plegada";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { IconExternal } from "@/components/icons";
 import { Esqueleto } from "@/components/esqueleto";
@@ -66,7 +67,7 @@ export async function generateMetadata({ params }: Props) {
   if (!raw) return { title: "Iniciativa no encontrada" };
   const ini = normalizarIniciativa(raw);
   return {
-    title: ini.numero?.completo ?? `Iniciativa ${ini.id}`,
+    title: `Iniciativa ${ini.numero?.completo ?? ini.id} · Diputados`,
     description: ini.titulo.slice(0, 160),
     alternates: { canonical: enlace.iniciativa(ini.id) },
   };
@@ -138,7 +139,7 @@ export default async function IniciativaPage({ params }: Props) {
           <MarcaIniciativa iniciativa={ini} />
         </div>
 
-        <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-ink sm:text-2xl">
+        <h1 className="mt-2 break-words text-xl leading-snug text-ink sm:text-2xl">
           <TextoEnlazado texto={titulo} />
         </h1>
 
@@ -157,6 +158,9 @@ export default async function IniciativaPage({ params }: Props) {
       {perencion && perencion.estado !== "sin-datos" && (
         <Alert
           variant={perencion.estado === "en-riesgo" ? "aviso" : "neutro"}
+          // Es un dato de la ficha, no un aviso que llega: `alert` lo leería en
+          // voz alta al cargar la página.
+          role="note"
           className="mt-5"
         >
           <p
@@ -167,10 +171,13 @@ export default async function IniciativaPage({ params }: Props) {
             }
           >
             {perencion.estado === "en-riesgo" && (
-              <><Termino clave="perime">Perime</Termino> en {perencion.diasRestantes} días</>
+              <>
+                <Termino clave="perime">Perime</Termino> en {perencion.diasRestantes}{" "}
+                {perencion.diasRestantes === 1 ? "día" : "días"}
+              </>
             )}
             {perencion.estado === "vigente" &&
-              `Quedan ${perencion.diasRestantes} días de legislatura`}
+              `${perencion.diasRestantes === 1 ? "Queda 1 día" : `Quedan ${perencion.diasRestantes} días`} de legislatura`}
             {perencion.estado === "cerrada" && "Su legislatura ya cerró"}
           </p>
           <p className="mt-0.5 text-xs text-ink-soft">
@@ -329,9 +336,9 @@ export default async function IniciativaPage({ params }: Props) {
                           )}
                         </div>
                         <div className="-mt-0.5 min-w-0 flex-1">
-                          <p className="text-sm font-medium text-ink">{h.estado ?? "—"}</p>
+                          <p className="text-sm font-medium text-ink">{h.estado ?? "Sin estado"}</p>
                           <p className="font-mono mt-0.5 text-xs tabular-nums text-ink-soft">
-                            {formatFecha(h.inicio ?? undefined)}
+                            {h.inicio ? formatFecha(h.inicio) : "Sin fecha"}
                             {h.fin && h.fin !== h.inicio && (
                               <> → {formatFecha(h.fin)}</>
                             )}
@@ -432,13 +439,13 @@ export default async function IniciativaPage({ params }: Props) {
           <Dato etiqueta="Legislatura" valor={ini.legislatura} mono />
           <Dato
             etiqueta="Depositada"
-            valor={formatFecha(ini.fechaDeposito ?? undefined)}
+            valor={ini.fechaDeposito ? formatFecha(ini.fechaDeposito) : null}
             nota={hace(ini.fechaDeposito)}
             mono
           />
           <Dato
             etiqueta="Último cambio"
-            valor={formatFecha(ini.fechaUltimoCambio ?? undefined)}
+            valor={ini.fechaUltimoCambio ? formatFecha(ini.fechaUltimoCambio) : null}
             nota={hace(ini.fechaUltimoCambio)}
             mono
           />
@@ -446,9 +453,9 @@ export default async function IniciativaPage({ params }: Props) {
             etiqueta="Promulgación"
             valor={
               ini.promulgada
-                ? [ini.numPromulgacion, formatFecha(ini.fechaPromulgacion ?? undefined)]
+                ? [ini.numPromulgacion, ini.fechaPromulgacion && formatFecha(ini.fechaPromulgacion)]
                     .filter(Boolean)
-                    .join(" · ")
+                    .join(" · ") || null
                 : "No promulgada"
             }
             mono
@@ -482,7 +489,7 @@ async function VotacionesDelPleno({ id }: { id: number }) {
       <Panel titulo="¿Cómo votó la Cámara?">
         <p className="px-5 py-6 text-sm text-ink-soft">
           El registro de votaciones del SIL no respondió. El resto de la ficha
-          no depende de él.
+          no depende de él; vuelve a cargar la página en unos minutos.
         </p>
       </Panel>
     );
@@ -543,13 +550,13 @@ function FilaDocumento({
         <p className="text-sm font-medium text-ink">
           {doc.etiqueta}
           {doc.etapa.texto && (
-            <span className="ml-2 rounded bg-brand-50 px-1.5 py-0.5 rotulo text-brand-700">
+            <Badge variant="firma" className="ml-2 align-middle">
               texto
-            </span>
+            </Badge>
           )}
         </p>
         <p className="font-mono mt-0.5 text-xs tabular-nums text-ink-soft">
-          {formatFecha(doc.cargado ?? undefined)}
+          {doc.cargado ? formatFecha(doc.cargado) : "Sin fecha de carga"}
           {doc.extension && ` · ${doc.extension.toUpperCase()}`}
         </p>
       </div>
@@ -566,6 +573,7 @@ function FilaDocumento({
           className="-my-1 -mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-xs font-medium text-brand-700 hover:underline sm:my-0 sm:mr-0 sm:min-h-0 sm:px-0"
         >
           Abrir
+          <span className="sr-only">{` ${doc.etiqueta} (en otra pestaña)`}</span>
           <IconExternal className="h-3.5 w-3.5" />
         </a>
       )}
@@ -617,7 +625,7 @@ function Dato({
             : "mt-0.5 text-sm text-ink"
         }
       >
-        {valor ?? "—"}
+        {valor ?? SIN_DATO}
       </dd>
       {nota && <p className="mt-0.5 text-xs text-ink-soft">{nota}</p>}
     </div>

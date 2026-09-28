@@ -156,7 +156,7 @@ export default function LectorPdf({ url, urlOrigen }: Props) {
           El origen no lo entregó en un formato que se pueda dibujar. Ábrelo en
           su sitio oficial.
         </p>
-        <Button asChild variant="secondary" size="sm" className="mt-3">
+        <Button asChild variant="secondary" className="mt-3">
           <a href={urlOrigen} target="_blank" rel="noopener noreferrer">
             Abrir en el origen
           </a>
@@ -184,8 +184,19 @@ export default function LectorPdf({ url, urlOrigen }: Props) {
           >
             ‹
           </Boton>
-          <span className="min-w-[4.5rem] text-center font-mono text-xs tabular-nums text-ink-soft">
-            {estado === "listo" ? `${pagina} / ${paginas}` : "cargando…"}
+          {/* Pasar página no carga nada: el número nuevo se anuncia. */}
+          <span
+            aria-live="polite"
+            className="min-w-[4.5rem] text-center font-mono text-xs tabular-nums text-ink-soft"
+          >
+            {estado === "listo" ? (
+              <>
+                <span aria-hidden>{`${pagina} / ${paginas}`}</span>
+                <span className="sr-only">{`Página ${pagina} de ${paginas}`}</span>
+              </>
+            ) : (
+              "Cargando…"
+            )}
           </span>
           <Boton
             onClick={() => setPagina((p) => Math.min(paginas, p + 1))}
@@ -204,7 +215,7 @@ export default function LectorPdf({ url, urlOrigen }: Props) {
             −
           </Boton>
           <span className="min-w-[2.75rem] text-center font-mono text-xs tabular-nums text-ink-soft">
-            {Math.round(zoom * 100)}%
+            {Math.round(zoom * 100)}&nbsp;%
           </span>
           <Boton
             onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
@@ -232,6 +243,8 @@ export default function LectorPdf({ url, urlOrigen }: Props) {
         )}
         <canvas
           ref={lienzo}
+          role="img"
+          aria-label={`Página ${pagina} de ${paginas} del documento`}
           className={estado === "listo" ? "mx-auto border border-hairline" : "hidden"}
         />
       </div>
@@ -264,7 +277,7 @@ function Boton({
       disabled={desactivado}
       className="text-base"
     >
-      {children}
+      <span aria-hidden>{children}</span>
       <span className="sr-only">{etiqueta}</span>
     </Button>
   );

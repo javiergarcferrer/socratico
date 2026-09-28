@@ -166,7 +166,7 @@ export default function Evidencia({
                   <TableCell>
                     <MarcaTipo tipo={f.tipo} />
                   </TableCell>
-                  <TableCell className="whitespace-nowrap font-mono text-xs">{f.fecha ? formatFecha(f.fecha) : "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap font-mono text-xs">{f.fecha ? formatFecha(f.fecha) : <span className="font-sans text-ink-soft">sin fecha</span>}</TableCell>
                   <TableCell numerica>{f.enlaces}</TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-ink-soft">
                     <Antiguedad iso={f.creado} />

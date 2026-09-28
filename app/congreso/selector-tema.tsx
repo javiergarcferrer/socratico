@@ -34,7 +34,9 @@ export default function SelectorTema({
 
   return (
     <div>
-      <Label className="text-xs text-ink-soft">Tema</Label>
+      <Label htmlFor="selector-tema" className="text-xs text-ink-soft">
+        Tema
+      </Label>
       <Select
         value={filtros.tema ? String(filtros.tema) : TODOS}
         onValueChange={(v) =>
@@ -44,7 +46,7 @@ export default function SelectorTema({
         }
         disabled={pendiente}
       >
-        <SelectTrigger aria-label="Tema de la iniciativa" className="mt-1">
+        <SelectTrigger id="selector-tema" className="mt-1">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -84,13 +84,15 @@ export function SelectoresLegisladores({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div>
-        <Label className="text-xs text-ink-soft">Provincia o demarcación</Label>
+        <Label htmlFor="filtro-provincia" className="text-xs text-ink-soft">
+          Provincia o demarcación
+        </Label>
         <Select
           value={filtros.provincia || TODOS}
           onValueChange={(v) => ir({ provincia: v === TODOS ? "" : v })}
           disabled={pendiente}
         >
-          <SelectTrigger aria-label="Provincia o demarcación" className="mt-1">
+          <SelectTrigger id="filtro-provincia" className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -107,13 +109,15 @@ export function SelectoresLegisladores({
       </div>
 
       <div>
-        <Label className="text-xs text-ink-soft">Partido</Label>
+        <Label htmlFor="filtro-partido" className="text-xs text-ink-soft">
+          Partido
+        </Label>
         <Select
           value={filtros.partido || TODOS}
           onValueChange={(v) => ir({ partido: v === TODOS ? "" : v })}
           disabled={pendiente}
         >
-          <SelectTrigger aria-label="Partido" className="mt-1">
+          <SelectTrigger id="filtro-partido" className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

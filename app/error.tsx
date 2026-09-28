@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 import { EstadoVacio } from "@/components/estado-vacio";
 
@@ -21,15 +23,21 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
       <EstadoVacio
         className="w-full"
         variante="caida"
+        como="h1"
         titulo="La fuente no respondió"
         accion={
-          <Button size="lg" onClick={reset} className="w-full sm:w-auto">
+          <Button type="button" size="lg" onClick={reset} className="w-full sm:w-auto">
             Reintentar
           </Button>
         }
       >
         Los sistemas del Estado a veces tardan o se caen por momentos. Suele
         resolverse en segundos; los filtros y la dirección siguen intactos.
+        Si vuelve a fallar, mira si está caída en{" "}
+        <Link href="/fuentes" className="font-medium text-brand-700 underline-offset-4 hover:underline">
+          el estado de las fuentes
+        </Link>
+        .
       </EstadoVacio>
     </div>
   );

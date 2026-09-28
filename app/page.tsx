@@ -20,7 +20,7 @@ import { getResumenNomina } from "@/lib/nomina-server";
 import { getTasa } from "@/lib/tasa";
 import { getCombustibles } from "@/lib/combustibles";
 import { getMacro } from "@/lib/macro";
-import { diasHasta, formatFecha, formatMagnitud, formatMonto, formatPesos } from "@/lib/format";
+import { diasHasta, formatFecha, formatMagnitud, formatMonto, formatPesos, SIN_DATO } from "@/lib/format";
 import { SECCIONES } from "@/lib/secciones";
 import { MENU, puntoDe, type GrupoMenu } from "@/lib/menu";
 import { consultarNormativa } from "@/lib/normativa";
@@ -116,8 +116,8 @@ export default function Inicio() {
         titulo="¿Qué hace el Estado con lo que es de todos?"
         descripcion={
           <p className="sm:text-base">
-            Socrático reúne en un solo lugar lo que publica el Estado —compras,
-            presupuesto, deuda, nómina, leyes, Congreso, tribunales, obras—, leído
+            Socrático reúne en un solo lugar lo que publica el Estado (compras,
+            presupuesto, deuda, nómina, leyes, Congreso, tribunales, obras), leído
             de sus fuentes oficiales y explicado en llano. Busca, compara y entiende
             sin cuenta; con una, investiga: guarda registros, enlázalos, anótalos y
             publica lo que encuentres.
@@ -142,7 +142,7 @@ export default function Inicio() {
             placeholder="Una institución, una ley, un RNC, una compra…"
             className="border-canvas/25 bg-canvas text-ink"
           />
-          <Button type="submit" size="lg" className="shrink-0 bg-canvas text-ink hover:bg-surface">
+          <Button type="submit" className="shrink-0 bg-canvas text-ink hover:bg-surface">
             <IconSearch className="h-4 w-4" />
             <span className="sr-only sm:not-sr-only">Buscar</span>
           </Button>
@@ -231,10 +231,10 @@ export default function Inicio() {
       <p className="px-1 text-[13px] leading-relaxed text-ink-soft sm:text-xs">
         Herramienta independiente y no oficial. Los datos se muestran tal como los
         publican sus fuentes; ninguna cifra del Estado se guarda en una base de datos
-        propia. Las cifras del Congreso marcadas “de {PAGINAS_CONGRESO * SIL_PAGE_SIZE}”
-        salen de una muestra acotada, no del corpus completo —{" "}
+        propia. Las cifras del Congreso marcadas «de {PAGINAS_CONGRESO * SIL_PAGE_SIZE}»
+        salen de una muestra acotada, no del corpus completo.{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
-          ver el estado y los límites de cada fuente
+          Mira el estado y los límites de cada fuente
         </Link>
         .
       </p>
@@ -317,7 +317,7 @@ function CifraEsqueleto({ etiqueta }: { etiqueta: string }) {
 
 /** Cuando la fuente no contesta: la cifra no se inventa, se dice. */
 function CifraCaida({ etiqueta }: { etiqueta: string }) {
-  return <Cifra etiqueta={etiqueta} valor="—" nota="La fuente no respondió." />;
+  return <Cifra etiqueta={etiqueta} valor={SIN_DATO} nota="La fuente no respondió. Vuelve sola cuando el origen se restablece." />;
 }
 
 async function CifraDeuda() {
@@ -338,7 +338,7 @@ async function CifraDolar() {
   return (
     <Cifra
       etiqueta="Dólar (venta)"
-      valor={`RD$ ${t.ultimo.venta.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+      valor={`RD$\u00a0${t.ultimo.venta.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
       nota={`Banco Central · ${formatFecha(t.ultimo.fecha)}`}
     />
   );
@@ -351,7 +351,7 @@ async function CifraGasolina() {
   return (
     <Cifra
       etiqueta="Gasolina premium, el galón"
-      valor={`RD$ ${premium.precio.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+      valor={`RD$\u00a0${premium.precio.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
       nota={`MICM${c.semana ? ` · semana del ${c.semana}` : ""}`}
     />
   );
@@ -382,7 +382,7 @@ function SeccionEspacio() {
   const razones: { Icon: (p: { className?: string }) => React.ReactElement; titulo: string; texto: string }[] = [
     { Icon: IconBookmark, titulo: "Guarda lo que encuentras", texto: "Una compra, una ley, un proveedor, una sentencia, una búsqueda: con un toque desde su ficha." },
     { Icon: IconFolder, titulo: "Arma investigaciones", texto: "Junta registros de toda la plataforma en un mismo expediente, con su descripción." },
-    { Icon: IconLink, titulo: "Enlaza y anota", texto: "Di qué une a dos registros —«la adjudicó», «la firmó»— y anota qué encontraste en cada uno." },
+    { Icon: IconLink, titulo: "Enlaza y anota", texto: "Di qué une a dos registros («la adjudicó», «la firmó») y anota qué encontraste en cada uno." },
     { Icon: IconShare, titulo: "Publica o trabaja en equipo", texto: "Publica la investigación con tu firma o invita a colegas a editarla o leerla." },
     { Icon: IconBell, titulo: "Entérate de lo que cambia", texto: "Lo que sigues viaja con tu cuenta: al entrar, en cualquier dispositivo, ves qué cambió." },
   ];
@@ -411,8 +411,8 @@ function SeccionEspacio() {
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <LlamadaCuenta />
             <p className="text-xs leading-relaxed text-ink-soft">
-              Gratis. Entras con un código al correo o, si la creas, con tu contraseña. Guardamos lo que eliges
-              —nunca los datos del Estado, que siguen leyéndose de su fuente—.{" "}
+              Gratis. Entras con un código al correo o, si la creas, con tu contraseña. Guardamos lo que eliges, nunca
+              los datos del Estado, que siguen leyéndose de su fuente.{" "}
               <Link href="/cuenta" className="font-medium text-brand-700 hover:underline">
                 Qué guardamos
               </Link>
@@ -597,7 +597,7 @@ async function DominioFinanzas() {
                 etiqueta: "De su presupuesto vigente",
                 valor:
                   fiscal.ejecucion === null
-                    ? "—"
+                    ? SIN_DATO
                     : `${(fiscal.ejecucion * 100).toFixed(1)} %`,
               },
               {
@@ -839,7 +839,12 @@ function Dominio({
           {cifras.map((c) => (
             <div
               key={c.etiqueta}
-              className={cn("items-baseline justify-between gap-3", c.destacar ? "flex" : "hidden sm:flex")}
+              className={cn(
+                "items-baseline justify-between gap-3",
+                // A cuatro columnas la tarjeta mide 200 px de texto: la cifra
+                // destacada baja bajo su etiqueta en vez de estrujarla.
+                c.destacar ? "flex lg:flex-col lg:items-start lg:gap-0.5" : "hidden sm:flex",
+              )}
             >
               {/*
                 En teléfono la tarjeta ocupa el ancho entero y la etiqueta
@@ -852,8 +857,8 @@ function Dominio({
               <dd
                 className={
                   c.destacar
-                    ? "font-mono text-lg font-semibold tabular-nums tracking-tight text-ink"
-                    : "font-mono text-sm font-semibold tabular-nums text-ink"
+                    ? "shrink-0 whitespace-nowrap text-right font-mono text-lg font-semibold tabular-nums tracking-tight text-ink lg:text-left"
+                    : "text-right font-mono text-sm font-semibold tabular-nums text-ink"
                 }
               >
                 {c.valor}
@@ -957,18 +962,18 @@ function Panel({
 }) {
   return (
     <Card as="section">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-ink-soft" />
-          {titulo}
+      {/*
+        A 390 px dos de los tres titulares no dejan sitio para el enlace, y la
+        cabecera envolvía: «Ver todas» caía solo en un segundo renglón, lejos
+        de lo que nombra. Ahora la cabecera no envuelve; el titular se parte
+        en dos líneas (`min-w-0`) y el enlace se queda a su lado.
+      */}
+      <CardHeader className="flex-nowrap">
+        <CardTitle className="flex min-w-0 items-start gap-2">
+          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
+          <span className="min-w-0">{titulo}</span>
         </CardTitle>
-        {/*
-          «Se archivan al cerrar la legislatura» no deja sitio para el enlace a
-          390 px y la cabecera envuelve: `ml-auto` lo manda igualmente al
-          margen derecho en el renglón de abajo, en vez de dejarlo alineado con
-          el titular como si fuera un subtítulo.
-        */}
-        <CardAction className="ml-auto">
+        <CardAction>
           <Button asChild variant="link" className="-my-1.5 -mr-2 px-2 text-xs">
             <Link href={href}>Ver todas</Link>
           </Button>

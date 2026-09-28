@@ -12,7 +12,7 @@ import { EstadoVacio } from "@/components/estado-vacio";
 import { BuscadorUrl } from "@/components/buscador-url";
 import { FiltroEnlace, NavFiltros } from "@/components/nav-filtros";
 import { Portada, PortadaCifra, PortadaCifras } from "@/components/portada";
-import { formatMagnitud, formatPesos, hace } from "@/lib/format";
+import { formatMagnitud, formatPesos, hace, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { Termino } from "@/components/termino";
 import { DescargarCsv } from "./descargar-csv";
@@ -27,9 +27,9 @@ export const metadata: Metadata = {
     "En qué gasta el Estado dominicano: presupuesto vigente, comprometido, devengado y pagado por institución, mes a mes, según la API de datos abiertos del SIGEF.",
 };
 
-/** Porcentaje con una decimal, o guion si no hay contra qué medir. */
+/** Porcentaje con una decimal, o «sin dato» si no hay contra qué medir. */
 function pct(v: number | null): string {
-  return v === null ? "—" : `${(v * 100).toFixed(1)} %`;
+  return v === null ? SIN_DATO : `${(v * 100).toFixed(1)} %`;
 }
 
 /** Un monto con su signo delante: «+RD$ 12.0 mil millones», «−RD$ 2.0 …». */
@@ -76,12 +76,19 @@ export default async function FinanzasPage({
   if (!fiscal) {
     return (
       <EstadoVacio
+        como="h1"
         className="mx-auto max-w-2xl"
         titulo="Todavía no hay instantánea de ejecución"
+        accion={
+          <Button asChild variant="secondary">
+            <Link href="/fuentes">Ver el estado de las fuentes</Link>
+          </Button>
+        }
       >
         Se genera con{" "}
         <span className="font-mono">python3 scripts/build-fiscal.py</span>, que
-        consulta la API de datos abiertos del SIGEF.
+        consulta la API de datos abiertos del SIGEF. Mientras tanto, la deuda
+        pública sigue en <Link href="/deuda" className="font-medium text-brand-700 hover:underline">/deuda</Link>.
       </EstadoVacio>
     );
   }
@@ -194,8 +201,8 @@ export default async function FinanzasPage({
             El presupuesto no se ejecuta de golpe: se aprueba, se modifica, se
             compromete, se devenga y se paga. Estas son las cifras de cada
             institución en {fiscal.anio}, con el gasto{" "}
-            <Termino clave="devengado" className="font-medium text-canvas">devengado</Termino> —lo que el
-            Estado ya se obligó a pagar— como medida.
+            <Termino clave="devengado" className="font-medium text-canvas">devengado</Termino> como
+            medida: lo que el Estado ya se obligó a pagar.
           </>
         }
       >
@@ -258,7 +265,7 @@ export default async function FinanzasPage({
               </dl>
               <p className="mt-3 text-xs text-ink-soft">
                 Fuente: Crédito Público (Ministerio de Hacienda).
-                {deuda.desdeInstantanea && " Instantánea local: el origen no responde al egreso de la nube."}
+                {deuda.desdeInstantanea && " Instantánea guardada: el portal de origen no responde desde nuestros servidores."}
               </p>
               <Button asChild variant="secondary" className="mt-4 w-full">
                 <Link href="/deuda">Cómo ha crecido desde 2000</Link>
@@ -268,8 +275,13 @@ export default async function FinanzasPage({
               </Link>
             </>
           ) : (
-            <p className="mt-3 text-sm text-ink-soft">
-              El saldo de deuda no está disponible ahora mismo.
+            <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+              Crédito Público no respondió y no hay instantánea que mostrar.
+              Revisa su estado en{" "}
+              <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
+                las fuentes
+              </Link>{" "}
+              o vuelve en unos minutos.
             </p>
           )}
         </Card>
@@ -355,7 +367,7 @@ export default async function FinanzasPage({
           <Suspense>
             <BuscadorUrl
               etiqueta="Buscar una institución en el presupuesto"
-              placeholder="Nombre o capítulo: Educación, Obras Públicas, 0206…"
+              placeholder="Educación, MOPC, 0206…"
               ayuda={`Busca en el nombre, las siglas y el código de capítulo de las ${fiscal.instituciones.length} instituciones del Presupuesto General del Estado, todas las palabras en cualquier orden y sin distinguir tildes.`}
             />
           </Suspense>
@@ -392,43 +404,50 @@ export default async function FinanzasPage({
             capítulo, o quita el filtro de sección.
           </EstadoVacio>
         ) : (
-          <ul className="mt-4 space-y-2">
+          <ul className="-mx-2 mt-4 divide-y divide-hairline border-y border-hairline">
             {visibles.map((i) => (
               /*
                 `--cv-alto` es lo que el navegador reserva por fila sin pintarla:
                 a 390 px el nombre de la institución ocupa dos líneas y la fila
-                mide unos 120 px, no los 88 de escritorio. Con la estimación corta
+                mide unos 110 px, no los 80 de escritorio. Con la estimación corta
                 la barra de desplazamiento saltaba al pintar cada tramo.
+
+                La fila entera es el enlace (`estira`): responde como fila de
+                lista, con tinta al apuntar y hundida al pulsar, en vez de ser
+                una hoja con borde dentro de otra hoja.
               */
-              <li key={i.codigo} className="cv-auto [--cv-alto:7.5rem] sm:[--cv-alto:5.5rem]">
-                <Link
-                  href={enlace.capitulo(i.codigo)}
-                  className="block rounded-lg border border-hairline px-4 py-3 transition hover:border-v-finanzas"
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <span className="min-w-0 font-medium">{i.nombreLegible}</span>
-                    <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
-                      {formatPesos(i.devengado)}
-                    </span>
-                  </div>
-                  <MarcaBarra
-                    valor={i.devengado}
-                    maximo={maxDevengado}
-                    minimo={1}
-                    className="mt-1.5"
-                  />
-                  {/*
-                    Los dos metadatos van a los extremos, no en una fila que se
-                    parte: con `flex-wrap` y un «·» al principio del segundo, a
-                    390 px la línea se rompía y dejaba el punto huérfano abriendo
-                    el renglón. La sección se cuela en medio desde `sm`.
-                  */}
-                  <div className="mt-1.5 flex items-baseline justify-between gap-x-3 text-xs text-ink-soft">
-                    <span className="shrink-0 font-mono">Capítulo {i.codigo}</span>
-                    <span className="hidden min-w-0 truncate sm:block">{i.seccionNombre}</span>
-                    <span className="min-w-0 text-right sm:shrink-0">{detalleOrden(i, orden)}</span>
-                  </div>
-                </Link>
+              <li
+                key={i.codigo}
+                className="relative cv-auto px-2 py-3 [--cv-alto:7rem] sm:[--cv-alto:5rem]"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <Link
+                    href={enlace.capitulo(i.codigo)}
+                    className="estira min-w-0 font-medium text-ink [overflow-wrap:anywhere]"
+                  >
+                    {i.nombreLegible}
+                  </Link>
+                  <span className="shrink-0 font-mono text-sm font-semibold tabular-nums">
+                    {formatPesos(i.devengado)}
+                  </span>
+                </div>
+                <MarcaBarra
+                  valor={i.devengado}
+                  maximo={maxDevengado}
+                  minimo={1}
+                  className="mt-1.5"
+                />
+                {/*
+                  Los dos metadatos van a los extremos, no en una fila que se
+                  parte: con `flex-wrap` y un «·» al principio del segundo, a
+                  390 px la línea se rompía y dejaba el punto huérfano abriendo
+                  el renglón. La sección se cuela en medio desde `sm`.
+                */}
+                <div className="mt-1.5 flex items-baseline justify-between gap-x-3 text-xs text-ink-soft">
+                  <span className="shrink-0 font-mono">Capítulo {i.codigo}</span>
+                  <span className="hidden min-w-0 truncate sm:block">{i.seccionNombre}</span>
+                  <span className="min-w-0 text-right tabular-nums sm:shrink-0">{detalleOrden(i, orden)}</span>
+                </div>
               </li>
             ))}
           </ul>
@@ -442,7 +461,7 @@ export default async function FinanzasPage({
             Guía: cómo leer el presupuesto →
           </Link>
         </div>
-        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+        <dl className="mt-3 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="rotulo text-ink-soft">Presupuesto vigente</dt>
             <dd className="text-ink-soft">
@@ -453,8 +472,8 @@ export default async function FinanzasPage({
           <div>
             <dt className="rotulo text-ink-soft">Comprometido</dt>
             <dd className="text-ink-soft">
-              El Estado firmó algo que lo obliga —un contrato, una orden—, pero
-              todavía no ha recibido el bien o el servicio.
+              El Estado firmó algo que lo obliga (un contrato, una orden),
+              pero todavía no ha recibido el bien o el servicio.
             </dd>
           </div>
           <div>

@@ -10,6 +10,7 @@ import { BuscadorUrl } from "@/components/buscador-url";
 import { EstadoVacio } from "@/components/estado-vacio";
 import Antiguedad from "@/components/antiguedad";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { agujas, contieneTodas, plano, recortar } from "@/lib/raiz";
 
@@ -165,14 +166,12 @@ export default async function LuzPage({
           variante="caida"
           titulo={`No pudimos leer el programa de ${NOMBRE_EMPRESA[e]}`}
           accion={
-            <a
-              href={d.fuentes[e].pagina}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-brand-700 hover:underline"
-            >
-              Ver el programa en el sitio de {NOMBRE_EMPRESA[e]}
-            </a>
+            <Button asChild variant="secondary">
+              <a href={d.fuentes[e].pagina} target="_blank" rel="noopener noreferrer">
+                Ver el programa en el sitio de {NOMBRE_EMPRESA[e]}
+                <span className="sr-only">(se abre en otra pestaña)</span>
+              </a>
+            </Button>
           }
         >
           Su sitio no contestó o cambió de formato. No quiere decir que no haya cortes
@@ -183,7 +182,14 @@ export default async function LuzPage({
 
       {vistas.length === 0 ? null : filas.length === 0 ? (
         q ? (
-          <EstadoVacio titulo={`Ningún corte anunciado coincide con «${sp.q}»`}>
+          <EstadoVacio
+            titulo={`Ningún corte anunciado coincide con «${q}»`}
+            accion={
+              <Button asChild variant="secondary">
+                <Link href={url({ q: undefined })}>Ver todos los cortes anunciados</Link>
+              </Button>
+            }
+          >
             No aparece en lo que {vistas.map((v) => NOMBRE_EMPRESA[v]).join(" y ")}{" "}
             {vistas.length > 1 ? "han" : "ha"} publicado de hoy en adelante. Prueba con el municipio o la provincia: las
             empresas escriben los sectores a su manera.
@@ -208,7 +214,7 @@ export default async function LuzPage({
                   {fecha === d.hoy && <span className="font-normal text-ink-soft"> · hoy</span>}
                   {fecha === mas(d.hoy, 1) && <span className="font-normal text-ink-soft"> · mañana</span>}
                 </CardTitle>
-                <CardAction>
+                <CardAction className="font-mono text-xs tabular-nums text-ink-soft">
                   {formatInt(cortes.length)} {cortes.length === 1 ? "corte" : "cortes"}
                 </CardAction>
               </CardHeader>
@@ -281,6 +287,7 @@ export default async function LuzPage({
                 className="font-medium text-brand-700 hover:underline"
               >
                 Ver en Edenorte
+                <span className="sr-only"> (se abre en otra pestaña)</span>
               </a>
             </span>
           </li>
@@ -305,6 +312,7 @@ export default async function LuzPage({
                 className="font-medium text-brand-700 hover:underline"
               >
                 Ver en Edesur
+                <span className="sr-only"> (se abre en otra pestaña)</span>
               </a>
             </span>
           </li>
@@ -320,6 +328,7 @@ export default async function LuzPage({
                 className="font-medium text-brand-700 hover:underline"
               >
                 Ver los PDF de Edeeste
+                <span className="sr-only"> (se abre en otra pestaña)</span>
               </a>
             </span>
           </li>
@@ -329,12 +338,12 @@ export default async function LuzPage({
       <p className="text-xs leading-relaxed text-ink-soft">
         Aquí están solo los mantenimientos programados que publican Edenorte y
         Edesur, leídos en sus sitios cada seis horas; Edeeste los publica solo en
-        PDF. Los cortes que no se programan —averías, apagones por déficit de
-        generación— no aparecen en esta lista: cómo anduvo la generación está en{" "}
-        <Link href="/" className="font-medium text-brand-700 hover:underline">
-          la tarjeta de electricidad del panorama
+        PDF. Los cortes que no se programan (averías, apagones por déficit de
+        generación) no aparecen en esta lista: cómo anduvo la generación está en{" "}
+        <Link href="/indicadores" className="font-medium text-brand-700 hover:underline">
+          la tarjeta de electricidad de los indicadores
         </Link>
-        . Los horarios son los que la empresa anuncia y pueden cambiar. Ver{" "}
+        . Los horarios son los que la empresa anuncia y pueden cambiar. Mira{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           el estado de las fuentes
         </Link>

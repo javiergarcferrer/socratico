@@ -27,7 +27,7 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
           <Rotulo>Tu cuenta</Rotulo>
           <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">¿Qué quieres seguirle al Estado?</h1>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            Con una cuenta guardas lo que encuentras —una compra, una ley, un proveedor—,
+            Con una cuenta guardas lo que encuentras (una compra, una ley, un proveedor),
             lo juntas en investigaciones que enlazan registros distintos, lo anotas, lo
             publicas o lo trabajas con otras personas, y ves qué cambió en cualquier
             dispositivo.
@@ -46,7 +46,7 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
             <li>El nombre con que firmas, si lo das.</li>
             <li>
               Lo que eliges guardar: <strong className="font-medium text-ink">la referencia</strong> al
-              registro —su tipo, su número, su título y su enlace—, tus notas y tus enlaces.
+              registro (su tipo, su número, su título y su enlace), tus notas y tus enlaces.
               Una búsqueda guardada guarda el texto que buscaste.
             </li>
             <li>
@@ -91,7 +91,7 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
           </ul>
           <p className="mt-4 text-[13px] leading-relaxed text-ink-soft">
             Lo tuyo es privado hasta que lo publiques o invites a alguien. Herramienta
-            independiente y no oficial —{" "}
+            independiente y no oficial:{" "}
             <Link href="/seguridad" className="font-medium text-brand-700 hover:underline">
               cómo tratamos los datos
             </Link>

@@ -1,4 +1,4 @@
-import { formatFecha, hace } from "@/lib/format";
+import { formatFecha, hace, SIN_DATO } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 /**
@@ -33,7 +33,7 @@ export default function Antiguedad({
   if (!iso) return null;
 
   const exacta = formatFecha(iso);
-  if (exacta === "—") return null;
+  if (exacta === SIN_DATO) return null;
 
   /*
     `hace()` devuelve `null` para una fecha futura —un plazo, no una

@@ -3,6 +3,7 @@ import MesaProyecto from "@/components/espacios/mesa-proyecto";
 
 export const metadata: Metadata = {
   title: "Investigación",
+  description: "La mesa de una investigación: sus registros, sus enlaces, su tablero y su narración.",
   robots: { index: false, follow: false },
 };
 

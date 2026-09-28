@@ -9,6 +9,7 @@ import { Portada, PortadaCifra, PortadaCifras } from "@/components/portada";
 import { NavFiltros, FiltroEnlace } from "@/components/nav-filtros";
 import { BuscadorUrl } from "@/components/buscador-url";
 import { EstadoVacio } from "@/components/estado-vacio";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { agujas, contieneTodas, plano, recortar } from "@/lib/raiz";
@@ -43,9 +44,9 @@ export default async function GestionPage({
         className="mx-auto max-w-2xl"
         titulo="No pudimos leer el ranking del SISMAP"
         accion={
-          <Link href="/fuentes" className="text-sm font-medium text-brand-700 hover:underline">
-            Ver el estado de las fuentes
-          </Link>
+          <Button asChild variant="secondary">
+            <Link href="/fuentes">Ver el estado de las fuentes</Link>
+          </Button>
         }
       >
         La copia del ranking no está disponible en este momento. No es que no haya
@@ -106,7 +107,14 @@ export default async function GestionPage({
       </Suspense>
 
       {filas.length === 0 ? (
-        <EstadoVacio titulo={`Ningún nombre coincide con «${sp.q}»`}>
+        <EstadoVacio
+          titulo={`Ningún nombre coincide con «${q}»`}
+          accion={
+            <Button asChild variant="secondary">
+              <Link href={`/gestion?tabla=${tabla}`}>Ver el ranking entero</Link>
+            </Button>
+          }
+        >
           Prueba con otra palabra o cambia de ranking.
         </EstadoVacio>
       ) : (
@@ -133,13 +141,13 @@ export default async function GestionPage({
                       )}
                       {f.sector && <span className="mt-0.5 block text-xs text-ink-soft">{f.sector}</span>}
                     </span>
-                    <span className="shrink-0 font-mono text-sm tabular-nums">{f.valor.toFixed(2)} %</span>
+                    <span className="shrink-0 font-mono text-sm tabular-nums text-ink">{f.valor.toFixed(2)} %</span>
                   </div>
                   <Progress
                     value={f.valor}
                     aria-label={`${f.nombre}: ${f.valor.toFixed(2)} %`}
                     className="mt-2 ml-12"
-                    indicadorClassName={f.valor < 50 ? "bg-alerta-500" : "bg-v-nomina"}
+                    indicadorClassName={f.valor < 50 ? "bg-alerta-500" : undefined}
                   />
                 </li>
               );
@@ -155,7 +163,7 @@ export default async function GestionPage({
         </a>
         . Instantánea del {formatFecha(d.consultado)}. Las filas con enlace llevan a la
         ficha de la institución en esta plataforma; el cruce es por nombre y la que
-        no casa se queda sin enlace. Ver{" "}
+        no casa se queda sin enlace. Mira{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           el estado de las fuentes
         </Link>

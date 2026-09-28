@@ -38,7 +38,7 @@ function nota(corte: string) {
   return (
     <p className="mt-3 text-xs leading-relaxed text-ink-soft">
       Valor contratado en pesos según el registro completo de contratos de la DGCP
-      hasta el {formatFecha(corte)}; sin cancelados y sin los contratos de RD$10 mil
+      hasta el {formatFecha(corte)}; sin cancelados y sin los contratos de RD$&nbsp;10 mil
       millones o más, que se revisan aparte en{" "}
       <Link href="/historico" className="font-medium text-brand-700 hover:underline">
         la historia de las compras
@@ -52,7 +52,7 @@ function Atipicos({ a }: { a: [number, number] | null }) {
   if (!a || a[0] === 0) return null;
   return (
     <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-      Además, {a[0] === 1 ? "un contrato" : `${formatInt(a[0])} contratos`} de RD$10 mil millones
+      Además, {a[0] === 1 ? "un contrato" : `${formatInt(a[0])} contratos`} de RD$&nbsp;10 mil millones
       o más ({formatPesos(a[1])}) que no entra{a[0] === 1 ? "" : "n"} en estas sumas: pueden ser
       obras grandes o errores de captura, y se revisan uno a uno en{" "}
       <Link href="/historico" className="font-medium text-brand-700 hover:underline">

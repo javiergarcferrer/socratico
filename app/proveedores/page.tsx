@@ -13,7 +13,7 @@ import {
 } from "@/lib/dgcp";
 import { buscarEnTodo, type Hallazgos } from "@/lib/busqueda";
 import { titulizar } from "@/lib/capitulos";
-import { formatFecha, formatMonto, formatPesos, hace } from "@/lib/format";
+import { formatFecha, formatMonto, formatPesos, hace, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
 import Antiguedad from "@/components/antiguedad";
@@ -60,7 +60,7 @@ const mercado = cache(() => muestrearProveedores().catch(() => null));
 const censo = cache(() => contarProveedoresRegistrados());
 
 const AYUDA =
-  "Un número —RNC, cédula o RPE— busca en el registro completo de proveedores del Estado. " +
+  "Un número (RNC, cédula o RPE) busca en el registro completo de proveedores del Estado. " +
   "Un nombre busca entre todos los que han contratado desde 2015 y entre quienes ganaron algo " +
   "este último mes; un inscrito que nunca contrató solo se encuentra por su número, porque el " +
   "origen no permite consultar el registro por razón social.";
@@ -110,8 +110,8 @@ export default async function ProveedoresPage({
       )}
 
       <p className="px-1 text-xs leading-relaxed text-ink-soft">
-        Fuente: API de datos abiertos de la DGCP —registro de contratos y
-        Registro de Proveedores del Estado—. El ranking se calcula sobre la
+        Fuente: API de datos abiertos de la DGCP (registro de contratos y
+        Registro de Proveedores del Estado). El ranking se calcula sobre la
         ventana de contratos más recientes que el origen deja leer: no es todo
         el histórico y no puede serlo, porque la API sirve los contratos por
         recencia y no admite filtro por fecha. Los montos suman solo
@@ -161,7 +161,7 @@ async function Indicadores() {
         {m.desde && m.hasta && (
           <>
             {" "}
-            · {formatFecha(m.desde)} — {formatFecha(m.hasta)}
+            · {formatFecha(m.desde)} a {formatFecha(m.hasta)}
           </>
         )}
       </Rotulo>
@@ -185,7 +185,7 @@ async function Indicadores() {
         />
         <Cifra
           etiqueta={`Se llevan los ${CABEZA} mayores`}
-          valor={concentracion === null ? "—" : `${concentracion.toFixed(1)} %`}
+          valor={concentracion === null ? SIN_DATO : `${concentracion.toFixed(1)} %`}
           nota="del monto de esta ventana"
         />
       </TiraDeCifras>
@@ -216,13 +216,13 @@ function SinVentana({
     <TiraDeCifras>
       <Cifra
         etiqueta="Inscritos en el RPE"
-        valor={inscritos === null ? "—" : formatInt(inscritos)}
+        valor={inscritos === null ? SIN_DATO : formatInt(inscritos)}
         ancla={{ alcance: "registro" }}
         nota="censo del registro completo"
       />
       <Cifra
         etiqueta="Adjudicándose ahora"
-        valor="—"
+        valor={SIN_DATO}
         nota={
           caida
             ? "el registro de contratos no respondió"
@@ -262,6 +262,7 @@ async function RankingPorMonto() {
             key={p.rpe}
             filas
             numerar
+            lineas={2}
             puesto={i + 1}
             maximo={max}
             barra={{
@@ -344,6 +345,7 @@ async function RankingPorContratos() {
             key={p.rpe}
             filas
             numerar
+            lineas={2}
             puesto={i + 1}
             maximo={max}
             barra={{
@@ -429,7 +431,7 @@ async function QuienesSon() {
 
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant="neutro">
-                  {f.tipoDocumento} {f.numeroDocumento || "—"}
+                  {f.tipoDocumento} {f.numeroDocumento || "sin número"}
                 </Badge>
                 {f.estado === "Activo" ? (
                   <Badge variant="valido">Activo en el RPE</Badge>
@@ -563,7 +565,7 @@ async function Resultados({ q }: { q: string }) {
           {r.desde && r.hasta && (
             <>
               {" "}
-              ({formatFecha(r.desde)} — {formatFecha(r.hasta)})
+              (del {formatFecha(r.desde)} al {formatFecha(r.hasta)})
             </>
           )}
           , y entre los que tienen algún contrato desde 2015 en la instantánea
@@ -612,7 +614,7 @@ function FichaEncontrada({
 
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <Badge variant="neutro">
-            {registro.tipoDocumento} {registro.numeroDocumento || "—"}
+            {registro.tipoDocumento} {registro.numeroDocumento || "sin número"}
           </Badge>
           {registro.estado === "Activo" ? (
             <Badge variant="valido">Activo en el RPE</Badge>
@@ -825,7 +827,7 @@ function ConsultaCorta({ r }: { r: ResultadoProveedores }) {
     <EstadoVacio titulo={`«${r.consulta}» es demasiado corto para buscarlo`}>
       Una búsqueda por nombre necesita al menos tres letras: con dos coincidiría
       media plataforma. Si lo que tienes es un RNC, una cédula o un número de
-      RPE, escríbelo completo — ese camino sí consulta el registro entero.
+      RPE, escríbelo completo: ese camino sí consulta el registro entero.
     </EstadoVacio>
   );
 }

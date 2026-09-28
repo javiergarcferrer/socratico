@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getResumenHistorico, nContratos, type ResumenHistorico } from "@/lib/historico";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
 import { desdeMayusculas } from "@/lib/congreso";
-import { formatFecha, formatPesos } from "@/lib/format";
+import { formatFecha, formatPesos, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { SerieTemporal } from "@/components/graficos";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -34,7 +34,7 @@ const VISIBLES = 20;
 
 /** El umbral de atípicos dicho sin decimales: «RD$ 10 mil millones». */
 function umbral(pesos: number): string {
-  return `RD$ ${(pesos / 1e9).toLocaleString("es-DO")} mil millones`;
+  return `RD$\u00A0${(pesos / 1e9).toLocaleString("es-DO")} mil millones`;
 }
 
 function nombreInstitucion(uc: number | null, crudo: string | null): { nombre: string; href: string | null } {
@@ -155,7 +155,7 @@ export default async function HistoricoPage() {
                     <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">{formatInt(a.contratos)}</TableCell>
                     <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">{formatInt(a.procesos)}</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {a.procesos > 0 ? `${((a.excepcion / a.procesos) * 100).toFixed(1)} %` : "—"}
+                      {a.procesos > 0 ? `${((a.excepcion / a.procesos) * 100).toFixed(1)} %` : SIN_DATO}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -181,7 +181,11 @@ export default async function HistoricoPage() {
             nombre: p.nombre,
             href: enlace.proveedor(p.rpe),
             monto: p.monto,
-            detalle: `${nContratos(p.contratos)} · ${p.desde.slice(0, 4)}–${p.hasta.slice(0, 4)}`,
+            detalle: `${nContratos(p.contratos)} · ${
+              p.desde.slice(0, 4) === p.hasta.slice(0, 4)
+                ? `en ${p.desde.slice(0, 4)}`
+                : `${p.desde.slice(0, 4)}–${p.hasta.slice(0, 4)}`
+            }`,
           }))}
         />
         <Ranking
@@ -239,21 +243,33 @@ function Ranking({
   nota: string;
   filas: { clave: string; nombre: string; href: string | null; monto: number; detalle: string }[];
 }) {
+  /*
+    En el teléfono el monto baja bajo el nombre: en la misma línea, «RD$ 19.5
+    mil millones» se comía la mitad del ancho y los nombres se partían en
+    cuatro renglones. Desde `sm` vuelve a su columna, alineada a la derecha.
+  */
   const fila = (f: (typeof filas)[number], i: number) => (
-    <li key={f.clave} className="relative flex items-baseline gap-3 px-5 py-2.5 sm:px-6">
-      <span className="w-7 shrink-0 font-mono text-xs tabular-nums text-ink-soft">{i + 1}</span>
-      <span className="min-w-0 flex-1">
-        {f.href ? (
-          <Link href={f.href} className="block text-sm leading-snug text-ink estira hover:text-brand-700">
-            {f.nombre}
-          </Link>
-        ) : (
-          <span className="block text-sm leading-snug text-ink">{f.nombre}</span>
-        )}
-        <span className="block text-xs text-ink-soft">{f.detalle}</span>
+    <li
+      key={f.clave}
+      className="relative grid grid-cols-[1.75rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-0.5 px-5 py-2.5 sm:grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:px-6"
+    >
+      <span className="row-span-3 font-mono text-xs tabular-nums text-ink-soft sm:row-span-2">{i + 1}</span>
+      {f.href ? (
+        <Link href={f.href} className="block break-words text-sm leading-snug text-ink estira hover:text-brand-700">
+          {f.nombre}
+        </Link>
+      ) : (
+        <span className="block break-words text-sm leading-snug text-ink">{f.nombre}</span>
+      )}
+      <span className="font-mono text-sm tabular-nums sm:col-start-3 sm:row-start-1 sm:text-right">
+        {formatPesos(f.monto)}
       </span>
-      <span className="shrink-0 font-mono text-sm tabular-nums">{formatPesos(f.monto)}</span>
+      <span className="block text-xs text-ink-soft sm:col-start-2">{f.detalle}</span>
     </li>
+  );
+  const resto = filas.length - VISIBLES;
+  const primeras = (
+    <ol className="divide-y divide-hairline border-t border-hairline">{filas.slice(0, VISIBLES).map(fila)}</ol>
   );
   return (
     <Card as="section" className="overflow-hidden">
@@ -261,14 +277,18 @@ function Ranking({
         <CardTitle>{titulo}</CardTitle>
         <p className="mt-1 text-xs leading-relaxed text-ink-soft">{nota}</p>
       </div>
-      <Plegable
-        className="mt-3"
-        resumen={<ol className="divide-y divide-hairline border-t border-hairline">{filas.slice(0, VISIBLES).map(fila)}</ol>}
-        etiqueta={`Ver los ${filas.length} de la lista`}
-        etiquetaCerrar={`Ver solo los primeros ${VISIBLES}`}
-      >
-        <ol className="divide-y divide-hairline">{filas.slice(VISIBLES).map((f, i) => fila(f, i + VISIBLES))}</ol>
-      </Plegable>
+      {resto > 0 ? (
+        <Plegable
+          className="mt-3"
+          resumen={primeras}
+          etiqueta={`Ver los ${resto} siguientes`}
+          etiquetaCerrar={`Ocultar los ${resto} siguientes`}
+        >
+          <ol className="divide-y divide-hairline">{filas.slice(VISIBLES).map((f, i) => fila(f, i + VISIBLES))}</ol>
+        </Plegable>
+      ) : (
+        <div className="mt-3">{primeras}</div>
+      )}
     </Card>
   );
 }
@@ -280,7 +300,7 @@ function Atipicos({ d, suma }: { d: ResumenHistorico; suma: number }) {
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         {formatInt(d.atipicos.length)} contratos registrados por {umbral(d.umbralAtipico)}{" "}
         o más, vigentes o cerrados, que juntos declaran {formatPesos(suma)}. Algunos
-        parecen errores de captura —un monto de diez mil millones y un peso exactos—;
+        parecen errores de captura (un monto de diez mil millones y un peso exactos);
         otros pueden ser obras grandes reales, como una autopista o una línea de
         teleférico. Sin el expediente no se distinguen, así que no se suman: una sola
         cifra mal tecleada movería la serie entera. Tampoco se esconden: aquí están,
@@ -290,9 +310,12 @@ function Atipicos({ d, suma }: { d: ResumenHistorico; suma: number }) {
         {d.atipicos.map((a) => {
           const inst = nombreInstitucion(a.uc, a.institucion);
           return (
-            <li key={a.codigo} className="flex items-baseline justify-between gap-3 py-2.5">
-              <span className="min-w-0">
-                <span className="block text-sm leading-snug text-ink">
+            <li
+              key={a.codigo}
+              className="grid grid-cols-[minmax(0,1fr)] items-baseline gap-x-3 gap-y-0.5 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <span className="contents">
+                <span className="block min-w-0 break-words text-sm leading-snug text-ink">
                   {a.rpe ? (
                     <Link href={enlace.proveedor(a.rpe)} className="hover:text-brand-700 hover:underline">
                       {a.proveedor}
@@ -301,7 +324,7 @@ function Atipicos({ d, suma }: { d: ResumenHistorico; suma: number }) {
                     a.proveedor
                   )}
                 </span>
-                <span className="block text-xs text-ink-soft">
+                <span className="row-start-3 block min-w-0 text-xs text-ink-soft sm:row-start-2">
                   {inst.href ? (
                     <Link href={inst.href} className="hover:text-brand-700 hover:underline">
                       {inst.nombre}
@@ -309,10 +332,13 @@ function Atipicos({ d, suma }: { d: ResumenHistorico; suma: number }) {
                   ) : (
                     inst.nombre
                   )}{" "}
-                  · {formatFecha(a.fecha)} · {a.codigo} · {a.estado.toLowerCase()}
+                  · {formatFecha(a.fecha)} ·{" "}
+                  <span className="whitespace-nowrap font-mono">{a.codigo}</span> · {a.estado.toLowerCase()}
                 </span>
               </span>
-              <span className="shrink-0 font-mono text-sm tabular-nums">{formatPesos(a.valor)}</span>
+              <span className="row-start-2 font-mono text-sm tabular-nums sm:col-start-2 sm:row-start-1 sm:text-right">
+                {formatPesos(a.valor)}
+              </span>
             </li>
           );
         })}

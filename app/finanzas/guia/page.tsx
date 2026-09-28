@@ -50,7 +50,7 @@ function Etapa({
 export default function GuiaPresupuestoPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <Card as="section" className="p-6">
+      <Card as="section" className="p-5 sm:p-6">
         <Rotulo>Guía · Finanzas públicas</Rotulo>
         <h1 className="mt-2 font-display text-3xl leading-tight sm:text-4xl">
           ¿Cómo se lee el presupuesto?
@@ -139,11 +139,11 @@ export default function GuiaPresupuestoPage() {
             Si una institución devengó más de lo que pagó, le debe dinero a
             quien ya le entregó. Esa diferencia es la{" "}
             <Termino clave="deudaAdministrativa">deuda administrativa</Termino>:
-            no es deuda con bancos ni bonos —esa es la{" "}
+            no es deuda con bancos ni bonos (esa es la{" "}
             <Link href="/finanzas/guia/deuda" className="font-medium text-brand-700 hover:underline">
               deuda pública
             </Link>
-            —, sino con sus propios proveedores y contratistas. Una distancia
+            ), sino con sus propios proveedores y contratistas. Una distancia
             grande y sostenida significa que el Estado les está pagando tarde.
           </p>
           <p>
@@ -171,7 +171,7 @@ export default function GuiaPresupuestoPage() {
         </div>
       </Card>
 
-      <Alert variant="neutro" className="p-5 sm:p-6">
+      <Alert role="note" variant="neutro" className="p-5 sm:p-6">
         <p className="text-[15px] font-semibold text-ink">Lo que estas cifras no cubren</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
           La ejecución que publica Finanzas es la del Presupuesto General del

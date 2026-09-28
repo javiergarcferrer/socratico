@@ -109,7 +109,9 @@ export function FilaBarra({
   forma = "nombre",
   filas = false,
   numerar = false,
-  lineas = 1,
+  // Un nombre en un renglón cortaba justo la palabra que distingue dos
+  // instituciones; un periodo cabe siempre en uno.
+  lineas = forma === "periodo" ? 1 : 2,
   tono = SERIE,
   alElegir,
   elegida,

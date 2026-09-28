@@ -156,7 +156,12 @@ export default function Guardar({ referencia, className }: { referencia: Referen
             «Seguir» guarda esta ficha en tu navegador.
           </p>
         ) : carga.estado === "error" ? (
-          <p className="text-xs leading-relaxed text-alerta-700">{carga.error}</p>
+          <div className="space-y-2">
+            <p role="alert" className="text-xs leading-relaxed text-alerta-700">{carga.error}</p>
+            <Button asChild variant="secondary" size="sm" className="w-full">
+              <Link href={`/cuenta?volver=${encodeURIComponent(pathname)}`}>Ir a tu cuenta</Link>
+            </Button>
+          </div>
         ) : (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-ink-soft">Guardar en</p>
@@ -165,7 +170,7 @@ export default function Guardar({ referencia, className }: { referencia: Referen
                 <li key={d.id}>
                   <Label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md px-1.5 text-sm font-normal text-ink hover:bg-brand-50 sm:min-h-9">
                     <Checkbox checked={carga.donde.has(d.id)} onCheckedChange={(v) => void alternar(d.id, v === true)} />
-                    <span className="min-w-0 truncate">{d.titulo}</span>
+                    <span className="min-w-0 truncate" title={d.titulo}>{d.titulo}</span>
                   </Label>
                 </li>
               ))}
@@ -200,7 +205,7 @@ export default function Guardar({ referencia, className }: { referencia: Referen
             <ErrorCampo id="guardar-nueva-error">
               {sinTitulo ? "Ponle un título a la investigación." : ""}
             </ErrorCampo>
-            <Link href="/espacio" className="block pt-1 text-xs font-medium text-brand-700 hover:underline">
+            <Link href="/espacio" className="flex min-h-11 items-center text-xs font-medium text-brand-700 hover:underline sm:min-h-9">
               Ir a tu espacio
             </Link>
           </div>

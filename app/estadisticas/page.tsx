@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { dgcpFetch, type Proceso } from "@/lib/dgcp";
-import { formatMonto, formatPesos } from "@/lib/format";
+import { formatMonto, formatPesos, SIN_DATO } from "@/lib/format";
+import { formatInt } from "@/lib/nomina";
 import { estadoMeta, etapaDe } from "@/lib/estados";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ interface Agregado {
 function agrupar(lista: Proceso[], clave: (p: Proceso) => string): [string, Agregado][] {
   const m = new Map<string, Agregado>();
   for (const p of lista) {
-    const k = clave(p) || "—";
+    const k = clave(p) || SIN_DATO;
     const a = m.get(k) ?? { n: 0, monto: 0 };
     a.n += 1;
     a.monto += p.monto_estimado || 0;
@@ -233,10 +234,11 @@ export default async function EstadisticasPage() {
       </Portada>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card as="section" className="p-6">
+        <Card as="section" className="p-5 sm:p-6">
           <CardTitle>Por modalidad</CardTitle>
           <BarrasHorizontales
             className="mt-3"
+            lineas={2}
             maximo={maxMod}
             etiqueta="Monto por modalidad"
             barras={porModalidad.map(([nombre, a]) => ({
@@ -244,15 +246,17 @@ export default async function EstadisticasPage() {
               etiqueta: nombre,
               titulo: `${nombre}: ${formatMonto(a.monto, "DOP")}`,
               valor: a.monto,
-              cifra: `${a.n} · ${formatMonto(a.monto, "DOP")}`,
+              cifra: formatMonto(a.monto, "DOP"),
+              detalle: `${formatInt(a.n)} ${a.n === 1 ? "proceso" : "procesos"}`,
             }))}
           />
         </Card>
 
-        <Card as="section" className="p-6">
-          <CardTitle>Top 10 instituciones por monto</CardTitle>
+        <Card as="section" className="p-5 sm:p-6">
+          <CardTitle>Las 10 instituciones con más monto</CardTitle>
           <BarrasHorizontales
             className="mt-3"
+            lineas={2}
             maximo={maxInst}
             etiqueta="Las diez instituciones con más monto"
             barras={porInstitucion.map(({ k, nombre, a, href }) => ({
@@ -260,7 +264,8 @@ export default async function EstadisticasPage() {
               etiqueta: nombre,
               titulo: `${nombre}: ${formatMonto(a.monto, "DOP")}`,
               valor: a.monto,
-              cifra: `${a.n} · ${formatMonto(a.monto, "DOP")}`,
+              cifra: formatMonto(a.monto, "DOP"),
+              detalle: `${formatInt(a.n)} ${a.n === 1 ? "proceso" : "procesos"}`,
               href: href ?? undefined,
             }))}
           />
@@ -268,8 +273,9 @@ export default async function EstadisticasPage() {
       </div>
 
       <Alert
+        role="note"
         variant="firma"
-        className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col items-start gap-3 p-5 sm:flex-row sm:p-6 sm:items-center sm:justify-between"
       >
         <span className="text-sm text-brand-900">
           ¿Buscas tu nicho? Usa el buscador con tu palabra clave y suscríbete al RSS de

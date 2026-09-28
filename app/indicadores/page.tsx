@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { getDeuda } from "@/lib/deuda";
-import { formatMagnitud } from "@/lib/format";
+import { formatFecha, formatMagnitud } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Esqueleto } from "@/components/esqueleto";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { IconTrendingUp } from "@/components/icons";
+import { IconExternal, IconTrendingUp } from "@/components/icons";
+import { EstadoVacio } from "@/components/estado-vacio";
 import { Portada } from "@/components/portada";
 import { SeccionBolsillo } from "@/components/fuentes-nuevas/indicadores-bolsillo";
 import { AlertasTiempo } from "@/components/fuentes-nuevas/alertas-tiempo";
@@ -99,7 +101,25 @@ export default function IndicadoresPage() {
 
 async function SeccionDeuda() {
   const deuda = await getDeuda();
-  if (!deuda) return null;
+  // Una fuente caída no deja un hueco que se lea como «no hay deuda»: dice
+  // qué pasó y adónde ir.
+  if (!deuda) {
+    return (
+      <EstadoVacio
+        variante="caida"
+        rotulo="Deuda pública"
+        titulo="Crédito Público no respondió"
+        accion={
+          <Button asChild variant="secondary">
+            <Link href="/deuda">Ver la serie de la deuda</Link>
+          </Button>
+        }
+      >
+        Ni el archivo del mes ni la última instantánea se pudieron leer. El
+        resto de los indicadores sigue en pie, más abajo.
+      </EstadoVacio>
+    );
+  }
 
   return (
     <Card as="section" className="p-5">
@@ -119,13 +139,15 @@ async function SeccionDeuda() {
           devuelven el bloque a su sitio, así que el objetivo crece sin que el
           diseño se mueva.
         */}
-        <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
+        <Button asChild variant="link" className="-mx-2 -my-2 px-2 text-xs">
           <a
             href="https://www.creditopublico.gob.do/inicio/estadisticas"
             target="_blank"
             rel="noopener noreferrer"
           >
-            Crédito Público ↗
+            Crédito Público
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>
@@ -151,7 +173,7 @@ async function SeccionDeuda() {
         {deuda.desdeInstantanea && (
           <>
             {" "}
-            Instantánea verificada del {deuda.generadoEn}: el servidor del origen
+            Instantánea verificada{deuda.generadoEn ? ` del ${formatFecha(deuda.generadoEn)}` : ""}: el servidor del origen
             no acepta lecturas desde la nube.
           </>
         )}

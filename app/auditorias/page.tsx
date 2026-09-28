@@ -18,6 +18,7 @@ import { BuscadorUrl } from "@/components/buscador-url";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { Paginador } from "@/components/paginador";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import Plegable from "@/components/plegable";
 import Antiguedad from "@/components/antiguedad";
@@ -75,14 +76,16 @@ export default async function AuditoriasPage({
         className="mx-auto max-w-2xl"
         titulo="No pudimos leer la copia de las auditorías"
         accion={
-          <a
-            href="https://camaradecuentas.gob.do/index.php/ultimas-auditorias"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-medium text-brand-700 hover:underline"
-          >
-            Ver las auditorías en el sitio de la Cámara de Cuentas
-          </a>
+          <Button asChild variant="secondary">
+            <a
+              href="https://camaradecuentas.gob.do/index.php/ultimas-auditorias"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Ver las auditorías en el sitio de la Cámara de Cuentas
+              <span className="sr-only">(se abre en otra pestaña)</span>
+            </a>
+          </Button>
         }
       >
         La instantánea de los informes y las listas no está disponible en este
@@ -181,7 +184,14 @@ export default async function AuditoriasPage({
         </NavFiltros>
 
         {filas.length === 0 ? (
-          <EstadoVacio titulo={q ? `Ningún informe coincide con «${q}»` : "No hay informes con este filtro"}>
+          <EstadoVacio
+            titulo={q ? `Ningún informe coincide con «${q}»` : "No hay informes con este filtro"}
+            accion={
+              <Button asChild variant="secondary">
+                <Link href="/auditorias">Ver todos los informes</Link>
+              </Button>
+            }
+          >
             Prueba con las siglas de la institución o con menos palabras. De la
             Cámara de Cuentas solo están aquí los más recientes; su archivo completo
             sigue en su sitio.
@@ -218,7 +228,7 @@ export default async function AuditoriasPage({
                       {inst ? (
                         <Link
                           href={hrefInstitucion(inst)}
-                          className="relative z-10 text-brand-700 hover:underline"
+                          className="relative z-10 inline-flex min-h-6 items-center text-brand-700 hover:underline"
                         >
                           {inst.nombre}
                         </Link>
@@ -281,7 +291,7 @@ export default async function AuditoriasPage({
         <p className="text-[15px] leading-relaxed text-ink-soft">
           Quien entra a un cargo público o sale de él debe declarar su patrimonio
           ante la Cámara de Cuentas (Ley 311-14). La Cámara publica listas de quién
-          lo hizo a tiempo, quién tarde y quién no lo hizo —los <em>omisos</em>—. Esas
+          lo hizo a tiempo, quién tarde y quién no lo hizo (los <em>omisos</em>). Esas
           listas nombran personas: <strong className="font-semibold text-ink">aquí no se muestra ningún nombre</strong>.
           Cada lista se enlaza en el sitio de la Cámara, donde está publicada.
         </p>
@@ -383,7 +393,7 @@ export default async function AuditoriasPage({
         de la Cámara de Cuentas. Instantánea del {formatFecha(d.generado)}. La fecha
         de un informe de la Contraloría es la de subida al sitio, no la del informe;
         la de la Cámara, la de publicación. Una institución enlaza a su ficha solo si
-        sus siglas o su nombre coinciden exactamente con los de la plataforma. Ver{" "}
+        sus siglas o su nombre coinciden exactamente con los de la plataforma. Mira{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           el estado de las fuentes
         </Link>
@@ -445,7 +455,7 @@ function FilaLista({ l }: { l: ListaDeclaracion }) {
         <Badge variant={e.variant}>{e.nombre}</Badge>
         {l.periodo && <span>Al {formatFecha(l.periodo)}</span>}
         {inst && (
-          <Link href={hrefInstitucion(inst)} className="relative z-10 text-brand-700 hover:underline">
+          <Link href={hrefInstitucion(inst)} className="relative z-10 inline-flex min-h-6 items-center text-brand-700 hover:underline">
             Ficha: {inst.acronimo && inst.acronimo.length <= 8 ? inst.acronimo : inst.nombre}
           </Link>
         )}

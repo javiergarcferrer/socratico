@@ -61,7 +61,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       <title>${esc(`${numero}: ${estado}`)}</title>
       <link>${esc(link)}</link>
       <guid isPermaLink="false">${esc(`sil-${ini.id}-${h.id}`)}</guid>
-${fecha && !Number.isNaN(fecha.getTime()) ? `      <pubDate>${fecha.toUTCString()}</pubDate>\n` : ""}      <description>${esc(`${titulo} — pasó a «${estado}».`)}</description>
+${fecha && !Number.isNaN(fecha.getTime()) ? `      <pubDate>${fecha.toUTCString()}</pubDate>\n` : ""}      <description>${esc(`${titulo}: pasó a «${estado}».`)}</description>
     </item>`;
       })
       .join("\n");
@@ -69,7 +69,7 @@ ${fecha && !Number.isNaN(fecha.getTime()) ? `      <pubDate>${fecha.toUTCString(
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>${esc(`Iniciativa ${numero} — Socrático`)}</title>
+    <title>${esc(`Iniciativa ${numero} · Socrático`)}</title>
     <link>${esc(link)}</link>
     <description>${esc(`Cada cambio de estado de «${titulo}» en la Cámara de Diputados, según el SIL. Herramienta independiente y no oficial.`)}</description>
     <language>es-do</language>

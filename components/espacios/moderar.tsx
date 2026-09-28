@@ -58,7 +58,7 @@ function Cola() {
   }, [cargar]);
 
   if (carga.estado === "cargando") return <Skeleton className="h-[420px] w-full" />;
-  if (carga.estado === "cerrado") return <Cerrado />;
+  if (carga.estado === "cerrado") return <Cerrado h1 />;
   if (carga.estado === "sin-permiso") {
     return (
       <EstadoVacio como="h1" titulo="Esta página es de quien modera" accion={<Button asChild variant="secondary"><Link href="/comunidad">Ir a la comunidad</Link></Button>}>
@@ -83,7 +83,7 @@ function Cola() {
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
           Lo oculto por tres denuncias espera tu decisión; lo denunciado menos veces sigue visible.
           Cada decisión cierra sus denuncias y queda registrada con tu nota.{" "}
-          <Link href="/comunidad/normas" className="font-medium text-brand-700 hover:underline">Las normas</Link>
+          <Link href="/comunidad/normas" className="font-medium text-brand-700 hover:underline">Lee las normas</Link>.
         </p>
       </header>
 
@@ -160,7 +160,7 @@ function Cola() {
                   <span className="font-semibold text-ink">{s.nombre}</span>
                   <span className="text-ink-soft"> · hasta el {formatFecha(s.hasta)} · {s.motivo}</span>
                 </span>
-                <Levantar usuario={s.usuario} onHecho={cargar} />
+                <Levantar usuario={s.usuario} nombre={s.nombre} onHecho={cargar} />
               </li>
             ))}
           </ul>
@@ -217,8 +217,10 @@ function Decidir({
         <Button type="button" variant="secondary" disabled={enCurso} onClick={() => void decidir("restaurar")}>Restaurar</Button>
         {seguro ? (
           <>
-            <Button type="button" variant="destructive" disabled={enCurso} onClick={() => void decidir("retirar")}>Sí, retirar</Button>
-            <Button type="button" variant="ghost" onClick={() => setSeguro(false)}>No</Button>
+            <Button type="button" variant="destructive" disabled={enCurso} onClick={() => void decidir("retirar")}>
+              {objetivo.tipo === "comentario" ? "Sí, retirar el comentario" : "Sí, retirar la conversación"}
+            </Button>
+            <Button type="button" variant="ghost" disabled={enCurso} onClick={() => setSeguro(false)}>No</Button>
           </>
         ) : (
           <Button type="button" variant="destructive" disabled={enCurso} onClick={() => setSeguro(true)}>
@@ -226,7 +228,7 @@ function Decidir({
           </Button>
         )}
       </div>
-      {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
     </div>
   );
 }
@@ -280,7 +282,7 @@ function Retitular({ clave, actual, onHecho }: { clave: string; actual: string; 
         {enCurso ? "Corrigiendo…" : "Corregir título"}
       </Button>
       <ErrorCampo id={`${idTitulo}-error`}>{aviso}</ErrorCampo>
-      {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
     </form>
   );
 }
@@ -357,17 +359,18 @@ function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: stri
         <Button type="submit" variant="destructive" disabled={enCurso}>{enCurso ? "Suspendiendo…" : "Suspender"}</Button>
         <Button type="button" variant="ghost" onClick={() => setAbierto(false)}>Cancelar</Button>
       </div>
-      <p id={`ayuda-${u}`} className="text-xs text-ink-soft">Días (1 a 3650) y un motivo.</p>
+      <p id={`ayuda-${u}`} className="text-xs text-ink-soft">Días (de 1 a 3,650) y un motivo.</p>
       <ErrorCampo id={`error-${u}`}>
-        {falta === "dias" ? "Los días van de 1 a 3650." : falta === "motivo" ? "Escribe el motivo: queda en el registro." : ""}
+        {falta === "dias" ? "Los días van de 1 a 3,650." : falta === "motivo" ? "Escribe el motivo: queda en el registro." : ""}
       </ErrorCampo>
-      {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
     </form>
   );
 }
 
-function Levantar({ usuario, onHecho }: { usuario: string; onHecho: () => Promise<void> }) {
+function Levantar({ usuario, nombre, onHecho }: { usuario: string; nombre: string; onHecho: () => Promise<void> }) {
   const [error, setError] = useState<string | null>(null);
+  const [enCurso, setEnCurso] = useState(false);
   return (
     <span className="inline-flex items-center gap-2">
       <Button
@@ -375,15 +378,19 @@ function Levantar({ usuario, onHecho }: { usuario: string; onHecho: () => Promis
         variant="outline"
         size="sm"
         className="h-11 sm:h-9"
+        disabled={enCurso}
+        aria-label={`Levantar la suspensión de ${nombre}`}
         onClick={async () => {
+          setEnCurso(true);
           const r = await suspender(usuario, 0, "levantada");
+          setEnCurso(false);
           if (!r.ok) return setError(r.error);
           await onHecho();
         }}
       >
-        Levantar
+        {enCurso ? "Levantando…" : "Levantar"}
       </Button>
-      {error && <span role="status" className="text-xs text-alerta-700">{error}</span>}
+      {error && <span role="alert" className="text-xs text-alerta-700">{error}</span>}
     </span>
   );
 }

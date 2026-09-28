@@ -231,7 +231,7 @@ async function Directorio({ filtros, pagina }: { filtros: FiltrosDirectorio; pag
       </BarraFiltros>
 
       {directorio.fallidas.length > 0 && (
-        <Alert variant="aviso" className="mt-4">
+        <Alert variant="aviso" role="note" className="mt-4">
           <p className="text-sm font-semibold text-alerta-700">Directorio incompleto</p>
           <p className="mt-0.5 text-xs text-ink-soft">
             El SIL no respondió para {directorio.fallidas.join(", ")} (
@@ -248,7 +248,7 @@ async function Directorio({ filtros, pagina }: { filtros: FiltrosDirectorio; pag
         {filtros.q && (
           <>
             {" para "}
-            <span className="font-medium text-ink">{`“${filtros.q}”`}</span>
+            <span className="font-medium text-ink">{`«${filtros.q}»`}</span>
           </>
         )}
       </p>
@@ -262,7 +262,15 @@ async function Directorio({ filtros, pagina }: { filtros: FiltrosDirectorio; pag
           </ul>
         </Card>
       ) : (
-        <EstadoVacio titulo="Nadie con esos filtros" className="mt-3">
+        <EstadoVacio
+          titulo="Nadie con esos filtros"
+          className="mt-3"
+          accion={
+            <Button asChild variant="secondary">
+              <Link href="/congreso/legisladores">Quitar los filtros</Link>
+            </Button>
+          }
+        >
           {filtros.q
             ? "La búsqueda compara el nombre completo sin tildes. Prueba con un solo apellido o quita algún filtro."
             : "Ningún legislador del directorio cumple a la vez todos los filtros elegidos."}

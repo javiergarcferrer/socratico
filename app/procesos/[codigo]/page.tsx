@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getCompetencia, getProceso, normalize, type Documento } from "@/lib/dgcp";
 import { pesoDocumento, urlDeLectura } from "@/lib/documentos";
 import VisorDocumento from "@/components/visor-documento";
-import { diasHasta, formatFecha, formatMonto, tituloLegible } from "@/lib/format";
+import { diasHasta, formatFecha, formatMonto, tituloLegible, SIN_DATO } from "@/lib/format";
 import { cierreMeta, estadoMeta, etapaDe } from "@/lib/estados";
 import { cn } from "@/lib/cn";
 import PreciosHistoricos from "./precios";
@@ -65,13 +65,23 @@ export async function generateMetadata({
       return {
         title: p.titulo ? tituloLegible(p.titulo) : limpio,
         alternates: { canonical: enlace.proceso(limpio) },
-        description: `${p.unidad_compra} · ${p.modalidad} · ${p.estado_proceso} · cierre de ofertas ${p.fecha_fin_recepcion_ofertas?.slice(0, 10) ?? "n/d"}`,
+        description: [
+          p.unidad_compra,
+          p.modalidad,
+          p.estado_proceso,
+          p.fecha_fin_recepcion_ofertas && `cierre de ofertas ${formatFecha(p.fecha_fin_recepcion_ofertas)}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
       };
     }
   } catch {
     /* metadata best-effort */
   }
-  return { title: limpio };
+  return {
+    title: `Proceso ${limpio}`,
+    description: `Ficha del proceso de compras públicas ${limpio} en el registro de la DGCP.`,
+  };
 }
 
 export default async function ProcesoPage({
@@ -201,15 +211,19 @@ export default async function ProcesoPage({
             </Link>
           ) : (
             p.unidad_compra
-          )}{" "}
-          <Link
-            href={`/licitaciones?uc=${p.codigo_unidad_compra}`}
-            className="text-sm font-medium text-brand-600 hover:underline"
-          >
-            · ver todos sus procesos →
-          </Link>
+          )}
         </p>
-        <p className="mt-1 font-mono text-sm text-ink-soft">{p.codigo_proceso}</p>
+        {/*
+          En su propio renglón: detrás del nombre, envuelto, el enlace
+          empezaba con un «·» huérfano al inicio de la línea.
+        */}
+        <Link
+          href={`/licitaciones?uc=${p.codigo_unidad_compra}`}
+          className="inline-flex min-h-11 items-center text-sm font-medium text-brand-600 hover:underline sm:min-h-0 sm:py-0.5"
+        >
+          Ver todos sus procesos →
+        </Link>
+        <p className="font-mono text-sm text-ink-soft">{p.codigo_proceso}</p>
 
         {/*
           Las dos cifras que responden la pregunta —cuánto y hasta cuándo— y la
@@ -234,7 +248,11 @@ export default async function ProcesoPage({
           </div>
           <div>
             <div className="rotulo text-ink-soft">
-              Recibe ofertas hasta
+              {abiertoParaOfertar
+                ? "Recibe ofertas hasta"
+                : dias !== null && dias < 0
+                  ? "Recibió ofertas hasta"
+                  : "Plazo de ofertas"}
             </div>
             <div
               className={`font-mono text-xl font-semibold tabular-nums sm:text-2xl ${
@@ -341,9 +359,11 @@ export default async function ProcesoPage({
                 rel="noopener noreferrer"
                 className="font-medium text-brand-600 hover:underline"
               >
-                inscríbete aquí en la DGCP ↗
+                inscríbete aquí en la DGCP
+                <IconExternal className="ml-0.5 inline h-3.5 w-3.5 align-[-2px]" />
+                <span className="sr-only">(se abre en otra pestaña)</span>
               </a>{" "}
-              cuanto antes — el trámite toma días, no horas.
+              cuanto antes: el trámite toma días, no horas.
             </Paso>
             <Paso n={3} titulo="Prepara tu oferta">
               Documentos legales y credenciales según el pliego, oferta técnica conforme
@@ -370,7 +390,9 @@ export default async function ProcesoPage({
                   rel="noopener noreferrer"
                   className="font-medium text-brand-600 hover:underline"
                 >
-                  Portal Transaccional ↗
+                  Portal Transaccional
+                  <IconExternal className="ml-0.5 inline h-3.5 w-3.5 align-[-2px]" />
+                  <span className="sr-only">(se abre en otra pestaña)</span>
                 </a>
               ) : (
                 "Portal Transaccional"
@@ -413,7 +435,7 @@ export default async function ProcesoPage({
                     >
                       {label}
                     </div>
-                    <div className="mt-0.5 text-xs text-ink-soft">
+                    <div className="mt-0.5 font-mono text-xs tabular-nums text-ink-soft">
                       {formatFecha(iso, true)}
                     </div>
                   </div>
@@ -440,7 +462,7 @@ export default async function ProcesoPage({
               >
                 <dt className="text-ink-soft">{label}</dt>
                 <dd className="mt-0.5 font-medium sm:mt-0 sm:text-right">
-                  {value || "—"}
+                  {value || SIN_DATO}
                 </dd>
               </div>
             ))}
@@ -577,7 +599,7 @@ export default async function ProcesoPage({
       {competencia && (
         <Card as="section" className="p-6">
           <CardTitle>
-            Ofertas — quién compitió{" "}
+            Ofertas: quién compitió{" "}
             <span className="font-normal text-ink-soft">
               ({competencia.oferentes.length}
               {competencia.oferentes.length === 1 ? " oferente" : " oferentes"})
@@ -585,10 +607,10 @@ export default async function ProcesoPage({
           </CardTitle>
 
           {competencia.oferenteUnico && (
-            <Alert variant="aviso" className="mt-3">
+            <Alert role="note" variant="aviso" className="mt-3">
               <span className="font-semibold">Se presentó un solo oferente.</span>{" "}
-              No es una irregularidad por sí misma —hay compras que solo un
-              proveedor puede servir—, pero es lo primero que conviene mirar.
+              No es una irregularidad por sí misma (hay compras que solo un
+              proveedor puede servir), pero es lo primero que conviene mirar.
             </Alert>
           )}
 
@@ -653,7 +675,7 @@ export default async function ProcesoPage({
       {contratos.length > 0 && (
         <Card as="section" className="p-6">
           <CardTitle>
-            Adjudicación — quién ganó{" "}
+            Adjudicación: quién ganó{" "}
             <span className="font-normal text-ink-soft">({contratos.length})</span>
           </CardTitle>
           <ul className="mt-3 space-y-2">
@@ -670,14 +692,11 @@ export default async function ProcesoPage({
                     {c.razon_social}
                   </Link>
                   <div className="text-xs text-ink-soft">
-                    RPE {c.rpe} · adjudicado {formatFecha(c.fecha_adjudicacion)} ·{" "}
-                    {c.estado_contrato} ·{" "}
-                    <Link
-                      href={enlace.proveedor(c.rpe)}
-                      className="text-brand-600 hover:underline"
-                    >
-                      historial del proveedor →
-                    </Link>
+                    RPE {c.rpe} ·{" "}
+                    {c.fecha_adjudicacion && formatFecha(c.fecha_adjudicacion) !== SIN_DATO
+                      ? `adjudicado ${formatFecha(c.fecha_adjudicacion)}`
+                      : "sin fecha de adjudicación"}
+                    {c.estado_contrato ? ` · ${c.estado_contrato}` : ""}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -687,7 +706,8 @@ export default async function ProcesoPage({
                   {c.url_contrato && (
                     <Button asChild variant="secondary" size="sm" className="h-10 sm:h-9">
                       <a href={c.url_contrato} target="_blank" rel="noopener noreferrer">
-                        Ver contrato ↗
+                        Ver contrato
+                        <IconExternal className="h-3.5 w-3.5" />
                       </a>
                     </Button>
                   )}
@@ -721,8 +741,8 @@ export default async function ProcesoPage({
 
             {docsClave.length > 0 && (
               <>
-                <h3 className="mt-3 text-xs font-semibold uppercase tracking-wide text-brand-600">
-                  Empieza por aquí — pliego, fichas y condiciones
+                <h3 className="rotulo mt-4 text-brand-700">
+                  Empieza por aquí: pliego, fichas y condiciones
                 </h3>
                 <ul className="mt-2 grid gap-2 md:grid-cols-2">
                   {docsClave.map((d, i) => (
@@ -734,7 +754,7 @@ export default async function ProcesoPage({
             {docsOtros.length > 0 && (
               <>
                 {docsClave.length > 0 && (
-                  <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                  <h3 className="rotulo mt-4 text-ink-soft">
                     Otros documentos
                   </h3>
                 )}
@@ -749,7 +769,13 @@ export default async function ProcesoPage({
         )}
       </Card>
 
-      <AccionesProceso codigo={p.codigo_proceso} titulo={p.titulo} url={p.url} huella={huellaDe({ estado: p.estado_proceso })} />
+      <AccionesProceso
+        codigo={p.codigo_proceso}
+        titulo={p.titulo}
+        url={p.url}
+        abierto={abiertoParaOfertar}
+        huella={huellaDe({ estado: p.estado_proceso })}
+      />
       <Conversacion className="mt-6" referencia={{ tipo: "proceso", ref: enlace.proceso(p.codigo_proceso), titulo: p.titulo, href: enlace.proceso(p.codigo_proceso) }} />
     </div>
   );

@@ -1,10 +1,10 @@
 import { getBanca, URL_SIMBAD, type IndicadorBanca } from "@/lib/banca";
 import { puntos, variacion } from "@/lib/cifras";
-import { formatPesos } from "@/lib/format";
+import { formatPesos, SIN_DATO } from "@/lib/format";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Cifra, TiraDeCifras } from "@/components/papel";
-import { IconChartBar } from "@/components/icons";
+import { IconChartBar, IconExternal } from "@/components/icons";
 
 /**
  * Cuatro cifras del sistema financiero, del tablero público SIMBAD de la
@@ -71,7 +71,7 @@ function Casilla({
       <div>
         <Cifra
           etiqueta={etiqueta}
-          valor="—"
+          valor={SIN_DATO}
           tono="text-ink-soft"
           nota={<span className="text-alerta-700">SIMBAD no devolvió esta serie. No mostramos una cifra que no leímos.</span>}
         />
@@ -105,7 +105,9 @@ export async function IndicadoresBanca() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href={URL_SIMBAD} target="_blank" rel="noopener noreferrer">
-            SIMBAD ↗
+            SIMBAD
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>

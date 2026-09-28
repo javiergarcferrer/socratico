@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { getSociedad, type Licencias, type Matricula, type Robos, type Sociedad } from "@/lib/sociedad";
 import { provinciaDeTexto } from "@/lib/provincias";
-import { formatFecha, formatPesos } from "@/lib/format";
+import { formatFecha, formatPesos, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { variacion } from "@/lib/cifras";
 import { cn } from "@/lib/cn";
@@ -47,7 +47,7 @@ function cambio(actual: number, anterior: number | null | undefined): string | n
 }
 
 function pct(parte: number, total: number): string {
-  return total > 0 ? `${((parte / total) * 100).toFixed(1)} %` : "—";
+  return total > 0 ? `${((parte / total) * 100).toFixed(1)} %` : SIN_DATO;
 }
 
 /**
@@ -128,6 +128,7 @@ function BloqueCaido({ que, origen, enlace }: { que: string; origen: string; enl
         <Button asChild variant="secondary">
           <a href={enlace} target="_blank" rel="noopener noreferrer">
             Ir a {origen}
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       }
@@ -312,7 +313,7 @@ function SeccionRobos({ r, armas }: { r: Robos; armas: Sociedad["armas"] }) {
                 </ol>
                 <Advertencias
                   items={[
-                    "Suben y bajan a saltos —una sola operación grande mueve el año entero—: la serie no dice por sí sola si hay más o menos armas en la calle.",
+                    "Suben y bajan a saltos: una sola operación grande mueve el año entero, así que la serie no dice por sí sola si hay más o menos armas en la calle.",
                   ]}
                 />
               </Card>
@@ -392,11 +393,12 @@ function SeccionRobos({ r, armas }: { r: Robos; armas: Sociedad["armas"] }) {
 
       <Fuente>
         Fuente: Ministerio de Interior y Policía, con datos de la Dirección General de la
-        Policía Nacional —archivo «{r.archivo.split("/").pop()}», publicado el {formatFecha(r.publicado)}
-        {armas?.incautadas ? ", y sus tablas de armas incautadas y registradas" : ""}—. El Ministerio
+        Policía Nacional (archivo «{r.archivo.split("/").pop()}», publicado el {formatFecha(r.publicado)}
+        {armas?.incautadas ? ", y sus tablas de armas incautadas y registradas" : ""}). El Ministerio
         no publica los homicidios en un formato legible por máquina (solo en imagen).{" "}
         <a href={r.archivo} className="text-brand-700 hover:underline" target="_blank" rel="noopener noreferrer">
           Descargar el archivo original
+          <span className="sr-only"> (se abre en otra pestaña)</span>
         </a>
         .
       </Fuente>
@@ -472,7 +474,7 @@ function SeccionMatricula({ m }: { m: Matricula }) {
         <Advertencias
           items={[
             <>El último año escolar publicado es {m.ultimoPeriodo}: el MINERD no ha subido los siguientes a su portal de datos abiertos.</>,
-            <>Entre 2015-16 y 2016-17 la primaria pierde cerca de 390 mil estudiantes y la secundaria gana unos 350 mil. Lo más probable es que refleje el cambio de estructura de los niveles (primaria y secundaria de seis grados cada una) y no un movimiento de estudiantes; compare niveles desde 2016-17.</>,
+            <>Entre 2015-16 y 2016-17 la primaria pierde cerca de 390 mil estudiantes y la secundaria gana unos 350 mil. Lo más probable es que refleje el cambio de estructura de los niveles (primaria y secundaria de seis grados cada una) y no un movimiento de estudiantes; compara niveles desde 2016-17.</>,
             ...(pandemia
               ? [<>El año escolar 2020-21, el de la pandemia, cae a {formatInt(pandemia.total)}; el nivel inicial es el que más baja.</>]
               : []),
@@ -534,6 +536,7 @@ function SeccionMatricula({ m }: { m: Matricula }) {
         mal escrito («202120222», leído como 2021-22).{" "}
         <a href={m.archivo} className="text-brand-700 hover:underline" target="_blank" rel="noopener noreferrer">
           Descargar el CSV original
+          <span className="sr-only"> (se abre en otra pestaña)</span>
         </a>
         .
       </Fuente>
@@ -616,7 +619,7 @@ function SeccionLicencias({ l }: { l: Licencias }) {
         <Advertencias
           items={[
             <>Una licencia es un <strong className="font-semibold text-ink">permiso</strong> para construir, no una obra empezada ni terminada: hay licencias que nunca se ejecutan.</>,
-            <>La inversión es la que consta en el registro de la licencia, y ronda los {formatPesos(porM2)} por metro cuadrado en casi todas: parece calculada a partir de los metros, no medida. Léala como orden de magnitud.</>,
+            <>La inversión es la que consta en el registro de la licencia, y ronda los {formatPesos(porM2)} por metro cuadrado en casi todas: parece calculada a partir de los metros, no medida. Léela como orden de magnitud.</>,
             <>Una sola licencia pesa mucho: la mayor de {ref.anio} ({mayor.tipologia.toLowerCase()} en {mayor.municipio}, {formatInt(mayor.metros2)} m², {formatPesos(mayor.inversion)})
               {provMayor && provMayor.inversion > 0
                 ? ` es el ${pct(mayor.inversion, provMayor.inversion)} de la inversión declarada en ${provMayor.nombre} ese año.`
@@ -698,6 +701,7 @@ function SeccionLicencias({ l }: { l: Licencias }) {
         «Licencias emitidas 2022–2026», con licencias hasta el {formatFecha(l.corte)}.{" "}
         <a href={l.archivo} className="text-brand-700 hover:underline" target="_blank" rel="noopener noreferrer">
           Descargar el CSV original
+          <span className="sr-only"> (se abre en otra pestaña)</span>
         </a>
         .
       </Fuente>
@@ -722,9 +726,9 @@ export default async function PaisPage() {
         className="mx-auto max-w-2xl"
         titulo="No pudimos leer los indicadores sociales"
         accion={
-          <Link href="/fuentes" className="text-sm font-medium text-brand-700 hover:underline">
-            Ver el estado de las fuentes
-          </Link>
+          <Button asChild variant="secondary">
+            <Link href="/fuentes">Ver el estado de las fuentes</Link>
+          </Button>
         }
       >
         La instantánea de denuncias, matrícula y licencias no está disponible en este
@@ -779,10 +783,10 @@ export default async function PaisPage() {
         </PortadaCifras>
       </Portada>
 
-      <nav aria-label="Secciones de la página" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-        <a href="#seguridad-ciudadana" className="font-medium text-brand-700 hover:underline">Seguridad ciudadana</a>
-        <a href="#matricula" className="font-medium text-brand-700 hover:underline">Matrícula escolar</a>
-        <a href="#licencias" className="font-medium text-brand-700 hover:underline">Licencias de construcción</a>
+      <nav aria-label="Secciones de la página" className="flex flex-wrap gap-x-5 text-sm">
+        <a className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline sm:min-h-6" href="#seguridad-ciudadana">Seguridad ciudadana</a>
+        <a className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline sm:min-h-6" href="#matricula">Matrícula escolar</a>
+        <a className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline sm:min-h-6" href="#licencias">Licencias de construcción</a>
       </nav>
 
       {robos ? (
@@ -816,7 +820,7 @@ export default async function PaisPage() {
       <p className="text-xs leading-relaxed text-ink-soft">
         Instantánea generada el {formatFecha(d.generado)} con{" "}
         <span className="font-mono">python3 scripts/build-sociedad.py</span>, que busca cada
-        archivo en el listado de su ministerio —ninguno tiene una dirección fija—, lo
+        archivo en el listado de su ministerio (ninguno tiene una dirección fija), lo
         interpreta y comprueba que sus sumas cuadren antes de publicarlo.
       </p>
     </div>

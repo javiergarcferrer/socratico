@@ -31,10 +31,10 @@ import {
   IconSliders,
   IconX,
 } from "@/components/icons";
-import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -516,10 +516,11 @@ export default function Buscador() {
       <div
         data-oculta={barraOculta || undefined}
         onFocusCapture={() => setBarraOculta(false)}
-        className="sticky z-30 -mx-4 flex h-12 items-center gap-2 border-b border-hairline bg-canvas px-4 transition-transform duration-200 ease-out motion-reduce:transition-none data-[oculta]:-translate-y-full lg:hidden"
+        className="sticky z-30 -mx-4 flex h-12 items-center gap-2 border-b border-hairline bg-canvas px-4 transition-transform duration-(--dur-media) ease-sello motion-reduce:transition-none data-[oculta]:-translate-y-full lg:hidden"
         style={{ top: "calc(65px + env(safe-area-inset-top, 0px))" }}
       >
         <Button
+          type="button"
           variant="secondary"
           onClick={() => setSheetOpen(true)}
           className="shrink-0 px-3"
@@ -560,7 +561,7 @@ export default function Buscador() {
         onClose={() => setSheetOpen(false)}
         title="Filtros"
         footer={
-          <Button onClick={() => setSheetOpen(false)} className="h-12 w-full">
+          <Button type="button" onClick={() => setSheetOpen(false)} className="h-12 w-full">
             {data
               ? `Ver ${data.totalResults.toLocaleString("es-DO")} resultados`
               : "Ver resultados"}
@@ -582,6 +583,7 @@ export default function Buscador() {
               </Chip>
             ))}
             <Button
+              type="button"
               variant="link"
               size="sm"
               onClick={limpiarFiltros}
@@ -596,8 +598,8 @@ export default function Buscador() {
             Procesos de {unidadSel.nombre}.{" "}
             <Link href={unidadSel.ficha} className="font-medium text-brand-700 hover:underline">
               Ver la ficha de la institución
-            </Link>{" "}
-            —su presupuesto, sus proveedores, su nómina y sus decretos.
+            </Link>
+            : su presupuesto, sus proveedores, su nómina y sus decretos.
           </p>
         )}
         {/*
@@ -645,7 +647,7 @@ export default function Buscador() {
                     ? ` · entre ${data.scanned.toLocaleString("es-DO")} registros del rango`
                     : ""}
                   {esMuestra && data.truncated
-                    ? " — rango amplio: acota las fechas para contarlos todos"
+                    ? ". Rango amplio: acota las fechas para contarlos todos."
                     : ""}
                 </span>
               ) : null}
@@ -722,18 +724,18 @@ export default function Buscador() {
             línea ocre de 12px. Sin esta rama, quien tropieza con un 502 de la
             DGCP se queda con una página en blanco y sin la única acción útil.
           */
-          <Alert variant="aviso" className="px-5 py-10 text-center">
-            <p className="font-sans text-sm font-semibold text-ink">
-              La DGCP no respondió
-            </p>
-            <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-ink-soft">
-              No es un problema de tu búsqueda: los filtros siguen puestos. La
-              fuente oficial no contestó a tiempo.
-            </p>
-            <Button type="button" onClick={reintentar} className="mt-4">
-              Reintentar
-            </Button>
-          </Alert>
+          <EstadoVacio
+            variante="caida"
+            titulo="La DGCP no respondió"
+            accion={
+              <Button type="button" onClick={reintentar}>
+                Reintentar
+              </Button>
+            }
+          >
+            No es un problema de tu búsqueda: los filtros siguen puestos. La
+            fuente oficial no contestó a tiempo.
+          </EstadoVacio>
         ) : lista.length === 0 ? (
           <EstadoVacio
             titulo="Sin resultados con estos filtros"
@@ -744,7 +746,7 @@ export default function Buscador() {
               la búsqueda a como abre.
             */
             accion={
-              <Button variant="secondary" onClick={limpiarFiltros}>
+              <Button type="button" variant="secondary" onClick={limpiarFiltros}>
                 Volver a los filtros de entrada
               </Button>
             }
@@ -767,7 +769,7 @@ export default function Buscador() {
           <div
             aria-busy={loading}
             className={cn(
-              "grid gap-3 transition-opacity duration-200 md:grid-cols-2",
+              "grid gap-3 transition-opacity duration-(--dur-breve) ease-firma md:grid-cols-2",
               loading && "pointer-events-none opacity-50",
             )}
           >
@@ -818,12 +820,13 @@ function Chip({
 }) {
   return (
     <Button
+      type="button"
       variant={chip.porDefecto ? "secondary" : "outline"}
       size="sm"
       onClick={chip.clear}
       title={
         chip.porDefecto
-          ? "Filtro por defecto — quítalo para ampliar la búsqueda"
+          ? "Filtro por defecto. Quítalo para ampliar la búsqueda."
           : "Quitar este filtro"
       }
       className={cn(
@@ -855,6 +858,8 @@ function FiltrosControles({
         <Input
           id="f-unidad"
           list="lista-unidades"
+          aria-invalid={unidadTexto && !unidadSel ? true : undefined}
+          aria-describedby="f-unidad-error"
           value={unidadTexto}
           onChange={(e) => setUnidadTexto(e.target.value)}
           /*
@@ -870,7 +875,7 @@ function FiltrosControles({
           enterKeyHint="done"
           placeholder={
             unidades.length
-              ? "Todas — escribe para filtrar por institución…"
+              ? "Todas. Escribe para filtrar por institución…"
               : "Cargando instituciones…"
           }
           className="mt-1"
@@ -884,11 +889,11 @@ function FiltrosControles({
             <option key={u.codigo} value={etiquetaUnidad(u)} />
           ))}
         </datalist>
-        {unidadTexto && !unidadSel && (
-          <span className="mt-1 block text-xs text-alerta-600">
-            Selecciona una institución de la lista para aplicar el filtro.
-          </span>
-        )}
+        <ErrorCampo id="f-unidad-error" className="mt-1">
+          {unidadTexto && !unidadSel
+            ? "Elige una institución de la lista para aplicar el filtro."
+            : null}
+        </ErrorCampo>
       </div>
 
       {/*
@@ -899,12 +904,12 @@ function FiltrosControles({
         lleva pegada, dentro del desplegable, qué recoge exactamente.
       */}
       <div className="lg:col-span-3">
-        <Label className="text-xs text-ink-soft">Etapa</Label>
+        <Label htmlFor="f-etapa" className="text-xs text-ink-soft">Etapa</Label>
         <Select
           value={etapa === "" ? TODAS : etapa}
           onValueChange={(v) => setEtapa(v === TODAS ? "" : (v as EtapaFiltro))}
         >
-          <SelectTrigger aria-label="Etapa del proceso" className="mt-1">
+          <SelectTrigger id="f-etapa" className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -931,12 +936,12 @@ function FiltrosControles({
       </div>
 
       <div className="lg:col-span-3">
-        <Label className="text-xs text-ink-soft">Modalidad</Label>
+        <Label htmlFor="f-modalidad" className="text-xs text-ink-soft">Modalidad</Label>
         <Select
           value={modalidad === "" ? TODAS : modalidad}
           onValueChange={(v) => setModalidad(v === TODAS ? "" : v)}
         >
-          <SelectTrigger aria-label="Modalidad de compra" className="mt-1">
+          <SelectTrigger id="f-modalidad" className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -977,9 +982,9 @@ function FiltrosControles({
       </div>
 
       <div className="lg:col-span-2">
-        <Label className="text-xs text-ink-soft">Ordenar por</Label>
+        <Label htmlFor="f-orden" className="text-xs text-ink-soft">Ordenar por</Label>
         <Select value={orden} onValueChange={(v) => setOrden(v as Orden)}>
-          <SelectTrigger aria-label="Ordenar los resultados" className="mt-1">
+          <SelectTrigger id="f-orden" className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

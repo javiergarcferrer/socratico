@@ -43,8 +43,8 @@ export default function NormasPage() {
       <Card as="section" className="space-y-3 p-5 text-[15px] leading-relaxed text-ink-soft sm:p-6">
         <h2 className="font-sans text-base font-semibold text-ink">Quién puede qué</h2>
         <p>
-          <strong className="font-medium text-ink">Votar</strong> —decir que un registro importa,
-          votar un comentario— lo hace cualquier cuenta con el correo verificado, sobre una
+          <strong className="font-medium text-ink">Votar</strong> (decir que un registro importa,
+          votar un comentario) lo hace cualquier cuenta con el correo verificado, sobre una
           conversación ya abierta. Abrirla es escribir el título que verá el feed, así que la
           primera palabra sobre un registro la da alguien con cédula registrada.
         </p>

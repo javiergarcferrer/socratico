@@ -90,14 +90,14 @@ export default async function PerencionPage() {
                 {legislatura.nombre} {legislatura.anio}
               </p>
               <p className="mt-0.5 text-xs text-ink-soft">
-                {formatFecha(legislatura.inicio.toISOString().slice(0, 10))} —{" "}
+                {formatFecha(legislatura.inicio.toISOString().slice(0, 10))} a{" "}
                 {formatFecha(legislatura.cierre.toISOString().slice(0, 10))}
               </p>
             </div>
             <p className="font-mono text-2xl font-bold tabular-nums text-ink">
               {diasParaCierre}
-              <span className="ml-1 text-sm font-medium text-ink-soft">
-                días restantes
+              <span className="ml-1 font-sans text-sm font-medium text-ink-soft">
+                {diasParaCierre === 1 ? "día restante" : "días restantes"}
               </span>
             </p>
           </div>
@@ -107,11 +107,27 @@ export default async function PerencionPage() {
           */}
           <Progress
             value={progreso}
-            aria-label={`Legislatura consumida al ${progreso} %`}
+            aria-label={`Legislatura consumida al ${Math.round(progreso)} %`}
             className="mt-4 h-1.5 border border-hairline bg-canvas"
             indicadorClassName="bg-alerta-500"
           />
         </Card>
+      )}
+
+      {/*
+        El alcance va antes de la lista, no al pie: quien lee «ninguna pieza»
+        tiene que saber que es una muestra antes de concluir nada.
+      */}
+      {!silCaido && (
+        <p className="mb-3 text-xs leading-relaxed text-ink-soft">
+          Cobertura parcial: se evalúan las {muestra.muestra} iniciativas más recientes
+          del registro, no el corpus completo. El SIL pagina de 10 en 10 y barrer sus
+          cerca de 622 páginas en cada carga no es viable.{" "}
+          <Link href="/fuentes" className="text-brand-700 underline">
+            Ver el estado de las fuentes
+          </Link>
+          .
+        </p>
       )}
 
       {enRiesgo.length > 0 ? (
@@ -147,6 +163,11 @@ export default async function PerencionPage() {
         <EstadoVacio
           rotulo="Piezas en la ventana de aviso"
           titulo={`Ninguna pieza entra hoy en la ventana de ${VENTANA_ALERTA_DIAS} días`}
+          accion={
+            <Button asChild variant="secondary">
+              <Link href="/congreso">Buscar iniciativas</Link>
+            </Button>
+          }
         >
           Se revisaron {vivas.length} piezas vigentes dentro de una muestra de{" "}
           {muestra.muestra}. La alerta se activa cuando el cierre de la legislatura
@@ -154,17 +175,6 @@ export default async function PerencionPage() {
         </EstadoVacio>
       )}
 
-      {!silCaido && (
-        <p className="mt-5 text-xs leading-relaxed text-ink-soft">
-          Cobertura parcial: se evalúan las {muestra.muestra} iniciativas más recientes
-          del registro, no el corpus completo. El SIL pagina de 10 en 10 y barrer sus
-          ~622 páginas en cada carga no es viable.{" "}
-          <Link href="/fuentes" className="text-brand-700 underline">
-            Ver estado de las fuentes
-          </Link>
-          .
-        </p>
-      )}
     </div>
   );
 }

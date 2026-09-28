@@ -338,6 +338,11 @@ async function Votos({ id }: { id: number }) {
         rotulo="¿Cómo ha votado?"
         titulo="El SIL no devolvió sus votaciones"
         className="mt-5"
+        accion={
+          <Button asChild variant="secondary">
+            <Link href="/fuentes">Ver el estado de las fuentes</Link>
+          </Button>
+        }
       >
         Sus propuestas sí llegaron; lo que no respondió es el registro de
         votaciones de la Cámara. Vuelve a intentarlo más tarde.
@@ -383,8 +388,8 @@ async function Votos({ id }: { id: number }) {
             </p>
             <p className="mt-1 text-xs leading-relaxed text-ink-soft">
               Cada votación dice qué se sometió y cómo salió; al abrirla está el
-              voto de cada diputado. Muchas son de trámite —el orden del día, liberar
-              una pieza de comisión—: la moción dice cuál es cuál.
+              voto de cada diputado. Muchas son de trámite, como el orden del día o
+              liberar una pieza de comisión: la moción dice cuál es cuál.
             </p>
           </div>
           <div className="border-t border-hairline">

@@ -108,8 +108,9 @@ export default function Conversacion({ referencia, className }: { referencia: Re
             Conversación pública. Comentan personas con cédula registrada, con su nombre de firma;
             vota cualquier cuenta.{" "}
             <Link href="/comunidad/normas" className="font-medium text-brand-700 hover:underline">
-              Normas
+              Lee las normas
             </Link>
+            .
           </p>
         </div>
         {carga.estado === "ok" && carga.hilo.estado === "visible" && (
@@ -341,6 +342,7 @@ function Nodo({
   const [miVoto, setMiVoto] = useState(c.mi_voto);
   const [error, setError] = useState<string | null>(null);
   const [borrar, setBorrar] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   const [votando, setVotando] = useState(false);
   const respuestas = hijos.get(c.id) ?? [];
 
@@ -369,9 +371,14 @@ function Nodo({
     setPuntos(r.datos);
   }
 
+  // Borrar un comentario no se deshace (el texto se elimina de verdad): se
+  // pregunta antes, y el «Sí» no dispara dos veces.
   async function borrarlo() {
+    if (borrando) return;
+    setBorrando(true);
     const cl = await import("@/lib/espacios-cliente");
     const r = await cl.borrarComentario(c.id);
+    setBorrando(false);
     if (!r.ok) return setError(r.error);
     await recargar();
   }
@@ -401,8 +408,9 @@ function Nodo({
                   <Button type="button" variant="ghost" size="icon" aria-pressed={miVoto === 1} aria-label="Votar a favor" disabled={votando} onClick={() => void votar(1)} className={cn(miVoto === 1 && "text-brand-700")}>
                     <IconVoto className="h-4 w-4" />
                   </Button>
-                  <span className="min-w-6 text-center font-mono text-xs tabular-nums text-ink" aria-label={`${puntos} puntos`}>
+                  <span className="min-w-6 text-center font-mono text-xs tabular-nums text-ink">
                     {puntos}
+                    <span className="sr-only"> {Math.abs(puntos) === 1 ? "punto" : "puntos"}</span>
                   </span>
                   <Button type="button" variant="ghost" size="icon" aria-pressed={miVoto === -1} aria-label="Votar en contra" disabled={votando} onClick={() => void votar(-1)} className={cn(miVoto === -1 && "text-ink")}>
                     <IconVoto className="h-4 w-4 rotate-180" />
@@ -423,10 +431,10 @@ function Nodo({
               {c.mio &&
                 (borrar ? (
                   <span className="inline-flex items-center gap-1">
-                    <Button type="button" variant="destructive" size="sm" className="h-11 sm:h-9" onClick={() => void borrarlo()}>
-                      Sí, borrarlo
+                    <Button type="button" variant="destructive" size="sm" className="h-11 sm:h-9" disabled={borrando} onClick={() => void borrarlo()}>
+                      {borrando ? "Borrando…" : "Sí, borrar tu comentario"}
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" onClick={() => setBorrar(false)}>
+                    <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" disabled={borrando} onClick={() => setBorrar(false)}>
                       No
                     </Button>
                   </span>
@@ -437,7 +445,7 @@ function Nodo({
                   </Button>
                 ))}
             </div>
-            {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+            {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
             {respondiendo === c.id && (
               <Redactar
                 referencia={referencia}
@@ -518,7 +526,7 @@ function Participar({
   }
   if (yo.suspendido_hasta) {
     return (
-      <Alert variant="aviso" className="px-4 py-3 text-sm">
+      <Alert role="note" variant="aviso" className="px-4 py-3 text-sm">
         Tu cuenta no puede comentar ni votar hasta el {formatFecha(yo.suspendido_hasta)}.
       </Alert>
     );
@@ -635,7 +643,7 @@ function Primera({ nombre: inicial, onListo }: { nombre: string | null; onListo:
           />
           Acepto las normas de la conversación
         </Label>
-        {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+        {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
         <ErrorCampo id="primera-error">
           {falta === "nombre" ? "Escribe tu nombre de firma para seguir." : falta === "acepto" ? "Marca que aceptas las normas para seguir." : ""}
         </ErrorCampo>
@@ -711,7 +719,7 @@ function Redactar({
       <ErrorCampo id={`${id}-error`}>
         {corto ? "Escribe algo antes de publicar." : ""}
       </ErrorCampo>
-      {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={cargando}>
           {cargando ? "Publicando…" : "Publicar"}
@@ -821,7 +829,7 @@ function Denunciar({
             </ErrorCampo>
             <Label htmlFor="detalle-denuncia" className="sr-only">Detalle</Label>
             <Textarea id="detalle-denuncia" name="detalle" rows={3} maxLength={500} value={detalle} onChange={(e) => setDetalle(e.target.value)} onKeyDown={enviarConModificador} placeholder="Detalle (opcional)…" className="text-base sm:text-sm" />
-            {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+            {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
             <div className="flex gap-2">
               <Button type="submit" disabled={enviando}>{enviando ? "Enviando…" : "Enviar denuncia"}</Button>
               <Button type="button" variant="ghost" onClick={onCerrar}>Cancelar</Button>

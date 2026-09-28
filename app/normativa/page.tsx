@@ -149,7 +149,7 @@ export default async function NormativaPage({
       <Suspense>
         <BuscadorUrl
           etiqueta="Buscar en los títulos"
-          placeholder="Una palabra del título o un número: embajador, 606-26, pensión…"
+          placeholder="Por ejemplo: pensión o 606-26…"
           ayuda={`Busca en el número y el título de ${TIPOS_NORMATIVA[tipo].toLowerCase()} de ${anio}${
             nombreMateria ? `, solo en ${nombreMateria.toLowerCase()}` : ""
           }${mes ? `, solo en los nombramientos y ceses de ${nombreMes(mes)}` : ""}, sin distinguir tildes; todas las palabras tienen que aparecer. No busca dentro del texto de la norma.`}
@@ -157,7 +157,7 @@ export default async function NormativaPage({
       </Suspense>
 
       {anioFuera && (
-        <Alert variant="aviso" className="mt-3">
+        <Alert variant="aviso" role="note" className="mt-3">
           No leemos {anioFuera}: esta vista cubre de {ANIOS.at(-1)} a {ANIO_ACTUAL}. Mostramos {anio}.
         </Alert>
       )}
@@ -389,6 +389,13 @@ async function ListaNormativa({
                 : `Sin decretos de ${(nombreMateria ?? "esa materia").toLowerCase()} en ${anio}`
           }
           className="mt-4"
+          accion={
+            <Button asChild variant="secondary">
+              <Link href={hrefNormativa({ tipo, anio })}>
+                Quitar la búsqueda y los filtros
+              </Link>
+            </Button>
+          }
         >
           {q
             ? `Entre ${nombreMateria ? "los " : ""}${enMateria.toLocaleString("es-DO")} ${TIPOS_NORMATIVA[tipo].toLowerCase()}${
@@ -492,7 +499,7 @@ function Designaciones({
       <p className="mt-4 text-xs leading-relaxed text-ink-soft">
         Derivado del título, no de un campo del origen. La Consultoría Jurídica
         etiqueta con la Cámara de Cuentas cada decreto que designa a un
-        funcionario —quien es designado declara su patrimonio ante ella— y los
+        funcionario (quien es designado declara su patrimonio ante ella) y los
         que derogan esa designación; aquí se cuentan esos decretos por su fecha
         de promulgación. El cargo es el primero que el título menciona: un
         decreto que nombra a varias personas cuenta una vez. Los ceses no se
@@ -663,25 +670,34 @@ function FilaDoc({ doc }: { doc: Documento }) {
             </span>
           )}
         </div>
-        <p className="mt-1 text-[15px] leading-snug text-ink group-hover:text-brand-700">
-          {desdeMayusculas(doc.titulo)}
-        </p>
+        {/*
+          Con ficha propia, el titular es el enlace y se estira sobre la fila
+          entera (`estira`): el nombre accesible es el título de la norma y no
+          el renglón leído de corrido, y la fila responde como las demás.
+        */}
+        {ruta ? (
+          <Link
+            href={ruta}
+            className="estira mt-1 block break-words text-[15px] leading-snug text-ink hover:text-brand-700"
+          >
+            {desdeMayusculas(doc.titulo)}
+          </Link>
+        ) : (
+          <p className="mt-1 break-words text-[15px] leading-snug text-ink">
+            {desdeMayusculas(doc.titulo)}
+          </p>
+        )}
       </div>
     </>
   );
 
   if (ruta) {
     return (
-      <li className="cv-auto group">
-        <Link
-          href={ruta}
-          className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-canvas/60 sm:px-5"
-        >
-          {cuerpo}
-          <span className="shrink-0 self-center text-xs font-medium text-brand-700">
-            Leer
-          </span>
-        </Link>
+      <li className="cv-auto relative flex items-start gap-3 px-4 py-3.5 sm:px-5">
+        {cuerpo}
+        <span aria-hidden className="shrink-0 self-center text-xs font-medium text-brand-700">
+          Leer
+        </span>
       </li>
     );
   }
@@ -697,6 +713,7 @@ function FilaDoc({ doc }: { doc: Documento }) {
           className="-my-1 -mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-xs font-medium text-brand-700 hover:underline sm:my-0 sm:mr-0 sm:min-h-0 sm:px-0"
         >
           Abrir
+          <span className="sr-only">{` ${doc.tipo} ${doc.numero} (en otra pestaña)`}</span>
           <IconExternal className="h-3.5 w-3.5" />
         </a>
       )}

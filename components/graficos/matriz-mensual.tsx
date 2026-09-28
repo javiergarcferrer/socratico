@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { MESES, MESES_CORTOS } from "@/lib/format";
+import { MESES, MESES_CORTOS, SIN_DATO } from "@/lib/format";
 import { formatearValor, type FormatoValor } from "./formato";
 import { EscalaSecuencial } from "./leyenda";
 import { SECUENCIAL } from "./paleta";
@@ -71,7 +71,7 @@ export function MatrizMensual({
             </span>
             {Array.from({ length: 12 }, (_, m) => {
               const v = f.valores[m] ?? null;
-              const lectura = `${MESES[m]} de ${f.anio}: ${v == null ? "sin dato" : formatearValor(v, formato)}`;
+              const lectura = `${MESES[m]} de ${f.anio}: ${v == null ? SIN_DATO : formatearValor(v, formato)}`;
               const href = f.hrefs?.[m];
               const clase = cn(
                 "block h-7",

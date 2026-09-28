@@ -20,7 +20,7 @@ import {
   type SentidoVoto,
   type VotoNominal,
 } from "@/lib/congreso";
-import { formatFecha } from "@/lib/format";
+import { formatFecha, SIN_DATO } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
 
 // Una votación cerrada no cambia: el SIL se consulta como mucho una vez al día.
@@ -74,7 +74,7 @@ export default async function VotacionPage({ params }: Props) {
           }
         >
           No es que esta votación no exista: es que el sistema de información
-          legislativa no contestó. El voto nominal vuelve sola cuando el origen se
+          legislativa no contestó. El voto nominal vuelve solo cuando el origen se
           restablece.
         </EstadoVacio>
       </div>
@@ -110,7 +110,7 @@ export default async function VotacionPage({ params }: Props) {
         <p className="font-mono text-sm font-semibold tabular-nums text-brand-700">
           {[v.titulo, v.sesion && `sesión ${v.sesion}`].filter(Boolean).join(" · ")}
         </p>
-        <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-ink sm:text-2xl">
+        <h1 className="mt-2 break-words text-xl leading-snug text-ink sm:text-2xl">
           {v.mocion ?? "Votación del pleno"}
         </h1>
         <p className="mt-2 text-sm text-ink-soft">
@@ -167,7 +167,8 @@ export default async function VotacionPage({ params }: Props) {
           <Cifra etiqueta="Abstenciones" valor={v.abstencion} />
           <Cifra
             etiqueta="Presentes"
-            valor={v.presentes ?? "—"}
+            valor={v.presentes ?? SIN_DATO}
+            tono={v.presentes == null ? "text-ink-soft" : undefined}
             nota={v.miembros ? `de ${v.miembros} miembros` : undefined}
           />
         </TiraDeCifras>
@@ -182,6 +183,11 @@ export default async function VotacionPage({ params }: Props) {
           className="mt-5"
           rotulo="¿Quién votó qué?"
           titulo="El voto nominal no respondió"
+          accion={
+            <Button asChild variant="secondary">
+              <Link href="/fuentes">Ver el estado de las fuentes</Link>
+            </Button>
+          }
         >
           El SIL devolvió el recuento de esta votación pero no la lista de quién
           votó qué. No es que falte: es que no pudimos leerla ahora. El recuento de
@@ -220,7 +226,7 @@ export default async function VotacionPage({ params }: Props) {
               <CardAction className="font-mono tabular-nums">{votos.length}</CardAction>
             </CardHeader>
             {votos.length < totalVotos && (
-              <Alert variant="aviso" className="m-5">
+              <Alert variant="aviso" role="note" className="m-5">
                 <p className="text-xs text-alerta-700">
                   Faltan {totalVotos - votos.length} de {totalVotos} filas: el SIL no
                   respondió alguna página del voto nominal. Los recuentos de arriba
@@ -233,9 +239,9 @@ export default async function VotacionPage({ params }: Props) {
                 const lista = porSentido.get(s)!;
                 return (
                   <section key={s}>
-                    <p className="rotulo px-5 pb-1 pt-4 text-ink-soft">
+                    <h3 className="rotulo px-5 pb-1 pt-4 text-ink-soft">
                       {`${ETIQUETA_SENTIDO[s]} · ${lista.length}`}
-                    </p>
+                    </h3>
                     <ListaPlegada
                       total={lista.length}
                       visibles={VISIBLES_POR_SENTIDO}

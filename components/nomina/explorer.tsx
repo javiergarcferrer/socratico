@@ -10,17 +10,7 @@ import {
   parseAsStringLiteral,
   useQueryStates,
 } from "nuqs";
-import {
-  IconBuilding,
-  IconChartBar,
-  IconCoins,
-  IconDownload,
-  IconLayers,
-  IconMapPin,
-  IconSearch,
-  IconTrendingUp,
-  IconX,
-} from "@/components/icons";
+import { IconDownload, IconSearch, IconX } from "@/components/icons";
 import {
   aggregateBy,
   bucketOf,
@@ -67,6 +57,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { agujas, plano, pruebas } from "@/lib/raiz";
 import { claves } from "@/lib/consultas";
 import { useRebotado } from "@/components/rebotado";
+import { SIN_DATO } from "@/lib/format";
 
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -75,7 +66,6 @@ const norm = (s: string) =>
 type View = "resumen" | "tabla" | "comparar";
 const VISTAS: View[] = ["resumen", "tabla", "comparar"];
 type Metric = "total" | "count" | "avg";
-type IconType = React.ComponentType<{ className?: string }>;
 
 /**
  * Enlace de cada código de nómina a la ficha de su institución. Lo calcula el
@@ -106,7 +96,22 @@ export function Explorer({ fichas = {} }: { fichas?: FichasNomina }) {
 
   if (error) {
     return (
-      <Card className="p-6 text-sm text-ink-soft">{error.message}</Card>
+      <EstadoVacio
+        variante="caida"
+        titulo="No pudimos cargar la nómina consolidada"
+        accion={
+          <Button type="button" variant="secondary" onClick={() => window.location.reload()}>
+            Volver a intentar
+          </Button>
+        }
+      >
+        La nómina es un archivo de esta misma plataforma, así que casi siempre
+        es la conexión. Mientras tanto, la{" "}
+        <Link href="/nomina/general" className="font-medium text-brand-700 hover:underline">
+          nómina general del MAP
+        </Link>{" "}
+        sigue en pie.
+      </EstadoVacio>
     );
   }
   if (!data) return <ExplorerEsqueleto />;
@@ -409,7 +414,8 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
         ].join(",");
       })
       .join("\n");
-    const blob = new Blob([head + body], { type: "text/csv;charset=utf-8" });
+    // El BOM hace que Excel lea las tildes en UTF-8, como en `app/finanzas/descargar-csv.tsx`.
+    const blob = new Blob(["\uFEFF" + head + body], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -441,7 +447,7 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
             <Input
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
-              placeholder="Buscar por institución, área o cargo…"
+              placeholder="Institución, área o cargo…"
               className="bg-canvas pl-10 pr-9"
             />
             {queryInput && (
@@ -557,26 +563,23 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
       {/* ---------- KPI cards ---------- */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi
-          icon={IconLayers}
           label="Plazas"
           value={formatInt(kpis.count)}
           base={`de ${formatInt(data.rows.length)} en la foto`}
         />
         <Kpi
-          icon={IconCoins}
           label="Masa salarial mensual"
           value={formatCompactDOP(kpis.total)}
           base="último mes publicado por cada institución"
         />
-        <Kpi icon={IconChartBar} label="Sueldo promedio" value={formatDOP(kpis.avg)} base="bruto mensual" />
-        <Kpi icon={IconTrendingUp} label="Sueldo mediano" value={formatDOP(kpis.median)} base="bruto mensual" />
+        <Kpi label="Sueldo promedio" value={kpis.count ? formatDOP(kpis.avg) : SIN_DATO} base="bruto mensual" />
+        <Kpi label="Sueldo mediano" value={kpis.count ? formatDOP(kpis.median) : SIN_DATO} base="bruto mensual" />
         <Kpi
-          icon={IconBuilding}
           label="Instituciones"
           value={formatInt(kpis.insts)}
           base="con nómina publicada y legible"
         />
-        <Kpi icon={IconMapPin} label="Cargos distintos" value={formatInt(kpis.cargos)} />
+        <Kpi label="Cargos distintos" value={formatInt(kpis.cargos)} base="denominaciones de puesto" />
       </div>
 
       {/* ---------- vistas ---------- */}
@@ -589,18 +592,9 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
         */}
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <TabsList className="w-auto">
-            <TabsTrigger value="resumen">
-              <IconChartBar className="h-4 w-4" />
-              Resumen
-            </TabsTrigger>
-            <TabsTrigger value="tabla">
-              <IconLayers className="h-4 w-4" />
-              Tabla
-            </TabsTrigger>
-            <TabsTrigger value="comparar">
-              <IconTrendingUp className="h-4 w-4" />
-              Comparar
-            </TabsTrigger>
+            <TabsTrigger value="resumen">Resumen</TabsTrigger>
+            <TabsTrigger value="tabla">Tabla</TabsTrigger>
+            <TabsTrigger value="comparar">Comparar</TabsTrigger>
           </TabsList>
           {/*
             El conteo cambia sin navegar —cada tecla del buscador lo mueve—, así
@@ -616,7 +610,7 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
         <TabsContent value="resumen" className="space-y-5">
           <Panel
             title="Instituciones"
-            subtitle="Cada institución aporta su último mes publicado (clic para filtrar)"
+            subtitle="Cada institución aporta su último mes publicado. Toca una para filtrar la nómina por ella."
             action={
               <ToggleGroup
                 type="single"
@@ -678,7 +672,7 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
             los dos (docs/IDENTIDAD.md §Gráficos, `Multiples`).
           */}
           <Multiples>
-            <Panel title="Top áreas por gasto">
+            <Panel title="Áreas con más gasto">
               <BarrasHorizontales
                 lineas={2}
                 maximo={escalaGasto}
@@ -694,7 +688,7 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
               />
             </Panel>
 
-            <Panel title="Top cargos por gasto">
+            <Panel title="Cargos con más gasto">
               <BarrasHorizontales
                 lineas={2}
                 maximo={escalaGasto}
@@ -705,7 +699,7 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
                   titulo: data.cargos[g.key],
                   valor: g.total,
                   cifra: formatCompactDOP(g.total),
-                  detalle: `${formatInt(g.count)} · ${formatDOP(g.avg)} prom.`,
+                  detalle: `${formatInt(g.count)} ${g.count === 1 ? "plaza" : "plazas"} · promedio ${formatDOP(g.avg)}`,
                 }))}
               />
             </Panel>
@@ -732,8 +726,8 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
         <TabsContent value="tabla" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-ink-soft">
-              Ordenado por <span className="font-medium text-ink">{sortLabel(sortKey)}</span> (
-              {sortDir === "asc" ? "asc" : "desc"})
+              Ordenado por <span className="font-medium text-ink">{sortLabel(sortKey)}</span>,{" "}
+              {sentidoOrden(sortKey, sortDir)}
             </p>
             <Button type="button" onClick={exportCsv}>
               <IconDownload className="h-4 w-4" /> Exportar CSV
@@ -876,8 +870,8 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
         {data.instituciones.length} instituciones cubiertas ({formatInt(data.rows.length)}{" "}
         plazas). Cada fila es una plaza con su sueldo bruto; no hay nombres ni datos
         personales. La cobertura es la que cada institución publica en formato
-        procesable — <span className="font-medium text-ink">no es todo el Estado</span>;
-        el detalle completo con nombres vive en el{" "}
+        procesable, y <span className="font-medium text-ink">no es todo el Estado</span>.
+        El detalle completo con nombres vive en el{" "}
         <a
           href="https://transparencia.gob.do/2025/12/17/nomina/"
           target="_blank"
@@ -921,6 +915,12 @@ function sortLabel(k: SortKey): string {
   return { institucion: "institución", area: "área", cargo: "cargo", sueldo: "sueldo" }[k];
 }
 
+/** El sentido del orden en llano: «de mayor a menor», «de la A a la Z». */
+function sentidoOrden(k: SortKey, dir: SortDir): string {
+  if (k === "sueldo") return dir === "asc" ? "de menor a mayor" : "de mayor a menor";
+  return dir === "asc" ? "de la A a la Z" : "de la Z a la A";
+}
+
 /**
  * Un KPI de nómina con **su base debajo de la cifra**.
  *
@@ -930,27 +930,22 @@ function sortLabel(k: SortKey): string {
  * una nota al pie con un número que leyó tres pantallas antes.
  */
 function Kpi({
-  icon: Icon,
   label,
   value,
   base,
 }: {
-  icon: IconType;
   label: string;
   value: string;
   base?: string;
 }) {
+  /*
+    Sin icono: cada rótulo llevaba uno (capas, monedas, un alfiler de mapa
+    para «cargos») que no decía nada que la palabra no dijera, y la identidad
+    no admite iconos decorativos.
+  */
   return (
     <Card className="p-3.5">
-      {/*
-        El icono se alinea con la primera línea del rótulo, no con su centro:
-        a 390 px «MASA SALARIAL MENSUAL» ocupa dos líneas y el icono centrado
-        quedaba flotando entre las dos.
-      */}
-      <div className="flex items-start gap-1.5 text-ink-soft">
-        <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <span className="rotulo">{label}</span>
-      </div>
+      <p className="rotulo text-ink-soft">{label}</p>
       <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums text-ink">{value}</p>
       {/* La base de la cifra no es adorno: a 11 px no se lee en un teléfono. */}
       {base && <p className="mt-1 text-xs leading-snug text-ink-soft">{base}</p>}
@@ -960,9 +955,9 @@ function Kpi({
 
 /**
  * Un panel del explorador: cabecera con título, subtítulo y su control a la
- * derecha. Es `Card` de `components/ui` con el título en la letra de titular, que es lo que
- * la identidad reserva a un titular de sección grande — un título de panel de
- * 14 px iría en sans.
+ * derecha. Es `Card` de `components/ui` con el título de panel en sans, como
+ * todos los de la casa: la letra de titular queda para la pregunta de la
+ * página.
  */
 function Panel({
   title,
@@ -979,7 +974,7 @@ function Panel({
     <Card>
       <CardHeader className="items-start px-4 py-4 sm:px-5">
         <div className="min-w-0">
-          <CardTitle className="font-display text-lg">{title}</CardTitle>
+          <CardTitle className="text-[15px]">{title}</CardTitle>
           {subtitle && <p className="mt-0.5 text-sm text-ink-soft">{subtitle}</p>}
         </div>
         {action && <CardAction>{action}</CardAction>}

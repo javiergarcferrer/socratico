@@ -45,6 +45,7 @@ import { Rotulo } from "@/components/papel";
 import { IconPencil, IconPlus, IconSearch, IconTrash } from "@/components/icons";
 import Caso from "./caso";
 import { Cerrado, EnlaceRegistro, MarcaTipo, SinSesion, useUsuario } from "./comun";
+import { AvisoDeshacer, type Deshacible } from "./deshacer";
 import ExportarFtm from "./exportar-ftm";
 
 /**
@@ -62,8 +63,12 @@ export default function MesaProyecto({ id }: { id: string | null }) {
   const sesion = useUsuario();
   if (!id) {
     return (
-      <EstadoVacio como="h1" titulo="Falta decir qué investigación abrir">
-        <Link href="/espacio" className="font-medium text-brand-700 hover:underline">Volver a tu espacio</Link>
+      <EstadoVacio
+        como="h1"
+        titulo="Falta decir qué investigación abrir"
+        accion={<Button asChild variant="secondary"><Link href="/espacio">Volver a tu espacio</Link></Button>}
+      >
+        La dirección no dice cuál. Tus investigaciones están en tu espacio.
       </EstadoVacio>
     );
   }
@@ -104,7 +109,7 @@ function Mesa({ u, id }: { u: Usuario; id: string }) {
     void cargar();
   }, [cargar]);
 
-  if (cerrado) return <Cerrado />;
+  if (cerrado) return <Cerrado h1 />;
   if (p === undefined && !error) return <Skeleton className="h-[520px] w-full" />;
   if (!p) {
     return (
@@ -211,7 +216,7 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
             onKeyDown={enviarConModificador}
             placeholder="Qué investigas, qué preguntas quieres responder, qué ya sabes…"
           />
-          {error && <p className="text-xs text-alerta-700">{error}</p>}
+          {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
           <div className="flex gap-2">
             <Button type="submit" disabled={guardando}>{guardando ? "Guardando…" : "Guardar"}</Button>
             <Button type="button" variant="outline" onClick={() => setEditando(false)}>Cancelar</Button>
@@ -328,7 +333,7 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
       <p className="mt-1.5 text-xs text-ink-soft">
         El mismo índice de «Buscar en todo». También puedes guardar desde la ficha de cada registro.
       </p>
-      {(error ?? errorBusqueda) && <p className="mt-2 text-xs text-alerta-700">{error ?? errorBusqueda}</p>}
+      {(error ?? errorBusqueda) && <p role="alert" className="mt-2 text-xs text-alerta-700">{error ?? errorBusqueda}</p>}
       {hallados && (
         <ul aria-live="polite" className="mt-3 divide-y divide-hairline">
           {hallados.length === 0 && <li className="py-2 text-sm text-ink-soft">Nada con «{busqueda.data?.q}» que se pueda guardar.</li>}
@@ -380,6 +385,10 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
   const [saliendo, setSaliendo] = useState(false);
   const [quitando, setQuitando] = useState(false);
   const [yendose, setYendose] = useState(false);
+  // Retirar una invitación sí se deshace entero: se vuelve a invitar al mismo
+  // correo con el mismo rol (docs/DESIGN.md §4.1).
+  const [deshacible, setDeshacible] = useState<Deshacible | null>(null);
+  const [retirando, setRetirando] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     const m = await miembrosDe(p.id);
@@ -473,7 +482,7 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
                           setAQuitar(null);
                         }}
                       >
-                        {quitando ? "Quitando…" : "Sí, quitar"}
+                        {quitando ? "Quitando…" : `Sí, quitar a ${m.nombre}`}
                       </Button>
                       <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" disabled={quitando} onClick={() => setAQuitar(null)}>No</Button>
                     </>
@@ -542,20 +551,45 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
             {invitaciones.map((i) => (
               <li key={i.id} className="flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate font-mono text-xs">{i.email}</span>
-                <Button type="button" variant="ghost" size="sm" onClick={() => void hacer(retirarInvitacion(i.id))}>
-                  Retirar
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Retirar la invitación a ${i.email}`}
+                  disabled={retirando !== null}
+                  onClick={async () => {
+                    if (retirando !== null) return;
+                    setRetirando(i.id);
+                    const r = await retirarInvitacion(i.id);
+                    setRetirando(null);
+                    setError(r.ok ? null : r.error);
+                    if (!r.ok) return;
+                    setDeshacible({
+                      texto: `Retiraste la invitación a ${i.email}.`,
+                      deshacer: async () => {
+                        const v = await invitar(p.id, i.email, i.rol);
+                        if (!v.ok) return v;
+                        void cargar();
+                        return { ok: true };
+                      },
+                    });
+                    void cargar();
+                  }}
+                >
+                  {retirando === i.id ? "Retirando…" : "Retirar"}
                 </Button>
               </li>
             ))}
           </ul>
         </div>
       )}
+      {esDueno && <AvisoDeshacer aviso={deshacible} onCerrar={() => setDeshacible(null)} className="mt-3" />}
 
       {!esDueno &&
         (saliendo ? (
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="destructive" size="sm" className="h-11 sm:h-9" disabled={yendose} onClick={irme}>
-              {yendose ? "Saliendo…" : "Sí, salir"}
+              {yendose ? "Saliendo…" : "Sí, salir de esta investigación"}
             </Button>
             <Button type="button" variant="outline" size="sm" className="h-11 sm:h-9" disabled={yendose} onClick={() => setSaliendo(false)}>No</Button>
           </div>
@@ -564,7 +598,7 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
             Salir de esta investigación
           </Button>
         ))}
-      {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-alerta-700">{error}</p>}
     </Card>
   );
 }
@@ -608,8 +642,8 @@ function Publicar({ p, onCambio }: { p: ProyectoConCuenta; onCambio: () => void 
       <CardTitle className="text-base">Publicar</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         {p.publico
-          ? "Cualquiera con la dirección ve el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma. No ve quién colabora, ni tu correo, ni los parentescos («es familiar de»)."
-          : "Al publicar, cualquiera con la dirección verá el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas —también las de quienes colaboran— y los enlaces, bajo tu nombre de firma; los parentescos («es familiar de») nunca se publican. Puedes retirarla cuando quieras; la dirección se conserva."}
+          ? "Cualquiera con la dirección ve el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas (también las de quienes colaboran) y los enlaces, bajo tu nombre de firma. No ve quién colabora, ni tu correo, ni los parentescos («es familiar de»)."
+          : "Al publicar, cualquiera con la dirección verá el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas (también las de quienes colaboran) y los enlaces, bajo tu nombre de firma; los parentescos («es familiar de») nunca se publican. Puedes retirarla cuando quieras; la dirección se conserva."}
       </p>
       {p.publico && url && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -624,7 +658,7 @@ function Publicar({ p, onCambio }: { p: ProyectoConCuenta; onCambio: () => void 
         </Button>
         {p.publico && url && <CopiarRuta ruta={url} />}
       </div>
-      {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-alerta-700">{error}</p>}
     </Card>
   );
 }
@@ -633,21 +667,24 @@ function Publicar({ p, onCambio }: { p: ProyectoConCuenta; onCambio: () => void 
 function CopiarRuta({ ruta }: { ruta: string }) {
   const [copiado, setCopiado] = useState(false);
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(`${window.location.origin}${ruta}`);
-          setCopiado(true);
-          window.setTimeout(() => setCopiado(false), 2000);
-        } catch {
-          /* sin permiso de portapapeles: la dirección está a la vista */
-        }
-      }}
-    >
-      {copiado ? "Copiada" : "Copiar dirección"}
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(`${window.location.origin}${ruta}`);
+            setCopiado(true);
+            window.setTimeout(() => setCopiado(false), 2000);
+          } catch {
+            /* sin permiso de portapapeles: la dirección está a la vista */
+          }
+        }}
+      >
+        {copiado ? "Copiada" : "Copiar dirección"}
+      </Button>
+      <span role="status" className="sr-only">{copiado ? "Dirección copiada." : ""}</span>
+    </>
   );
 }
 
@@ -656,6 +693,7 @@ function CopiarRuta({ ruta }: { ruta: string }) {
 function Borrar({ p }: { p: ProyectoConCuenta }) {
   const router = useRouter();
   const [seguro, setSeguro] = useState(false);
+  const [borrando, setBorrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
     <Card as="section" className="p-5">
@@ -669,15 +707,20 @@ function Borrar({ p }: { p: ProyectoConCuenta }) {
           <Button
             type="button"
             variant="destructive"
+            disabled={borrando}
             onClick={async () => {
+              setBorrando(true);
               const r = await borrarProyecto(p.id);
-              if (!r.ok) return setError(r.error);
+              if (!r.ok) {
+                setBorrando(false);
+                return setError(r.error);
+              }
               router.push("/espacio");
             }}
           >
-            Sí, borrar «{p.titulo}»
+            {borrando ? "Borrando…" : `Sí, borrar «${p.titulo}»`}
           </Button>
-          <Button type="button" variant="outline" onClick={() => setSeguro(false)}>No</Button>
+          <Button type="button" variant="outline" disabled={borrando} onClick={() => setSeguro(false)}>No</Button>
         </div>
       ) : (
         <Button type="button" variant="outline" className="mt-3" onClick={() => setSeguro(true)}>
@@ -685,7 +728,7 @@ function Borrar({ p }: { p: ProyectoConCuenta }) {
           Borrar
         </Button>
       )}
-      {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-alerta-700">{error}</p>}
     </Card>
   );
 }

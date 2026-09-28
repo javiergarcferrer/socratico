@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import {
@@ -66,9 +67,9 @@ export default async function DocumentosPage({
         className="mx-auto max-w-2xl"
         titulo="No pudimos leer el índice de documentos"
         accion={
-          <Link href="/fuentes" className="text-sm font-medium text-brand-700 hover:underline">
-            Ver el estado de las fuentes
-          </Link>
+          <Button asChild variant="secondary">
+            <Link href="/fuentes">Ver el estado de las fuentes</Link>
+          </Button>
         }
       >
         La copia del índice no está disponible en este momento.
@@ -107,8 +108,8 @@ export default async function DocumentosPage({
             instituciones suben a sus propios sitios, en un solo buscador. Las
             declaraciones juradas de patrimonio quedan fuera hasta decidir si un
             buscador por nombre de funcionario es proporcionado. Aquí no se copia nada: cada resultado abre el archivo en el
-            sitio de la institución. El título es el que ella le puso —a veces, el
-            nombre del archivo— y la fecha es la de subida, no la del documento.
+            sitio de la institución. El título es el que ella le puso (a veces, el
+            nombre del archivo) y la fecha es la de subida, no la del documento.
           </>
         }
       >
@@ -152,7 +153,14 @@ export default async function DocumentosPage({
           pudimos mirar. Cada institución los sigue teniendo en su sitio.
         </EstadoVacio>
       ) : r.total === 0 ? (
-        <EstadoVacio titulo={q ? `Ningún título coincide con «${q}»` : "No hay documentos con este filtro"}>
+        <EstadoVacio
+          titulo={q ? `Ningún título coincide con «${q}»` : "No hay documentos con este filtro"}
+          accion={
+            <Button asChild variant="secondary">
+              <Link href="/documentos">Ver todos los documentos</Link>
+            </Button>
+          }
+        >
           Prueba con menos palabras, otra institución u otro tipo. Recuerda que se busca
           en el título que puso la institución, no dentro del documento.
         </EstadoVacio>
@@ -174,6 +182,7 @@ export default async function DocumentosPage({
                     className="block text-[15px] leading-snug text-ink [overflow-wrap:anywhere] estira hover:text-brand-700"
                   >
                     {d.titulo}
+                    <span className="sr-only"> (se abre en otra pestaña)</span>
                   </a>
                   <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
                     <Badge variant="contorno">{ETIQUETA_TIPO[d.tipo]}</Badge>
@@ -243,8 +252,8 @@ export default async function DocumentosPage({
         Fuera de este índice por decisión de cada institución, y no por falta de
         intento: el Servicio Nacional de Salud (SNS), Administración Pública (MAP), el Ministerio de
         la Presidencia, Deportes, Agricultura, INFOTEP y la ONE cierran o protegen
-        esa vía de lectura; su apertura se pide por la Ley 200-04. Otras —Educación,
-        Obras Públicas, Salud, la DGII, Aduanas— no usan WordPress y requieren otra
+        esa vía de lectura; su apertura se pide por la Ley 200-04. Otras, como Educación,
+        Obras Públicas, Salud, la DGII y Aduanas, no usan WordPress y requieren otra
         vía. Ver{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           el estado de las fuentes

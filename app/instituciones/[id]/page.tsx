@@ -17,7 +17,7 @@ import { sismapDeInstitucion } from "@/lib/sismap";
 import { normasDeInstitucion, RUTA_POR_TIPO } from "@/lib/normativa";
 import { listPacc } from "@/lib/dgcp";
 import { desdeMayusculas } from "@/lib/congreso";
-import { formatFecha, formatMonto, formatPesos } from "@/lib/format";
+import { formatFecha, formatMonto, formatPesos, SIN_DATO } from "@/lib/format";
 import { formatDOP, formatInt } from "@/lib/nomina";
 import { Ruta } from "@/components/ruta";
 import { ObrasDeInstitucion } from "@/components/fuentes-nuevas/obras-de-institucion";
@@ -36,6 +36,7 @@ import { EstadoVacio } from "@/components/estado-vacio";
 import { IconExternal } from "@/components/icons";
 import { Cifra, TiraDeCifras } from "@/components/papel";
 import Plegable from "@/components/plegable";
+import Antiguedad from "@/components/antiguedad";
 import AccionesFicha from "@/components/acciones-ficha";
 import { FiltroEnlace, NavFiltros } from "@/components/nav-filtros";
 import { enlace } from "@/lib/grafo";
@@ -209,8 +210,8 @@ export default async function InstitucionPage({ params }: Props) {
         ) : (
           <EstadoVacio rotulo="Presupuesto" titulo="Sin presupuesto propio en el SIGEF">
             La DGCP no adscribe esta unidad de compra a un capítulo del Presupuesto
-            General del Estado —pasa con ayuntamientos, empresas públicas y órganos
-            con presupuesto aparte—, así que su gasto no aparece en la instantánea
+            General del Estado (pasa con ayuntamientos, empresas públicas y órganos
+            con presupuesto aparte), así que su gasto no aparece en la instantánea
             del SIGEF.
           </EstadoVacio>
         )}
@@ -253,7 +254,7 @@ export default async function InstitucionPage({ params }: Props) {
                 <li key={c.cargo} className="flex items-baseline justify-between gap-3 py-2">
                   <span className="min-w-0">{desdeMayusculas(c.cargo)}</span>
                   <span className="shrink-0 font-mono text-xs tabular-nums text-ink-soft">
-                    {formatInt(c.plazas)} · {formatDOP(c.mediana)}
+                    {formatInt(c.plazas)} {c.plazas === 1 ? "plaza" : "plazas"} · mediana {formatDOP(c.mediana)}
                   </span>
                 </li>
               ))}
@@ -280,7 +281,7 @@ export default async function InstitucionPage({ params }: Props) {
                 <li key={cargo} className="flex items-baseline justify-between gap-3 py-2">
                   <span className="min-w-0">{desdeMayusculas(cargo)}</span>
                   <span className="shrink-0 font-mono text-xs tabular-nums text-ink-soft">
-                    {formatInt(n)} · {formatDOP(mediana)}
+                    {formatInt(n)} {n === 1 ? "plaza" : "plazas"} · mediana {formatDOP(mediana)}
                   </span>
                 </li>
               ))}
@@ -465,13 +466,12 @@ function Presupuesto({
         <Cifra etiqueta="Vigente" valor={formatPesos(c.vigente)} ancla={{ alcance: "instantanea", periodo: corte }} />
         <Cifra etiqueta="Devengado" valor={formatPesos(c.devengado)} ancla={{ alcance: "instantanea", periodo: corte }} />
         <Cifra etiqueta="Pagado" valor={formatPesos(c.pagado)} ancla={{ alcance: "instantanea", periodo: corte }} />
-        <Cifra etiqueta="Ejecutado" valor={c.ejecucion === null ? "—" : `${(ejecutado * 100).toFixed(1)} %`} nota="Devengado sobre vigente" />
+        <Cifra etiqueta="Ejecutado" valor={c.ejecucion === null ? SIN_DATO : `${(ejecutado * 100).toFixed(1)} %`} nota="Devengado sobre vigente" />
       </TiraDeCifras>
       <Progress
         value={Math.min(100, ejecutado * 100)}
         aria-label={`Ejecutado ${(ejecutado * 100).toFixed(1)} % del presupuesto vigente`}
         className="mt-4"
-        indicadorClassName="bg-v-finanzas"
       />
       <p className="mt-3 text-xs leading-relaxed text-ink-soft">
         {Math.abs(cambio) < 1
@@ -493,7 +493,10 @@ function Presupuesto({
           <ul className="grid gap-1 px-5 py-3 sm:grid-cols-2 sm:px-6">
             {hermanas.map((h) => (
               <li key={h.id}>
-                <Link href={hrefInstitucion(h)} className="text-sm text-ink hover:text-brand-700">
+                <Link
+                  href={hrefInstitucion(h)}
+                  className="flex min-h-11 items-center text-sm leading-snug text-ink hover:text-brand-700 sm:min-h-9"
+                >
                   {h.nombre}
                 </Link>
               </li>
@@ -547,7 +550,7 @@ async function Compras({ institucion: i }: { institucion: Institucion }) {
             />
             <Cifra
               etiqueta="Se lleva el primer proveedor"
-              valor={compras.concentracion === null ? "—" : `${(compras.concentracion * 100).toFixed(1)} %`}
+              valor={compras.concentracion === null ? SIN_DATO : `${(compras.concentracion * 100).toFixed(1)} %`}
               nota={`Del monto en pesos de esos ${formatInt(compras.leidos)} contratos`}
             />
           </TiraDeCifras>
@@ -555,13 +558,16 @@ async function Compras({ institucion: i }: { institucion: Institucion }) {
           <BarrasHorizontales
             className="mt-2"
             maximo={maxProv}
+            lineas={2}
             etiqueta="Proveedores por monto contratado"
             barras={compras.proveedores.map((p) => ({
               clave: p.rpe || p.nombre,
               etiqueta: p.nombre,
               titulo: `${p.nombre}: ${formatPesos(p.monto)} en ${p.n} contratos`,
               valor: p.monto,
-              cifra: `${formatPesos(p.monto)} · ${formatInt(p.n)}`,
+              // La cuenta iba pegada al monto sin unidad («· 3»): ahora se dice debajo.
+              cifra: formatPesos(p.monto),
+              detalle: `${formatInt(p.n)} ${p.n === 1 ? "contrato" : "contratos"}`,
               href: p.rpe ? enlace.proveedor(p.rpe) : undefined,
             }))}
           />
@@ -615,8 +621,8 @@ function ListaAdjudicaciones({ contratos }: { contratos: Adjudicacion[] }) {
               {c.descripcion || c.codigo_proceso}
             </span>
             <span className="mt-0.5 block text-xs text-ink-soft">
-              {c.razon_social} · {formatMonto(c.valor_contratado, c.divisa)} ·{" "}
-              {formatFecha(c.fecha_adjudicacion)}
+              {c.razon_social} · <span className="font-mono tabular-nums">{formatMonto(c.valor_contratado, c.divisa)}</span> ·{" "}
+              <Antiguedad iso={c.fecha_adjudicacion} prefijo="adjudicado" />
             </span>
           </Link>
         </li>
@@ -687,7 +693,9 @@ async function Planes({ institucion: i }: { institucion: Institucion }) {
       <CardTitle>Plan anual de compras</CardTitle>
       {lista.length === 0 ? (
         <p className="mt-2 text-sm text-ink-soft">
-          La DGCP no registra planes anuales (PACC) publicados por esta unidad.
+          No encontramos planes anuales (PACC) de esta unidad en la DGCP. Si la API
+          no respondió, vuelve en unos minutos; si no, la unidad no ha publicado
+          ninguno.
         </p>
       ) : (
         <>
@@ -710,6 +718,7 @@ async function Planes({ institucion: i }: { institucion: Institucion }) {
                     href={p.url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label={`Abrir el plan ${p.periodo} en el Portal Transaccional (se abre en otra pestaña)`}
                     className="inline-flex min-h-11 items-center gap-1 text-xs font-medium text-brand-700 hover:underline sm:min-h-0"
                   >
                     Abrir

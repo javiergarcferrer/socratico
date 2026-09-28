@@ -95,6 +95,9 @@ export default function SeguimientoPage() {
   */
   const [ultimaVisita, setUltimaVisita] = useState<string | null>(null);
   const comparados = useRef<Set<string>>(new Set());
+  // Quitar una pieza la borra de la lista sin cargar página: se anuncia.
+  const [aviso, setAviso] = useState("");
+  const alQuitar = (titulo: string) => setAviso(`Dejaste de seguir «${titulo}».`);
 
   useEffect(() => {
     const inicial = getSeguidos();
@@ -183,20 +186,20 @@ export default function SeguimientoPage() {
 
   return (
     <div className="space-y-5">
-      <Card as="section" className="p-5">
-        <Rotulo className="flex-wrap">
-          <span className="inline-flex items-center gap-1.5">
-            <IconStar className="h-3.5 w-3.5 text-brand-600" filled />
-            Mi seguimiento
-            {items && items.length > 0 && (
-              <span className="font-mono tabular-nums"> · {items.length}</span>
-            )}
-          </span>
+      <p aria-live="polite" className="sr-only">
+        {aviso}
+      </p>
+      <Card as="section" className="p-5 sm:p-6">
+        <Rotulo>
+          Mi seguimiento
+          {items && items.length > 0 && (
+            <span className="tabular-nums"> · {items.length}</span>
+          )}
         </Rotulo>
-        <h1 className="mt-2 font-display text-3xl leading-tight">
+        <h1 className="mt-2 font-display text-3xl leading-tight sm:text-4xl">
           ¿Qué cambió en lo que sigues?
         </h1>
-        <p className="mt-2 text-sm text-ink-soft">
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-soft sm:text-sm">
           Lo que marcaste con «Seguir» en cualquier parte de la plataforma: compras,
           proyectos de ley, proveedores, instituciones y normas. Sin cuenta, se
           guarda solo en este navegador y se borra si borras sus datos. Con{" "}
@@ -242,11 +245,9 @@ export default function SeguimientoPage() {
 
           {grupos.map(({ tipo, lista }) => (
             <section key={tipo} aria-labelledby={`grupo-${tipo}`} className="space-y-3">
-              <h2 id={`grupo-${tipo}`}>
-                <Rotulo>
-                  {GRUPOS_SEGUIDO[tipo].plural} · {lista.length}
-                </Rotulo>
-              </h2>
+              <Rotulo como="h2" id={`grupo-${tipo}`}>
+                {GRUPOS_SEGUIDO[tipo].plural} · {lista.length}
+              </Rotulo>
               {tipo === "proceso" ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   {lista.map((s) => {
@@ -259,6 +260,7 @@ export default function SeguimientoPage() {
                         item={s}
                         lectura={l}
                         cambio={cambiados.has(clave(s))}
+                        onQuitar={alQuitar}
                       />
                     );
                   })}
@@ -273,6 +275,7 @@ export default function SeguimientoPage() {
                       item={s}
                       lectura={lecturas[clave(s)]}
                       cambio={cambiados.has(clave(s))}
+                      onQuitar={alQuitar}
                     />
                   ))}
                   </ul>
@@ -376,11 +379,13 @@ function FilaSeguida({
   item,
   lectura,
   cambio,
-  as: Comp = "div",
+  onQuitar,
+  as = "div",
 }: {
   item: Seguido;
   lectura?: Lectura;
   cambio: boolean;
+  onQuitar: (titulo: string) => void;
   as?: "div" | "li";
 }) {
   const conEstado = TIPOS_CON_ESTADO.has(item.tipo);
@@ -393,14 +398,8 @@ function FilaSeguida({
           ? "La fuente no contestó ahora"
           : lectura.huella || "Sin estado publicado";
 
-  return (
-    <Comp
-      className={
-        Comp === "div"
-          ? "relative flex items-start gap-3 rounded-lg border border-hairline bg-surface p-4"
-          : "relative flex items-start gap-3 px-4 py-3"
-      }
-    >
+  const cuerpo = (
+    <>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           {cambio && (
@@ -424,16 +423,24 @@ function FilaSeguida({
       </div>
       <IconArrowRight className="mt-1 h-4 w-4 shrink-0 text-ink-soft" aria-hidden />
       <Button
+        type="button"
         variant="ghost"
         size="icon"
-        onClick={() =>
-          toggleSeguido({ tipo: item.tipo, id: item.id, titulo: item.titulo, href: item.href })
-        }
+        onClick={() => {
+          toggleSeguido({ tipo: item.tipo, id: item.id, titulo: item.titulo, href: item.href });
+          onQuitar(item.titulo);
+        }}
         aria-label={`Dejar de seguir: ${item.titulo}`}
         className="relative z-10 -my-2 -mr-2 shrink-0 text-brand-600 hover:text-brand-700"
       >
         <IconStar className="h-5 w-5" filled />
       </Button>
-    </Comp>
+    </>
+  );
+  // En un listado la fila ya vive en su hoja; suelta, es una hoja propia.
+  return as === "li" ? (
+    <li className="relative flex items-start gap-3 px-4 py-3">{cuerpo}</li>
+  ) : (
+    <Card className="relative flex items-start gap-3 p-4">{cuerpo}</Card>
   );
 }

@@ -30,7 +30,7 @@ export default function PreciosHistoricos({
       <CardTitle>Precios históricos de adjudicación</CardTitle>
       <p className="mt-1 text-sm text-ink-soft">
         Lo que el Estado realmente pagó en contratos recientes por artículos de la misma
-        categoría UNSPSC — úsalo como referencia antes de fijar tu precio.
+        categoría UNSPSC. Úsalo como referencia antes de fijar tu precio.
       </p>
       <div className="mt-4 space-y-5">
         {subclases.map((s) => (
@@ -128,7 +128,7 @@ async function SubclaseStats({
           </div>
           <p className="mt-1.5 text-xs text-ink-soft">
             Precios unitarios; los rangos amplios suelen mezclar presentaciones o
-            alcances distintos — compara siempre con la descripción del contrato.
+            alcances distintos: compara siempre con la descripción del contrato.
           </p>
 
           {stats.ejemplos.length > 0 && (

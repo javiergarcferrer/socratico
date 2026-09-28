@@ -1,12 +1,12 @@
 import { getSubastas, vecesCubierta, type FilaSubasta } from "@/lib/subastas";
 import { puntos } from "@/lib/cifras";
-import { formatFecha, formatPesos } from "@/lib/format";
+import { formatFecha, formatPesos, SIN_DATO } from "@/lib/format";
 import { Cifra, TiraDeCifras } from "@/components/papel";
 import Plegable from "@/components/plegable";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { IconCoins } from "@/components/icons";
+import { IconCoins, IconExternal } from "@/components/icons";
 import {
   Table,
   TableBody,
@@ -30,7 +30,7 @@ import {
 const decimal = (n: number, d: number) =>
   n.toLocaleString("es-DO", { minimumFractionDigits: d, maximumFractionDigits: d });
 const porciento = (n: number) => `${decimal(n, 2)} %`;
-const veces = (n: number | null) => (n == null ? "—" : `${decimal(n, 2)} veces`);
+const veces = (n: number | null) => (n == null ? SIN_DATO : `${decimal(n, 2)} veces`);
 
 const RONDA: Record<FilaSubasta["ronda"], string> = {
   competitiva: "Competitiva",
@@ -116,7 +116,9 @@ export async function SubastasDeuda() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href={d.pagina} target="_blank" rel="noopener noreferrer">
-            Crédito Público ↗
+            Crédito Público
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>

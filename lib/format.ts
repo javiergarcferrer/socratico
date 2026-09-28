@@ -1,5 +1,11 @@
+/**
+ * Lo que se escribe donde falta un valor: «sin dato», en palabras y no con
+ * una raya, que se leía como un número borrado (docs/DESIGN.md §6 y §8).
+ */
+export const SIN_DATO = "sin dato";
+
 export function formatMonto(monto: number, divisa: string): string {
-  if (!monto && monto !== 0) return "—";
+  if (!monto && monto !== 0) return SIN_DATO;
   try {
     return new Intl.NumberFormat("es-DO", {
       style: "currency",
@@ -19,10 +25,10 @@ export function formatMonto(monto: number, divisa: string): string {
  * instantes y se convierten a `America/Santo_Domingo`.
  */
 export function formatFecha(iso: string | undefined, conHora = false): string {
-  if (!iso) return "—";
+  if (!iso) return SIN_DATO;
   const naive = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?$/.test(iso);
   const d = new Date(naive && iso.includes("T") ? `${iso}Z` : iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return SIN_DATO;
   return new Intl.DateTimeFormat("es-DO", {
     dateStyle: "medium",
     ...(conHora ? { timeStyle: "short" } : {}),
@@ -174,18 +180,18 @@ export function hace(valor: string | null | undefined): string | null {
  */
 export function formatPesos(pesos: number): string {
   const abs = Math.abs(pesos);
-  if (abs >= 1e12) return `RD$ ${(pesos / 1e12).toFixed(2)} billones`;
-  if (abs >= 1e9) return `RD$ ${(pesos / 1e9).toFixed(1)} mil millones`;
-  if (abs >= 1e6) return `RD$ ${(pesos / 1e6).toFixed(1)} millones`;
+  if (abs >= 1e12) return `RD$\u00A0${(pesos / 1e12).toFixed(2)} billones`;
+  if (abs >= 1e9) return `RD$\u00A0${(pesos / 1e9).toFixed(1)} mil millones`;
+  if (abs >= 1e6) return `RD$\u00A0${(pesos / 1e6).toFixed(1)} millones`;
   return formatMonto(pesos, "DOP");
 }
 
 export function formatMagnitud(millonesUSD: number): string {
   if (millonesUSD >= 1000) {
     const miles = millonesUSD / 1000;
-    return `US$ ${miles.toFixed(1)} mil millones`;
+    return `US$\u00A0${miles.toFixed(1)} mil millones`;
   }
-  return `US$ ${Math.round(millonesUSD).toLocaleString("es-DO")} millones`;
+  return `US$\u00A0${Math.round(millonesUSD).toLocaleString("es-DO")} millones`;
 }
 
 /**

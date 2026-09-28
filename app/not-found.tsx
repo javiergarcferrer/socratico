@@ -1,13 +1,16 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { MENU } from "@/lib/menu";
-import { Card } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconSearch } from "@/components/icons";
+import { Rotulo } from "@/components/papel";
 
 export const metadata: Metadata = {
   title: "Página no encontrada",
+  description:
+    "Esta dirección no existe en Socrático. Busca la institución, la ley o el proceso por su nombre, número o siglas.",
   robots: { index: false, follow: true },
 };
 
@@ -22,7 +25,7 @@ export default function NoEncontrada() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-6">
       <header>
-        <p className="rotulo text-ink-soft">Error 404</p>
+        <Rotulo>Error 404</Rotulo>
         <h1 className="mt-1 font-display text-3xl text-ink sm:text-4xl">
           Esta página no existe
         </h1>
@@ -51,7 +54,7 @@ export default function NoEncontrada() {
       </form>
 
       <Card as="section" className="p-5">
-        <h2 className="font-sans text-sm font-semibold text-ink">O empieza por aquí</h2>
+        <CardTitle as="h2">O empieza por aquí</CardTitle>
         <ul className="mt-2 divide-y divide-hairline">
           {MENU.map((g) => (
             <li key={g.id}>

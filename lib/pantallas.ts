@@ -28,7 +28,7 @@ export interface Pantalla {
 
 export const PANTALLAS: Record<string, Pantalla> = {
   "/": {
-    que: "Qué es Socrático: la plataforma independiente para explorar lo que publica el Estado dominicano —compras, presupuesto, deuda, nómina, leyes, Congreso, tribunales— con lo que pasa hoy, todo lo que hay organizado por tema y para qué sirve tener una cuenta.",
+    que: "Qué es Socrático: la plataforma independiente para explorar lo que publica el Estado dominicano (compras, presupuesto, deuda, nómina, leyes, Congreso, tribunales), con lo que pasa hoy, todo lo que hay organizado por tema y para qué sirve tener una cuenta.",
     preguntas: ["¿Qué es Socrático?", "¿Qué puedo hacer en esta plataforma?", "¿Para qué sirve crear una cuenta?"],
   },
   "/buscar": {
@@ -118,7 +118,7 @@ export const PANTALLAS: Record<string, Pantalla> = {
     preguntas: ["¿Qué es la deuda pública?", "¿Qué es un bono soberano?"],
   },
   "/nomina": {
-    que: "La nómina pública detallada de 86 instituciones: plazas, cargos y sueldos —cuánto se le paga a un maestro, un médico, una enfermera, un chofer o un director—, con el mismo cargo comparado entre instituciones.",
+    que: "La nómina pública detallada de 86 instituciones: plazas, cargos y sueldos (cuánto se le paga a un maestro, un médico, una enfermera, un chofer o un director), con el mismo cargo comparado entre instituciones.",
     preguntas: [
       "¿Cuánto gana un chofer del gobierno?",
       "¿Cuánto cobra un director en el ministerio?",
@@ -144,7 +144,7 @@ export const PANTALLAS: Record<string, Pantalla> = {
     ],
   },
   "/instituciones": {
-    que: "El listado de las instituciones del gobierno —ministerios, direcciones, hospitales y ayuntamientos— y cada una en una sola página: su presupuesto, sus compras, su nómina, sus obras, sus normas y sus documentos.",
+    que: "El listado de las instituciones del gobierno (ministerios, direcciones, hospitales y ayuntamientos) y cada una en una sola página: su presupuesto, sus compras, su nómina, sus obras, sus normas y sus documentos.",
     preguntas: [
       "¿Qué hace este ministerio con su dinero?",
       "¿Qué instituciones tiene el Estado?",
@@ -284,7 +284,7 @@ export const PANTALLAS: Record<string, Pantalla> = {
     ],
   },
   "/seguimiento": {
-    que: "Lo que sigues en la plataforma —licitaciones, iniciativas, instituciones— y qué cambió desde la última vez.",
+    que: "Lo que sigues en la plataforma (licitaciones, iniciativas, instituciones) y qué cambió desde la última vez.",
     preguntas: ["¿Qué cambió en lo que sigo?", "¿Cómo recibo avisos de una licitación?"],
   },
   "/fuentes": {

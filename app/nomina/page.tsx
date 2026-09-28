@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { preload } from "react-dom";
-import { IconLayers } from "@/components/icons";
 import { Explorer, ExplorerEsqueleto, type FichasNomina } from "@/components/nomina/explorer";
 import { getInstitucionesNomina } from "@/lib/nomina-server";
 import { hrefInstitucion, institucionDeNomina } from "@/lib/instituciones";
@@ -11,6 +10,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Termino } from "@/components/termino";
+import { Portada } from "@/components/portada";
 
 export const metadata: Metadata = {
   title: "¿A quién le paga el Estado?",
@@ -54,25 +54,25 @@ export default async function NominaPage() {
   const atrasadas = cubiertas.filter((i) => estaAtrasada(i)).length;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <div className="flex items-center gap-2 rotulo text-brand-700">
-          <IconLayers className="h-4 w-4" />
-          Nóminas de transparencia · consolidadas
-        </div>
-        <h1 className="mt-2 font-display text-3xl text-ink sm:text-4xl">
-          ¿A quién le paga el Estado?
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm text-ink-soft sm:text-base">
-          Qué paga el Estado por <Termino clave="plaza">plaza</Termino>: la foto
-          del último mes publicado por cada institución cubierta, consolidada
-          desde sus nóminas oficiales de transparencia. Filtra por institución,
-          área, cargo y <Termino clave="sueldoBruto">sueldo bruto</Termino>, o
-          compara el mismo puesto entre instituciones —sin nombres ni datos
-          personales—; los paneles de gasto suman la{" "}
-          <Termino clave="masaSalarial">masa salarial</Termino> del mes.
-        </p>
-      </header>
+    <div className="space-y-5">
+      <Portada
+        rotulo="Nóminas de transparencia · consolidadas"
+        titulo="¿A quién le paga el Estado?"
+        descripcion={
+          <>
+            Qué paga el Estado por{" "}
+            <Termino clave="plaza" className="text-canvas">plaza</Termino>: la
+            foto del último mes publicado por cada institución cubierta,
+            consolidada desde sus nóminas oficiales de transparencia, sin
+            nombres ni datos personales. Filtra por institución, área, cargo y{" "}
+            <Termino clave="sueldoBruto" className="text-canvas">sueldo bruto</Termino>, o
+            compara el mismo puesto entre instituciones. Los paneles de gasto
+            suman la{" "}
+            <Termino clave="masaSalarial" className="text-canvas">masa salarial</Termino> del
+            mes.
+          </>
+        }
+      />
 
       <Suspense fallback={<ExplorerEsqueleto />}>
         <Explorer fichas={fichas} />

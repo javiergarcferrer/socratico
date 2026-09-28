@@ -37,7 +37,6 @@ export async function SismapDeInstitucion({ uc }: { uc: number }) {
         value={fila.valor}
         aria-label={`Valoración SISMAP: ${fila.valor.toFixed(2)} %`}
         className="mt-3"
-        indicadorClassName="bg-v-nomina"
       />
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
         <Link href={`/gestion?tabla=${tabla}`} className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline sm:min-h-0">

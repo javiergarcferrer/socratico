@@ -60,72 +60,78 @@ export function MarcaIniciativa({
   );
 }
 
-/** Fila de listado: densa a propósito, el usuario escanea muchas a la vez. */
+/**
+ * Fila de listado: densa a propósito, el usuario escanea muchas a la vez.
+ *
+ * La fila entera lleva a la ficha, pero el enlace es el titular y se estira
+ * sobre la fila (`estira`): así su nombre accesible es la descripción de la
+ * pieza y no el renglón entero leído de corrido, y la fila toma sola la
+ * respuesta de la casa (tinta al apuntar, se hunde al pulsar).
+ */
 export default function IniciativaCard({ iniciativa }: { iniciativa: Iniciativa }) {
   const perencion = iniciativa.viva ? evaluarPerencion(iniciativa.legislatura) : null;
   const enRiesgo = perencion?.estado === "en-riesgo";
 
   return (
-    <li className="cv-auto group border-b border-hairline last:border-0">
+    <li className="cv-auto relative border-b border-hairline px-4 py-3.5 last:border-0 sm:px-5">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        <span className="font-mono text-xs font-semibold tabular-nums text-brand-700">
+          {iniciativa.numero?.completo ?? `#${iniciativa.id}`}
+        </span>
+
+        <MarcaIniciativa iniciativa={iniciativa} />
+
+        {enRiesgo && (
+          <MarcaEstado tono="aviso" conPunto={false}>
+            Perime en {perencion.diasRestantes}{" "}
+            {perencion.diasRestantes === 1 ? "día" : "días"}
+          </MarcaEstado>
+        )}
+      </div>
+
+      {/*
+        El SIL publica la descripción en versales: «LEY QUE MODIFICA LOS
+        ARTÍCULOS…». En un teléfono ese mismo enunciado ocupa ocho líneas de
+        caja alta —la forma de la palabra desaparece y la fila deja de
+        escanearse— así que se devuelve a caja mixta para leerlo. El texto no
+        cambia: cambia la caja, igual que ya hacía el Senado en su capa.
+      */}
       <Link
         href={enlace.iniciativa(iniciativa.id)}
-        className="block px-4 py-3.5 transition-colors hover:bg-canvas/60 sm:px-5"
+        className="estira mt-1.5 block break-words text-[15px] leading-snug text-ink hover:text-brand-700"
       >
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-          <span className="font-mono text-xs font-semibold tabular-nums text-brand-700">
-            {iniciativa.numero?.completo ?? `#${iniciativa.id}`}
-          </span>
-
-          <MarcaIniciativa iniciativa={iniciativa} />
-
-          {enRiesgo && (
-            <MarcaEstado tono="aviso" conPunto={false}>
-              Perime en {perencion.diasRestantes} d
-            </MarcaEstado>
-          )}
-        </div>
-
-        {/*
-          El SIL publica la descripción en versales: «LEY QUE MODIFICA LOS
-          ARTÍCULOS…». En un teléfono ese mismo enunciado ocupa ocho líneas de
-          caja alta —la forma de la palabra desaparece y la fila deja de
-          escanearse— así que se devuelve a caja mixta para leerlo. El texto no
-          cambia: cambia la caja, igual que ya hacía el Senado en su capa.
-        */}
-        <p className="mt-1.5 text-[15px] leading-snug text-ink group-hover:text-brand-700">
-          {desdeMayusculas(iniciativa.titulo)}
-        </p>
-
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-soft">
-          {iniciativa.tipo && <span>{iniciativa.tipo}</span>}
-          {iniciativa.grupo && (
-            <>
-              <Sep />
-              <span>{iniciativa.grupo}</span>
-            </>
-          )}
-          {iniciativa.fechaDeposito && (
-            <>
-              <Sep />
-              <Antiguedad iso={iniciativa.fechaDeposito} prefijo="Depositada" />
-            </>
-          )}
-          {/*
-            La legislatura es un nombre largo —«Segunda Legislatura Ordinaria
-            2026»— que en el teléfono se lleva una línea entera de la fila para
-            decir algo que la ficha repite y que el aviso de perención ya
-            resume. Desde `sm` hay sitio y vuelve.
-          */}
-          {iniciativa.legislatura && (
-            <>
-              <Sep className="hidden sm:inline" />
-              <span className="hidden font-mono tabular-nums sm:inline">
-                {iniciativa.legislatura}
-              </span>
-            </>
-          )}
-        </div>
+        {desdeMayusculas(iniciativa.titulo)}
       </Link>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-soft">
+        {iniciativa.tipo && <span>{iniciativa.tipo}</span>}
+        {iniciativa.grupo && (
+          <>
+            <Sep />
+            <span>{iniciativa.grupo}</span>
+          </>
+        )}
+        {iniciativa.fechaDeposito && (
+          <>
+            <Sep />
+            <Antiguedad iso={iniciativa.fechaDeposito} prefijo="Depositada" />
+          </>
+        )}
+        {/*
+          La legislatura es un nombre largo —«Segunda Legislatura Ordinaria
+          2026»— que en el teléfono se lleva una línea entera de la fila para
+          decir algo que la ficha repite y que el aviso de perención ya
+          resume. Desde `sm` hay sitio y vuelve.
+        */}
+        {iniciativa.legislatura && (
+          <>
+            <Sep className="hidden sm:inline" />
+            <span className="hidden font-mono tabular-nums sm:inline">
+              {iniciativa.legislatura}
+            </span>
+          </>
+        )}
+      </div>
     </li>
   );
 }

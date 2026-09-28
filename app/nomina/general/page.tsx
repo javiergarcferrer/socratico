@@ -24,12 +24,33 @@ import { BarrasHorizontales } from "@/components/graficos";
 import { coincideConsulta, recortar } from "@/lib/raiz";
 import { siglasDe } from "@/lib/instituciones";
 
-export const metadata: Metadata = {
+const METADATA_GENERAL: Metadata = {
   alternates: { canonical: "/nomina/general" },
   title: "Nómina general del Estado",
   description:
     "Cuántas plazas paga el Estado dominicano y cuánto le cuestan cada mes, institución por institución y cargo por cargo, según la nómina general del Ministerio de Administración Pública.",
 };
+
+/**
+ * Con `?inst=` la página es la de una institución, y su pestaña y su tarjeta
+ * al compartir lo dicen; sin él, la de todo el Estado.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ inst?: string }>;
+}): Promise<Metadata> {
+  const { inst } = await searchParams;
+  if (!inst) return METADATA_GENERAL;
+  const d = await getNominaGeneral();
+  const i = d?.instituciones.find((o) => claveInstitucion(o.nombre) === inst);
+  if (!d || !i) return METADATA_GENERAL;
+  return {
+    ...METADATA_GENERAL,
+    title: `${i.nombre}: nómina general`,
+    description: `Plazas, cargos y sueldos brutos de ${i.nombre} en ${mesGeneral(d.anio, d.mes)}, según la nómina general del Ministerio de Administración Pública, sin nombres.`,
+  };
+}
 
 export const revalidate = 86400;
 
@@ -117,7 +138,7 @@ export default async function NominaGeneralPage({
       <Suspense>
         <BuscadorUrl
           etiqueta="Buscar una institución"
-          placeholder="Educación, Salud, Procuraduría, INAIPI…"
+          placeholder="Educación, Salud, INAIPI…"
           ayuda={`Busca en el nombre y las siglas de las ${formatInt(d.instituciones.length)} instituciones de la nómina general, todas las palabras en cualquier orden y sin distinguir tildes.`}
         />
       </Suspense>
@@ -135,7 +156,8 @@ export default async function NominaGeneralPage({
           <div className="px-5 pt-5 sm:px-6">
             <CardTitle>Institución por institución</CardTitle>
             <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-              Ordenadas por plazas. Cada fila abre sus cargos.
+              Ordenadas por plazas; la cifra de cada fila es su número de
+              plazas. Cada fila abre sus cargos.
             </p>
           </div>
           <BarrasHorizontales
@@ -150,13 +172,11 @@ export default async function NominaGeneralPage({
               titulo: `${i.nombre}: ${formatInt(i.plazas)} plazas`,
               valor: i.plazas,
               href: `/nomina/general?inst=${claveInstitucion(i.nombre)}`,
-              cifra: (
-                <>
-                  {formatInt(i.plazas)}
-                  <span className="block text-right text-xs font-normal text-ink-soft">{formatPesos(i.masa)} al mes</span>
-                </>
-              ),
-              detalle: `Sueldo mediano ${formatDOP(i.mediana)}`,
+              // La masa baja al detalle: como segunda línea de la cifra le
+              // quitaba a un nombre largo la mitad de la fila, y a 390 px
+              // «Servicio Nacional de…» se cortaba antes de decir cuál era.
+              cifra: formatInt(i.plazas),
+              detalle: `${formatPesos(i.masa)} al mes · sueldo mediano ${formatDOP(i.mediana)}`,
             }))}
           />
         </Card>
@@ -287,7 +307,17 @@ function Detalle({
       </Suspense>
 
       {vista.length === 0 ? (
-        <EstadoVacio titulo={`Ningún cargo coincide con «${q}»`}>Prueba con otra palabra.</EstadoVacio>
+        <EstadoVacio
+          titulo={`Ningún cargo coincide con «${q}»`}
+          accion={
+            <Button asChild variant="secondary">
+              <Link href={`/nomina/general?inst=${clave}`}>Ver todos sus cargos</Link>
+            </Button>
+          }
+        >
+          Prueba con la palabra con que empieza el puesto: «maestro», «chofer»,
+          «director».
+        </EstadoVacio>
       ) : (
         <Card as="section" className="overflow-hidden">
           <p className="px-5 pt-4 text-xs text-ink-soft sm:px-6" aria-live="polite">

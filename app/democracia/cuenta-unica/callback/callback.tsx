@@ -130,7 +130,7 @@ export default function Callback() {
       </header>
 
       {estado.fase === "verificando" && (
-        <Card className="p-5" aria-busy="true">
+        <Card className="p-5" role="status" aria-busy="true">
           <p className="text-sm text-ink">Comprobando la respuesta de Cuenta Única…</p>
           <p className="mt-1 text-xs leading-relaxed text-ink-soft">
             La credencial se verifica dentro de Supabase, junto a la base de datos,
@@ -140,7 +140,7 @@ export default function Callback() {
       )}
 
       {estado.fase === "listo" && (
-        <Alert variant="firma" className="border-brand-200/60 bg-brand-50/70 p-6 text-center">
+        <Alert variant="firma" role="status" className="border-brand-200/60 bg-brand-50/70 p-6 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-500 text-canvas">
             <IconCheck className="h-6 w-6" />
           </span>

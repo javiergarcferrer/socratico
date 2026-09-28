@@ -7,13 +7,13 @@ import {
   type MesLlegadas,
 } from "@/lib/bcrd";
 import { puntos, variacion } from "@/lib/cifras";
-import { formatFecha } from "@/lib/format";
+import { formatFecha, SIN_DATO } from "@/lib/format";
 import { MatrizMensual, SerieTemporal, VerComoTabla, type FilaMatriz } from "@/components/graficos";
 import { Cifra, TiraDeCifras } from "@/components/papel";
 import Plegable from "@/components/plegable";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { IconChartBar } from "@/components/icons";
+import { IconChartBar, IconExternal } from "@/components/icons";
 import {
   Table,
   TableBody,
@@ -139,7 +139,9 @@ export async function InflacionTurismo() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href="https://www.bancentral.gov.do/" target="_blank" rel="noopener noreferrer">
-            BCRD ↗
+            BCRD
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>
@@ -200,7 +202,7 @@ export async function InflacionTurismo() {
           ) : (
             <Cifra
               etiqueta="Llegadas en lo que va de año"
-              valor="—"
+              valor={SIN_DATO}
               tono="text-ink-soft"
               nota="La serie no trae todos los meses del año; no sumamos lo que falta."
             />
@@ -242,7 +244,7 @@ export async function InflacionTurismo() {
           celdas: [
             mesCorto(m.periodo),
             entero(m.total),
-            m.noResidentes === null ? "—" : entero(m.noResidentes),
+            m.noResidentes === null ? SIN_DATO : entero(m.noResidentes),
           ],
         }))}
       />

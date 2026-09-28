@@ -49,6 +49,9 @@ export default function VotoWidget({
   const [miVoto, setMiVoto] = useState<-1 | 1 | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Lo que cambió al votar, dicho en voz baja al lector de pantalla: el botón
+  // cambia de vestido sin cargar la página y eso solo no se oye.
+  const [anuncio, setAnuncio] = useState("");
 
   useEffect(() => {
     let vivo = true;
@@ -140,6 +143,13 @@ export default function VotoWidget({
     if (!ok) {
       setError("No se pudo registrar el voto. Vuelve a intentarlo en un momento.");
       setMiVoto(previo);
+      setAnuncio("");
+    } else {
+      setAnuncio(
+        quitar
+          ? "Quitaste tu voto."
+          : `Tu voto quedó registrado: ${valor === 1 ? "a favor" : "en contra"}.`,
+      );
     }
     await refrescarAgregado();
     setEnviando(false);
@@ -190,8 +200,8 @@ export default function VotoWidget({
             className="h-2.5 bg-ink-soft/30 ring-1 ring-inset ring-hairline"
           />
           <div className="font-mono mt-1.5 flex justify-between text-xs tabular-nums text-ink-soft">
-            <span className="font-medium text-brand-600">{pctFavor}% a favor</span>
-            <span className="font-medium text-sello-600">{100 - pctFavor}% en contra</span>
+            <span className="font-medium text-brand-600">{pctFavor}&nbsp;% a favor</span>
+            <span className="font-medium text-sello-600">{100 - pctFavor}&nbsp;% en contra</span>
           </div>
           {/* Cuántos de esos votos vienen de una identidad verificada por Cuenta Única. */}
           {(agg.verificados ?? 0) > 0 && (
@@ -228,6 +238,7 @@ export default function VotoWidget({
       {(estado === "anon" || estado === "sin-registro") && (
         <Alert
           variant="neutro"
+          role="note"
           className="mt-4 bg-canvas px-3.5 py-2.5 text-xs leading-relaxed text-ink-soft"
         >
           {estado === "anon" ? (
@@ -277,6 +288,10 @@ export default function VotoWidget({
           En contra
         </BotonVoto>
       </div>
+
+      <p className="sr-only" aria-live="polite">
+        {anuncio}
+      </p>
 
       {error && (
         <Alert

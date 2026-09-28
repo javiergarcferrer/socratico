@@ -213,7 +213,7 @@ function Chip({ chip, className }: { chip: ChipFiltro; className?: string }) {
         href={chip.href}
         title={
           chip.porDefecto
-            ? "Filtro por defecto — quítalo para ampliar la lista"
+            ? "Filtro por defecto: quítalo para ampliar la lista"
             : "Quitar este filtro"
         }
         aria-label={`Quitar el filtro: ${chip.label}`}

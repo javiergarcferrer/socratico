@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       uc && `institución ${uc}`,
       mipyme === "1" && "MIPYMES",
     ].filter(Boolean);
-    const titulo = `Licitaciones RD${partes.length ? " — " + partes.join(" · ") : ""}`;
+    const titulo = `Licitaciones RD${partes.length ? ": " + partes.join(" · ") : ""}`;
 
     const items = r.content
       .slice(0, 50)

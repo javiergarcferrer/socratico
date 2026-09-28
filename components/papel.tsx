@@ -37,14 +37,23 @@ export function Rotulo({
   className,
   conPunto = true,
   tono = "text-ink-soft",
+  como: Etiqueta = "p",
+  id,
 }: {
   children: ReactNode;
   className?: string;
   conPunto?: boolean;
   tono?: string;
+  /**
+   * Cuando el epígrafe **es** el encabezado de un bloque —un grupo de una
+   * lista, sin otro titular—, se pinta como `h2`/`h3` para que el lector de
+   * pantalla lo encuentre. Envolver el `<p>` en un `h2` era HTML inválido.
+   */
+  como?: "p" | "h2" | "h3";
+  id?: string;
 }) {
   return (
-    <p className={cn("rotulo flex items-start gap-2", tono, className)}>
+    <Etiqueta id={id} className={cn("rotulo flex items-start gap-2", tono, className)}>
       {conPunto && (
         <span
           aria-hidden
@@ -52,7 +61,7 @@ export function Rotulo({
         />
       )}
       <span>{children}</span>
-    </p>
+    </Etiqueta>
   );
 }
 

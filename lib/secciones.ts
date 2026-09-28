@@ -282,7 +282,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     etiqueta: "Toda la plataforma",
     href: "/buscar",
     alcance:
-      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos —y por palabra legisladores y proveedores con contratos desde 2015— y ofrece seguir en cada vertical.",
+      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores y proveedores con contratos desde 2015, y ofrece seguir en cada vertical.",
   },
   {
     etiqueta: "Instituciones",
@@ -294,7 +294,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     etiqueta: "Licitaciones",
     href: "/licitaciones",
     alcance:
-      "Título, descripción, institución, área o código de los procesos de la DGCP, leyendo hasta 6.000 por consulta —el buscador dice cuántos leyó—; abre con los abiertos a ofertar.",
+      "Título, descripción, institución, área o código de los procesos de la DGCP, leyendo hasta 6,000 por consulta (el buscador dice cuántos leyó); abre con los abiertos a ofertar.",
   },
   {
     seccion: "licitaciones",

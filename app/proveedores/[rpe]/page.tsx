@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { BarrasHorizontales } from "@/components/graficos";
 import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
 import { notFound } from "next/navigation";
 import { getHistorialProveedor, getProveedorRegistro } from "@/lib/dgcp";
 import { titulizar } from "@/lib/capitulos";
-import { formatFecha, formatMonto } from "@/lib/format";
-import { IconArrowLeft } from "@/components/icons";
+import { formatFecha, formatMonto, tituloLegible, SIN_DATO } from "@/lib/format";
+import { Ruta } from "@/components/ruta";
 import Antiguedad from "@/components/antiguedad";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
 import AccionesFicha from "@/components/acciones-ficha";
@@ -20,6 +19,10 @@ import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import Conversacion from "@/components/espacios/conversacion";
+
+function nContratos(n: number): string {
+  return `${n.toLocaleString("es-DO")} ${n === 1 ? "contrato" : "contratos"}`;
+}
 
 /** Días o años, en llano. */
 function plazoDias(dias: number): string {
@@ -39,7 +42,7 @@ export async function generateMetadata({
   const registro = await getProveedorRegistro(rpe).catch(() => null);
   const nombre = registro?.razonSocial;
   return {
-    title: nombre ? `${nombre} — proveedor del Estado` : `Proveedor RPE ${rpe}`,
+    title: nombre ? `${nombre}: proveedor del Estado` : `Proveedor RPE ${rpe}`,
     description: nombre
       ? `Contratos de ${nombre} con el Estado dominicano: a quién le vende, cuánto y desde cuándo, con su ficha del Registro de Proveedores (RPE ${rpe}).`
       : `Contratos del proveedor RPE ${rpe} con el Estado dominicano.`,
@@ -131,13 +134,12 @@ export default async function ProveedorPage({
 
   return (
     <div className="space-y-5">
-      {/* 44 px de alto en el teléfono: es la única salida de esta ficha. */}
-      <Button asChild variant="link" className="gap-1 px-0 text-brand-600">
-        <Link href="/proveedores">
-          <IconArrowLeft className="h-4 w-4" />
-          Proveedores del Estado
-        </Link>
-      </Button>
+      {/* La vuelta de toda ficha es `Ruta`, no un «Volver» hecho a mano. */}
+      <Ruta
+        seccion="licitaciones"
+        padre={{ href: "/proveedores", label: "Proveedores del Estado" }}
+        actual={nombre ?? `RPE ${rpe}`}
+      />
 
       <Card as="section" className="p-6">
         <Rotulo>Proveedor del Estado · <Termino clave="rpe" /> {rpe}</Rotulo>
@@ -203,7 +205,7 @@ export default async function ProveedorPage({
 
       {registro && (
         <Card as="section" className="p-6">
-          <CardTitle className="text-[15px]">Ficha de registro</CardTitle>
+          <CardTitle>Ficha de registro</CardTitle>
           <p className="mt-1 text-xs text-ink-soft">
             Lo que el Registro de Proveedores del Estado dice de esta empresa.
           </p>
@@ -211,7 +213,7 @@ export default async function ProveedorPage({
             <div>
               <dt className="rotulo text-ink-soft">{registro.tipoDocumento}</dt>
               <dd className="font-mono font-medium tabular-nums">
-                {registro.numeroDocumento || "—"}
+                {registro.numeroDocumento || SIN_DATO}
               </dd>
             </div>
             <div>
@@ -356,7 +358,7 @@ export default async function ProveedorPage({
 
       {historial.porAnio.length > 1 && (
         <Card as="section" className="p-6">
-          <CardTitle className="text-[15px]">Contratos por año</CardTitle>
+          <CardTitle>Contratos por año</CardTitle>
           <BarrasHorizontales
             className="mt-3"
             forma="periodo"
@@ -365,9 +367,10 @@ export default async function ProveedorPage({
             barras={historial.porAnio.map((a) => ({
               clave: String(a.anio),
               etiqueta: a.anio,
-              titulo: `${a.anio}: ${formatMonto(a.monto, "DOP")}`,
+              titulo: `${a.anio}: ${formatMonto(a.monto, "DOP")} en ${nContratos(a.n)}`,
               valor: a.monto,
-              cifra: `${a.n} · ${formatMonto(a.monto, "DOP")}`,
+              cifra: formatMonto(a.monto, "DOP"),
+              detalle: nContratos(a.n),
             }))}
           />
         </Card>
@@ -375,69 +378,66 @@ export default async function ProveedorPage({
 
       <div className="grid gap-5 lg:grid-cols-5">
         <Card as="section" id="clientes" className="p-6 lg:col-span-2">
-          <CardTitle className="text-[15px]">Sus principales clientes</CardTitle>
+          <CardTitle>Sus principales clientes</CardTitle>
           {porInstitucion.size > topInstituciones.length && (
             <p className="mt-1 text-xs text-ink-soft">
               Los {topInstituciones.length} que más le compraron, de {porInstitucion.size.toLocaleString("es-DO")} instituciones.
             </p>
           )}
-          <ul className="mt-3 space-y-2 text-sm">
-            {topInstituciones.map(([inst, a]) => (
-              <li
-                key={inst}
-                className="flex items-baseline justify-between gap-2 rounded-lg bg-canvas px-3 py-2"
-              >
-                {a.href ? (
-                  <Link href={a.href} className="line-clamp-1 text-brand-700 hover:underline">
-                    {a.nombre}
-                  </Link>
-                ) : (
-                  <span className="line-clamp-1">{a.nombre}</span>
-                )}
-                <span className="shrink-0 text-xs text-ink-soft">
-                  {a.n} · {formatMonto(a.monto, "DOP")}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {/*
+            Un ranking con nombre es `BarrasHorizontales`: antes eran cajas
+            sobre papel con el nombre cortado a un renglón («Hospital
+            General Region…») y una cuenta sin unidad («61 ·»).
+          */}
+          <BarrasHorizontales
+            className="mt-3"
+            lineas={2}
+            etiqueta="Instituciones que más le compraron, por monto"
+            barras={topInstituciones.map(([inst, a]) => ({
+              clave: inst,
+              etiqueta: a.nombre,
+              titulo: `${a.nombre}: ${formatMonto(a.monto, "DOP")} en ${nContratos(a.n)}`,
+              valor: a.monto,
+              cifra: formatMonto(a.monto, "DOP"),
+              detalle: nContratos(a.n),
+              href: a.href ?? undefined,
+            }))}
+          />
         </Card>
 
         <Card as="section" className="p-6 lg:col-span-3">
-          <CardTitle className="text-[15px]">Contratos recientes</CardTitle>
+          <CardTitle>Contratos recientes</CardTitle>
           {/*
             La fila entera lleva al proceso. Antes el enlace era «ver proceso →»
             en 12 px al final de una línea de metadatos que en un teléfono ya
             venía envuelta en tres: el objetivo medía unos ochenta píxeles de
-            ancho por dieciséis de alto. Con la hoja entera como enlace
-            (`Card asChild`, el patrón que la primitiva documenta) el objetivo
-            es la fila, y la fecha pasa por `Antiguedad` —relativa en la fila,
-            exacta en el `title`—, que es la regla para un listado.
+            ancho por dieciséis de alto. Ahora el título se estira sobre la
+            fila (`estira`) y la fecha pasa por `Antiguedad` —relativa en la
+            fila, exacta en el `title`—, que es la regla para un listado. Son
+            filas de una hoja y no una tarjeta por contrato dentro de otra: el
+            título va a dos renglones, porque a uno solo «ADQUISICION DE…» se
+            repetía veinte veces sin decir qué.
           */}
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="-mx-6 mt-3 divide-y divide-hairline border-t border-hairline text-sm">
             {recientes.map((c, i) => (
-              <Card
-                as="li"
-                key={i}
-                className="transition-colors hover:border-brand-300 hover:bg-brand-50/40"
-              >
-                <Link
-                  href={enlace.proceso(c.codigo_proceso)}
-                  className="block px-3 py-2.5"
-                >
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="line-clamp-1 font-medium" title={c.descripcion}>
-                      {c.descripcion}
-                    </span>
-                    <span className="shrink-0 font-mono font-semibold tabular-nums">
-                      {formatMonto(c.valor_contratado, c.divisa)}
-                    </span>
+              <li key={i} className="relative px-6 py-3 transition-colors hover:bg-brand-50/40">
+                <span className="flex items-baseline justify-between gap-3">
+                  <Link
+                    href={enlace.proceso(c.codigo_proceso)}
+                    title={c.descripcion}
+                    className="line-clamp-2 min-w-0 break-words font-medium leading-snug text-ink estira hover:text-brand-700"
+                  >
+                    {tituloLegible(c.descripcion || c.codigo_proceso)}
+                  </Link>
+                  <span className="shrink-0 font-mono font-semibold tabular-nums">
+                    {formatMonto(c.valor_contratado, c.divisa)}
                   </span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-soft">
-                    <span className="line-clamp-1">{c.unidad_compra}</span>
-                    <Antiguedad iso={c.fecha_adjudicacion} prefijo="Adjudicado" />
-                  </span>
-                </Link>
-              </Card>
+                </span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
+                  {c.unidad_compra} ·{" "}
+                  <Antiguedad iso={c.fecha_adjudicacion} prefijo="adjudicado" />
+                </span>
+              </li>
             ))}
           </ul>
         </Card>

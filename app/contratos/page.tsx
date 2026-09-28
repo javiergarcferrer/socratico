@@ -32,11 +32,18 @@ export default async function ContratosPage() {
     return (
       <EstadoVacio
         variante="caida"
+        como="h1"
         titulo="El registro de contratos no respondió"
         className="mx-auto max-w-2xl"
+        accion={
+          <Button asChild variant="secondary">
+            <Link href="/historico">Ver la historia completa desde 2015</Link>
+          </Button>
+        }
       >
         La API de contratos de la DGCP está caída o no devolvió datos. Vuelve en
-        unos minutos.
+        unos minutos; mientras, la historia agregada desde 2015 sigue en pie,
+        porque sale de una copia descargada.
       </EstadoVacio>
     );
   }
@@ -69,7 +76,7 @@ export default async function ContratosPage() {
             {r.desde && r.hasta && (
               <>
                 {" "}
-                ({formatFecha(r.desde)} — {formatFecha(r.hasta)})
+                (del {formatFecha(r.desde)} al {formatFecha(r.hasta)})
               </>
             )}
             .
@@ -104,9 +111,10 @@ export default async function ContratosPage() {
             barras={r.porMes.map((m) => ({
               clave: m.mes,
               etiqueta: <time dateTime={m.mes}>{formatMes(m.mes)}</time>,
-              titulo: `${formatMes(m.mes)}: ${formatMonto(m.monto, "DOP")}`,
+              titulo: `${formatMes(m.mes)}: ${formatMonto(m.monto, "DOP")} en ${nContratos(m.n)}`,
               valor: m.monto,
-              cifra: `${formatInt(m.n)} · ${formatMonto(m.monto, "DOP")}`,
+              cifra: formatMonto(m.monto, "DOP"),
+              detalle: nContratos(m.n),
             }))}
           />
         </Card>
@@ -152,11 +160,18 @@ export default async function ContratosPage() {
               key={`${c.codigo_contrato}-${i}`}
               className="relative px-5 py-3 transition-colors hover:bg-brand-50/40"
             >
+              {/*
+                Dos renglones de título: con uno, «Compra de insumos medicos
+                par…» se repetía cinco veces y lo que distinguía una compra de
+                otra quedaba cortado. El proveedor va en su renglón y la
+                institución con la fecha en el siguiente, en texto corrido: un
+                separador en flex quedaba colgando al final de la línea.
+              */}
               <div className="flex items-baseline justify-between gap-3">
                 <Link
                   href={enlace.proceso(c.codigo_proceso)}
                   title={c.descripcion || c.codigo_contrato}
-                  className="line-clamp-1 text-sm font-medium text-ink estira hover:text-brand-700"
+                  className="line-clamp-2 min-w-0 break-words text-sm font-medium leading-snug text-ink estira hover:text-brand-700"
                 >
                   {tituloLegible(c.descripcion || c.codigo_contrato)}
                 </Link>
@@ -164,7 +179,7 @@ export default async function ContratosPage() {
                   {formatMonto(c.valor_contratado, c.divisa)}
                 </span>
               </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-soft">
+              <p className="mt-0.5 text-xs text-ink-soft">
                 {c.rpe ? (
                   <Link
                     href={enlace.proveedor(c.rpe)}
@@ -173,13 +188,15 @@ export default async function ContratosPage() {
                     {c.razon_social}
                   </Link>
                 ) : (
-                  <span>{c.razon_social}</span>
+                  <span className="inline-block py-1">{c.razon_social}</span>
                 )}
-                <Sep />
+              </p>
+              <p className="text-xs leading-relaxed text-ink-soft">
                 <UnidadDeCompra codigo={c.codigo_unidad_compra} nombre={c.unidad_compra} />
-                <Sep />
-                <Antiguedad iso={c.fecha_adjudicacion} prefijo="Adjudicado" />
-              </div>
+                <span className="whitespace-nowrap">
+                  <Sep /> <Antiguedad iso={c.fecha_adjudicacion} prefijo="Adjudicado" />
+                </span>
+              </p>
             </li>
           ))}
         </ul>
@@ -219,12 +236,18 @@ export default async function ContratosPage() {
 /** El nombre de la unidad de compra, con enlace a su ficha si está en el cruce. */
 function UnidadDeCompra({ codigo, nombre }: { codigo: string; nombre: string }) {
   const inst = codigo ? institucionPorId(codigo) : null;
-  if (!inst) return <span className="line-clamp-1">{nombre}</span>;
+  if (!inst) return <span>{nombre} </span>;
   return (
-    <Link href={hrefInstitucion(inst)} className="relative z-10 line-clamp-1 py-1 hover:text-brand-700 hover:underline">
-      {nombre}
-    </Link>
+    <>
+      <Link href={hrefInstitucion(inst)} className="relative z-10 hover:text-brand-700 hover:underline">
+        {nombre}
+      </Link>{" "}
+    </>
   );
+}
+
+function nContratos(n: number): string {
+  return `${formatInt(n)} ${n === 1 ? "contrato" : "contratos"}`;
 }
 
 function Sep() {
@@ -256,13 +279,16 @@ function RankingContratos({
       <BarrasHorizontales
         className="mt-3"
         maximo={max}
+        lineas={2}
         etiqueta={titulo}
         barras={items.map((a) => ({
           clave: a.codigo ?? a.clave,
           etiqueta: a.clave,
-          titulo: `${a.clave}: ${formatMonto(a.monto, "DOP")}`,
+          titulo: `${a.clave}: ${formatMonto(a.monto, "DOP")} en ${nContratos(a.n)}`,
           valor: a.monto,
-          cifra: `${a.n} · ${formatMonto(a.monto, "DOP")}`,
+          cifra: formatMonto(a.monto, "DOP"),
+          /* La cuenta decía «1 · RD$…» sin unidad: ahora la dice debajo. */
+          detalle: nContratos(a.n),
           href: hrefDe?.(a),
         }))}
       />

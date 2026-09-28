@@ -1,10 +1,10 @@
 import { getComercioExterior, type SerieAduanas } from "@/lib/aduanas";
 import { variacion } from "@/lib/cifras";
-import { formatFecha } from "@/lib/format";
+import { formatFecha, SIN_DATO } from "@/lib/format";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Cifra, TiraDeCifras } from "@/components/papel";
-import { IconChartBar } from "@/components/icons";
+import { IconChartBar, IconExternal } from "@/components/icons";
 
 /**
  * Comercio exterior y recaudación de Aduanas (DGA): el último mes de
@@ -27,7 +27,7 @@ const mesDe = (s: Pick<SerieAduanas, "anio" | "mes">, anio = s.anio) => `${MESES
 /** Millones escritos con su moneda: «US$ 2,778.4 millones». La unidad viaja con el número. */
 function millones(valor: number, unidad: SerieAduanas["unidad"]): string {
   const n = (valor / 1e6).toLocaleString("es-DO", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  return `${unidad === "USD" ? "US$" : "RD$"} ${n} millones`;
+  return `${unidad === "USD" ? "US$" : "RD$"}\u00A0${n} millones`;
 }
 
 function cambio(actual: number, anterior: number): string {
@@ -71,7 +71,9 @@ export async function ComercioExterior() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href={c.fuente} target="_blank" rel="noopener noreferrer">
-            Aduanas ↗
+            Aduanas
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>
@@ -91,7 +93,7 @@ export async function ComercioExterior() {
                 <Cifra
                   key={clave}
                   etiqueta={etiqueta}
-                  valor="Sin dato"
+                  valor={SIN_DATO}
                   tono="text-alerta-700"
                   nota="No se pudo leer su archivo; no mostramos una cifra adivinada."
                 />

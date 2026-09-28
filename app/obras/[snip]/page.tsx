@@ -10,7 +10,7 @@ import {
   urlFichaMapaInversiones,
 } from "@/lib/obras";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
-import { formatFecha, formatMonto, formatPesos, tituloLegible } from "@/lib/format";
+import { formatFecha, formatMonto, formatPesos, tituloLegible, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { Ruta } from "@/components/ruta";
 import { MarcaEstado } from "@/components/marca-estado";
@@ -145,10 +145,10 @@ export default async function ObraPage({ params }: Props) {
             valor={`${o.avance.toFixed(1)} %`}
             nota="La fuente publica el mismo número como avance físico y financiero"
           />
-          <Cifra etiqueta="Inicio" valor={o.inicio ? formatFecha(o.inicio) : "—"} />
+          <Cifra etiqueta="Inicio" valor={o.inicio ? formatFecha(o.inicio) : SIN_DATO} />
           <Cifra
             etiqueta="Fin previsto"
-            valor={o.fin ? formatFecha(o.fin) : "—"}
+            valor={o.fin ? formatFecha(o.fin) : SIN_DATO}
             tono={vencido ? "text-alerta-700" : "text-ink"}
             nota={vencido ? "Ya pasó, y el avance declarado no llega al 100 %" : undefined}
           />
@@ -157,12 +157,11 @@ export default async function ObraPage({ params }: Props) {
           value={o.avance}
           aria-label={`Avance declarado: ${o.avance.toFixed(1)} %`}
           className="mt-4"
-          indicadorClassName="bg-v-finanzas"
         />
         <p className="mt-3 text-xs leading-relaxed text-ink-soft">
           El avance lo reporta la institución que ejecuta la obra; no es una
-          inspección. MapaInversiones lo publica en dos columnas —físico y
-          financiero— que en todas las obras traen el mismo valor, así que aquí
+          inspección. MapaInversiones lo publica en dos columnas (físico y
+          financiero) que en todas las obras traen el mismo valor, así que aquí
           se muestra una sola cifra.
           {vencido &&
             " Que la fecha de fin prevista haya pasado no prueba un retraso: la fuente puede no haber actualizado el avance."}

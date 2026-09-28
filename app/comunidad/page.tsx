@@ -47,8 +47,9 @@ export default async function ComunidadPage({ searchParams }: { searchParams: Pr
           conversación. Comentan personas con cédula registrada, con su nombre de firma; cualquier
           cuenta vota lo que importa.{" "}
           <Link href="/comunidad/normas" className="font-medium text-brand-700 hover:underline">
-            Las normas
+            Lee las normas
           </Link>
+          .
         </p>
       </header>
 

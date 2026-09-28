@@ -1,6 +1,6 @@
 import { getRegistroTributario } from "@/lib/rnc";
 import type { Tono } from "@/lib/estados";
-import { formatFecha } from "@/lib/format";
+import { formatFecha, SIN_DATO } from "@/lib/format";
 import { MarcaEstado } from "@/components/marca-estado";
 import { Card, CardTitle } from "@/components/ui/card";
 
@@ -64,7 +64,7 @@ export async function FichaRnc({ rpe }: { rpe: string }) {
         )}
         <div>
           <dt className="rotulo text-ink-soft">Régimen de pago</dt>
-          <dd>{r.regimen === "RST" ? "Simplificado (RST)" : r.regimen === "NORMAL" ? "Ordinario" : r.regimen || "—"}</dd>
+          <dd>{r.regimen === "RST" ? "Simplificado (RST)" : r.regimen === "NORMAL" ? "Ordinario" : r.regimen || SIN_DATO}</dd>
         </div>
       </dl>
 

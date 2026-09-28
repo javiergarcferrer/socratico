@@ -55,16 +55,18 @@ export function SinSesion({ volver, que }: { volver: string; que: string }) {
  * El esquema aún no está abierto en el API (docs/PLAN-ESPACIOS.md §5). No es
  * una caída ni un vacío: se dice qué pasa y qué sí funciona ya.
  */
-export function Cerrado() {
+export function Cerrado({ h1 = false }: { h1?: boolean }) {
+  const titulo = "Los proyectos se abren pronto";
   return (
-    <Alert variant="aviso" className="p-4">
-      <AlertTitle>Los proyectos se abren pronto</AlertTitle>
+    <Alert role="note" variant="aviso" className="p-4">
+      {/* Cuando es lo único de la página, su título es el h1 (docs/DESIGN.md §7). */}
+      {h1 ? <h1 className="font-sans text-sm font-semibold tracking-normal">{titulo}</h1> : <AlertTitle>{titulo}</AlertTitle>}
       <p className="mt-1 text-sm leading-relaxed">
         Tu cuenta ya existe y entrar funciona, pero guardar registros y armar
         investigaciones todavía no está abierto en esta plataforma. Mientras tanto,
-        «Seguir» en cada ficha guarda lo que sigues en este navegador —{" "}
+        «Seguir» en cada ficha guarda lo que sigues en este navegador.{" "}
         <Link href="/seguimiento" className="font-medium underline">
-          ver lo que sigues
+          Ver lo que sigues
         </Link>
         .
       </p>

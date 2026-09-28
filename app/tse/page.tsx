@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { aniosTSE, anioActualTSE, listarSentenciasTSE, urlListadoTSE } from "@/lib/tse";
-import { formatFecha } from "@/lib/format";
+import { formatFecha, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { Portada, PortadaCifra, PortadaCifras } from "@/components/portada";
 import { NavFiltros, FiltroEnlace } from "@/components/nav-filtros";
 import { BuscadorUrl } from "@/components/buscador-url";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { Paginador } from "@/components/paginador";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Plegable from "@/components/plegable";
 import Antiguedad from "@/components/antiguedad";
@@ -106,14 +107,11 @@ export default async function TsePage({
           className="mx-auto max-w-2xl"
           titulo={`No pudimos leer las sentencias de ${anio} del Tribunal Superior Electoral`}
           accion={
-            <a
-              href={urlListadoTSE(anio)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-brand-700 hover:underline"
-            >
-              Abrir el listado en el visor del Tribunal
-            </a>
+            <Button asChild variant="secondary">
+              <a href={urlListadoTSE(anio)} target="_blank" rel="noopener noreferrer">
+                Abrir el listado en el visor del Tribunal
+              </a>
+            </Button>
           }
         >
           El visor de sentencias del Tribunal no contestó a tiempo o devolvió otra
@@ -159,9 +157,9 @@ export default async function TsePage({
       >
         <PortadaCifras>
           <PortadaCifra etiqueta={`Sentencias de ${anio}`} valor={formatInt(todas.length)} destacar />
-          <PortadaCifra etiqueta="La más reciente" valor={ultima?.fecha ? formatFecha(ultima.fecha) : "—"} />
-          <PortadaCifra etiqueta="Su número" valor={ultima?.numero ?? "—"} />
-          <PortadaCifra etiqueta="La primera del año" valor={primera?.fecha ? formatFecha(primera.fecha) : "—"} />
+          <PortadaCifra etiqueta="La más reciente" valor={ultima?.fecha ? formatFecha(ultima.fecha) : SIN_DATO} />
+          <PortadaCifra etiqueta="Su número" valor={ultima?.numero ?? SIN_DATO} />
+          <PortadaCifra etiqueta="La primera del año" valor={primera?.fecha ? formatFecha(primera.fecha) : SIN_DATO} />
         </PortadaCifras>
       </Portada>
 
@@ -170,7 +168,7 @@ export default async function TsePage({
       <Suspense>
         <BuscadorUrl
           etiqueta={`Buscar en las sentencias de ${anio}`}
-          placeholder="TSE/0028/2026, TSE-05-0009-2026, amparo, Fuerza del Pueblo…"
+          placeholder="Por ejemplo: amparo o TSE/0028/2026…"
           ayuda={`Busca todas las palabras en el número, el expediente y el «relativo a» de las ${formatInt(todas.length)} sentencias de ${anio}, sin distinguir tildes. No busca dentro del texto de la sentencia.`}
         />
       </Suspense>
@@ -179,7 +177,7 @@ export default async function TsePage({
         <EstadoVacio titulo={q ? `Ninguna sentencia de ${anio} coincide con «${q}»` : `El Tribunal no lista sentencias de ${anio} todavía`}>
           {q
             ? "Prueba con menos palabras o con otro año. Se busca en el resumen que publica el Tribunal, no dentro de la sentencia."
-            : "El visor del Tribunal llegó sin filas para este año."}
+            : "El visor del Tribunal llegó sin filas para este año. Prueba con el año anterior."}
         </EstadoVacio>
       ) : (
         <Card as="section" className="overflow-hidden">

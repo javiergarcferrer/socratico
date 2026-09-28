@@ -97,7 +97,7 @@ export function Ruta({
           </BreadcrumbItemConSeparador>
         ))}
         <BreadcrumbItem>
-          <BreadcrumbPage className="max-w-[40ch]">{actual}</BreadcrumbPage>
+          <BreadcrumbPage className="max-w-[40ch]" title={actual}>{actual}</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>

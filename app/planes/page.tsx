@@ -35,12 +35,24 @@ export default async function PlanesPage() {
   const planes = await listPacc({ periodo }).catch(() => []);
 
   if (planes.length === 0) {
+    /*
+      La lectura degrada a lista vacía, así que aquí no se distingue «no hay
+      planes» de «la API no contestó»: el título dice lo que sabemos, que no
+      pudimos ver ninguno, y el texto las dos posibilidades.
+    */
     return (
       <EstadoVacio
-        titulo={`No hay planes publicados para ${periodo}`}
+        como="h1"
+        titulo={`No pudimos ver planes publicados para ${periodo}`}
         className="mx-auto max-w-2xl"
+        accion={
+          <Button asChild variant="secondary">
+            <Link href="/fuentes">Ver el estado de las fuentes</Link>
+          </Button>
+        }
       >
-        O la API de la DGCP no respondió. Vuelve en unos minutos.
+        O la API de la DGCP no respondió, o el bloque de planes que sirve todavía
+        no trae ninguno de este año. Vuelve en unos minutos.
       </EstadoVacio>
     );
   }
@@ -82,74 +94,79 @@ export default async function PlanesPage() {
         </PortadaCifras>
       </Portada>
 
-      <Card as="section" className="p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <Card as="section" className="overflow-hidden">
+        <div className="px-5 pt-5 sm:px-6 sm:pt-6">
           <CardTitle>Planes publicados, del más reciente</CardTitle>
-          {ultimo && (
-            <span className="text-xs text-ink-soft">
-              Última publicación: {formatFecha(ultimo)}
-            </span>
-          )}
+          {/* El recorte se dice antes de la lista, no al pie de 120 filas. */}
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+            {planes.length > VISIBLES
+              ? `Los ${VISIBLES} más recientes de los ${formatInt(planes.length)} que devuelve el registro para ${periodo}`
+              : `Los ${formatInt(planes.length)} que devuelve el registro para ${periodo}`}
+            {ultimo && <>; el último, del {formatFecha(ultimo)}</>}.
+          </p>
         </div>
 
-        <ul className="mt-4 space-y-2">
-          {visibles.map((p) => (
-            <li
-              key={p.uid}
-              className="cv-auto [--cv-alto:4rem] flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline px-4 py-3 text-sm"
-            >
-              <div className="min-w-0">
-                <div className="font-medium">
-                  {(() => {
-                    const inst = institucionPorId(p.codigoUnidadCompra);
-                    return inst ? (
+        {/*
+          Filas sobre una sola hoja, no una tarjeta por plan dentro de otra
+          tarjeta: eran 120 cajas con borde y un botón cada una, y la lista se
+          leía como un muro de marcos. La institución lleva a su ficha y el
+          plan abre fuera, así que la fila no se estira: son dos destinos.
+        */}
+        <ul className="mt-3 divide-y divide-hairline border-t border-hairline">
+          {visibles.map((p) => {
+            const inst = institucionPorId(p.codigoUnidadCompra);
+            return (
+              <li
+                key={p.uid}
+                className="cv-auto [--cv-alto:4.5rem] flex items-center justify-between gap-3 px-5 py-3 sm:px-6"
+              >
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-medium leading-snug">
+                    {inst ? (
                       <Link href={hrefInstitucion(inst)} className="text-brand-700 hover:underline">
                         {p.unidadCompra}
                       </Link>
                     ) : (
                       p.unidadCompra
-                    );
-                  })()}
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-soft">
+                    {p.fechaPublicacion ? (
+                      <Antiguedad iso={p.fechaPublicacion} prefijo="Publicado" />
+                    ) : (
+                      "Sin fecha de publicación"
+                    )}
+                    {Number(p.version) > 0 && (
+                      <>
+                        {" "}
+                        · <span className="tabular-nums">versión {p.version}</span>
+                      </>
+                    )}
+                  </p>
                 </div>
-                <div className="text-xs text-ink-soft">
-                  {p.fechaPublicacion ? (
-                    <Antiguedad iso={p.fechaPublicacion} prefijo="Publicado" />
-                  ) : (
-                    "Sin fecha de publicación"
-                  )}
-                  {Number(p.version) > 0 && (
-                    <> · versión {p.version}</>
-                  )}
-                </div>
-              </div>
-              {/* 40 px de alto en el teléfono: es la acción de la fila. */}
-              <Button
-                asChild
-                variant="secondary"
-                size="sm"
-                className="h-10 shrink-0 sm:h-9"
-              >
-                <a href={p.url} target="_blank" rel="noopener noreferrer">
-                  Ver el plan
-                  <IconExternal className="h-3.5 w-3.5" />
-                </a>
-              </Button>
-            </li>
-          ))}
+                {/* 40 px de alto en el teléfono: es la acción de la fila. */}
+                <Button asChild variant="secondary" size="sm" className="h-10 shrink-0 sm:h-9">
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Ver el plan de ${p.unidadCompra} (abre el Portal Transaccional)`}
+                  >
+                    Ver el plan
+                    <IconExternal className="h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              </li>
+            );
+          })}
         </ul>
 
-        <p className="mt-4 text-xs leading-relaxed text-ink-soft">
-          {planes.length > VISIBLES && (
-            <>
-              Se listan los {VISIBLES} planes publicados más recientemente de los{" "}
-              {formatInt(planes.length)} que devuelve el registro para {periodo}.{" "}
-            </>
-          )}
+        <p className="border-t border-hairline px-5 py-4 text-xs leading-relaxed text-ink-soft sm:px-6">
           Fuente: endpoint <span className="font-mono">/pacc</span> de la API de
           datos abiertos de la DGCP; el documento en sí lo sirve el Portal
           Transaccional. Dos límites que conviene saber: la API devuelve el
-          último bloque de planes registrados —no el censo completo de
-          instituciones— y su filtro de período no funciona, así que el año se
+          último bloque de planes registrados (no el censo completo de
+          instituciones) y su filtro de período no funciona, así que el año se
           filtra aquí. Una versión alta no es un defecto: significa que la
           institución corrigió su plan muchas veces.
         </p>

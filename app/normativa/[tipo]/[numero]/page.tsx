@@ -86,12 +86,12 @@ export default async function NormaPage({ params }: Props) {
         <p className="font-mono text-sm font-semibold tabular-nums text-ink">
           {tipo} {norma.numero}
         </p>
-        <h1 className="mt-1.5 text-xl font-semibold leading-snug tracking-tight text-ink sm:text-2xl">
+        <h1 className="mt-1.5 break-words text-xl leading-snug text-ink sm:text-2xl">
           <TextoEnlazado texto={desdeMayusculas(norma.titulo)} excluir={enlace.norma(slug, numero) ?? undefined} />
         </h1>
         <p className="mt-2 text-sm text-ink-soft">
           {[
-            norma.fecha && formatFecha(norma.fechaIso ?? undefined),
+            norma.fechaIso ? formatFecha(norma.fechaIso) : norma.fecha,
             norma.gaceta && `Gaceta Oficial ${norma.gaceta}`,
           ]
             .filter(Boolean)
@@ -131,7 +131,7 @@ export default async function NormaPage({ params }: Props) {
         </CardHeader>
         {norma.url ? (
           <Suspense fallback={<Esqueleto className="m-5 h-24" />}>
-            <TextoNorma url={norma.url} nombre={`${tipo} ${norma.numero} — texto oficial`} />
+            <TextoNorma url={norma.url} nombre={`${tipo} ${norma.numero} · texto oficial`} />
           </Suspense>
         ) : (
           <p className="px-5 py-6 text-sm text-ink-soft">
@@ -192,10 +192,10 @@ function NormaFueraDeAlcance({ tipo, numero }: { tipo: string; numero: string })
         titulo={`No tenemos el texto de la ${cita}`}
         accion={
           <div className="flex flex-wrap justify-center gap-2">
-            <Button asChild variant="secondary" size="sm">
+            <Button asChild variant="secondary">
               <Link href={`/documentos?q=${encodeURIComponent(numero)}`}>Buscarla entre los documentos</Link>
             </Button>
-            <Button asChild variant="secondary" size="sm">
+            <Button asChild variant="secondary">
               <Link href={`/buscar?q=${encodeURIComponent(numero)}`}>Buscar «{numero}» en todo</Link>
             </Button>
           </div>

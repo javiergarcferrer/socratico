@@ -100,6 +100,9 @@ function Button({
   return (
     <Comp
       data-slot="button"
+      // Un botón hace algo, no envía por accidente: `submit` se pide
+      // explícito (docs/DESIGN.md §5). Con `asChild` el tipo es del hijo.
+      type={asChild ? undefined : "button"}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     />

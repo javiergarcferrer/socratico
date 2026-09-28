@@ -145,8 +145,11 @@ IDENTIDAD §Ergonomía cognitiva holds the detail; this is the charter.
   - publishing a case is its own deliberate step, and a family tie never
     publishes (DECISIONES, 28-09-2026).
 - **Prefer undo to confirm.** When an action is reversible, do it and offer
-  «Deshacer» for a few seconds. A confirm is for what cannot be undone.
-  ⚠️ Not yet: today every removal confirms inline; none offers undo.
+  «Deshacer» for a few seconds (`AvisoDeshacer`, `components/espacios/deshacer.tsx`:
+  10 s, paused while focus is inside, announced). Today: removing a saved
+  record, a link in a case, a pending invitation (28-09-2026). A confirm is for
+  what cannot be fully restored — an entry that takes its links and mentions,
+  a comment, an investigation, a member — and it names its object.
 - **Nothing irreversible happens by itself.** Nothing is published, sent or
   deleted without the reader's explicit act.
 

@@ -63,8 +63,8 @@ export default function GuiaLeyPage() {
           proyecto.
         </p>
         <p>
-          Se deposita en una de las dos cámaras —la Cámara de Diputados o el
-          Senado—, que recibe el nombre de <em>cámara de origen</em>. En ese
+          Se deposita en una de las dos cámaras, la Cámara de Diputados o el
+          Senado, que recibe el nombre de <em>cámara de origen</em>. En ese
           momento recibe un número de expediente.
         </p>
       </Paso>
@@ -89,9 +89,9 @@ export default function GuiaLeyPage() {
           El pleno la discute <strong>dos veces, en días distintos</strong>,
           salvo que la declare de urgencia, en cuyo caso puede hacerlo en
           sesiones seguidas. La mayoría que hace falta depende de la ley: las
-          leyes <strong>orgánicas</strong> —las que desarrollan derechos
+          leyes <strong>orgánicas</strong> (las que desarrollan derechos
           fundamentales, la organización de los poderes del Estado o el
-          régimen electoral, entre otras— necesitan las dos terceras partes de
+          régimen electoral, entre otras) necesitan las dos terceras partes de
           los presentes en cada cámara; las ordinarias, la mayoría absoluta de
           los presentes.
         </p>
@@ -145,8 +145,8 @@ export default function GuiaLeyPage() {
 
       <Paso n={6} titulo="Se publica en la Gaceta Oficial">
         <p>
-          Una ley promulgada se publica —en la{" "}
-          <Termino clave="gacetaOficial">Gaceta Oficial</Termino>— y es
+          Una ley promulgada se publica en la{" "}
+          <Termino clave="gacetaOficial">Gaceta Oficial</Termino> y es
           obligatoria para todos una vez pasan los plazos que la ley fija para
           que se considere conocida. Recibe un número con el año: «Ley 47-25»
           es la ley 47 de 2025. Las leyes y decretos publicados se consultan en{" "}
@@ -169,13 +169,13 @@ export default function GuiaLeyPage() {
           cero.
         </p>
         <p>
-          Cada <Termino clave="cuatrienio">cuatrienio</Termino> —el período de
-          cuatro años entre elecciones— el Senado guarda sus expedientes en una
+          Cada <Termino clave="cuatrienio">cuatrienio</Termino>, el período de
+          cuatro años entre elecciones, el Senado guarda sus expedientes en una
           colección aparte.
         </p>
       </Paso>
 
-      <Alert variant="firma" className="p-5 sm:p-6">
+      <Alert variant="firma" role="note" className="p-5 sm:p-6">
         <p className="text-[15px] font-semibold text-brand-900">
           Sigue una pieza y entérate cuando se mueva
         </p>

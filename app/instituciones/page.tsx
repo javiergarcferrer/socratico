@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import {
@@ -100,7 +101,14 @@ export default async function InstitucionesPage({
 
       {q ? (
         resultados.length === 0 ? (
-          <EstadoVacio titulo={`Ninguna institución coincide con «${q}»`}>
+          <EstadoVacio
+            titulo={`Ninguna institución coincide con «${q}»`}
+            accion={
+              <Button asChild variant="secondary">
+                <Link href={`/buscar?q=${encodeURIComponent(q)}`}>Buscar «{q}» en toda la plataforma</Link>
+              </Button>
+            }
+          >
             Prueba con las siglas (MOPC, MINERD) o con una palabra del nombre.
           </EstadoVacio>
         ) : (
@@ -208,9 +216,14 @@ function TarjetaCapitulo({
           {cabeza ? (
             <Link
               href={hrefInstitucion(cabeza)}
-              className="group -mx-1 flex min-h-11 items-center gap-1.5 rounded-md px-1 hover:text-brand-700 sm:min-h-10"
+              className="group -mx-1 flex min-h-11 items-center justify-between gap-3 rounded-md px-1 hover:text-brand-700 sm:min-h-10"
             >
-              <span>{nombre}</span>
+              {/*
+                El chevrón va al borde derecho, en la misma columna que el de
+                las filas de abajo: pegado al nombre saltaba de sitio según
+                cuántos renglones ocupara el titular.
+              */}
+              <span className="min-w-0 break-words">{nombre}</span>
               <IconChevronRight className="h-4 w-4 shrink-0 text-brand-700" />
             </Link>
           ) : (
@@ -276,7 +289,7 @@ function FilaInstitucion({
           <span className="min-w-0">
             <span className="block text-[15px] leading-snug text-ink">
               {desdeMayusculas(i.nombre)}
-              {sigla && <span className="font-mono text-xs text-ink-soft"> · {sigla}</span>}
+              {sigla && <span className="whitespace-nowrap font-mono text-xs text-ink-soft"> · {sigla}</span>}
             </span>
             {devengado !== undefined && (
               <span className="mt-0.5 block font-mono text-xs tabular-nums text-ink-soft">

@@ -3,7 +3,8 @@ import { puntos, variacion } from "@/lib/cifras";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Cifra, TiraDeCifras } from "@/components/papel";
-import { IconChartBar } from "@/components/icons";
+import { IconChartBar, IconExternal } from "@/components/icons";
+import { SIN_DATO } from "@/lib/format";
 
 /**
  * Tres cifras mensuales del Banco Central para el panorama: remesas, reservas
@@ -19,7 +20,7 @@ import { IconChartBar } from "@/components/icons";
 const decimal = (n: number, d: number) =>
   n.toLocaleString("es-DO", { minimumFractionDigits: d, maximumFractionDigits: d });
 
-const millonesUSD = (n: number) => `US$ ${decimal(n, 1)} millones`;
+const millonesUSD = (n: number) => `US$\u00A0${decimal(n, 1)} millones`;
 const porciento = (n: number) => `${decimal(n, 2)} %`;
 
 function notaPeriodo(i: Indicador) {
@@ -65,7 +66,7 @@ function Casilla({
       <div>
         <Cifra
           etiqueta={etiqueta}
-          valor="—"
+          valor={SIN_DATO}
           tono="text-ink-soft"
           nota={<span className="text-alerta-700">No se pudo leer el archivo del BCRD. No mostramos una cifra que no leímos.</span>}
         />
@@ -99,7 +100,9 @@ export async function IndicadoresMacro() {
         </div>
         <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
           <a href="https://www.bancentral.gov.do/" target="_blank" rel="noopener noreferrer">
-            BCRD ↗
+            BCRD
+            <IconExternal className="h-3.5 w-3.5" />
+            <span className="sr-only">(se abre en otra pestaña)</span>
           </a>
         </Button>
       </div>

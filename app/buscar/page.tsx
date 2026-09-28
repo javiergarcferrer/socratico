@@ -14,7 +14,7 @@ import {
   type TipoResultado,
 } from "@/lib/busqueda";
 import { desdeMayusculas } from "@/lib/congreso";
-import { formatFecha, formatPesos } from "@/lib/format";
+import { formatFecha, formatPesos, SIN_DATO } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { BUSQUEDAS } from "@/lib/secciones";
 import Antiguedad from "@/components/antiguedad";
@@ -244,7 +244,7 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
             {h.soloOrdenan.length === 1 ? "ayuda a ordenar pero no se exige" : "ayudan a ordenar pero no se exigen"}.{" "}
           </>
         )}
-        Por palabra —sin tildes, con plurales y conjugaciones— y por tema, en el
+        Por palabra (sin tildes, con plurales y conjugaciones) y por tema, en el
         índice del {fechaIndice}.
         {h.soloTema > 0 && <> Lo marcado «por tema» no lleva todas tus palabras: trata de algo parecido.</>}
         {h.truncado && <> Hay más coincidencias de las que se ordenan: la lista recorre las veinte mil más pertinentes.</>}
@@ -347,7 +347,7 @@ function detalleDe(r: Resultado, corte?: string): React.ReactNode {
       return (
         <>
           {[
-            r.detalle && corte ? `${r.detalle} al ${formatFecha(corte)}` : r.detalle,
+            r.detalle && corte && formatFecha(corte) !== SIN_DATO ? `${r.detalle} al ${formatFecha(corte)}` : r.detalle,
             r.tipo === "proceso" ? r.origen : null,
             r.valor ? `${formatPesos(r.valor)} estimado` : null,
           ]
@@ -448,7 +448,7 @@ function Grupo({
       <div className="flex items-baseline justify-between gap-3">
         <CardTitle>{titulo}</CardTitle>
         {mas && (
-          <Link href={mas.href} className="shrink-0 text-xs font-medium text-brand-700 hover:underline">
+          <Link href={mas.href} className="inline-flex min-h-6 shrink-0 items-center text-xs font-medium text-brand-700 hover:underline">
             {mas.texto}
           </Link>
         )}
@@ -510,6 +510,7 @@ function Fila({
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className="group flex min-h-11 items-start gap-3 py-2.5">
         {cuerpo}
+        <span className="sr-only">(se abre en otra pestaña)</span>
       </a>
     );
   }

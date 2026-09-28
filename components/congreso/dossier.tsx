@@ -106,13 +106,13 @@ export default async function Dossier({
         {ley && (
           <div className="bg-valido-50 px-5 py-4">
             <p className="rotulo text-valido-700">
-              Ya es ley — texto vigente
+              Ya es ley · texto vigente
             </p>
             <p className="mt-1.5 text-sm font-medium text-ink">
               {`Ley ${ley.numero}${ley.titulo ? `, ${desdeMayusculas(ley.titulo)}` : ""}`}
             </p>
             <p className="mt-0.5 text-xs text-ink-soft">
-              {[ley.gaceta && `Gaceta ${ley.gaceta}`, ley.fecha && formatFecha(ley.fechaIso ?? undefined)]
+              {[ley.gaceta && `Gaceta ${ley.gaceta}`, ley.fechaIso ? formatFecha(ley.fechaIso) : ley.fecha]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
@@ -204,7 +204,7 @@ export default async function Dossier({
                       <>
                         <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
                           {desdeMayusculas(norma.titulo)}
-                          {norma.fecha && ` · ${formatFecha(norma.fechaIso ?? undefined)}`}
+                          {norma.fecha && ` · ${norma.fechaIso ? formatFecha(norma.fechaIso) : norma.fecha}`}
                           {norma.gaceta && ` · Gaceta ${norma.gaceta}`}
                         </p>
                         {/*
@@ -222,7 +222,8 @@ export default async function Dossier({
                             className="mt-1 h-auto min-h-11 justify-start whitespace-normal px-0 text-left text-xs font-medium sm:min-h-0"
                           >
                             <Link href={enlace.norma(ref.tipo, ref.numero) ?? "/normativa"}>
-                              Leer el texto de esta norma →
+                              Leer el texto de esta norma
+                              <span className="sr-only">{`: ${ref.etiqueta}`}</span> →
                             </Link>
                           </Button>
                         ) : (

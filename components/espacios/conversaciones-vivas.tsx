@@ -76,12 +76,13 @@ export default function ConversacionesVivas({ encabezado }: { encabezado: ReactN
           <ol className="divide-y divide-hairline">
             {r.datos.map((f) => (
               <li key={`${f.tipo}:${f.ref}`} className="relative flex items-start gap-3 px-5 py-3">
-                <span className="flex w-10 shrink-0 flex-col items-center pt-0.5 text-ink-soft" aria-label={`${f.votos} dicen que importa`}>
+                <span className="flex w-10 shrink-0 flex-col items-center pt-0.5 text-ink-soft">
                   <IconVoto className="h-4 w-4" />
                   <span className="font-mono text-xs tabular-nums text-ink">{f.votos}</span>
+                  <span className="sr-only">{f.votos === 1 ? "cuenta dice que importa" : "cuentas dicen que importa"}</span>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <Link href={`${f.href}#conversacion`} className="estira line-clamp-2 text-sm font-semibold text-ink">
+                  <Link href={`${f.href}#conversacion`} title={f.titulo} className="estira line-clamp-2 text-sm font-semibold text-ink">
                     {f.titulo}
                   </Link>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
@@ -89,7 +90,9 @@ export default function ConversacionesVivas({ encabezado }: { encabezado: ReactN
                     <span className="inline-flex items-center gap-1">
                       <IconChat className="h-3.5 w-3.5" />
                       <span className="font-mono tabular-nums">{f.comentarios}</span>
+                      {f.comentarios === 1 ? "comentario" : "comentarios"}
                     </span>
+                    <span aria-hidden>·</span>
                     <Antiguedad iso={f.actividad} prefijo="activa" />
                   </p>
                 </div>

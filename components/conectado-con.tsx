@@ -45,16 +45,22 @@ export function ConectadoCon({
           Lo que las fuentes del Estado ligan a esta ficha. Cada fila abre el otro extremo.
         </p>
       </div>
-      <ul className="grid border-t border-hairline sm:grid-cols-2">
+      {/*
+        `grid-cols-1` explícito y `min-w-0` en cada fila: sin eso la columna
+        implícita crece hasta el nombre más largo y la fila se salía de la
+        hoja a 390 px. El nombre del nodo se envuelve en vez de cortarse: es
+        justo lo que distingue una arista de otra.
+      */}
+      <ul className="grid grid-cols-1 border-t border-hairline sm:grid-cols-2">
         {vivas.map((a) => (
-          <li key={`${a.etiqueta}|${a.href}`} className="border-b border-hairline sm:odd:border-r">
+          <li key={`${a.etiqueta}|${a.href}`} className="min-w-0 border-b border-hairline sm:odd:border-r">
             <Link
               href={a.href}
               className="group flex min-h-11 items-center gap-3 px-5 py-3 transition-colors hover:bg-canvas/60 active:bg-canvas sm:px-6"
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium text-ink">{a.etiqueta}</span>
-                <span className="block truncate text-xs text-ink-soft">
+                <span className="block break-words text-xs leading-snug text-ink-soft">
                   {a.nombre ? `${a.nombre} · ${a.fuente}` : a.fuente}
                 </span>
               </span>

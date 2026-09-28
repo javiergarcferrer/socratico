@@ -9,7 +9,7 @@ import {
   getDocumentosSenado,
   getFichaSenado,
 } from "@/lib/senado";
-import { formatFecha, hace } from "@/lib/format";
+import { formatFecha, hace, SIN_DATO } from "@/lib/format";
 import { getAgregado, refIniciativa } from "@/lib/democracia";
 import VotoWidget from "@/components/democracia/voto-widget";
 import Dossier from "@/components/congreso/dossier";
@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: Props) {
   const { cuatrienio, id } = await params;
   return {
     alternates: { canonical: enlace.expedienteSenado(cuatrienio, id) },
-    title: ficha.numero?.completo ?? `Expediente ${ficha.id}`,
+    title: `Expediente ${ficha.numero?.completo ?? ficha.id} · Senado`,
     description: ficha.titulo.slice(0, 160),
   };
 }
@@ -90,13 +90,13 @@ export default async function ExpedienteSenadoPage({ params }: Props) {
             {ficha.numero?.completo ?? `#${ficha.id}`}
           </span>
           <CondicionBadge tono={ficha.tono}>
-            {ficha.estadoActual ?? ficha.condicion ?? "—"}
+            {ficha.estadoActual ?? ficha.condicion ?? "Sin estado"}
           </CondicionBadge>
           {ficha.promulgada && <CondicionBadge tono="cumplido">Promulgada</CondicionBadge>}
           {ficha.perimida && <CondicionBadge tono="anulado">Perimida</CondicionBadge>}
         </div>
 
-        <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-ink sm:text-2xl">
+        <h1 className="mt-2 break-words text-xl leading-snug text-ink sm:text-2xl">
           <TextoEnlazado texto={ficha.titulo} />
         </h1>
 
@@ -255,7 +255,7 @@ export default async function ExpedienteSenadoPage({ params }: Props) {
                       <div className="-mt-0.5 min-w-0 flex-1">
                         <p className="text-sm font-medium text-ink">{h.evento}</p>
                         <p className="font-mono mt-0.5 text-xs tabular-nums text-ink-soft">
-                          {h.fecha ? formatFecha(h.fecha) : "—"}
+                          {h.fecha ? formatFecha(h.fecha) : "Sin fecha"}
                         </p>
                       </div>
                     </li>
@@ -385,7 +385,7 @@ function Dato({
             : "mt-0.5 text-sm text-ink"
         }
       >
-        {valor ?? "—"}
+        {valor ?? SIN_DATO}
       </dd>
       {nota && <p className="mt-0.5 text-xs text-ink-soft">{nota}</p>}
     </div>
@@ -476,6 +476,9 @@ async function SeccionDocumento({ cuatrienio, id }: { cuatrienio: string; id: nu
                   className="-my-1 -mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 px-2 text-xs font-medium text-brand-700 hover:underline sm:my-0 sm:mr-0 sm:min-h-0 sm:px-0"
                 >
                   Abrir
+                  <span className="sr-only">
+                    {` ${d.nombre || "el documento"} (en otra pestaña)`}
+                  </span>
                   <IconExternal className="h-3.5 w-3.5" />
                 </a>
               </li>

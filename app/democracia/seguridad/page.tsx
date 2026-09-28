@@ -66,8 +66,8 @@ export default function SeguridadPage() {
         <Medida titulo="Tu voto es privado a nivel de base de datos">
           Quién votó qué no lo puede leer nadie más que tú, y esa regla la impone
           la base de datos (Row Level Security), no solo la interfaz. Lo único
-          público son los <strong>totales agregados</strong> —cuántos a favor,
-          cuántos en contra— que salen de una vista que solo expone conteos y
+          público son los <strong>totales agregados</strong> (cuántos a favor,
+          cuántos en contra), que salen de una vista que solo expone conteos y
           jamás filas individuales.
         </Medida>
 
@@ -104,7 +104,7 @@ export default function SeguridadPage() {
         </Medida>
       </div>
 
-      <Alert variant="aviso" className="mt-8 border-alerta-100/50 bg-alerta-50/60 p-5">
+      <Alert variant="aviso" role="note" className="mt-8 border-alerta-100/50 bg-alerta-50/60 p-5">
         <CardTitle>Lo que este piloto todavía no hace</CardTitle>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
           Honestidad sobre los límites: con el registro por correo verificamos que

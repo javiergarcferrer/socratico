@@ -40,9 +40,9 @@ export async function SubsidioElectrico() {
     <Card as="section" id="subsidio-electrico" className="p-5 sm:p-6">
       <CardTitle>¿Cuánto le pone el Tesoro a la electricidad?</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Transferencias del Tesoro a las empresas eléctricas del Estado —las tres
-        distribuidoras, la transmisora y la hidroeléctrica; hasta 2023 las recibía la
-        CDEEE y las repartía—, devengadas cada año. Es lo que pasa por el Tesoro, no
+        Transferencias del Tesoro a las empresas eléctricas del Estado, devengadas cada
+        año: las tres distribuidoras, la transmisora y la hidroeléctrica (hasta 2023
+        las recibía la CDEEE y las repartía). Es lo que pasa por el Tesoro, no
         todo el costo del sector eléctrico.
       </p>
       <TiraDeCifras className="mt-4 lg:grid-cols-3">

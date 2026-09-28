@@ -8,7 +8,7 @@ import { contarProveedoresRegistrados } from "@/lib/dgcp";
 import { CUATRIENIOS, getCensoSenado } from "@/lib/senado";
 import { getDeuda } from "@/lib/deuda";
 import { consultarNormativa } from "@/lib/normativa";
-import { formatFecha, formatMagnitud } from "@/lib/format";
+import { formatFecha, formatMagnitud, SIN_DATO } from "@/lib/format";
 import { etiquetaCorte, getResumenFiscal } from "@/lib/fiscal";
 import { formatInt } from "@/lib/nomina";
 import { getResumenNomina } from "@/lib/nomina-server";
@@ -56,7 +56,7 @@ export default async function FuentesPage() {
       <Button asChild variant="ghost" className="-mx-2 -my-2 px-2 text-xs font-medium text-ink-soft">
         <Link href="/">
           <IconArrowLeft className="h-3.5 w-3.5" />
-          Panorama
+          Inicio
         </Link>
       </Button>
 
@@ -72,23 +72,23 @@ export default async function FuentesPage() {
       </header>
 
       <div className="space-y-4">
-        <Fuente nombre="DGCP — Compras públicas" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="DGCP · Compras públicas" estado="activa" etiqueta="Conectada">
           <p>
             API de datos abiertos de la Dirección General de Contrataciones
             Públicas. Alimenta el buscador de licitaciones, los precios históricos
             de adjudicación y el panel de mercado.
           </p>
           <p className="mt-3">
-            El buscador filtra por <strong>etapa</strong> —abiertos a ofertar,
+            El buscador filtra por <strong>etapa</strong> (abiertos a ofertar,
             ya cerrada la recepción, en evaluación, adjudicados, desiertos o
-            cancelados— y no solo por lo que está abierto. Dos límites que
+            cancelados) y no solo por lo que está abierto. Dos límites que
             conviene tener presentes: el rango de fechas corre sobre la
             <strong> fecha de publicación</strong>, no la de cierre, así que un
             proceso que acaba de cerrar puede haberse publicado mucho antes; y
             cuando hay que filtrar por etapa, buscar por texto u ordenar por
             algo que no sea «más recientes», la respuesta se arma recorriendo
-            hasta 6.000 registros del rango pedido. Son los{" "}
-            <strong>primeros</strong> 6.000 en el orden en que los sirve el
+            hasta 6,000 registros del rango pedido. Son los{" "}
+            <strong>primeros</strong> 6,000 en el orden en que los sirve el
             origen, así que en una ventana amplia el recorte no solo trunca:
             sesga hacia lo más reciente, y por tanto cuenta de menos lo ya
             cerrado. Ese conteo es <strong>una muestra</strong>, y el buscador
@@ -99,15 +99,15 @@ export default async function FuentesPage() {
             comprasdominicana los manda como descarga forzada y prohíbe
             incrustarlos: bajar un archivo para saber qué dice no es acceso a la
             información, así que la plataforma los vuelve a servir para lectura
-            —los mismos bytes, sin editar— y los enlaces de abrir y descargar
+            (los mismos bytes, sin editar) y los enlaces de abrir y descargar
             siguen apuntando al original.
           </p>
           <p className="mt-3">
             De la misma API se leen otras cuatro cosas que antes no
             aprovechábamos: las <strong>ofertas</strong> de cada proceso (quién
             compitió, no solo quién ganó), el <strong>registro de
-            proveedores</strong> —que trae el RNC, la forma jurídica y la fecha
-            de constitución de cada empresa—, el <strong>catálogo UNSPSC</strong>{" "}
+            proveedores</strong> (con el RNC, la forma jurídica y la fecha
+            de constitución de cada empresa), el <strong>catálogo UNSPSC</strong>{" "}
             y los <strong>planes anuales de compra</strong> de cada institución.
           </p>
           <p className="mt-3">
@@ -121,7 +121,7 @@ export default async function FuentesPage() {
             , con dos caminos que no son equivalentes y que la página distingue:
             por <strong>RNC, cédula o número de RPE</strong> se consulta el
             registro completo
-            {proveedores !== null && <> —{formatInt(proveedores)} inscritos—</>},
+            {proveedores !== null && <> ({formatInt(proveedores)} inscritos)</>},
             mientras que{" "}
             <strong>por nombre</strong> se busca entre todos los que han
             contratado desde 2015 (la instantánea de compras) y entre quienes
@@ -130,17 +130,17 @@ export default async function FuentesPage() {
             razón social.
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
-            Las búsquedas por texto escanean hasta 6 páginas de 1000 registros
+            Las búsquedas por texto escanean hasta 6 páginas de 1,000 registros
             dentro del rango de fechas; cuando el barrido no cubre todo, la
             interfaz lo advierte en vez de fingir un resultado completo. Cuatro
             límites del origen que la interfaz declara donde tocan: el estado de
-            evaluación de las ofertas llega casi siempre vacío —quién ganó lo
-            dicen los contratos—; el filtro de período de los planes no
+            evaluación de las ofertas llega casi siempre vacío (quién ganó lo
+            dicen los contratos); el filtro de período de los planes no
             funciona, así que el año se filtra aquí; el registro de contratos no
             admite filtro por fecha, así que los rankings describen una ventana
             reciente y no todo el histórico; y el registro de proveedores no se
-            puede buscar por razón social ni recorrer entero —hay páginas que
-            devuelven error de forma permanente—, por lo que la búsqueda por
+            puede buscar por razón social ni recorrer entero (hay páginas que
+            devuelven error de forma permanente), por lo que la búsqueda por
             nombre se hace sobre esa misma ventana y lo dice junto al resultado.
             Del registro de proveedores omitimos además a propósito teléfonos y
             correos: esto vigila al Estado, no es un directorio comercial.
@@ -154,14 +154,14 @@ export default async function FuentesPage() {
             error con cualquier valor, así que se consulta la ficha de los 200
             proveedores que más adjudicaron en esa misma ventana y se agrupan por
             la provincia que declaran. Las descargas CSV de licitaciones y
-            contratos traen lo que la página leyó —el barrido de hasta 6000
-            registros, la muestra de contratos— y lo dicen en el nombre del
+            contratos traen lo que la página leyó (el barrido de hasta 6,000
+            registros, la muestra de contratos) y lo dicen en el nombre del
             archivo.
           </p>
         </Fuente>
 
         <Fuente
-          nombre="SIGEF — Ejecución del presupuesto"
+          nombre="SIGEF · Ejecución del presupuesto"
           estado={fiscal !== null ? "activa" : "caida"}
           etiqueta={fiscal !== null ? "Instantánea local" : "No disponible"}
         >
@@ -182,7 +182,7 @@ export default async function FuentesPage() {
                 etiqueta="Ejecutado"
                 valor={
                   fiscal.ejecucion === null
-                    ? "—"
+                    ? SIN_DATO
                     : `${(fiscal.ejecucion * 100).toFixed(1)} %`
                 }
               />
@@ -203,7 +203,7 @@ export default async function FuentesPage() {
         </Fuente>
 
         <Fuente
-          nombre="SIL — Cámara de Diputados"
+          nombre="SIL · Cámara de Diputados"
           estado={censo !== null ? "activa" : "caida"}
           etiqueta={censo !== null ? "Conectada" : "Sin respuesta"}
         >
@@ -216,12 +216,12 @@ export default async function FuentesPage() {
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
             <Metrica
               etiqueta="Iniciativas"
-              valor={censo !== null ? formatInt(censo) : "—"}
+              valor={censo !== null ? formatInt(censo) : SIN_DATO}
             />
             <Metrica etiqueta="Por página" valor="10 (fijo)" />
             <Metrica
               etiqueta="Períodos"
-              valor={periodos.length > 0 ? periodos.map((p) => p.description).join(", ") : "—"}
+              valor={periodos.length > 0 ? periodos.map((p) => p.description).join(", ") : SIN_DATO}
             />
           </dl>
           <p className="mt-4 text-[13px] text-ink-soft sm:text-xs">
@@ -307,7 +307,7 @@ export default async function FuentesPage() {
         </Fuente>
 
         <Fuente
-          nombre="Consultoría Jurídica — normativa del Ejecutivo"
+          nombre="Consultoría Jurídica · normativa del Ejecutivo"
           estado={normativa.origen === null ? "caida" : "activa"}
           etiqueta={
             normativa.origen === null
@@ -329,7 +329,7 @@ export default async function FuentesPage() {
             número y el título, no el texto de la norma; las designaciones del mes
             se derivan de la etiqueta «Cámara de Cuentas» que la Consultoría pone
             a los decretos de nombramiento y de su título. La materia de cada
-            decreto —pensiones, expropiaciones, compras de emergencia…— tampoco
+            decreto (pensiones, expropiaciones, compras de emergencia…) tampoco
             es un campo del origen: se lee con reglas fijas del título y de esa
             etiqueta, y lo que ninguna reconoce queda en «Otros asuntos».
           </p>
@@ -344,17 +344,17 @@ export default async function FuentesPage() {
             </p>
           )}
           <p className="mt-3">
-            Aparte, el histórico completo de leyes —unas 12,100 desde 1844, en una
-            sola consulta del mismo buscador JSON (
+            Aparte, el histórico completo de leyes (unas 12,100 desde 1844, en una
+            sola consulta del mismo buscador JSON,{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-leyes.py</code>
-            )— alimenta el buscador de toda la plataforma y la ficha de una ley más
+            ) alimenta el buscador de toda la plataforma y la ficha de una ley más
             vieja que la instantánea reciente, que entonces dice de qué
             instantánea salió. Solo las leyes con número y año tienen ficha
             propia; las anteriores, o las que el origen numera igual siendo
             distintas, abren su PDF en el sitio de la Consultoría.
           </p>
           <p className="mt-3">
-            Sus PDF traen capa de texto —no son escaneos— y cada norma tiene su
+            Sus PDF traen capa de texto (no son escaneos) y cada norma tiene su
             ficha, que es también la vía al articulado de las piezas del
             Congreso ya promulgadas. El visor siempre ofrece abrir el PDF en el
             sitio oficial, que es la vía mientras el desafío impida traerlo.
@@ -389,7 +389,7 @@ export default async function FuentesPage() {
         </Fuente>
 
         <Fuente
-          nombre="Crédito Público — deuda del SPNF"
+          nombre="Crédito Público · deuda del SPNF"
           estado={deuda !== null ? "activa" : "caida"}
           etiqueta={
             deuda === null
@@ -416,7 +416,7 @@ export default async function FuentesPage() {
               <Metrica etiqueta="Saldo a" valor={deuda.periodo} />
               <Metrica
                 etiqueta={deuda.desdeInstantanea ? "Instantánea del" : "Formato"}
-                valor={deuda.desdeInstantanea ? (deuda.generadoEn ?? "—") : "XLSX mensual"}
+                valor={deuda.desdeInstantanea ? formatFecha(deuda.generadoEn) : "XLSX mensual"}
               />
             </dl>
           )}
@@ -441,12 +441,12 @@ export default async function FuentesPage() {
         >
           <p>
             Los textos de los proyectos son PDF y están versionados por etapa
-            —depósito, modificaciones sucesivas, texto aprobado—, que es
+            (depósito, modificaciones sucesivas, texto aprobado), que es
             exactamente lo que necesita una comparación entre lecturas.
           </p>
           <p className="mt-3">
             Pero viven en un servidor on-premise en RD que rechaza la conexión en
-            el handshake TLS desde fuera del país. Los enlaces “Abrir” de cada
+            el handshake TLS desde fuera del país. Los enlaces «Abrir» de cada
             ficha apuntan al origen real y funcionan desde una red dominicana; la
             extracción automática de texto sigue bloqueada. El Senado sí sirve
             los suyos por internet abierto, y por eso sus fichas traen el
@@ -455,7 +455,7 @@ export default async function FuentesPage() {
         </Fuente>
 
         <Fuente
-          nombre="SIL — Senado"
+          nombre="SIL · Senado"
           estado={censoSenado !== null ? "activa" : "caida"}
           etiqueta={censoSenado !== null ? "Conectada" : "Sin respuesta"}
         >
@@ -464,14 +464,14 @@ export default async function FuentesPage() {
             Senado enlaza («consultante»), con seis colecciones por cuatrienio
             desde 2002. Alimenta el listado, la búsqueda y las fichas del
             Senado: estado procesal, historial de trámites, proponentes,
-            promulgación, el número del expediente gemelo en Diputados y —vía
-            su documentación asociada— el PDF del proyecto tal como se
+            promulgación, el número del expediente gemelo en Diputados y, por
+            su documentación asociada, el PDF del proyecto tal como se
             depositó.
           </p>
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
             <Metrica
-              etiqueta="Expedientes (2024-2028)"
-              valor={censoSenado !== null ? formatInt(censoSenado) : "—"}
+              etiqueta="Expedientes (2024–2028)"
+              valor={censoSenado !== null ? formatInt(censoSenado) : SIN_DATO}
             />
             <Metrica etiqueta="Colecciones" valor={String(CUATRIENIOS.length)} />
             <Metrica
@@ -494,7 +494,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="MapaInversiones — obra pública" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="MapaInversiones · obra pública" estado="activa" etiqueta="Instantánea local">
           <p>
             Los datos abiertos de MapaInversiones (Ministerio de Hacienda y
             Economía, sobre el Banco de Proyectos del SNIP y la DGCP) alimentan{" "}
@@ -522,18 +522,18 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="DGII — padrón de contribuyentes (RNC)" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="DGII · padrón de contribuyentes (RNC)" estado="activa" etiqueta="Instantánea local">
           <p>
             La consulta web de RNC de la DGII rechaza a los programas, pero la DGII
             publica el padrón completo como un ZIP descargable. Se cruza al
-            construir con el Registro de Proveedores del Estado —que la DGCP también
-            ofrece como archivo— y la ficha de cada proveedor muestra su actividad
+            construir con el Registro de Proveedores del Estado (que la DGCP también
+            ofrece como archivo) y la ficha de cada proveedor muestra su actividad
             económica declarada, su estado ante la DGII, su régimen y la fecha en que
             inició operaciones, con la distancia hasta su primer contrato. <ResumenRnc />
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
-            Solo se cruzan los RNC de 9 dígitos —casi todos empresas; unos pocos
-            parecen de personas físicas inscritas con RNC—: quien se inscribió en
+            Solo se cruzan los RNC de 9 dígitos (casi todos empresas; unos pocos
+            parecen de personas físicas inscritas con RNC): quien se inscribió en
             el registro de proveedores con su cédula no se cruza. La fecha de inicio la declara
             el contribuyente, y el «primer contrato» es el más antiguo que devuelve
             la API de la DGCP. Del registro de proveedores solo se leen el RPE y el
@@ -543,7 +543,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="SISMAP — calidad de la gestión pública" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="SISMAP · calidad de la gestión pública" estado="activa" etiqueta="Instantánea local">
           <p>
             El ranking del Sistema de Monitoreo de la Administración Pública
             (Ministerio de Administración Pública) alimenta{" "}
@@ -564,7 +564,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="MICM — precios de los combustibles" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="MICM · precios de los combustibles" estado="activa" etiqueta="Conectada">
           <p>
             El Ministerio de Industria, Comercio y Mipymes pone en su portada los
             precios de la semana. Se leen de ahí, con caché de una hora, para el
@@ -578,7 +578,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Banco Central — tasa de cambio de referencia" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Banco Central · tasa de cambio de referencia" estado="activa" etiqueta="Conectada">
           <p>
             La tasa del dólar del mercado spot, día a día desde 1991, sale del
             archivo público que el Banco Central deja en su CDN; se lee con caché de
@@ -617,7 +617,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="SIGEF — subsidio eléctrico" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="SIGEF · subsidio eléctrico" estado="activa" etiqueta="Instantánea local">
           <p>
             La misma API del SIGEF da las transferencias del Tesoro por institución
             receptora. De ahí sale, en{" "}
@@ -632,11 +632,11 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="MAP — nómina pública general del Estado" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="MAP · nómina pública general del Estado" estado="activa" etiqueta="Instantánea local">
           <p>
             El Ministerio de Administración Pública publica cada mes un archivo con
             todas las plazas que las instituciones reportan a su sistema de recursos
-            humanos —unas 492 mil, Educación y Salud incluidas—, con nombre, cargo,
+            humanos (unas 492 mil, Educación y Salud incluidas), con nombre, cargo,
             estatus y sueldo bruto. Se baja al regenerar (unos 60 MB por mes, el último
             publicado y el anterior) y se agrega por institución y por cargo en{" "}
             <Link href="/nomina/general" className="font-medium text-brand-700 hover:underline">
@@ -651,12 +651,12 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="DGCP — historia completa desde 2015" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="DGCP · historia completa desde 2015" estado="activa" etiqueta="Instantánea local">
           <p>
             La sección «Tablas» de datos abiertos de la DGCP sirve enteras, como
             archivo, las tablas de contratos y de procesos: cada contrato y cada
             proceso registrado desde que existe el sistema. Se bajan al regenerar
-            —unos 360 MB, nunca en una visita— y se agregan por año, por
+            (unos 360 MB, nunca en una visita) y se agregan por año, por
             institución y por proveedor para{" "}
             <Link href="/historico" className="font-medium text-brand-700 hover:underline">
               la historia de las compras
@@ -667,9 +667,9 @@ export default async function FuentesPage() {
             de la unidad de compra, solo cuando ese prefijo es inequívoco; el del
             MOPC lo comparte la OPRET, así que sus contratos cuentan en los años pero
             en ninguna institución, y la página lo dice junto al ranking. Los
-            contratos de RD$10 mil millones o más no se suman —algunos parecen errores
-            de captura, otros pueden ser obras reales, y sin el expediente no se
-            distinguen— y se listan aparte con nombre y apellido.
+            contratos de RD$&nbsp;10 mil millones o más no se suman: algunos parecen
+            errores de captura, otros pueden ser obras reales, y sin el expediente
+            no se distinguen. Se listan aparte, con nombre y apellido.
           </p>
           <p className="mt-3">
             De la tabla de procesos se guardan además, con su carátula, unidad de
@@ -684,7 +684,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Contraloría y Cámara de Cuentas — auditorías y declaraciones" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="Contraloría y Cámara de Cuentas · auditorías y declaraciones" estado="activa" etiqueta="Instantánea local">
           <p>
             En{" "}
             <Link href="/auditorias" className="font-medium text-brand-700 hover:underline">
@@ -701,11 +701,11 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Biblioteca del Estado — documentos de las instituciones" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="Biblioteca del Estado · documentos de las instituciones" estado="activa" etiqueta="Instantánea local">
           <p>
             Muchas instituciones publican en WordPress, y WordPress trae una vía
             pública de lectura de su biblioteca de archivos, sin clave. Se recorre
-            entera al regenerar —robots primero, un segundo entre peticiones— y
+            entera al regenerar (robots primero, un segundo entre peticiones) y
             queda{" "}
             <Link href="/documentos" className="font-medium text-brand-700 hover:underline">
               un buscador de documentos
@@ -729,7 +729,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Buscador de toda la plataforma — por palabra y por tema" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="Buscador de toda la plataforma · por palabra y por tema" estado="activa" etiqueta="Instantánea local">
           <p>
             <Link href="/buscar" className="font-medium text-brand-700 hover:underline">
               El buscador
@@ -737,9 +737,9 @@ export default async function FuentesPage() {
             junta en un índice las instantáneas de instituciones, legisladores,
             proveedores, procesos de compra, normativa y leyes, iniciativas del
             Congreso, sentencias, obras, documentos, datos abiertos y cargos de
-            nómina, y dice la fecha en que se armó. Busca por palabra —sin
+            nómina, y dice la fecha en que se armó. Busca por palabra (sin
             tildes, con plurales y conjugaciones, y una errata admitida en
-            palabras largas cuando lo exacto trae casi nada— y por tema, con un
+            palabras largas cuando lo exacto trae casi nada) y por tema, con un
             modelo abierto de vectores (Model2Vec, licencia MIT) reducido al
             español y guardado junto a los datos: no hay servicio externo ni
             clave. Lo que sale solo por tema se marca así. En una pregunta, las
@@ -749,7 +749,7 @@ export default async function FuentesPage() {
           <p className="mt-3">
             <strong>Cobertura:</strong> de los proveedores, los 32 mil con al
             menos un contrato desde 2015 en el registro de la DGCP, por nombre,
-            RNC o RPE —no los inscritos que nunca contrataron—; de los procesos,
+            RNC o RPE (no los inscritos que nunca contrataron); de los procesos,
             los publicados en los doce meses anteriores a la tabla abierta de la
             DGCP; de la normativa, todas las leyes desde 1844 y los decretos,
             reglamentos y resoluciones de los últimos cuatro años; del Congreso,
@@ -765,7 +765,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Tribunal Constitucional — sentencias" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Tribunal Constitucional · sentencias" estado="activa" etiqueta="Conectada">
           <p>
             El buscador de sentencias del Tribunal sirve cada año entero en una
             página normal, sin paginar: número, fecha, expediente y de qué trata.{" "}
@@ -784,7 +784,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Tribunal Superior Electoral — sentencias" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Tribunal Superior Electoral · sentencias" estado="activa" etiqueta="Conectada">
           <p>
             Su visor público lista las sentencias por año, 60 por página, desde 2021:{" "}
             <Link href="/tse" className="font-medium text-brand-700 hover:underline">
@@ -803,7 +803,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Poder Judicial — estadísticas de los tribunales ordinarios" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="Poder Judicial · estadísticas de los tribunales ordinarios" estado="activa" etiqueta="Instantánea local">
           <p>
             Del boletín estadístico mensual del Poder Judicial se lee, al regenerar,
             la hoja de entradas y salidas de los tribunales de jurisdicción ordinaria
@@ -816,7 +816,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Banco Central — remesas, reservas y tasa activa" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Banco Central · remesas, reservas y tasa activa" estado="activa" etiqueta="Conectada">
           <p>
             Tres archivos públicos del CDN del Banco Central, sin clave, en el
             panorama: remesas del mes, reservas internacionales brutas y la tasa de
@@ -829,7 +829,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Banco Central — inflación y llegadas por avión" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="Banco Central · inflación y llegadas por avión" estado="activa" etiqueta="Instantánea local">
           <p>
             El IPC y las llegadas de pasajeros por vía aérea están en el CDN del Banco
             Central como hojas de cálculo del formato antiguo de Excel, que la
@@ -841,19 +841,19 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Superintendencia de Bancos — SIMBAD" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Superintendencia de Bancos · SIMBAD" estado="activa" etiqueta="Conectada">
           <p>
             El tablero público SIMBAD de la Superintendencia de Bancos sirve cada
             gráfico por una interfaz sin clave. Se leen cada día cuatro series del
-            sistema financiero —morosidad, cartera de créditos, solvencia y tasa de
-            los préstamos nuevos—, pidiendo solo sus datos. Cada gráfico trae unos
+            sistema financiero (morosidad, cartera de créditos, solvencia y tasa de
+            los préstamos nuevos), pidiendo solo sus datos. Cada gráfico trae unos
             dos años y termina en su propio mes, que se dice junto a la cifra. Esa
             misma interfaz expone información interna que no debería ser pública; no
             se usa, y se notifica a la Superintendencia.
           </p>
         </Fuente>
 
-        <Fuente nombre="Crédito Público — subastas de bonos" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="Crédito Público · subastas de bonos" estado="activa" etiqueta="Instantánea local">
           <p>
             El consolidado anual de subastas de bonos en pesos (2025 en el formato
             antiguo de Excel, 2026 en el nuevo) se convierte al regenerar: fecha,
@@ -868,7 +868,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Aduanas — comercio exterior y recaudación" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Aduanas · comercio exterior y recaudación" estado="activa" etiqueta="Conectada">
           <p>
             La DGA publica sus series como hojas de cálculo con rutas que cambian en
             cada publicación; su propio sitio las lista en un índice JSON público, y
@@ -880,7 +880,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Organismo Coordinador — generación eléctrica" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Organismo Coordinador · generación eléctrica" estado="activa" etiqueta="Conectada">
           <p>
             La portada del OC pinta sus gráficos con un servicio JSON público. De él
             se lee el día de ayer: generación real contra programada, hora pico y
@@ -890,7 +890,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Edenorte y Edesur — mantenimientos programados" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="Edenorte y Edesur · mantenimientos programados" estado="activa" etiqueta="Conectada">
           <p>
             <Link href="/luz" className="font-medium text-brand-700 hover:underline">
               Los cortes de luz programados
@@ -905,7 +905,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="INDOMET — alertas meteorológicas" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="INDOMET · alertas meteorológicas" estado="activa" etiqueta="Conectada">
           <p>
             INDOMET emite sus alertas en el estándar internacional CAP y las publica,
             en dominio público, en el repositorio que alimenta a los agregadores de
@@ -915,7 +915,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="INTRANT — muertes en las vías (OPSEVI)" estado="activa" etiqueta="Conectada">
+        <Fuente nombre="INTRANT · muertes en las vías (OPSEVI)" estado="activa" etiqueta="Conectada">
           <p>
             El tablero del Observatorio Permanente de Seguridad Vial se alimenta de
             una interfaz JSON sin clave que su propia página llama. No está
@@ -925,7 +925,7 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
-        <Fuente nombre="Interior, MINERD y MIVHED — el país en cifras" estado="activa" etiqueta="Instantánea local">
+        <Fuente nombre="Interior, MINERD y MIVHED · el país en cifras" estado="activa" etiqueta="Instantánea local">
           <p>
             <Link href="/pais" className="font-medium text-brand-700 hover:underline">
               El país en cifras
@@ -1000,20 +1000,20 @@ export default async function FuentesPage() {
           <li>
             Ningún dato del Estado va a una base de datos: cada vista lee su fuente
             en vivo con caché de minutos, o su instantánea versionada en el
-            repositorio. La única base guarda lo que es del lector —su voto, y con
-            cuenta lo que guarda, anota y sigue—, nunca una cifra de una fuente.
+            repositorio. La única base guarda lo que es del lector (su voto y, con
+            cuenta, lo que guarda, anota y sigue), nunca una cifra de una fuente.
           </li>
           <li>
-            Un <strong>caso</strong> se arma con piezas abiertas y probadas —React
+            Un <strong>caso</strong> se arma con piezas abiertas y probadas (React
             Flow para el tablero, Tiptap para la narración, TanStack Table para la
-            evidencia, las tres con licencia MIT— y se exporta en FollowTheMoney, el
+            evidencia, las tres con licencia MIT) y se exporta en FollowTheMoney, el
             formato de Aleph y OpenSanctions. Lo que sale es del investigador:
             referencias, notas, fechas que él anotó y el verbo de cada enlace.
             Ninguna cifra del Estado; esa se lee en cada ficha.
           </li>
         </ul>
         <p className="mt-4 text-[13px] text-ink-soft sm:text-xs">
-          Herramienta independiente y no oficial. Para efectos legales, verificar
+          Herramienta independiente y no oficial. Para efectos legales, verifica
           contra la institución correspondiente.
         </p>
       </Card>
@@ -1074,9 +1074,9 @@ function Fuente({
 
 function Metrica({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs font-medium text-ink-soft">{etiqueta}</dt>
-      <dd className="font-mono mt-0.5 text-sm font-semibold tabular-nums text-ink">{valor}</dd>
+      <dd className="mt-0.5 break-words font-mono text-sm font-semibold tabular-nums text-ink">{valor}</dd>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Card, CardTitle } from "@/components/ui/card";
+import { Rotulo } from "@/components/papel";
 import { IconArrowRight, IconCheck, IconShield } from "@/components/icons";
 
 export const metadata: Metadata = {
@@ -16,10 +17,7 @@ export default function SeguridadPlataformaPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="mb-6">
-        <div className="flex items-center gap-2 rotulo text-brand-700">
-          <IconShield className="h-4 w-4" />
-          Seguridad y cumplimiento
-        </div>
+        <Rotulo>Seguridad y cumplimiento</Rotulo>
         <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">
           ¿Cómo cuidamos los datos y a quién le rendimos cuentas?
         </h1>
@@ -59,8 +57,8 @@ export default function SeguridadPlataformaPage() {
           La cuenta es opcional y se abre con un código al correo; la contraseña
           también es opcional, se crea después, y el servicio de cuentas guarda
           solo su huella cifrada (bcrypt), nunca la contraseña. Guarda tu correo, el nombre con que firmas si lo das, y lo
-          que eliges: la <strong>referencia</strong> a cada registro —tipo,
-          número, título, enlace—, tus notas, tus enlaces y lo que sigues. Ninguna
+          que eliges: la <strong>referencia</strong> a cada registro (tipo,
+          número, título, enlace), tus notas, tus enlaces y lo que sigues. Ninguna
           cifra del Estado entra en la base: cada registro se sigue leyendo de su
           fuente. Lo tuyo es privado a nivel de base de datos hasta que lo
           publiques o invites a alguien, y quien lee lo publicado no ve tu correo
@@ -73,7 +71,7 @@ export default function SeguridadPlataformaPage() {
 
         <Medida titulo="La nómina se publica sin nombres ni identificadores">
           El explorador de nómina estatal trabaja con plaza, cargo, área y sueldo
-          por institución — nunca con el nombre del servidor público. Es
+          por institución, nunca con el nombre del servidor público. Es
           información de gasto público, no de personas.
         </Medida>
 

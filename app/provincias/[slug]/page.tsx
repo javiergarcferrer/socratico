@@ -187,7 +187,7 @@ async function Proveedores({ provincia }: { provincia: Provincia }) {
     <>
       Muestra: de los {formatInt(r.consultados)} proveedores que más adjudicaron en
       los {formatInt(r.contratosEscaneados)} contratos más recientes de la DGCP
-      {r.desde && r.hasta ? ` (${formatFecha(r.desde)} — ${formatFecha(r.hasta)})` : ""},
+      {r.desde && r.hasta ? ` (del ${formatFecha(r.desde)} al ${formatFecha(r.hasta)})` : ""},
       los que su ficha del Registro de Proveedores ubica en {provincia.nombre}. El
       registro no se puede filtrar por provincia, así que esto no es el padrón:
       quien no está entre los mayores adjudicatarios recientes no aparece.

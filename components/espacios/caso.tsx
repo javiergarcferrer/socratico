@@ -35,6 +35,7 @@ import LineaDeTiempo, { type HitoTiempo } from "./linea-tiempo";
 import NarrativaLectura, { narrativaConTexto } from "./narrativa-lectura";
 import { EnlaceRegistro, MarcaTipo } from "./registro";
 import TableroDiferido, { type Seleccion } from "./tablero-diferido";
+import { AvisoDeshacer, type Deshacible } from "./deshacer";
 
 /**
  * El caso: la misma investigación vista de cuatro maneras (docs/PLAN-ESPACIOS.md §7).
@@ -75,6 +76,7 @@ export default function Caso({
   const [sel, setSel] = useState<Seleccion>(null);
   const [conectar, setConectar] = useState<{ desde: string; hasta: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deshacible, setDeshacible] = useState<Deshacible | null>(null);
 
   const porId = useMemo(() => new Map(entradas.map((e) => [e.id, e])), [entradas]);
   const cuantos = useMemo(() => {
@@ -120,6 +122,19 @@ export default function Caso({
         porId={porId}
         edita={edita}
         onCambio={onCambio}
+        onQuitado={(l) => {
+          const a = porId.get(l.desde);
+          const b = porId.get(l.hasta);
+          setDeshacible({
+            texto: a && b ? `Quitaste el enlace «${a.titulo}» ${VERBO_ENLACE[l.tipo]} «${b.titulo}».` : "Quitaste el enlace.",
+            deshacer: async () => {
+              const r = await enlazar(proyecto, l.desde, l.hasta, l.nota, l.tipo);
+              if (!r.ok) return r;
+              onCambio();
+              return { ok: true };
+            },
+          });
+        }}
         onCerrar={() => setSel(null)}
       />
     ) : null;
@@ -164,7 +179,7 @@ export default function Caso({
                 onMover={alMover}
                 onConectar={(desde, hasta) => setConectar({ desde, hasta })}
               />
-              {error && <p className="text-xs text-alerta-700">{error}</p>}
+              {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
               {panel}
             </>
           )}
@@ -197,6 +212,8 @@ export default function Caso({
           )}
         </TabsContent>
       </Tabs>
+
+      <AvisoDeshacer aviso={deshacible} onCerrar={() => setDeshacible(null)} className="mt-3" />
 
       {conectar && porId.get(conectar.desde) && porId.get(conectar.hasta) && (
         <DialogoConectar
@@ -276,7 +293,7 @@ function DialogoConectar({
           <div className="space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
             <p className="text-sm leading-relaxed">
               <span className="font-semibold">{x.titulo}</span>
-              <span className="mx-1.5 text-brand-700">— {VERBO_ENLACE[tipo]} →</span>
+              <span className="mx-1.5 text-brand-700">{VERBO_ENLACE[tipo]} <span aria-hidden="true">→</span></span>
               <span className="font-semibold">{y.titulo}</span>
             </p>
             <SelectVerbo value={tipo} onChange={setTipo} etiqueta="Qué hace uno con el otro" />
@@ -292,7 +309,7 @@ function DialogoConectar({
               onChange={(e) => setNota(e.target.value)}
               placeholder="De dónde lo sabes (opcional): «acta del 12 de marzo», «registro mercantil»"
             />
-            {error && <p className="text-xs text-alerta-700">{error}</p>}
+            {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCerrar}>Cancelar</Button>
@@ -342,6 +359,7 @@ function PanelRegistro({
   const [alReves, setAlReves] = useState(false);
   const [por, setPor] = useState("");
   const [seguro, setSeguro] = useState(false);
+  const [quitando, setQuitando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const id = useId();
@@ -435,7 +453,7 @@ function PanelRegistro({
                 <li key={l.id} className="flex items-start gap-2 py-2 text-sm leading-relaxed">
                   <p className="min-w-0 flex-1">
                     <span className={a.id === e.id ? "text-ink-soft" : "font-medium"}>{a.id === e.id ? "Este" : a.titulo}</span>
-                    <span className="mx-1.5 text-brand-700">— {VERBO_ENLACE[l.tipo]} →</span>
+                    <span className="mx-1.5 text-brand-700">{VERBO_ENLACE[l.tipo]} <span aria-hidden="true">→</span></span>
                     <span className={b.id === e.id ? "text-ink-soft" : "font-medium"}>{b.id === e.id ? "este" : b.titulo}</span>
                     {l.nota && <span className="block text-xs text-ink-soft">{l.nota}</span>}
                   </p>
@@ -496,10 +514,20 @@ function PanelRegistro({
         <div className="border-t border-hairline pt-4">
           {seguro ? (
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="destructive" onClick={() => void hacer(quitarEntrada(e.id), "Quitado del caso.")}>
-                Sí, quitarlo con sus enlaces
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={quitando}
+                onClick={async () => {
+                  setQuitando(true);
+                  await hacer(quitarEntrada(e.id), "Quitado del caso.");
+                  setQuitando(false);
+                }}
+              >
+                {quitando ? "Quitando…" : "Sí, quitarlo del caso con sus enlaces"}
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(false)}>No</Button>
+              <Button type="button" size="sm" variant="outline" disabled={quitando} onClick={() => setSeguro(false)}>No</Button>
             </div>
           ) : (
             <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(true)}>
@@ -510,7 +538,7 @@ function PanelRegistro({
           <p className="mt-1.5 text-xs text-ink-soft">Se va con su nota, su fecha y sus enlaces. El registro sigue en la plataforma.</p>
         </div>
       )}
-      <p role="status" aria-live="polite" className="text-xs">
+      <p role="status" aria-live="polite" className="text-xs empty:sr-only">
         {error ? <span className="text-alerta-700">{error}</span> : aviso && <span className="text-ink-soft">{aviso}</span>}
       </p>
     </Card>
@@ -522,18 +550,24 @@ function PanelEnlace({
   porId,
   edita,
   onCambio,
+  onQuitado,
   onCerrar,
 }: {
   l: Enlace | undefined;
   porId: Map<string, Entrada>;
   edita: boolean;
   onCambio: () => void;
+  /** El enlace se quitó: el caso ofrece «Deshacer», que lo vuelve a tender con su verbo y su nota. */
+  onQuitado: (l: Enlace) => void;
   onCerrar: () => void;
 }) {
   const [nota, setNota] = useState(l?.nota ?? "");
   const [error, setError] = useState<string | null>(null);
-  // Como «Quitar del caso»: se pregunta antes, porque la nota se va con él.
-  const [seguro, setSeguro] = useState(false);
+  /*
+    Un enlace se restaura entero (sus dos extremos, su verbo, su nota), así que
+    no se pregunta antes: se quita y el caso ofrece «Deshacer» (docs/DESIGN.md
+    §4.1). Quitar un registro sí pregunta: se lleva sus enlaces y sus menciones.
+  */
   const [quitando, setQuitando] = useState(false);
   const id = useId();
   const a = l && porId.get(l.desde);
@@ -551,7 +585,7 @@ function PanelEnlace({
       <Cabeza onCerrar={onCerrar}>
         <p className="text-[15px] leading-relaxed">
           <EnlaceRegistro titulo={a.titulo} href={a.href} />
-          <span className="mx-1.5 text-brand-700">— {VERBO_ENLACE[l.tipo]} →</span>
+          <span className="mx-1.5 text-brand-700">{VERBO_ENLACE[l.tipo]} <span aria-hidden="true">→</span></span>
           <EnlaceRegistro titulo={b.titulo} href={b.href} />
         </p>
       </Cabeza>
@@ -569,37 +603,30 @@ function PanelEnlace({
             <Input id={`${id}-nota`} name="nota" autoComplete="off" value={nota} maxLength={1000} onChange={(ev) => setNota(ev.target.value)} />
             <div className="flex flex-wrap gap-2">
               <Button type="submit" size="sm" disabled={nota.trim() === l.nota}>Guardar nota</Button>
-              {seguro ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    className="h-11 sm:h-9"
-                    disabled={quitando}
-                    onClick={async () => {
-                      setQuitando(true);
-                      await hacer(quitarEnlace(l.id));
-                      setQuitando(false);
-                    }}
-                  >
-                    {quitando ? "Quitando…" : "Sí, quitar el enlace"}
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" className="h-11 sm:h-9" disabled={quitando} onClick={() => setSeguro(false)}>No</Button>
-                </>
-              ) : (
-                <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(true)}>
-                  <IconTrash className="h-3.5 w-3.5" />
-                  Quitar el enlace
-                </Button>
-              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={quitando}
+                onClick={async () => {
+                  setQuitando(true);
+                  const r = await quitarEnlace(l.id);
+                  setQuitando(false);
+                  if (!r.ok) return setError(r.error);
+                  onQuitado(l);
+                  onCambio();
+                }}
+              >
+                <IconTrash className="h-3.5 w-3.5" />
+                {quitando ? "Quitando…" : "Quitar el enlace"}
+              </Button>
             </div>
           </form>
         </>
       ) : (
         l.nota && <p className="text-sm leading-relaxed text-ink-soft">{l.nota}</p>
       )}
-      {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
+      <p role="status" aria-live="polite" className="text-xs text-alerta-700 empty:sr-only">{error}</p>
     </Card>
   );
 }
@@ -674,10 +701,10 @@ function Tiempo({ entradas, edita, onCambio }: { entradas: Entrada[]; edita: boo
   return (
     <>
       <p className="text-xs leading-relaxed text-ink-soft">
-        La fecha de cada registro la pones tú: cuándo pasó lo que te importa de él —se adjudicó, se
-        firmó, se pagó—. No se copia de la fuente; la ficha sigue diciendo la suya.
+        La fecha de cada registro la pones tú: cuándo pasó lo que te importa de él (se adjudicó, se
+        firmó, se pagó). No se copia de la fuente; la ficha sigue diciendo la suya.
       </p>
-      {error && <p className="text-xs text-alerta-700">{error}</p>}
+      {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
       {sinFecha.length === entradas.length ? (
         <p className="text-sm text-ink-soft">Ningún registro tiene fecha todavía.</p>
       ) : (

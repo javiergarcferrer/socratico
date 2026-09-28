@@ -17,15 +17,16 @@ export const metadata: Metadata = {
 /*
   La cifra que enseña la plataforma es la de `lib/deuda.ts`: el saldo de la
   deuda del SPNF, en millones de dólares, del XLSX mensual de la Dirección
-  General de Crédito Público. Esta guía explica esa cifra y no otra. No hay aquí
-  un porcentaje del PIB porque la plataforma no lee el PIB: sin ese ancla no se
-  inventa una comparación (docs/IDENTIDAD.md, ergonomía §1).
+  General de Crédito Público. Esta guía explica esa cifra y no otra. El
+  porcentaje del PIB solo existe para los cierres de año que publica el propio
+  origen (`/deuda`); para un mes suelto no hay ancla y no se inventa una
+  comparación (docs/IDENTIDAD.md, ergonomía §1).
 */
 
 export default function GuiaDeudaPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <Card as="section" className="p-6">
+      <Card as="section" className="p-5 sm:p-6">
         <Rotulo>Guía · Finanzas públicas</Rotulo>
         <h1 className="mt-2 font-display text-3xl leading-tight sm:text-4xl">
           ¿Qué es la deuda pública?
@@ -33,8 +34,8 @@ export default function GuiaDeudaPage() {
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
           Es el dinero que el Estado ha tomado prestado y todavía tiene que
           devolver, con intereses. Se pide prestado sobre todo para cubrir la
-          diferencia cuando gasta más de lo que recauda en el año —el
-          déficit— y para pagar deuda vieja que vence.
+          diferencia cuando gasta más de lo que recauda en el año (el
+          déficit) y para pagar deuda vieja que vence.
         </p>
       </Card>
 
@@ -101,14 +102,15 @@ export default function GuiaDeudaPage() {
           </li>
           <li>
             Un saldo solo no dice si es mucho o poco. La comparación habitual es
-            con el tamaño de la economía (el PIB), y esta plataforma todavía no
-            lee esa cifra: por eso enseña el saldo sin porcentaje, en vez de
-            inventar uno.
+            con el tamaño de la economía (el PIB). Crédito Público publica ese
+            porcentaje al cierre de cada año, y así lo enseña esta plataforma;
+            para los meses del año en curso todavía no hay PIB, y el saldo va
+            sin porcentaje en vez de inventar uno.
           </li>
         </ul>
       </Card>
 
-      <Alert variant="neutro" className="p-5 sm:p-6">
+      <Alert role="note" variant="neutro" className="p-5 sm:p-6">
         <p className="text-[15px] font-semibold text-ink">Lo que no es deuda pública</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
           Lo que el Estado ya recibió de sus proveedores y no les ha pagado es{" "}
@@ -122,7 +124,7 @@ export default function GuiaDeudaPage() {
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button asChild>
-            <Link href="/">Ver el saldo de hoy</Link>
+            <Link href="/deuda">Ver el saldo de hoy</Link>
           </Button>
           <Button asChild variant="secondary">
             <Link href="/finanzas">Ver la ejecución del presupuesto</Link>

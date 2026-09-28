@@ -1,3 +1,4 @@
+import { SIN_DATO } from "@/lib/format";
 /**
  * El lenguaje de color del estado — **de toda la plataforma**, no solo de la
  * DGCP.
@@ -222,7 +223,7 @@ export function estadoMeta(estado: string): EstadoMeta {
   return {
     ...TONOS[etapa.tono],
     label: etapa.label,
-    original: estado || "—",
+    original: estado || SIN_DATO,
     abierto: etapa.clave === "abiertos",
   };
 }

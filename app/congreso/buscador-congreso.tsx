@@ -46,7 +46,7 @@ export default function BuscadorCongreso({
         250 px y el resto se corta a media frase: el alcance de la búsqueda lo
         dice entero la línea de ayuda, que sí cabe.
       */
-      placeholder="Buscar — p. ej. “medio ambiente”"
+      placeholder="Por ejemplo: medio ambiente…"
       ayuda={
         filtros.tema
           ? "Busca la frase dentro de la descripción, solo entre las iniciativas del tema, tipo y estado elegidos. Con o sin tildes."

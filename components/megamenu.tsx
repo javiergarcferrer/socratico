@@ -30,13 +30,16 @@ import {
  */
 export default function Megamenu() {
   const pathname = usePathname();
+  // La comunidad tiene su propia puerta: estando en ella, el grupo que también
+  // la lista no se enciende, o la cabecera marcaría dos sitios a la vez.
+  const enComunidad = pathname === "/comunidad" || pathname.startsWith("/comunidad/");
 
   return (
     <NavigationMenu aria-label="Secciones" className="hidden lg:flex">
       <NavigationMenuList>
         {MENU.map((grupo) => (
           <NavigationMenuItem key={grupo.id} value={grupo.id}>
-            <NavigationMenuTrigger data-activo={grupoActivo(grupo, pathname)}>
+            <NavigationMenuTrigger data-activo={!enComunidad && grupoActivo(grupo, pathname)}>
               {grupo.label}
             </NavigationMenuTrigger>
             <NavigationMenuContent>
@@ -98,7 +101,12 @@ export default function Megamenu() {
         */}
         <NavigationMenuItem>
           <NavigationMenuLink asChild>
-            <Link href="/comunidad" className={navigationMenuDisparador} data-activo={pathname.startsWith("/comunidad")}>
+            <Link
+              href="/comunidad"
+              className={navigationMenuDisparador}
+              data-activo={enComunidad}
+              aria-current={pathname === "/comunidad" ? "page" : undefined}
+            >
               Comunidad
             </Link>
           </NavigationMenuLink>

@@ -629,8 +629,8 @@ export interface MarcaIniciativa {
 export function marcaDeIniciativa(
   ini: Pick<Iniciativa, "condicion" | "estado" | "tono" | "promulgada" | "numPromulgacion">,
 ): MarcaIniciativa {
-  const literal = [ini.condicion, ini.estado].filter(Boolean).join(" · ") || "—";
-  const original = `El SIL la registra como «${literal}»`;
+  const literal = [ini.condicion, ini.estado].filter(Boolean).join(" · ");
+  const original = literal ? `El SIL la registra como «${literal}»` : "El SIL no le registra condición ni estado";
   if (ini.promulgada || /promulgad/i.test(ini.estado ?? "")) {
     return {
       label: "Promulgada",

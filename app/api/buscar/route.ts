@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { buscarEnTodo, buscarPantallas, EN_MAYUSCULAS, esTipoResultado, TIPOS_RESULTADO } from "@/lib/busqueda";
-import { formatFecha, formatPesos } from "@/lib/format";
+import { formatFecha, formatPesos, SIN_DATO } from "@/lib/format";
 import { desdeMayusculas } from "@/lib/congreso";
 import { recortar } from "@/lib/raiz";
+
+/** La fecha de la instantánea, o null si falta o no se lee (como en /buscar). */
+function fechaDeCorte(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const f = formatFecha(iso);
+  return f === SIN_DATO ? null : f;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -65,8 +72,8 @@ export async function GET(req: Request) {
             [
               // El estado de un proceso o una iniciativa es el del día de la
               // instantánea: se dice al lado.
-              (r.tipo === "proceso" || r.tipo === "iniciativa") && r.detalle && h.instantaneas[r.tipo]
-                ? `${r.detalle} al ${formatFecha(h.instantaneas[r.tipo])}`
+              (r.tipo === "proceso" || r.tipo === "iniciativa") && r.detalle && fechaDeCorte(h.instantaneas[r.tipo])
+                ? `${r.detalle} al ${fechaDeCorte(h.instantaneas[r.tipo])}`
                 : r.detalle,
               r.origen,
               r.sueldo && `${formatPesos(r.sueldo.mediana)} de mediana al mes`,

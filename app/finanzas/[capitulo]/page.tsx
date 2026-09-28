@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { etiquetaCorte, getFiscal, getInstitucionFiscal } from "@/lib/fiscal";
-import { formatMonto, formatPesos } from "@/lib/format";
+import { formatMonto, formatPesos, SIN_DATO } from "@/lib/format";
 import { cabezaDelCapitulo, hrefInstitucion, institucionesDelCapitulo } from "@/lib/instituciones";
 import { ConectadoCon } from "@/components/conectado-con";
 import { desdeMayusculas } from "@/lib/congreso";
@@ -27,16 +27,21 @@ export async function generateMetadata({
 }) {
   const { capitulo } = await params;
   const datos = await getInstitucionFiscal(capitulo);
-  if (!datos) return { title: `Capítulo ${capitulo}` };
+  if (!datos) {
+    return {
+      title: `Capítulo ${capitulo}`,
+      description: `Ejecución presupuestaria del capítulo ${capitulo} según el SIGEF.`,
+    };
+  }
   return {
-    title: `${datos.institucion.nombreLegible} — ejecución presupuestaria`,
+    title: `${datos.institucion.nombreLegible}: ejecución presupuestaria`,
     alternates: { canonical: enlace.capitulo(capitulo) },
     description: `Presupuesto vigente, comprometido, devengado y pagado de ${datos.institucion.nombreLegible} en ${datos.fiscal.anio}.`,
   };
 }
 
 function pct(v: number | null): string {
-  return v === null ? "—" : `${(v * 100).toFixed(1)} %`;
+  return v === null ? SIN_DATO : `${(v * 100).toFixed(1)} %`;
 }
 
 export default async function InstitucionFiscalPage({

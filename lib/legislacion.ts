@@ -168,7 +168,7 @@ export function queEs(tipo: string | null | undefined): string | null {
     return "Una propuesta de ley. Para convertirse en ley de la República debe aprobarla el Senado, aprobarla la Cámara de Diputados en los mismos términos y promulgarla el Presidente.";
   }
   if (t.includes("resoluci")) {
-    return "Una resolución: un pronunciamiento de la cámara —reconocimientos, solicitudes de información al Ejecutivo, aprobación de contratos o acuerdos internacionales—. No crea normas de alcance general.";
+    return "Una resolución: un pronunciamiento de la cámara, como un reconocimiento, una solicitud de información al Ejecutivo o la aprobación de un contrato o un acuerdo internacional. No crea normas de alcance general.";
   }
   if (t.includes("observaci")) {
     return "Una observación del Poder Ejecutivo: el Presidente devolvió la pieza a la cámara con reparos en lugar de promulgarla. El Congreso puede acogerlos o insistir.";
@@ -235,7 +235,7 @@ export function queSigue(condicion: string | null | undefined): string | null {
     return "Ya salió de esta cámara: siguió hacia la otra o hacia el Poder Ejecutivo.";
   }
   if (c.includes("transcripci") || c.includes("auditor") || c.includes("firmas")) {
-    return "Está en trámite administrativo interno —transcripción, revisión y firmas— antes de despacharla.";
+    return "Está en trámite administrativo interno (transcripción, revisión y firmas) antes de despacharla.";
   }
   if (c.includes("observ")) {
     return "El Poder Ejecutivo la observó: vuelve al Congreso, que decide si acoge los reparos o insiste.";

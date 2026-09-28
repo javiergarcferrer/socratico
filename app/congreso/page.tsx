@@ -137,11 +137,10 @@ export default async function CongresoPage({
         </p>
       </header>
 
+      {/* La tarjeta que es un enlace toma el relieve sola (app/globals.css);
+          un `transition-colors` aquí le quitaba la transición del canto. */}
       {legislatura && diasParaCierre !== null && (
-        <Card
-          asChild
-          className="mb-5 transition-colors hover:bg-canvas/60"
-        >
+        <Card asChild className="mb-5">
           <Link href="/congreso/perencion" className="flex items-center gap-3 px-4 py-3">
           <IconClock className="h-5 w-5 shrink-0 text-alerta-600" />
           <div className="min-w-0 flex-1">
@@ -149,9 +148,9 @@ export default async function CongresoPage({
               {legislatura.nombre} {legislatura.anio}
             </p>
             <p className="text-xs text-ink-soft">
-              Quedan{" "}
+              {diasParaCierre === 1 ? "Queda" : "Quedan"}{" "}
               <span className="font-mono font-semibold tabular-nums text-ink">
-                {diasParaCierre} días
+                {diasParaCierre} {diasParaCierre === 1 ? "día" : "días"}
               </span>{" "}
               antes de que las piezas pendientes se perimen.
             </p>
@@ -451,13 +450,13 @@ async function ListaIniciativas({
       <p className="mt-4 text-sm text-ink-soft" aria-live="polite">
         <span className="font-mono tabular-nums">
           {silCaido
-            ? "— iniciativas"
+            ? "No pudimos contar las iniciativas"
             : `${total.toLocaleString("es-DO")} ${total === 1 ? "iniciativa" : "iniciativas"}`}
         </span>
         {q ? (
           <>
             {" para "}
-            <span className="font-medium text-ink">{`“${q}”`}</span>
+            <span className="font-medium text-ink">{`«${q}»`}</span>
           </>
         ) : null}
         {!silCaido && ` · ${alcance}`}
@@ -493,7 +492,7 @@ async function ListaIniciativas({
             ? "Ninguna iniciativa lleva todas esas palabras en su descripción. Prueba con menos, o con otra forma de decirlo."
             : filtros.tema !== null
               ? "El SIL no tiene iniciativas de este tema con ese tipo y ese estado. Prueba con el otro tipo o con las perimidas."
-              : "El SIL no devolvió iniciativas para esta página."}
+              : "El SIL no devolvió iniciativas para esta página. Vuelve a la primera o busca una palabra."}
         </EstadoVacio>
       )}
 
@@ -514,7 +513,7 @@ function ListaEsqueleto({ q }: { q: string }) {
   return (
     <div role="status" aria-busy="true">
       <p className="mt-4 text-sm text-ink-soft">
-        {q ? `Buscando “${q}” en el SIL…` : "Consultando el SIL de la Cámara…"}
+        {q ? `Buscando «${q}» en el SIL…` : "Consultando el SIL de la Cámara…"}
       </p>
       <EsqueletoFilas n={SIL_PAGE_SIZE} className="mt-3" />
     </div>

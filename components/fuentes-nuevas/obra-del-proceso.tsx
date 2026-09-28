@@ -45,7 +45,6 @@ export async function ObraDelProceso({ codigo, snip }: { codigo: string; snip?: 
                 value={o.avance}
                 aria-label={`Avance declarado: ${o.avance.toFixed(0)} %`}
                 className="flex-1"
-                indicadorClassName="bg-v-finanzas"
               />
               <span className="shrink-0 font-mono text-xs tabular-nums text-ink-soft">
                 {o.avance.toFixed(0)} % declarado · {formatPesos(o.valor)}

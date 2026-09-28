@@ -11,6 +11,7 @@ import { BuscadorUrl } from "@/components/buscador-url";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { Paginador } from "@/components/paginador";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = {
@@ -44,9 +45,12 @@ export default async function DatosPage({
         className="mx-auto max-w-2xl"
         titulo="No pudimos leer el catálogo de datos abiertos"
         accion={
-          <a href="https://datos.gob.do/dataset/" className="text-sm font-medium text-brand-700 hover:underline">
-            Ir a datos.gob.do
-          </a>
+          <Button asChild variant="secondary">
+            <a href="https://datos.gob.do/dataset/" target="_blank" rel="noopener noreferrer">
+              Ir a datos.gob.do
+              <span className="sr-only">(se abre en otra pestaña)</span>
+            </a>
+          </Button>
         }
       >
         La copia del catálogo no está disponible en este momento; el portal sigue en su sitio.
@@ -152,8 +156,15 @@ export default async function DatosPage({
       )}
 
       {vista.length === 0 ? (
-        <EstadoVacio titulo={q ? `Ningún conjunto coincide con «${q}»` : "Ningún conjunto con estos filtros"}>
-          Prueba con menos palabras u otro grupo.
+        <EstadoVacio
+          titulo={q ? `Ningún conjunto coincide con «${q}»` : "Ningún conjunto con estos filtros"}
+          accion={
+            <Button asChild variant="secondary">
+              <Link href="/datos">Ver el catálogo entero</Link>
+            </Button>
+          }
+        >
+          Prueba con menos palabras, otro grupo u otro formato.
         </EstadoVacio>
       ) : (
         <Card as="section" className="overflow-hidden">
@@ -170,9 +181,10 @@ export default async function DatosPage({
                   className="block text-[15px] leading-snug text-ink [overflow-wrap:anywhere] estira hover:text-brand-700"
                 >
                   {x.titulo}
+                  <span className="sr-only"> (abre su ficha en datos.gob.do, en otra pestaña)</span>
                 </a>
                 <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
-                  <Link href={url({ org: x.org, p: null })} className="relative z-10 hover:text-brand-700 hover:underline">
+                  <Link href={url({ org: x.org, p: null })} className="relative z-10 inline-flex min-h-6 items-center hover:text-brand-700 hover:underline">
                     {x.org || "Sin organización"}
                   </Link>
                   {x.formatos.slice(0, 4).map((f) => (
@@ -201,8 +213,8 @@ export default async function DatosPage({
         respetando la pausa de diez segundos que pide su robots. Que un conjunto esté
         en el catálogo no garantiza que su archivo esté al día ni que el enlace
         funcione: muchas fichas remiten al portal de la institución. Lo que la
-        plataforma ya lee y procesa de estos conjuntos —las nóminas, por ejemplo—
-        está en su sección. Ver{" "}
+        plataforma ya lee y procesa de estos conjuntos (las nóminas, por ejemplo)
+        está en su sección. Mira{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           el estado de las fuentes
         </Link>

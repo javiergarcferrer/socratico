@@ -28,7 +28,7 @@ const ACCESOS_DIRECTOS = ["licitaciones", "congreso", "democracia"] as const;
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Socrático — Preguntarle al Estado con sus propios datos",
+    name: "Socrático · Preguntarle al Estado con sus propios datos",
     short_name: "Socrático",
     description:
       "Qué compra, qué legisla y a quién paga el Estado dominicano: compras públicas, Congreso Nacional y nómina estatal, leídos en vivo desde sus fuentes oficiales. Herramienta independiente y no oficial.",

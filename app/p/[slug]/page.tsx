@@ -161,7 +161,7 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
                   {/* Los títulos los escribe el lector: uno sin espacios no empuja la fila fuera del papel. */}
                   <p className="min-w-0 break-words">
                     <EnlaceRegistro titulo={a.titulo} href={a.href} ajeno />
-                    <span className="mx-1.5 text-brand-700">— {VERBO_ENLACE[l.tipo]} →</span>
+                    <span className="mx-1.5 text-brand-700">{VERBO_ENLACE[l.tipo]} <span aria-hidden="true">→</span></span>
                     <EnlaceRegistro titulo={b.titulo} href={b.href} ajeno />
                     {l.nota && <span className="block text-xs text-ink-soft">{l.nota}</span>}
                   </p>

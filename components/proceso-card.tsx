@@ -129,7 +129,7 @@ export default function ProcesoCard({ p }: { p: Proceso }) {
       </h2>
       <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink-soft">
         <IconBuilding className="h-3.5 w-3.5 shrink-0 text-ink-soft" />
-        <span className="line-clamp-1" title={p.unidad_compra}>
+        <span className="line-clamp-2 leading-snug" title={p.unidad_compra}>
           {p.unidad_compra}
         </span>
       </p>
