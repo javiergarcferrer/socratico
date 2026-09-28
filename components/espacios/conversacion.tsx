@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -562,6 +563,7 @@ function Primera({ nombre: inicial, onListo }: { nombre: string | null; onListo:
 
   async function seguir(e: React.FormEvent) {
     e.preventDefault();
+    if (cargando) return;
     const firma = nombre.trim();
     const mal = !firma ? "nombre" : !acepto ? "acepto" : null;
     setFalta(mal);
@@ -634,9 +636,9 @@ function Primera({ nombre: inicial, onListo }: { nombre: string | null; onListo:
           Acepto las normas de la conversación
         </Label>
         {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
-        <p id="primera-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+        <ErrorCampo id="primera-error">
           {falta === "nombre" ? "Escribe tu nombre de firma para seguir." : falta === "acepto" ? "Marca que aceptas las normas para seguir." : ""}
-        </p>
+        </ErrorCampo>
         <Button type="submit" disabled={cargando}>
           {cargando ? "Guardando…" : "Seguir"}
         </Button>
@@ -666,6 +668,8 @@ function Redactar({
 
   async function publicar(e: React.FormEvent) {
     e.preventDefault();
+    // Un segundo ⌘/Ctrl+Enter mientras sale el primero no publica dos veces.
+    if (cargando) return;
     const limpio = texto.trim();
     if (limpio.length < 2) {
       setCorto(true);
@@ -704,9 +708,9 @@ function Redactar({
         placeholder={padre ? "Tu respuesta…" : "Una pregunta concreta, un dato que falta, de dónde sale lo que dices…"}
         className="text-base sm:text-[15px]"
       />
-      <p id={`${id}-error`} aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+      <ErrorCampo id={`${id}-error`}>
         {corto ? "Escribe algo antes de publicar." : ""}
-      </p>
+      </ErrorCampo>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={cargando}>
@@ -756,7 +760,7 @@ function Denunciar({
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
-    if (!objetivo) return;
+    if (!objetivo || enviando) return;
     if (!motivo) {
       setSinMotivo(true);
       document.getElementById("motivo-denuncia")?.focus();
@@ -812,9 +816,9 @@ function Denunciar({
                   ))}
               </SelectContent>
             </Select>
-            <p id="motivo-denuncia-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+            <ErrorCampo id="motivo-denuncia-error">
               {sinMotivo ? "Elige un motivo para enviar." : ""}
-            </p>
+            </ErrorCampo>
             <Label htmlFor="detalle-denuncia" className="sr-only">Detalle</Label>
             <Textarea id="detalle-denuncia" name="detalle" rows={3} maxLength={500} value={detalle} onChange={(e) => setDetalle(e.target.value)} onKeyDown={enviarConModificador} placeholder="Detalle (opcional)…" className="text-base sm:text-sm" />
             {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}

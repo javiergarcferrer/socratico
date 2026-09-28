@@ -960,7 +960,7 @@ function Kpi({
 
 /**
  * Un panel del explorador: cabecera con título, subtítulo y su control a la
- * derecha. Es `Card` de `components/ui` con el título en serif, que es lo que
+ * derecha. Es `Card` de `components/ui` con el título en la letra de titular, que es lo que
  * la identidad reserva a un titular de sección grande — un título de panel de
  * 14 px iría en sans.
  */

@@ -28,7 +28,7 @@ Check, in this order, and cite file:line for every finding:
    shown before voting, vote controls enabled without eligibility, migrations
    that are not re-runnable.
 4. **Identity.** Prohibited classes, hand-rolled cards instead of
-   `components/papel.tsx`, serif at 14 px, `sello` used as decoration,
+   `components/papel.tsx`, `font-display` on a 14 px panel title, `sello` used as decoration,
    white backgrounds, emoji, sans for amounts/codes.
 5. **Cognitive ergonomics.** Numbers without anchor or scope, sample used as
    a denominator, `MM` for thousands of millions, absolute dates where

@@ -41,7 +41,7 @@ export default function NormasPage() {
       </Card>
 
       <Card as="section" className="space-y-3 p-5 text-[15px] leading-relaxed text-ink-soft sm:p-6">
-        <h2 className="text-base font-semibold text-ink">Quién puede qué</h2>
+        <h2 className="font-sans text-base font-semibold text-ink">Quién puede qué</h2>
         <p>
           <strong className="font-medium text-ink">Votar</strong> —decir que un registro importa,
           votar un comentario— lo hace cualquier cuenta con el correo verificado, sobre una

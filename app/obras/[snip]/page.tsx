@@ -200,7 +200,7 @@ export default async function ObraPage({ params }: Props) {
 
             {contratos.length > 0 && (
               <>
-                <h2 className="mt-5 text-sm font-semibold">
+                <h2 className="mt-5 font-sans text-sm font-semibold">
                   {contratos.length < o.nContratos
                     ? `Los ${contratos.length} contratos de mayor monto, de ${formatInt(o.nContratos)}`
                     : "Contratos"}
@@ -232,7 +232,7 @@ export default async function ObraPage({ params }: Props) {
 
             {procesos.length > 0 && (
               <>
-                <h2 className="mt-5 text-sm font-semibold">
+                <h2 className="mt-5 font-sans text-sm font-semibold">
                   {procesos.length < o.nProcesos
                     ? `Los ${procesos.length} procesos de mayor monto, de ${formatInt(o.nProcesos)}`
                     : "Procesos de compra"}

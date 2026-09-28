@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -484,9 +485,9 @@ function PanelRegistro({
           </div>
           <Label htmlFor={`${id}-por`} className="sr-only">Nota del enlace</Label>
           <Input id={`${id}-por`} name="por" autoComplete="off" value={por} maxLength={1000} onChange={(ev) => setPor(ev.target.value)} placeholder="De dónde lo sabes (opcional)…" />
-          <p id={`${id}-otro-error`} aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+          <ErrorCampo id={`${id}-otro-error`}>
             {sinOtro ? "Elige con cuál registro enlazarlo." : ""}
-          </p>
+          </ErrorCampo>
           <Button type="submit" size="sm" variant="secondary">Enlazar</Button>
         </form>
       )}
@@ -533,6 +534,7 @@ function PanelEnlace({
   const [error, setError] = useState<string | null>(null);
   // Como «Quitar del caso»: se pregunta antes, porque la nota se va con él.
   const [seguro, setSeguro] = useState(false);
+  const [quitando, setQuitando] = useState(false);
   const id = useId();
   const a = l && porId.get(l.desde);
   const b = l && porId.get(l.hasta);
@@ -569,10 +571,21 @@ function PanelEnlace({
               <Button type="submit" size="sm" disabled={nota.trim() === l.nota}>Guardar nota</Button>
               {seguro ? (
                 <>
-                  <Button type="button" size="sm" variant="destructive" onClick={() => void hacer(quitarEnlace(l.id))}>
-                    Sí, quitar el enlace
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    className="h-11 sm:h-9"
+                    disabled={quitando}
+                    onClick={async () => {
+                      setQuitando(true);
+                      await hacer(quitarEnlace(l.id));
+                      setQuitando(false);
+                    }}
+                  >
+                    {quitando ? "Quitando…" : "Sí, quitar el enlace"}
                   </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(false)}>No</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-11 sm:h-9" disabled={quitando} onClick={() => setSeguro(false)}>No</Button>
                 </>
               ) : (
                 <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(true)}>
@@ -638,9 +651,9 @@ function CampoFecha({ e, onGuardar }: { e: Entrada; onGuardar: (f: string | null
           Quitar
         </Button>
       )}
-      <p id={`${id}-error`} aria-live="polite" className="w-full text-xs text-sello-700 empty:hidden">
+      <ErrorCampo id={`${id}-error`} className="w-full">
         {mal ? "Elige una fecha entre 1844 y 2100." : ""}
-      </p>
+      </ErrorCampo>
     </form>
   );
 }

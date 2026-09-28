@@ -17,7 +17,7 @@ import { EnlaceRegistro } from "./registro";
 /** Los estilos de la narración: los mismos en el editor y en la lectura. */
 export const CLASE_NARRATIVA = [
   "text-[15px] leading-relaxed text-ink",
-  // La serif es de h1 y h2 (docs/IDENTIDAD.md): los títulos de la narración van en sans.
+  // La letra de titular es de h1 y h2 (docs/IDENTIDAD.md): los títulos de la narración van en sans.
   "[&_p]:my-2.5 [&_h3]:mt-5 [&_h3]:mb-1.5 [&_h3]:text-lg [&_h3]:font-bold [&_h4]:mt-4 [&_h4]:mb-1 [&_h4]:text-base [&_h4]:font-semibold",
   "[&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_li>p]:my-1",
   "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-hairline [&_blockquote]:pl-3 [&_blockquote]:text-ink-soft",

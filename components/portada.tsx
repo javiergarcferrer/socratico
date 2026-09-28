@@ -7,8 +7,8 @@ import { cn } from "@/lib/cn";
  *
  * Es **tinta plana** con la trama de papel milimetrado, nunca un degradado
  * (docs/IDENTIDAD.md §1), y su epígrafe lleva el punto en rojo sello, que es la
- * regla única de la marca. El titular es una pregunta y va en serif: la
- * pregunta la hace la plataforma y la responden los datos de abajo.
+ * regla única de la marca. El titular es una pregunta y va en la letra de
+ * titular (Geist): la pregunta la hace la plataforma y la responden los datos de abajo.
  *
  * Estaba copiada en siete páginas —siete veces la misma trama, el mismo punto y
  * el mismo `p-6 sm:p-8`— con las diferencias que era de esperar: titulares a
@@ -52,8 +52,8 @@ export function Portada({
       <div className="absolute inset-0 app-grid-dark" aria-hidden />
       {/*
         24 px de margen en el teléfono contra los 32/36 de pantalla ancha. A
-        390 px eso deja 310 px de caja de texto: por debajo, la pregunta en
-        serif empieza a partirse en tres renglones y deja de leerse como una
+        390 px eso deja 310 px de caja de texto: por debajo, la pregunta
+        empieza a partirse en tres renglones y deja de leerse como una
         frase.
       */}
       <div className={cn("relative p-6", principal ? "sm:p-9" : "sm:p-8")}>

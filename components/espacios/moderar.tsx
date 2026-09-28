@@ -20,6 +20,7 @@ import { Rotulo } from "@/components/papel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -278,7 +279,7 @@ function Retitular({ clave, actual, onHecho }: { clave: string; actual: string; 
       <Button type="submit" variant="secondary" disabled={enCurso} className="shrink-0">
         {enCurso ? "Corrigiendo…" : "Corregir título"}
       </Button>
-      <p id={`${idTitulo}-error`} aria-live="polite" className="text-xs text-sello-700 empty:hidden">{aviso}</p>
+      <ErrorCampo id={`${idTitulo}-error`}>{aviso}</ErrorCampo>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
     </form>
   );
@@ -335,7 +336,7 @@ function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: stri
         }}
         className="sm:w-20"
         aria-invalid={falta === "dias" || undefined}
-        aria-describedby={`ayuda-${u}`}
+        aria-describedby={falta === "dias" ? `error-${u} ayuda-${u}` : `ayuda-${u}`}
       />
       <Label htmlFor={`motivo-${u}`} className="sr-only">Motivo</Label>
       <Input
@@ -350,15 +351,16 @@ function Suspender({ usuario, nombre, onHecho }: { usuario: string; nombre: stri
         }}
         placeholder="Motivo (queda en el registro)…"
         aria-invalid={falta === "motivo" || undefined}
-        aria-describedby={`ayuda-${u}`}
+        aria-describedby={falta === "motivo" ? `error-${u} ayuda-${u}` : `ayuda-${u}`}
       />
       <div className="flex shrink-0 gap-2">
         <Button type="submit" variant="destructive" disabled={enCurso}>{enCurso ? "Suspendiendo…" : "Suspender"}</Button>
         <Button type="button" variant="ghost" onClick={() => setAbierto(false)}>Cancelar</Button>
       </div>
-      <p id={`ayuda-${u}`} aria-live="polite" className={falta ? "text-xs text-sello-700" : "text-xs text-ink-soft"}>
-        {falta === "dias" ? "Los días van de 1 a 3650." : falta === "motivo" ? "Escribe el motivo: queda en el registro." : "Días (1 a 3650) y un motivo."}
-      </p>
+      <p id={`ayuda-${u}`} className="text-xs text-ink-soft">Días (1 a 3650) y un motivo.</p>
+      <ErrorCampo id={`error-${u}`}>
+        {falta === "dias" ? "Los días van de 1 a 3650." : falta === "motivo" ? "Escribe el motivo: queda en el registro." : ""}
+      </ErrorCampo>
       {error && <p role="status" className="text-xs text-alerta-700">{error}</p>}
     </form>
   );

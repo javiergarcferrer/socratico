@@ -7,6 +7,7 @@ import type { Referencia } from "@/lib/espacios";
 import type { ProyectoConCuenta } from "@/lib/espacios-cliente";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -59,6 +60,7 @@ export default function Guardar({ referencia, className }: { referencia: Referen
 
   async function abrir(abierto: boolean) {
     if (!abierto || !hay) return;
+    setSinTitulo(false);
     setCarga({ estado: "cargando" });
     const c = await import("@/lib/espacios-cliente");
     const u = await c.sesionActual();
@@ -195,9 +197,9 @@ export default function Guardar({ referencia, className }: { referencia: Referen
                 <IconPlus className="h-4 w-4" />
               </Button>
             </form>
-            <p id="guardar-nueva-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+            <ErrorCampo id="guardar-nueva-error">
               {sinTitulo ? "Ponle un título a la investigación." : ""}
-            </p>
+            </ErrorCampo>
             <Link href="/espacio" className="block pt-1 text-xs font-medium text-brand-700 hover:underline">
               Ir a tu espacio
             </Link>

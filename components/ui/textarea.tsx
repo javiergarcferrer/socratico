@@ -15,6 +15,8 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         "placeholder:text-ink-soft/80",
         "focus-visible:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
         "disabled:cursor-not-allowed disabled:opacity-55",
+        // Un campo que no pasó al enviar lleva el filete de alerta (ErrorCampo dice qué falta).
+        "aria-invalid:border-alerta-500",
         className,
       )}
       {...props}

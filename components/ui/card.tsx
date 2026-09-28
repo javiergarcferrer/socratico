@@ -66,8 +66,9 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 /**
- * Título de panel: sans en negrita a 14 px. La serif a ese tamaño se lee
- * floja, así que el titular serif se queda para la pregunta de la página.
+ * Título de panel: Public Sans en negrita a 14 px. A ese tamaño dos grotescas
+ * juntas no se distinguen, así que el titular (Geist) se queda para la
+ * pregunta de la página; `font-sans` lo saca también de su interletra.
  */
 /**
  * El título de una tarjeta es un `h2` por defecto: la tarjeta es una sección

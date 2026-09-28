@@ -29,10 +29,11 @@ import {
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { ErrorCampo } from "@/components/ui/error-campo";
+import { enviarConEnter } from "@/components/teclas";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/cn";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { IconArrowRight, IconCheck, IconGoogle } from "@/components/icons";
 import { avisarCambioDeSesion } from "./presencia";
@@ -144,6 +145,8 @@ export default function Entrar({ volver }: { volver: string | null }) {
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
+    // Con el envío en curso, un segundo Enter no pide otro código.
+    if (cargando) return;
     const correo = email.trim();
     const mal = !correoValido(correo) ? "correo" : modo === "contrasena" && !contrasena ? "contrasena" : null;
     setFalta(mal);
@@ -205,6 +208,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
 
   async function verificar(e: React.FormEvent) {
     e.preventDefault();
+    if (cargando) return;
     const entrada = leerEntrada(codigo);
     if (!entrada) {
       setCodigoMal(
@@ -298,9 +302,9 @@ export default function Entrar({ volver }: { volver: string | null }) {
                 {nombreGuardado && nombre.trim() === nombreGuardado ? "Guardado" : "Guardar"}
               </Button>
             </div>
-            <p id="nombre-firma-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+            <ErrorCampo id="nombre-firma-error">
               {falta === "nombre" ? "Escribe el nombre con que firmas." : ""}
-            </p>
+            </ErrorCampo>
           </form>
         </Card>
         <Card className="p-5">
@@ -322,25 +326,26 @@ export default function Entrar({ volver }: { volver: string | null }) {
                 onChange={(e) => {
                   setNueva(e.target.value);
                   setContrasenaGuardada(false);
-                  if (falta === "nueva" && e.target.value.length >= LARGO_MINIMO) setFalta(null);
+                  if (falta === "nueva") setFalta(null);
                 }}
                 placeholder="Crea o cambia tu contraseña…"
                 aria-invalid={falta === "nueva" || undefined}
-                aria-describedby="contrasena-nueva-error"
+                aria-describedby={falta === "nueva" ? "contrasena-nueva-error" : "contrasena-nueva-cuenta"}
               />
               <Button type="submit" variant="secondary" disabled={cargando}>
                 {contrasenaGuardada ? "Guardada" : "Guardar"}
               </Button>
             </div>
-            <p
-              id="contrasena-nueva-error"
-              aria-live="polite"
-              className={cn("text-xs empty:hidden", falta === "nueva" ? "text-sello-700" : "text-ink-soft")}
-            >
-              {(nueva.length > 0 || falta === "nueva") && nueva.length < LARGO_MINIMO
-                ? `Faltan ${LARGO_MINIMO - nueva.length} caracteres.`
-                : ""}
-            </p>
+            {/* La cuenta atrás se ve mientras se teclea, sin anunciarse a cada
+                tecla; solo el intento de guardar corto se anuncia. */}
+            {falta !== "nueva" && nueva.length > 0 && nueva.length < LARGO_MINIMO && (
+              <p id="contrasena-nueva-cuenta" className="text-xs text-ink-soft">
+                Faltan {LARGO_MINIMO - nueva.length} caracteres.
+              </p>
+            )}
+            <ErrorCampo id="contrasena-nueva-error">
+              {falta === "nueva" ? `Faltan ${LARGO_MINIMO - nueva.length} caracteres: al menos ${LARGO_MINIMO}.` : ""}
+            </ErrorCampo>
           </form>
         </Card>
         {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs">{error}</Alert>}
@@ -436,13 +441,13 @@ export default function Entrar({ volver }: { volver: string | null }) {
             </>
           )}
           {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">{error}</Alert>}
-          <p id="entrar-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+          <ErrorCampo id="entrar-error">
             {falta === "correo"
               ? "Escribe un correo completo: nombre@dominio."
               : falta === "contrasena"
                 ? "Escribe tu contraseña."
                 : ""}
-          </p>
+          </ErrorCampo>
           {modo === "codigo" ? (
             <Button type="submit" className="w-full" disabled={cargando}>
               {cargando ? "Enviando…" : "Enviarme el código"}
@@ -485,11 +490,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
               setCodigo(e.target.value);
               if (codigoMal) setCodigoMal("");
             }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
-              e.preventDefault();
-              e.currentTarget.form?.requestSubmit();
-            }}
+            onKeyDown={enviarConEnter}
             placeholder="000000 — o pega la dirección del correo"
             autoComplete="one-time-code"
             autoCorrect="off"
@@ -500,7 +501,7 @@ export default function Entrar({ volver }: { volver: string | null }) {
             aria-describedby={codigoMal ? "codigo-cuenta-error" : undefined}
             className="min-h-11 resize-none bg-canvas px-3 py-3 font-mono tabular-nums"
           />
-          <p id="codigo-cuenta-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">{codigoMal}</p>
+          <ErrorCampo id="codigo-cuenta-error">{codigoMal}</ErrorCampo>
           {error && <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">{error}</Alert>}
           <Button type="submit" className="w-full" disabled={cargando}>
             {cargando ? "Verificando…" : "Entrar"}

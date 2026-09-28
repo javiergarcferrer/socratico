@@ -23,6 +23,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -246,9 +247,9 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
           {cargando ? "Creando…" : "Crear"}
         </Button>
       </form>
-      <p id="nueva-investigacion-error" aria-live="polite" className="mt-1.5 text-xs text-sello-700 empty:hidden">
+      <ErrorCampo id="nueva-investigacion-error" className="mt-1.5">
         {sinTitulo ? "Ponle un título a la investigación." : ""}
-      </p>
+      </ErrorCampo>
       {error && <p className="mt-2 text-xs text-alerta-700">{error}</p>}
 
       {proyectos === null ? (
@@ -297,6 +298,7 @@ function Guardado({
   const [aviso, setAviso] = useState<string | null>(null);
   // Quitar se lleva la nota del registro: se pregunta antes.
   const [aQuitar, setAQuitar] = useState<string | null>(null);
+  const [quitando, setQuitando] = useState(false);
 
   // Mover es copiar con su nota y borrar el original. Si el borrado falla, se
   // deshace la copia: el registro no queda en dos sitios sin que se sepa.
@@ -361,14 +363,18 @@ function Guardado({
                       type="button"
                       variant="destructive"
                       size="sm"
-                      onClick={() => {
+                      className="h-11 sm:h-9"
+                      disabled={quitando}
+                      onClick={async () => {
+                        setQuitando(true);
+                        await quitar(e);
+                        setQuitando(false);
                         setAQuitar(null);
-                        void quitar(e);
                       }}
                     >
-                      Sí, quitar
+                      {quitando ? "Quitando…" : "Sí, quitar"}
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setAQuitar(null)}>No</Button>
+                    <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" disabled={quitando} onClick={() => setAQuitar(null)}>No</Button>
                   </>
                 ) : (
                   <Button type="button" variant="ghost" size="icon" onClick={() => setAQuitar(e.id)} aria-label={`Quitar «${e.titulo}»`}>

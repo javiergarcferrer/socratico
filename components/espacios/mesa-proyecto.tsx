@@ -34,6 +34,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -158,6 +159,7 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
 
   async function guardarCambios(e: React.FormEvent) {
     e.preventDefault();
+    if (guardando) return;
     const limpio = titulo.trim();
     if (!limpio) {
       setTituloMal(true);
@@ -195,9 +197,9 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
             aria-invalid={tituloMal || undefined}
             aria-describedby={tituloMal ? "titulo-proyecto-error" : undefined}
           />
-          <p id="titulo-proyecto-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+          <ErrorCampo id="titulo-proyecto-error">
             {tituloMal ? "La investigación necesita un título." : ""}
-          </p>
+          </ErrorCampo>
           <Label htmlFor="descripcion-proyecto" className="sr-only">De qué trata</Label>
           <Textarea
             id="descripcion-proyecto"
@@ -320,9 +322,9 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
           <span className="sr-only sm:not-sr-only">Buscar</span>
         </Button>
       </form>
-      <p id="agregar-q-error" aria-live="polite" className="mt-1.5 text-xs text-sello-700 empty:hidden">
+      <ErrorCampo id="agregar-q-error" className="mt-1.5">
         {corta ? "Escribe al menos dos letras." : ""}
-      </p>
+      </ErrorCampo>
       <p className="mt-1.5 text-xs text-ink-soft">
         El mismo índice de «Buscar en todo». También puedes guardar desde la ficha de cada registro.
       </p>
@@ -376,6 +378,8 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
   // invitación): se pregunta antes, con el «Sí, …» / «No» de `Borrar`.
   const [aQuitar, setAQuitar] = useState<string | null>(null);
   const [saliendo, setSaliendo] = useState(false);
+  const [quitando, setQuitando] = useState(false);
+  const [yendose, setYendose] = useState(false);
 
   const cargar = useCallback(async () => {
     const m = await miembrosDe(p.id);
@@ -396,6 +400,7 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
   const [correoMal, setCorreoMal] = useState(false);
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
+    if (invitando) return;
     const limpio = email.trim();
     if (!correoValido(limpio)) {
       setCorreoMal(true);
@@ -420,8 +425,12 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
   }
 
   async function irme() {
+    setYendose(true);
     const r = await quitarMiembro(p.id, u.id);
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) {
+      setYendose(false);
+      return setError(r.error);
+    }
     router.push("/espacio");
   }
 
@@ -455,14 +464,18 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
                         type="button"
                         variant="destructive"
                         size="sm"
-                        onClick={() => {
+                        className="h-11 sm:h-9"
+                        disabled={quitando}
+                        onClick={async () => {
+                          setQuitando(true);
+                          await hacer(quitarMiembro(p.id, m.usuario));
+                          setQuitando(false);
                           setAQuitar(null);
-                          void hacer(quitarMiembro(p.id, m.usuario));
                         }}
                       >
-                        Sí, quitar
+                        {quitando ? "Quitando…" : "Sí, quitar"}
                       </Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setAQuitar(null)}>No</Button>
+                      <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" disabled={quitando} onClick={() => setAQuitar(null)}>No</Button>
                     </>
                   ) : (
                     <Button type="button" variant="ghost" size="icon" aria-label={`Quitar a ${m.nombre}`} onClick={() => setAQuitar(m.usuario)}>
@@ -498,9 +511,9 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
             aria-invalid={correoMal || undefined}
             aria-describedby={correoMal ? "invitar-correo-error" : undefined}
           />
-          <p id="invitar-correo-error" aria-live="polite" className="text-xs text-sello-700 empty:hidden">
+          <ErrorCampo id="invitar-correo-error">
             {correoMal ? "Escribe un correo completo, como colega@medio.com." : ""}
-          </p>
+          </ErrorCampo>
           <div className="flex gap-2">
             <Select value={rol} onValueChange={(v) => setRol(v as "editor" | "lector")}>
               <SelectTrigger className="flex-1" aria-label="Qué podrá hacer">
@@ -541,10 +554,10 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
       {!esDueno &&
         (saliendo ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" variant="destructive" size="sm" onClick={irme}>
-              Sí, salir
+            <Button type="button" variant="destructive" size="sm" className="h-11 sm:h-9" disabled={yendose} onClick={irme}>
+              {yendose ? "Saliendo…" : "Sí, salir"}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setSaliendo(false)}>No</Button>
+            <Button type="button" variant="outline" size="sm" className="h-11 sm:h-9" disabled={yendose} onClick={() => setSaliendo(false)}>No</Button>
           </div>
         ) : (
           <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => setSaliendo(true)}>

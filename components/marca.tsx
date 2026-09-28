@@ -15,7 +15,7 @@
  *    verdad: pie de página, tarjeta social, momentos de firma.
  *  - `SelloCompacto` — la «s» con su acento en una plaquita: cabecera,
  *    favicon, ícono de la app.
- *  - `Logotipo` — «socrático» en serif, el acento en rojo.
+ *  - `Logotipo` — «socrático» en Instrument Serif (`font-marca`), el acento en rojo.
  *
  * Regla invariable: **la marca roja es el sello**: el acento del logotipo y del
  * ícono, y el punto de la «¿» de la circular. Nada más va en rojo.

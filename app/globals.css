@@ -321,16 +321,24 @@
     utilidad: `font-display` suelto hereda el mismo titular, y un `font-medium`
     explícito sigue ganando porque las utilidades van después de la base.
   */
-  h1,
-  h2,
+  /*
+    Un `h2` con `font-sans` es un título de panel (`CardTitle`), no un
+    titular: no hereda ni el peso ni la interletra apretada.
+  */
+  h1:not(.font-sans),
+  h2:not(.font-sans),
   .font-display {
     font-weight: 600;
     letter-spacing: -0.025em;
   }
 
+  h1:not(.font-sans),
+  h2:not(.font-sans) {
+    font-family: var(--font-display);
+  }
+
   h1,
   h2 {
-    font-family: var(--font-display);
     text-wrap: balance;
   }
 

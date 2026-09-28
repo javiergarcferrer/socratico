@@ -70,7 +70,8 @@ lo que **deroga**, y el punto del rótulo. En ningún otro sitio sin motivo.
 - **Geist** (`font-display`) — *la pregunta*. Titulares de página (h1) y de
   sección grande, a 600 y con −0,025 em de interletra (la base de
   `app/globals.css` lo pone en `h1`, `h2` y `.font-display`; no hace falta
-  repetir peso). Desde el 2026-09-28 (decisión del dueño): la serif de antes
+  repetir peso). Un `h2` que es título de panel lleva `font-sans` y queda
+  fuera: ni Geist ni la interletra apretada. Desde el 2026-09-28 (decisión del dueño): la serif de antes
   se leía floja y anticuada.
 - **Public Sans** (`font-sans`) — *la explicación*. Cuerpo, interfaz,
   etiquetas, botones. La letra del estándar web de gobierno, puesta a servir

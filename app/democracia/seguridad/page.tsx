@@ -31,7 +31,7 @@ export default function SeguridadPage() {
           Dossier de seguridad y privacidad
         </div>
         {/*
-          El titular va en serif como el resto de los h1 de la plataforma: era
+          El titular va en la letra de titular como el resto de los h1 de la plataforma: era
           el único de la vertical escrito en sans, y una página que promete
           rigor no puede desafinar en su primera línea.
         */}

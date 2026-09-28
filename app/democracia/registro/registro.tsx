@@ -11,6 +11,8 @@ import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { ErrorCampo } from "@/components/ui/error-campo";
+import { enviarConEnter } from "@/components/teclas";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cuentaUnicaHabilitada, iniciarFlujo } from "@/app/democracia/cuenta-unica/cliente";
@@ -96,6 +98,8 @@ export default function Registro() {
 
   async function enviarCodigo(e: React.FormEvent) {
     e.preventDefault();
+    // Con el envío en curso, un segundo Enter no pide otro código.
+    if (cargando) return;
     setCedulaMal(!cedulaOk);
     setEmailMal(!emailOk);
     if (!cedulaOk || !emailOk) {
@@ -137,6 +141,7 @@ export default function Registro() {
 
   async function verificar(e: React.FormEvent) {
     e.preventDefault();
+    if (cargando || paso === "registrando") return;
     const entrada = leerEntrada(codigo);
     if (!entrada) {
       // El callejón sin salida era un botón apagado sin explicación.
@@ -204,6 +209,7 @@ export default function Registro() {
 
   async function registrarConSesion(e: React.FormEvent) {
     e.preventDefault();
+    if (cargando) return;
     setCedulaMal(!cedulaOk);
     if (!cedulaOk) {
       document.getElementById("cedula-pendiente")?.focus();
@@ -274,6 +280,7 @@ export default function Registro() {
             etiqueta="Cédula"
             hint={cedula && !cedulaOk ? "Cédula inválida" : "11 dígitos"}
             hintError={!!cedula && !cedulaOk}
+            error={<ErrorCampo id="registro-cedula-error" className="mt-1.5">{cedulaMal ? MENSAJE_CEDULA : ""}</ErrorCampo>}
           >
             {/*
               El teclado del teléfono es parte del formulario: `inputMode`
@@ -299,9 +306,16 @@ export default function Registro() {
               aria-describedby={cedulaMal ? "registro-cedula-error" : undefined}
               className="h-11 bg-canvas font-mono tabular-nums"
             />
-            <ErrorCampo id="registro-cedula-error">{cedulaMal ? MENSAJE_CEDULA : ""}</ErrorCampo>
           </Campo>
-          <Campo etiqueta="Correo electrónico" hint="Te enviaremos un código de un solo uso">
+          <Campo
+            etiqueta="Correo electrónico"
+            hint="Te enviaremos un código de un solo uso"
+            error={
+              <ErrorCampo id="registro-correo-error" className="mt-1.5">
+                {emailMal ? "Escribe un correo completo, como tu@correo.do." : ""}
+              </ErrorCampo>
+            }
+          >
             {/*
               `inputMode="email"` pone la arroba en el teclado, y sin
               `autoCapitalize="off"` iOS escribe «Tu@correo.do» y el envío
@@ -326,9 +340,6 @@ export default function Registro() {
               aria-describedby={emailMal ? "registro-correo-error" : undefined}
               className="h-11 bg-canvas"
             />
-            <ErrorCampo id="registro-correo-error">
-              {emailMal ? "Escribe un correo completo, como tu@correo.do." : ""}
-            </ErrorCampo>
           </Campo>
           {error && (
             <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">
@@ -385,7 +396,7 @@ export default function Registro() {
               aria-describedby={cedulaMal ? "cedula-pendiente-error" : undefined}
               className="mt-1.5 h-11 bg-canvas font-mono tabular-nums"
             />
-            <ErrorCampo id="cedula-pendiente-error">{cedulaMal ? MENSAJE_CEDULA : ""}</ErrorCampo>
+            <ErrorCampo id="cedula-pendiente-error" className="mt-1.5">{cedulaMal ? MENSAJE_CEDULA : ""}</ErrorCampo>
           </div>
           {error && (
             <Alert variant="aviso" className="px-3.5 py-2.5 text-xs leading-relaxed">
@@ -397,7 +408,7 @@ export default function Registro() {
             disabled={cargando}
             className="h-11 w-full bg-brand-600 hover:bg-brand-700"
           >
-            {cargando ? "Registrando…" : "Completar el registro"}
+            Completar el registro
             </Button>
           </form>
         </Card>
@@ -455,11 +466,7 @@ export default function Registro() {
               setCodigo(e.target.value);
               if (codigoMal) setCodigoMal(null);
             }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
-              e.preventDefault();
-              e.currentTarget.form?.requestSubmit();
-            }}
+            onKeyDown={enviarConEnter}
             placeholder="000000 — o pega aquí la dirección del correo"
             autoComplete="one-time-code"
             autoCorrect="off"
@@ -576,11 +583,14 @@ function Campo({
   etiqueta,
   hint,
   hintError,
+  error,
   children,
 }: {
   etiqueta: string;
   hint?: string;
   hintError?: boolean;
+  /** Fuera de la `label`: dentro, el lector lo leería dos veces (nombre y descripción). */
+  error?: React.ReactNode;
   children: React.ReactNode;
 }) {
   /*
@@ -591,28 +601,19 @@ function Campo({
     cuando no cabe, y comparte línea cuando sí.
   */
   return (
-    <label className="block">
-      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <span className="text-xs font-semibold text-ink">{etiqueta}</span>
-        {hint && (
-          <span className={cn("text-xs", hintError ? "text-alerta-700" : "text-ink-soft")}>{hint}</span>
-        )}
-      </div>
-      {children}
-    </label>
+    <div>
+      <label className="block">
+        <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <span className="text-xs font-semibold text-ink">{etiqueta}</span>
+          {hint && (
+            <span className={cn("text-xs", hintError ? "text-alerta-700" : "text-ink-soft")}>{hint}</span>
+          )}
+        </div>
+        {children}
+      </label>
+      {error}
+    </div>
   );
 }
 
 const MENSAJE_CEDULA = "Revisa la cédula: son 11 dígitos, como 001-0000000-0.";
-
-/**
- * El error de un campo, junto al campo; vacío no ocupa sitio. `span` y no `p`
- * porque en el primer paso vive dentro de la `label` de `Campo`.
- */
-function ErrorCampo({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <span id={id} aria-live="polite" className="mt-1.5 block text-xs text-sello-700 empty:hidden">
-      {children}
-    </span>
-  );
-}

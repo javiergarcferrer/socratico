@@ -66,6 +66,8 @@ export default function CampoLicitaciones() {
   const [open, setOpen] = useState(false);
   const [recientes, setRecientes] = useState<string[]>([]);
   const [busquedas, setBusquedas] = useState<Busqueda[]>([]);
+  // Borrar una búsqueda guardada no se deshace: se pregunta en la misma fila.
+  const [aBorrar, setABorrar] = useState<string | null>(null);
   const focused = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -336,18 +338,47 @@ export default function CampoLicitaciones() {
                     <IconBookmark className="h-4 w-4 shrink-0 text-brand-600" filled />
                     <span className="truncate font-medium">{b.nombre}</span>
                   </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setBusquedas(removeBusqueda(b.id))}
-                    // Borrar es irreversible: si el objetivo es pequeño se
-                    // acierta por accidente. 44 px en el teléfono.
-                    className="h-11 w-11 shrink-0 text-ink-soft hover:bg-canvas hover:text-ink sm:h-9 sm:w-9"
-                  >
-                    <IconTrash className="h-4 w-4" />
-                    <span className="sr-only">Eliminar «{b.nombre}»</span>
-                  </Button>
+                  {aBorrar === b.id ? (
+                    <span className="inline-flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="h-11 sm:h-9"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setBusquedas(removeBusqueda(b.id));
+                          setABorrar(null);
+                        }}
+                      >
+                        Sí, borrar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-11 sm:h-9"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setABorrar(null)}
+                      >
+                        No
+                      </Button>
+                    </span>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setABorrar(b.id)}
+                      // Borrar es irreversible: si el objetivo es pequeño se
+                      // acierta por accidente. 44 px en el teléfono.
+                      className="h-11 w-11 shrink-0 text-ink-soft hover:bg-canvas hover:text-ink sm:h-9 sm:w-9"
+                    >
+                      <IconTrash className="h-4 w-4" />
+                      <span className="sr-only">Eliminar «{b.nombre}»</span>
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>

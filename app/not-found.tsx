@@ -51,7 +51,7 @@ export default function NoEncontrada() {
       </form>
 
       <Card as="section" className="p-5">
-        <h2 className="text-sm font-semibold text-ink">O empieza por aquí</h2>
+        <h2 className="font-sans text-sm font-semibold text-ink">O empieza por aquí</h2>
         <ul className="mt-2 divide-y divide-hairline">
           {MENU.map((g) => (
             <li key={g.id}>
