@@ -62,7 +62,7 @@ function Cola() {
   if (carga.estado === "sin-permiso") {
     return (
       <EstadoVacio como="h1" titulo="Esta página es de quien modera" accion={<Button asChild variant="secondary"><Link href="/comunidad">Ir a la comunidad</Link></Button>}>
-        Tu cuenta no modera la conversación. Si ves algo que rompe las normas, usa «Denunciar» junto a ello.
+        Tu cuenta no modera la conversación. Si ves algo que rompe las normas, usa «Reportar» junto a ello.
       </EstadoVacio>
     );
   }
@@ -81,8 +81,8 @@ function Cola() {
         <Rotulo>Moderación · privado</Rotulo>
         <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">¿Qué hay que revisar?</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          Lo oculto por tres denuncias espera tu decisión; lo denunciado menos veces sigue visible.
-          Cada decisión cierra sus denuncias y queda registrada con tu nota.{" "}
+          Lo oculto por tres reportes espera tu decisión; lo reportado menos veces sigue visible.
+          Cada decisión cierra sus reportes y queda registrada con tu nota.{" "}
           <Link href="/comunidad/normas" className="font-medium text-brand-700 hover:underline">Lee las normas</Link>.
         </p>
       </header>

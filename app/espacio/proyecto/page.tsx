@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import MesaProyecto from "@/components/espacios/mesa-proyecto";
 
 export const metadata: Metadata = {
-  title: "Investigación",
-  description: "La mesa de una investigación: sus registros, sus enlaces, su tablero y su narración.",
+  title: "Proyecto",
+  description: "La mesa de un proyecto: sus registros, sus enlaces, su tablero y su texto.",
   robots: { index: false, follow: false },
 };
 

@@ -7,12 +7,14 @@ RosetSoft's charter (`javiergarcferrer/rosetsoft`, `DESIGN.md`, b82e39e,
 and per-company brands become this platform's reader, sources and single skin.
 Where a rule is not yet true here it says ⚠️ and what is missing (§11).
 
-**Who we design for.**
-- The journalist on deadline, checking a supplier's contracts on a phone.
+**Who we design for.** Every citizen, on every side of the State. Socrático is
+a public utility for understanding the State, not a tool against it
+(DECISIONES, «Plataforma para todos», 28-09-2026).
 - The citizen who heard a number on the radio and wants to see where it comes
   from.
-- The analyst or legislator's aide who needs the answer — and its source — in
-  30 seconds.
+- The legislator, the official or the officer who needs their own
+  institution's figures, and their source, in 30 seconds.
+- The supplier checking an award, the student, the analyst, the reporter.
 
 Nobody here is studying the screen. They are *checking* it. Every rule below
 exists to make that check cost less time, less attention and fewer mistakes.
@@ -149,7 +151,7 @@ IDENTIDAD §Ergonomía cognitiva holds the detail; this is the charter.
   10 s, paused while focus is inside, announced). Today: removing a saved
   record, a link in a case, a pending invitation (28-09-2026). A confirm is for
   what cannot be fully restored — an entry that takes its links and mentions,
-  a comment, an investigation, a member — and it names its object.
+  a comment, a project, a member — and it names its object.
 - **Nothing irreversible happens by itself.** Nothing is published, sent or
   deleted without the reader's explicit act.
 
@@ -161,7 +163,7 @@ IDENTIDAD §Ergonomía cognitiva holds the detail; this is the charter.
   said before the reader draws a conclusion (IDENTIDAD §2).
 
 ### 4.3 Habit loops, never manipulation
-We build loops that make an investigator's work easier, and nothing that works
+We build loops that make the reader's work easier, and nothing that works
 against their interest.
 
 | Stage | What we build |

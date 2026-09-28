@@ -347,7 +347,7 @@ export default function Tablero(props: PropsTablero) {
   return (
     <div
       role="group"
-      aria-label={`Tablero del caso: ${tarjetas.length} ${tarjetas.length === 1 ? "registro" : "registros"} y ${lazos.length} ${lazos.length === 1 ? "enlace" : "enlaces"}. Lo mismo está en la lista de registros.`}
+      aria-label={`Tablero del proyecto: ${tarjetas.length} ${tarjetas.length === 1 ? "registro" : "registros"} y ${lazos.length} ${lazos.length === 1 ? "enlace" : "enlaces"}. Lo mismo está en la lista de registros.`}
       className="h-[26rem] w-full overflow-hidden rounded-lg border border-hairline bg-canvas sm:h-[34rem]"
       // El crédito de React Flow sobre papel, no sobre blanco de pantalla.
       style={{ ["--xy-attribution-background-color" as string]: "var(--color-surface)" }}

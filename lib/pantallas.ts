@@ -276,11 +276,11 @@ export const PANTALLAS: Record<string, Pantalla> = {
     ],
   },
   "/espacio": {
-    que: "Tu espacio con cuenta: investigaciones que juntan compras, leyes, proveedores y documentos, con notas, enlaces entre ellos, colaboradores y publicación.",
+    que: "Tu espacio con cuenta: proyectos que juntan compras, leyes, proveedores y documentos, con notas, enlaces entre ellos, colaboradores y publicación.",
     preguntas: [
       "¿Dónde guardo lo que encuentro?",
-      "¿Cómo armo una investigación con varios registros?",
-      "¿Cómo comparto una investigación con otro periodista?",
+      "¿Cómo armo un proyecto con varios registros?",
+      "¿Cómo comparto un proyecto con otra persona?",
     ],
   },
   "/seguimiento": {

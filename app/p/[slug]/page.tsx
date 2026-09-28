@@ -35,10 +35,10 @@ const cargar = cache((slug: string) => leerPublicado(slug));
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const r = await cargar(slug);
-  if (r.estado !== "ok") return { title: "Investigación publicada", robots: { index: false, follow: false } };
+  if (r.estado !== "ok") return { title: "Proyecto publicado", robots: { index: false, follow: false } };
   return {
     title: r.proyecto.titulo,
-    description: r.proyecto.descripcion.slice(0, 200) || `Una investigación de ${r.proyecto.autor} sobre registros del Estado dominicano.`,
+    description: r.proyecto.descripcion.slice(0, 200) || `Un proyecto de ${r.proyecto.autor} sobre registros del Estado dominicano.`,
     alternates: { canonical: `/p/${slug}` },
     // Es la obra de un lector, no de la plataforma: se comparte, no se indexa,
     // y sus enlaces no llevan el aval del sitio.
@@ -56,10 +56,10 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
         como="h1"
         variante="caida"
         className="mx-auto max-w-2xl"
-        titulo="No pudimos abrir esta investigación"
+        titulo="No pudimos abrir este proyecto"
         accion={<Button asChild variant="secondary"><Link href="/buscar">Buscar en la plataforma</Link></Button>}
       >
-        El servidor de cuentas no respondió, así que no sabemos si sigue publicada. Vuelve a intentarlo en un momento; los registros que reúne siguen en sus fichas.
+        El servidor de cuentas no respondió, así que no sabemos si sigue publicado. Vuelve a intentarlo en un momento; los registros que reúne siguen en sus fichas.
       </EstadoVacio>
     );
   }
@@ -68,10 +68,10 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
       <EstadoVacio
         como="h1"
         className="mx-auto max-w-2xl"
-        titulo="Esta investigación no está publicada"
+        titulo="Este proyecto no está publicado"
         accion={<Button asChild variant="secondary"><Link href="/">Ir a la portada</Link></Button>}
       >
-        Puede que su autor la haya retirado, o que la dirección tenga un error.
+        Puede que su autor lo haya retirado, o que la dirección tenga un error.
       </EstadoVacio>
     );
   }
@@ -84,14 +84,14 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
   return (
     <article className="mx-auto max-w-3xl space-y-5">
       <header>
-        <Rotulo>Investigación publicada · por {p.autor} · actualizada el {formatFecha(p.actualizado)}</Rotulo>
+        <Rotulo>Proyecto publicado · por {p.autor} · actualizado el {formatFecha(p.actualizado)}</Rotulo>
         <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">{p.titulo}</h1>
         {p.descripcion && <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-ink">{p.descripcion}</p>}
         <p className="mt-3 text-xs leading-relaxed text-ink-soft">
-          La selección, la narración, las fechas, lo que une a cada registro y las notas son
+          La selección, el texto, las fechas, lo que une a cada registro y las notas son
           afirmaciones de su autor, no de Socrático ni del Estado: una flecha que dice «pagó a» es
           lo que él sostiene, no un dato verificado. «{p.autor}» es
-          el nombre de firma que escribió quien la publica: Socrático no lo verifica. Cada registro
+          el nombre de firma que escribió quien lo publica: Socrático no lo verifica. Cada registro
           abre su ficha, que lee la cifra de su fuente oficial.
         </p>
       </header>
@@ -184,8 +184,8 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
       {p.entradas.length > 0 && (
         <Card as="section" className="flex flex-wrap items-center justify-between gap-3 p-5">
           <p className="max-w-md text-sm leading-relaxed text-ink-soft">
-            Para seguir este caso en Aleph u OpenSanctions: los registros, las notas y los enlaces,
-            en FollowTheMoney.
+            Los registros, las notas y los enlaces de este proyecto en un archivo JSON de formato
+            abierto, para abrirlo en otras herramientas.
           </p>
           <ExportarFtm titulo={p.titulo} entradas={p.entradas} enlaces={p.enlaces} variant="secondary" />
         </Card>
@@ -195,7 +195,7 @@ export default async function PublicadoPage({ params }: { params: Promise<{ slug
 
       <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
         <p className="max-w-md text-sm leading-relaxed text-ink-soft">
-          ¿Investigas algo del Estado? Con una cuenta guardas registros, los enlazas, los anotas
+          ¿Trabajas en un tema del Estado? Con una cuenta guardas registros, los enlazas, los anotas
           y lo publicas así.
         </p>
         <Button asChild>

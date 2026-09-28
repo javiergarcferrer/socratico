@@ -37,7 +37,7 @@ export default function ExportarFtm({
     <>
       <Button type="button" variant={variant} onClick={descargar} disabled={entradas.length === 0}>
         <IconDownload className="h-4 w-4" />
-        Descargar el caso (FollowTheMoney)
+        Descargar los datos del proyecto (JSON)
       </Button>
       <span role="status" aria-live="polite" className="sr-only">
         {hecho ? `Se descargó ${archivoFtm(titulo)}.` : ""}

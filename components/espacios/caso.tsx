@@ -147,7 +147,7 @@ export default function Caso({
 
   return (
     <Card as="section" className="p-5">
-      <CardTitle>El caso</CardTitle>
+      <CardTitle>El proyecto</CardTitle>
       <Tabs value={vista} onValueChange={setVista} className="mt-2">
         <TabsList>
           <TabsTrigger value="tablero">Tablero</TabsTrigger>
@@ -155,9 +155,9 @@ export default function Caso({
             Línea de tiempo <span className="font-mono text-xs tabular-nums text-ink-soft">{fechados}</span>
           </TabsTrigger>
           <TabsTrigger value="evidencia">
-            Evidencia <span className="font-mono text-xs tabular-nums text-ink-soft">{entradas.length}</span>
+            Registros <span className="font-mono text-xs tabular-nums text-ink-soft">{entradas.length}</span>
           </TabsTrigger>
-          <TabsTrigger value="narracion">Narración</TabsTrigger>
+          <TabsTrigger value="narracion">Texto</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tablero" className="space-y-3">
@@ -242,7 +242,7 @@ function SelectVerbo({ value, onChange, etiqueta }: { value: TipoEnlace; onChang
       </SelectTrigger>
       <SelectContent>
         {TIPOS_ENLACE.map((t) => (
-          <SelectItem key={t} value={t} ayuda={ENLACES_PRIVADOS.includes(t) ? "Queda en el caso: no se publica" : undefined}>
+          <SelectItem key={t} value={t} ayuda={ENLACES_PRIVADOS.includes(t) ? "Queda en el proyecto: no se publica" : undefined}>
             {VERBO_ENLACE[t]}
           </SelectItem>
         ))}
@@ -521,18 +521,18 @@ function PanelRegistro({
                 disabled={quitando}
                 onClick={async () => {
                   setQuitando(true);
-                  await hacer(quitarEntrada(e.id), "Quitado del caso.");
+                  await hacer(quitarEntrada(e.id), "Quitado del proyecto.");
                   setQuitando(false);
                 }}
               >
-                {quitando ? "Quitando…" : "Sí, quitarlo del caso con sus enlaces"}
+                {quitando ? "Quitando…" : "Sí, quitarlo del proyecto con sus enlaces"}
               </Button>
               <Button type="button" size="sm" variant="outline" disabled={quitando} onClick={() => setSeguro(false)}>No</Button>
             </div>
           ) : (
             <Button type="button" size="sm" variant="outline" onClick={() => setSeguro(true)}>
               <IconTrash className="h-3.5 w-3.5" />
-              Quitar del caso
+              Quitar del proyecto
             </Button>
           )}
           <p className="mt-1.5 text-xs text-ink-soft">Se va con su nota, su fecha y sus enlaces. El registro sigue en la plataforma.</p>
@@ -752,8 +752,8 @@ function NarracionLeida({ proyecto, registros }: { proyecto: string; registros: 
       vivo = false;
     };
   }, [proyecto]);
-  if (error) return <p className="text-sm text-alerta-700">No se pudo leer la narración: {error}</p>;
+  if (error) return <p className="text-sm text-alerta-700">No se pudo leer el texto: {error}</p>;
   if (doc === undefined) return <Skeleton className="h-40 w-full" />;
-  if (!narrativaConTexto(doc)) return <p className="text-sm text-ink-soft">Quienes editan este caso todavía no escribieron su narración.</p>;
+  if (!narrativaConTexto(doc)) return <p className="text-sm text-ink-soft">Quienes editan este proyecto todavía no escribieron su texto.</p>;
   return <NarrativaLectura doc={doc!} registros={registros} />;
 }

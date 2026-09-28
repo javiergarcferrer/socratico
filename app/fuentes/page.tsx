@@ -1004,11 +1004,11 @@ export default async function FuentesPage() {
             cuenta, lo que guarda, anota y sigue), nunca una cifra de una fuente.
           </li>
           <li>
-            Un <strong>caso</strong> se arma con piezas abiertas y probadas (React
-            Flow para el tablero, Tiptap para la narración, TanStack Table para la
-            evidencia, las tres con licencia MIT) y se exporta en FollowTheMoney, el
-            formato de Aleph y OpenSanctions. Lo que sale es del investigador:
-            referencias, notas, fechas que él anotó y el verbo de cada enlace.
+            Un <strong>proyecto</strong> se arma con piezas abiertas y probadas (React
+            Flow para el tablero, Tiptap para el texto, TanStack Table para los
+            registros, las tres con licencia MIT) y se descarga en un archivo JSON de
+            formato abierto. Lo que sale es de quien lo arma: referencias, notas,
+            fechas que anotó y el verbo de cada enlace.
             Ninguna cifra del Estado; esa se lee en cada ficha.
           </li>
         </ul>

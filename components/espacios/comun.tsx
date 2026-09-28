@@ -63,7 +63,7 @@ export function Cerrado({ h1 = false }: { h1?: boolean }) {
       {h1 ? <h1 className="font-sans text-sm font-semibold tracking-normal">{titulo}</h1> : <AlertTitle>{titulo}</AlertTitle>}
       <p className="mt-1 text-sm leading-relaxed">
         Tu cuenta ya existe y entrar funciona, pero guardar registros y armar
-        investigaciones todavía no está abierto en esta plataforma. Mientras tanto,
+        proyectos todavía no está abierto en esta plataforma. Mientras tanto,
         «Seguir» en cada ficha guarda lo que sigues en este navegador.{" "}
         <Link href="/seguimiento" className="font-medium underline">
           Ver lo que sigues

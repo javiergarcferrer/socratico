@@ -8,7 +8,7 @@ import { Rotulo } from "@/components/papel";
 export const metadata: Metadata = {
   title: "Tu cuenta",
   description:
-    "Entra con tu correo para guardar registros del Estado, armar investigaciones que los enlacen, anotarlas, publicarlas y trabajarlas con otras personas.",
+    "Entra con tu correo para guardar registros del Estado, armar proyectos que los enlacen, anotarlos, publicarlos y trabajarlos con otras personas.",
   alternates: { canonical: "/cuenta" },
   robots: { index: false, follow: true },
 };
@@ -25,10 +25,10 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
       <div>
         <header className="mb-5">
           <Rotulo>Tu cuenta</Rotulo>
-          <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">¿Qué quieres seguirle al Estado?</h1>
+          <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">¿Qué quieres seguir del Estado?</h1>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
             Con una cuenta guardas lo que encuentras (una compra, una ley, un proveedor),
-            lo juntas en investigaciones que enlazan registros distintos, lo anotas, lo
+            lo juntas en proyectos que enlazan registros distintos, lo anotas, lo
             publicas o lo trabajas con otras personas, y ves qué cambió en cualquier
             dispositivo.
           </p>
@@ -54,7 +54,7 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
               qué cambió desde entonces.
             </li>
             <li>
-              Los correos que invitas a una investigación, hasta que la acepten o retires la
+              Los correos que invitas a un proyecto, hasta que acepten o retires la
               invitación.
             </li>
             <li>
@@ -62,7 +62,7 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
               <Link href="/comunidad/normas" className="font-medium text-brand-700 hover:underline">
                 conversación
               </Link>
-              : tus comentarios (públicos, con tu nombre de firma), tus votos y tus denuncias (estos
+              : tus comentarios (públicos, con tu nombre de firma), tus votos y tus reportes (estos
               dos, privados), cuándo aceptaste las normas y, junto a lo que escribes, una huella
               de tu cédula (un HMAC que no se puede revertir sin la clave de la plataforma; nunca la
               cédula) durante 90 días: sirve

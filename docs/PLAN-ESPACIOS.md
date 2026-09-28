@@ -1,7 +1,7 @@
 # Plan — Cuentas y espacios del lector
 
 Decisión del dueño del 2026-09-28 (`docs/DECISIONES.md`, cerradas): la
-plataforma tiene **cuentas reales** para que quien investiga guarde registros,
+plataforma tiene **cuentas reales** para que quien estudia un tema guarde registros,
 arme proyectos que enlazan registros distintos, los anote, los publique, los
 trabaje con otras personas y reciba alertas de lo que sigue. Es la segunda
 excepción a la invariante de `CLAUDE.md`, con el mismo contrato que
@@ -400,7 +400,10 @@ Lo que hay que saber antes de tocarlo:
 - **El tablero no importa Supabase**: guardar es de quien lo monta. En `/p`
   va de solo lectura; todo lo que dice está también en las listas, que se
   leen sin JavaScript.
-- **Exportar** es FollowTheMoney (`lib/ftm.ts`): cada registro como la
+- **Exportar** es FollowTheMoney (`lib/ftm.ts`), que en la interfaz se llama
+  «Descargar los datos del proyecto (JSON)» y baja como `<título>.json`: el
+  formato se queda (abierto, leído por otras herramientas), el nombre no
+  (DECISIONES, «Plataforma para todos»). Cada registro como la
   entidad de su tipo y cada enlace como `UnknownLink` con el verbo en `role`.
   Los esquemas se comprobaron contra el repositorio de FtM el 2026-09-28.
 - ✅ Visto en Chromium a 1280 y 390 px con datos de prueba: arrastrar,

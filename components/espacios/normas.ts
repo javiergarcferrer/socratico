@@ -11,7 +11,7 @@ export const NORMAS: { titulo: string; texto: string }[] = [
   },
   {
     titulo: "Afirma solo lo que puedas sostener",
-    texto: "Si señalas una irregularidad, di de dónde sale: enlaza la ficha o el documento. Una sospecha se dice como sospecha.",
+    texto: "Si afirmas un hecho, di de dónde sale: enlaza la ficha o el documento. Una opinión se dice como opinión.",
   },
   {
     titulo: "Nada de datos personales",
@@ -27,6 +27,6 @@ export const NORMAS: { titulo: string; texto: string }[] = [
   },
   {
     titulo: "Se modera después, y a la vista",
-    texto: "Tres denuncias de personas distintas con cédula registrada ocultan un comentario hasta que se revise. Lo retirado queda marcado como tal. Romper estas normas puede suspenderte: la suspensión es de tu cédula, no solo de tu cuenta.",
+    texto: "Tres reportes de personas distintas con cédula registrada ocultan un comentario hasta que se revise. Lo retirado queda marcado como tal. Romper estas normas puede suspenderte: la suspensión es de tu cédula, no solo de tu cuenta.",
   },
 ];

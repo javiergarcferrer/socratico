@@ -11,7 +11,7 @@ import FeedComunidad from "@/components/espacios/feed-comunidad";
 export const metadata: Metadata = {
   title: "Comunidad",
   description:
-    "Lo que la gente discute de cada compra pública, ley, decreto e investigación: comentarios de personas con cédula registrada y votos de cualquier cuenta.",
+    "Lo que la gente discute de cada compra pública, ley, decreto y proyecto: comentarios de personas con cédula registrada y votos de cualquier cuenta.",
   alternates: { canonical: "/comunidad" },
 };
 
@@ -43,7 +43,7 @@ export default async function ComunidadPage({ searchParams }: { searchParams: Pr
         <Rotulo>Comunidad · votos y conversación</Rotulo>
         <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">¿De qué está hablando la gente?</h1>
         <p className="mt-2 max-w-prose text-[15px] leading-relaxed text-ink-soft">
-          Cada compra, ley, decreto, proveedor, institución e investigación publicada tiene su
+          Cada compra, ley, decreto, proveedor, institución y proyecto publicado tiene su
           conversación. Comentan personas con cédula registrada, con su nombre de firma; cualquier
           cuenta vota lo que importa.{" "}
           <Link href="/comunidad/normas" className="font-medium text-brand-700 hover:underline">
@@ -92,8 +92,8 @@ export default async function ComunidadPage({ searchParams }: { searchParams: Pr
 
       {r.estado === "ok" && r.datos.length > 0 && (
         <p className="px-1 text-xs leading-relaxed text-ink-soft">
-          {orden.alcance} Se muestran hasta {LIMITE} conversaciones; lo oculto por denuncias y las
-          investigaciones retiradas no aparecen.
+          {orden.alcance} Se muestran hasta {LIMITE} conversaciones; lo oculto por reportes y los
+          proyectos retirados no aparecen.
         </p>
       )}
     </div>

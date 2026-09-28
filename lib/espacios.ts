@@ -318,7 +318,7 @@ export const NOMBRE_HILO: Record<TipoHilo, string> = {
   "expediente-senado": "Expediente del Senado",
   legislador: "Legislador",
   obra: "Obra",
-  investigacion: "Investigación",
+  investigacion: "Proyecto publicado",
 };
 
 /** El registro del que se habla: lo que el hilo guarda de él. */

@@ -86,7 +86,7 @@ function Espacio({ u }: { u: Usuario }) {
     <div className="space-y-6">
       <header>
         <Rotulo>Tu espacio · {u.email}</Rotulo>
-        <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">¿En qué estás investigando?</h1>
+        <h1 className="font-display mt-1 text-3xl text-ink sm:text-4xl">¿En qué estás trabajando?</h1>
       </header>
 
       <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -158,11 +158,11 @@ function Invitaciones({ lista, onCambio }: { lista: InvitacionRecibida[]; onCamb
 
   return (
     <Card as="section" className="border-brand-200 p-5" aria-live="polite">
-      <CardTitle>{lista.length === 1 ? "Te invitaron a una investigación" : `Te invitaron a ${lista.length} investigaciones`}</CardTitle>
+      <CardTitle>{lista.length === 1 ? "Te invitaron a un proyecto" : `Te invitaron a ${lista.length} proyectos`}</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         Si aceptas, quien invita y sus colaboradores ven tu nombre de firma o, si no tienes, tu
         correo enmascarado. Lo que anotes ahí es
-        parte de su investigación: si la publica, sale bajo su nombre, no el tuyo.
+        parte de su proyecto: si lo publica, sale bajo su nombre, no el tuyo.
       </p>
       {aviso && <p role="alert" className="mt-2 text-xs text-alerta-700">{aviso}</p>}
       <ul className="mt-3 divide-y divide-hairline">
@@ -223,13 +223,13 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
 
   return (
     <Card as="section" className="p-5">
-      <CardTitle>Tus investigaciones</CardTitle>
+      <CardTitle>Tus proyectos</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Una investigación junta registros de toda la plataforma (compras, contratistas, normas,
+        Un proyecto junta registros de toda la plataforma (compras, contratistas, normas,
         iniciativas, sentencias, documentos) con tus notas y lo que los une.
       </p>
       <form onSubmit={crear} className="mt-3 flex gap-2">
-        <Label htmlFor="nueva-investigacion" className="sr-only">Título de la nueva investigación</Label>
+        <Label htmlFor="nueva-investigacion" className="sr-only">Título del nuevo proyecto</Label>
         <Input
           id="nueva-investigacion"
           name="titulo"
@@ -250,7 +250,7 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
         </Button>
       </form>
       <ErrorCampo id="nueva-investigacion-error" className="mt-1.5">
-        {sinTitulo ? "Ponle un título a la investigación." : ""}
+        {sinTitulo ? "Ponle un título al proyecto." : ""}
       </ErrorCampo>
       {error && <p role="alert" className="mt-2 text-xs text-alerta-700">{error}</p>}
 
@@ -258,7 +258,7 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
         <Skeleton className="mt-4 h-24 w-full" />
       ) : proyectos.length === 0 ? (
         <p className="mt-4 text-sm text-ink-soft">
-          Aún no tienes ninguna. Crea una arriba o guarda un registro desde su ficha.
+          Aún no tienes ninguno. Crea uno arriba o guarda un registro desde su ficha.
         </p>
       ) : (
         <ul className="mt-3 divide-y divide-hairline">
@@ -274,9 +274,9 @@ function Proyectos({ proyectos, onCreado }: { proyectos: ProyectoConCuenta[] | n
                     {p.registros} {p.registros === 1 ? "registro" : "registros"}
                   </span>
                   <span aria-hidden>·</span>
-                  <Antiguedad iso={p.actualizado} prefijo="editada" />
+                  <Antiguedad iso={p.actualizado} prefijo="editado" />
                   <Badge variant={p.rol === "dueno" ? "neutro" : "firma"}>{ROL[p.rol]}</Badge>
-                  {p.publico && <Badge variant="valido">Publicada</Badge>}
+                  {p.publico && <Badge variant="valido">Publicado</Badge>}
                 </p>
               </div>
             </li>
@@ -343,7 +343,7 @@ function Guardado({
     <Card as="section" className="p-5">
       <CardTitle>Guardado sin ordenar</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Lo que guardaste con «Guardar» sin elegir investigación. Llévalo a una cuando sepas dónde va.
+        Lo que guardaste con «Guardar» sin elegir proyecto. Llévalo a uno cuando sepas dónde va.
       </p>
       {aviso && <p role="alert" className="mt-2 text-xs text-alerta-700">{aviso}</p>}
       <AvisoDeshacer aviso={deshacible} onCerrar={() => setDeshacible(null)} className="mt-3" />
@@ -365,7 +365,7 @@ function Guardado({
               <div className="flex shrink-0 items-center gap-2">
                 {editables.length > 0 && (
                   <Select onValueChange={(v) => void mover(e, v)}>
-                    <SelectTrigger className="w-44" aria-label={`Llevar «${e.titulo}» a una investigación`}>
+                    <SelectTrigger className="w-44" aria-label={`Llevar «${e.titulo}» a un proyecto`}>
                       <SelectValue placeholder="Llevar a…" />
                     </SelectTrigger>
                     <SelectContent>

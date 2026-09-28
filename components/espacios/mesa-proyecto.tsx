@@ -65,15 +65,15 @@ export default function MesaProyecto({ id }: { id: string | null }) {
     return (
       <EstadoVacio
         como="h1"
-        titulo="Falta decir qué investigación abrir"
+        titulo="Falta decir qué proyecto abrir"
         accion={<Button asChild variant="secondary"><Link href="/espacio">Volver a tu espacio</Link></Button>}
       >
-        La dirección no dice cuál. Tus investigaciones están en tu espacio.
+        La dirección no dice cuál. Tus proyectos están en tu espacio.
       </EstadoVacio>
     );
   }
   if (sesion.estado === "cargando") return <Skeleton className="h-[520px] w-full" />;
-  if (sesion.estado === "fuera") return <SinSesion volver={`/espacio/proyecto?id=${id}`} que="Entra para abrir esta investigación" />;
+  if (sesion.estado === "fuera") return <SinSesion volver={`/espacio/proyecto?id=${id}`} que="Entra para abrir este proyecto" />;
   return <Mesa u={sesion.usuario} id={id} />;
 }
 
@@ -116,10 +116,10 @@ function Mesa({ u, id }: { u: Usuario; id: string }) {
       <EstadoVacio
         como="h1"
         variante={error ? "caida" : "vacio"}
-        titulo={error ? "No pudimos abrir esta investigación" : "Esta investigación no existe o no es tuya"}
+        titulo={error ? "No pudimos abrir este proyecto" : "Este proyecto no existe o no es tuyo"}
         accion={<Button asChild variant="secondary"><Link href="/espacio">Volver a tu espacio</Link></Button>}
       >
-        {error ?? "Puede que la hayan borrado o que te hayan quitado de ella. Si te invitaron, entra con el correo al que llegó la invitación."}
+        {error ?? "Puede que lo hayan borrado o que te hayan quitado de él. Si te invitaron, entra con el correo al que llegó la invitación."}
       </EstadoVacio>
     );
   }
@@ -179,12 +179,12 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
     onCambio();
   }
 
-  const rol = { dueno: "Tuya", editor: "Editas", lector: "Solo lees" }[p.rol];
+  const rol = { dueno: "Tuyo", editor: "Editas", lector: "Solo lees" }[p.rol];
   return (
     <header>
       <Rotulo>
-        <Link href="/espacio" className="hover:underline">Tu espacio</Link> · Investigación · {rol}
-        {p.publico && " · Publicada"}
+        <Link href="/espacio" className="hover:underline">Tu espacio</Link> · Proyecto · {rol}
+        {p.publico && " · Publicado"}
       </Rotulo>
       {editando ? (
         <form onSubmit={guardarCambios} className="mt-2 space-y-2.5">
@@ -203,7 +203,7 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
             aria-describedby={tituloMal ? "titulo-proyecto-error" : undefined}
           />
           <ErrorCampo id="titulo-proyecto-error">
-            {tituloMal ? "La investigación necesita un título." : ""}
+            {tituloMal ? "El proyecto necesita un título." : ""}
           </ErrorCampo>
           <Label htmlFor="descripcion-proyecto" className="sr-only">De qué trata</Label>
           <Textarea
@@ -214,7 +214,7 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
             maxLength={5000}
             onChange={(e) => setDescripcion(e.target.value)}
             onKeyDown={enviarConModificador}
-            placeholder="Qué investigas, qué preguntas quieres responder, qué ya sabes…"
+            placeholder="De qué trata, qué preguntas quieres responder, qué ya sabes…"
           />
           {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
           <div className="flex gap-2">
@@ -228,7 +228,7 @@ function Cabecera({ p, edita, onCambio }: { p: ProyectoConCuenta; edita: boolean
           {p.descripcion ? (
             <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">{p.descripcion}</p>
           ) : (
-            edita && <p className="mt-2 text-sm text-ink-soft">Sin descripción: di qué investigas y qué quieres responder.</p>
+            edita && <p className="mt-2 text-sm text-ink-soft">Sin descripción: di de qué trata y qué quieres responder.</p>
           )}
           {edita && (
             <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setEditando(true)}>
@@ -354,7 +354,7 @@ function Agregar({ proyecto, existentes, onAgregado }: { proyecto: string; exist
                   variant={dentro ? "ghost" : "secondary"}
                   disabled={dentro}
                   onClick={() => agregar(h)}
-                  aria-label={dentro ? `«${h.titulo}» ya está en la investigación` : `Agregar «${h.titulo}»`}
+                  aria-label={dentro ? `«${h.titulo}» ya está en el proyecto` : `Agregar «${h.titulo}»`}
                 >
                   {dentro ? "Ya está" : (<><IconPlus className="h-3.5 w-3.5" />Agregar</>)}
                 </Button>
@@ -516,12 +516,12 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
               setEmail(e.target.value);
               if (correoMal) setCorreoMal(false);
             }}
-            placeholder="colega@medio.com"
+            placeholder="nombre@correo.com"
             aria-invalid={correoMal || undefined}
             aria-describedby={correoMal ? "invitar-correo-error" : undefined}
           />
           <ErrorCampo id="invitar-correo-error">
-            {correoMal ? "Escribe un correo completo, como colega@medio.com." : ""}
+            {correoMal ? "Escribe un correo completo, como nombre@correo.com." : ""}
           </ErrorCampo>
           <div className="flex gap-2">
             <Select value={rol} onValueChange={(v) => setRol(v as "editor" | "lector")}>
@@ -589,13 +589,13 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
         (saliendo ? (
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="destructive" size="sm" className="h-11 sm:h-9" disabled={yendose} onClick={irme}>
-              {yendose ? "Saliendo…" : "Sí, salir de esta investigación"}
+              {yendose ? "Saliendo…" : "Sí, salir de este proyecto"}
             </Button>
             <Button type="button" variant="outline" size="sm" className="h-11 sm:h-9" disabled={yendose} onClick={() => setSaliendo(false)}>No</Button>
           </div>
         ) : (
           <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => setSaliendo(true)}>
-            Salir de esta investigación
+            Salir de este proyecto
           </Button>
         ))}
       {error && <p role="alert" className="mt-2 text-xs text-alerta-700">{error}</p>}
@@ -611,9 +611,9 @@ function Llevar({ titulo, entradas, enlaces }: { titulo: string; entradas: Entra
     <Card as="section" className="p-5">
       <CardTitle className="text-base">Llevártelo</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Un archivo en FollowTheMoney, el formato de Aleph (OCCRP) y OpenSanctions: cada registro
-        como entidad con su enlace y tu nota, y cada enlace con su verbo. Ninguna cifra del
-        Estado: esas se leen en cada ficha.
+        Un archivo JSON de formato abierto, para abrirlo en otras herramientas: cada registro
+        con su enlace y tu nota, y cada enlace con su verbo. Ninguna cifra del Estado: esas se
+        leen en cada ficha.
       </p>
       <div className="mt-3">
         <ExportarFtm titulo={titulo} entradas={entradas} enlaces={enlaces} />
@@ -642,8 +642,8 @@ function Publicar({ p, onCambio }: { p: ProyectoConCuenta; onCambio: () => void 
       <CardTitle className="text-base">Publicar</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         {p.publico
-          ? "Cualquiera con la dirección ve el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas (también las de quienes colaboran) y los enlaces, bajo tu nombre de firma. No ve quién colabora, ni tu correo, ni los parentescos («es familiar de»)."
-          : "Al publicar, cualquiera con la dirección verá el título, la descripción, la narración, el tablero, las fechas, los registros con sus notas (también las de quienes colaboran) y los enlaces, bajo tu nombre de firma; los parentescos («es familiar de») nunca se publican. Puedes retirarla cuando quieras; la dirección se conserva."}
+          ? "Cualquiera con la dirección ve el título, la descripción, el texto, el tablero, las fechas, los registros con sus notas (también las de quienes colaboran) y los enlaces, bajo tu nombre de firma. No ve quién colabora, ni tu correo, ni los parentescos («es familiar de»)."
+          : "Al publicar, cualquiera con la dirección verá el título, la descripción, el texto, el tablero, las fechas, los registros con sus notas (también las de quienes colaboran) y los enlaces, bajo tu nombre de firma; los parentescos («es familiar de») nunca se publican. Puedes retirarlo cuando quieras; la dirección se conserva."}
       </p>
       {p.publico && url && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -697,7 +697,7 @@ function Borrar({ p }: { p: ProyectoConCuenta }) {
   const [error, setError] = useState<string | null>(null);
   return (
     <Card as="section" className="p-5">
-      <CardTitle className="text-base">Borrar la investigación</CardTitle>
+      <CardTitle className="text-base">Borrar el proyecto</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         Se borran sus registros, notas y enlaces, para ti y para quien colabore. Los registros
         del Estado siguen en la plataforma.

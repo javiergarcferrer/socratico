@@ -114,6 +114,18 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Cerradas, para que nadie las reabra
 
+- **Plataforma para todos, no contra nadie (28-09-2026).** El dueño: el
+  espacio de trabajo se leía como un programa anticorrupción («caso»,
+  «investigación», «evidencia», «denunciar», un botón «FollowTheMoney»), y
+  Socrático es para todo ciudadano, políticos, funcionarios y militares
+  incluidos. En el texto al lector: el caso o la investigación es un
+  **proyecto**; la evidencia, los **registros**; la narración, el **texto
+  del proyecto**; denunciar un comentario es **reportarlo**. La descarga no
+  se quitó: se llama «Descargar los datos del proyecto (JSON)» y no nombra
+  herramientas de sanciones. Los nombres internos (tablas, componentes,
+  rutas) no cambian. Una frase nueva no presume culpa ni enemigo: pregunta
+  y enseña de dónde sale el dato.
+
 - **Sin raya en el texto de cara al lector (28-09-2026).** El dueño adoptó la
   regla de `docs/DESIGN.md` §8: la raya (—) no es muleta; el inciso va entre
   comas, se parte en dos frases o se une con «·». Rige para todo texto que

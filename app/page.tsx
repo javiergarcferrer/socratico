@@ -119,7 +119,7 @@ export default function Inicio() {
             Socrático reúne en un solo lugar lo que publica el Estado (compras,
             presupuesto, deuda, nómina, leyes, Congreso, tribunales, obras), leído
             de sus fuentes oficiales y explicado en llano. Busca, compara y entiende
-            sin cuenta; con una, investiga: guarda registros, enlázalos, anótalos y
+            sin cuenta; con una, organiza tu trabajo: guarda registros, enlázalos, anótalos y
             publica lo que encuentres.
           </p>
         }
@@ -381,9 +381,9 @@ async function CifraRemesas() {
 function SeccionEspacio() {
   const razones: { Icon: (p: { className?: string }) => React.ReactElement; titulo: string; texto: string }[] = [
     { Icon: IconBookmark, titulo: "Guarda lo que encuentras", texto: "Una compra, una ley, un proveedor, una sentencia, una búsqueda: con un toque desde su ficha." },
-    { Icon: IconFolder, titulo: "Arma investigaciones", texto: "Junta registros de toda la plataforma en un mismo expediente, con su descripción." },
+    { Icon: IconFolder, titulo: "Arma proyectos", texto: "Junta registros de toda la plataforma en un mismo lugar, con su descripción." },
     { Icon: IconLink, titulo: "Enlaza y anota", texto: "Di qué une a dos registros («la adjudicó», «la firmó») y anota qué encontraste en cada uno." },
-    { Icon: IconShare, titulo: "Publica o trabaja en equipo", texto: "Publica la investigación con tu firma o invita a colegas a editarla o leerla." },
+    { Icon: IconShare, titulo: "Publica o trabaja en equipo", texto: "Publica el proyecto con tu firma o invita a otras personas a editarlo o leerlo." },
     { Icon: IconBell, titulo: "Entérate de lo que cambia", texto: "Lo que sigues viaja con tu cuenta: al entrar, en cualquier dispositivo, ves qué cambió." },
   ];
   const ejemplo: { tipo: string; que: string; une?: string }[] = [
@@ -394,7 +394,7 @@ function SeccionEspacio() {
   ];
   return (
     <section aria-labelledby="espacio" className="space-y-4">
-      <Encabezado id="espacio" rotulo="Tu espacio" titulo="¿Investigas algo? No lo dejes en veinte pestañas." />
+      <Encabezado id="espacio" rotulo="Tu espacio" titulo="¿Trabajas en un tema? No lo dejes en veinte pestañas." />
       <Card className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_22rem]">
         <div>
           <ul className="grid gap-4 sm:grid-cols-2">
@@ -422,7 +422,7 @@ function SeccionEspacio() {
 
         <Card asChild className="bg-canvas p-4">
         <figure>
-          <figcaption className="rotulo text-ink-soft">Así se ve una investigación</figcaption>
+          <figcaption className="rotulo text-ink-soft">Así se ve un proyecto</figcaption>
           <ol className="mt-3">
             {ejemplo.map((e, i) => (
               <li key={e.tipo}>

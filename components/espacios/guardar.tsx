@@ -138,7 +138,7 @@ export default function Guardar({ referencia, className }: { referencia: Referen
           <div className="space-y-2.5">
             <p className="text-sm font-semibold text-ink">Guárdalo en tu espacio</p>
             <p className="text-xs leading-relaxed text-ink-soft">
-              Con una cuenta juntas registros como este en investigaciones, los anotas, los enlazas
+              Con una cuenta juntas registros como este en proyectos, los anotas, los enlazas
               y los publicas. Entrar es un código al correo.
             </p>
             <Button asChild className="w-full">
@@ -149,10 +149,10 @@ export default function Guardar({ referencia, className }: { referencia: Referen
             </Button>
           </div>
         ) : carga.estado === "cargando" ? (
-          <p className="py-2 text-sm text-ink-soft" aria-busy="true">Buscando tus investigaciones…</p>
+          <p className="py-2 text-sm text-ink-soft" aria-busy="true">Buscando tus proyectos…</p>
         ) : carga.estado === "cerrado" ? (
           <p className="text-xs leading-relaxed text-ink-soft">
-            Guardar en investigaciones todavía no está abierto en esta plataforma. Mientras tanto,
+            Guardar en proyectos todavía no está abierto en esta plataforma. Mientras tanto,
             «Seguir» guarda esta ficha en tu navegador.
           </p>
         ) : carga.estado === "error" ? (
@@ -176,7 +176,7 @@ export default function Guardar({ referencia, className }: { referencia: Referen
               ))}
             </ul>
             <form onSubmit={crearCon} className="flex gap-1.5 border-t border-hairline pt-2">
-              <Label htmlFor="guardar-nueva" className="sr-only">Nueva investigación con este registro</Label>
+              <Label htmlFor="guardar-nueva" className="sr-only">Nuevo proyecto con este registro</Label>
               <Input
                 id="guardar-nueva"
                 name="titulo"
@@ -189,7 +189,7 @@ export default function Guardar({ referencia, className }: { referencia: Referen
                 }}
                 aria-invalid={sinTitulo || undefined}
                 aria-describedby={sinTitulo ? "guardar-nueva-error" : undefined}
-                placeholder="Nueva investigación…"
+                placeholder="Nuevo proyecto…"
                 className="h-11 text-base sm:h-9 sm:text-sm"
               />
               <Button
@@ -197,13 +197,13 @@ export default function Guardar({ referencia, className }: { referencia: Referen
                 size="icon"
                 variant="secondary"
                 disabled={creando}
-                aria-label={creando ? "Creando la investigación…" : "Crear la investigación con este registro"}
+                aria-label={creando ? "Creando el proyecto…" : "Crear el proyecto con este registro"}
               >
                 <IconPlus className="h-4 w-4" />
               </Button>
             </form>
             <ErrorCampo id="guardar-nueva-error">
-              {sinTitulo ? "Ponle un título a la investigación." : ""}
+              {sinTitulo ? "Ponle un título al proyecto." : ""}
             </ErrorCampo>
             <Link href="/espacio" className="flex min-h-11 items-center text-xs font-medium text-brand-700 hover:underline sm:min-h-9">
               Ir a tu espacio

@@ -96,7 +96,7 @@ export default function Evidencia({
   return (
     <div className="space-y-3">
       <div>
-        <Label htmlFor="evidencia-filtro" className="sr-only">Filtrar la evidencia</Label>
+        <Label htmlFor="evidencia-filtro" className="sr-only">Filtrar los registros</Label>
         <Input
           id="evidencia-filtro"
           type="search"
@@ -106,8 +106,8 @@ export default function Evidencia({
         />
         <p aria-live="polite" className="mt-1.5 text-xs text-ink-soft">
           {filtro.trim()
-            ? `${visibles.length} de ${filas.length} registros de este caso.`
-            : `Los ${filas.length} registros de este caso. Elige uno para anotarlo, fecharlo o enlazarlo.`}
+            ? `${visibles.length} de ${filas.length} registros de este proyecto.`
+            : `Los ${filas.length} registros de este proyecto. Elige uno para anotarlo, fecharlo o enlazarlo.`}
         </p>
       </div>
 
@@ -200,7 +200,7 @@ export default function Evidencia({
           );
         })}
       </ul>
-      {filtro.trim() && visibles.length === 0 && <p className="text-sm text-ink-soft">Ningún registro del caso coincide con «{filtro.trim()}».</p>}
+      {filtro.trim() && visibles.length === 0 && <p className="text-sm text-ink-soft">Ningún registro del proyecto coincide con «{filtro.trim()}».</p>}
     </div>
   );
 }

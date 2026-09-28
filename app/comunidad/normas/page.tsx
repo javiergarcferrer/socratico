@@ -60,8 +60,8 @@ export default function NormasPage() {
         </p>
         <p>
           <strong className="font-medium text-ink">Se modera después.</strong> Lo que publicas sale
-          enseguida. Tres denuncias de personas distintas con cédula registrada lo ocultan hasta que
-          una persona lo revise (cualquier cuenta puede denunciar; para ocultar cuentan esas);
+          enseguida. Tres reportes de personas distintas con cédula registrada lo ocultan hasta que
+          una persona lo revise (cualquier cuenta puede reportar; para ocultar cuentan esos);
           si rompe las normas se retira y queda marcado como retirado, y quien lo escribió puede
           ser suspendido: la suspensión va con su cédula, así que otra cuenta no la esquiva. Cada
           decisión de moderación queda registrada.

@@ -3,7 +3,7 @@ import MiEspacio from "@/components/espacios/mi-espacio";
 
 export const metadata: Metadata = {
   title: "Tu espacio",
-  description: "Lo que sigues, tus investigaciones y lo que guardaste.",
+  description: "Lo que sigues, tus proyectos y lo que guardaste.",
   robots: { index: false, follow: false },
 };
 

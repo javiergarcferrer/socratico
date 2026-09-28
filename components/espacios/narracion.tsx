@@ -157,7 +157,7 @@ export default function Narracion({ proyecto, registros }: { proyecto: string; r
         class: cn(CLASE_NARRATIVA, "min-h-64 px-4 py-3 outline-none"),
         role: "textbox",
         "aria-multiline": "true",
-        "aria-label": "Narración del caso",
+        "aria-label": "Texto del proyecto",
       },
     },
     onUpdate: () => programar(),
@@ -267,9 +267,9 @@ export default function Narracion({ proyecto, registros }: { proyecto: string; r
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           {menu && menu.items.length === 0 ? (
-            <p className="px-2 py-2 text-sm text-ink-soft">Ningún registro del caso se llama así. Agrégalo primero.</p>
+            <p className="px-2 py-2 text-sm text-ink-soft">Ningún registro del proyecto se llama así. Agrégalo primero.</p>
           ) : (
-            <ul role="listbox" aria-label="Registros del caso">
+            <ul role="listbox" aria-label="Registros del proyecto">
               {menu?.items.map((m, i) => (
                 <li key={m.id} role="option" aria-selected={i === activo}>
                   <Button
@@ -304,7 +304,7 @@ function BarraFormato({ editor }: { editor: Editor }) {
     { etiqueta: "Cita", activo: editor.isActive("blockquote"), hacer: () => editor.chain().focus().toggleBlockquote().run() },
   ];
   return (
-    <div role="toolbar" aria-label="Formato de la narración" className="flex flex-wrap gap-2">
+    <div role="toolbar" aria-label="Formato del texto" className="flex flex-wrap gap-2">
       {botones.map((b) => (
         <Button key={b.etiqueta} type="button" variant="outline" size="sm" aria-pressed={b.activo} onClick={b.hacer}>
           {b.etiqueta}
@@ -332,7 +332,7 @@ function EstadoGuardado({
     return (
       <Alert variant="aviso" className="px-4 py-3 text-sm">
         <p>
-          Alguien que colabora guardó la narración mientras escribías. No se pisó nada: elige
+          Alguien que colabora guardó el texto mientras escribías. No se pisó nada: elige
           con cuál versión seguir.
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -349,14 +349,14 @@ function EstadoGuardado({
   const texto =
     estado.e === "guardado"
       ? estado.cuando
-        ? `Guardada ${hace(estado.cuando)}.`
-        : "Se guarda sola mientras escribes. Escribe «@» para citar un registro del caso."
+        ? `Guardado ${hace(estado.cuando)}.`
+        : "Se guarda solo mientras escribes. Escribe «@» para citar un registro del proyecto."
       : estado.e === "pendiente"
         ? "Cambios sin guardar…"
         : estado.e === "guardando"
           ? "Guardando…"
           : estado.e === "grande"
-            ? "La narración pasa del tope (unas 30 000 palabras): no se guardó. Recórtala o divídela en otro caso."
+            ? "El texto pasa del tope (unas 30 000 palabras): no se guardó. Recórtalo o divídelo en otro proyecto."
             : estado.e === "error"
               ? `No se guardó: ${estado.error}`
               : "";

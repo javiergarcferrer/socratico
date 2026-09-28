@@ -147,7 +147,7 @@ export default function Conversacion({ referencia, className }: { referencia: Re
       ) : carga.hilo.estado !== "visible" ? (
         <p className="mt-4 text-sm leading-relaxed text-ink-soft">
           {carga.hilo.estado === "oculto"
-            ? "Esta conversación está oculta mientras se revisan denuncias sobre ella."
+            ? "Esta conversación está oculta mientras se revisan reportes sobre ella."
             : "Esta conversación se cerró por moderación."}
         </p>
       ) : (
@@ -242,7 +242,7 @@ function Cuerpo({
           ¿El título o el tema de esta conversación engañan?{" "}
           <Button type="button" variant="ghost" size="sm" className="h-11 text-ink-soft sm:h-9" onClick={() => setDenunciando({ tipo: "hilo" })}>
             <IconFlag className="h-3.5 w-3.5" />
-            Denunciar la conversación
+            Reportar la conversación
           </Button>
         </p>
       )}
@@ -425,7 +425,7 @@ function Nodo({
               {hay && !c.mio && (
                 <Button type="button" variant="ghost" size="sm" className="h-11 text-ink-soft sm:h-9" onClick={() => onDenunciar(c.id)}>
                   <IconFlag className="h-3.5 w-3.5" />
-                  Denunciar
+                  Reportar
                 </Button>
               )}
               {c.mio &&
@@ -462,7 +462,7 @@ function Nodo({
         ) : (
           <p className="text-sm italic text-ink-soft">
             {c.estado === "oculto"
-              ? "Comentario oculto mientras se revisan denuncias."
+              ? "Comentario oculto mientras se revisan reportes."
               : c.estado === "retirado"
                 ? "Comentario retirado por moderación."
                 : "Comentario borrado por su autor."}
@@ -787,9 +787,9 @@ function Denunciar({
     <Dialog open={abierto} onOpenChange={(v) => !v && onCerrar()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{objetivo?.tipo === "hilo" ? "Denunciar la conversación" : "Denunciar el comentario"}</DialogTitle>
+          <DialogTitle>{objetivo?.tipo === "hilo" ? "Reportar la conversación" : "Reportar el comentario"}</DialogTitle>
           <DialogDescription>
-            Lo revisa una persona. Con tres denuncias de personas con cédula registrada se oculta mientras tanto.
+            Lo revisa una persona. Con tres reportes de personas con cédula registrada se oculta mientras tanto.
           </DialogDescription>
         </DialogHeader>
         {hecho ? (
@@ -831,7 +831,7 @@ function Denunciar({
             <Textarea id="detalle-denuncia" name="detalle" rows={3} maxLength={500} value={detalle} onChange={(e) => setDetalle(e.target.value)} onKeyDown={enviarConModificador} placeholder="Detalle (opcional)…" className="text-base sm:text-sm" />
             {error && <p role="alert" className="text-xs text-alerta-700">{error}</p>}
             <div className="flex gap-2">
-              <Button type="submit" disabled={enviando}>{enviando ? "Enviando…" : "Enviar denuncia"}</Button>
+              <Button type="submit" disabled={enviando}>{enviando ? "Enviando…" : "Enviar reporte"}</Button>
               <Button type="button" variant="ghost" onClick={onCerrar}>Cancelar</Button>
             </div>
           </form>
