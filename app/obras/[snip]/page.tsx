@@ -22,6 +22,7 @@ import { IconExternal } from "@/components/icons";
 import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
+import Conversacion from "@/components/espacios/conversacion";
 
 export const revalidate = 86400;
 
@@ -280,6 +281,7 @@ export default async function ObraPage({ params }: Props) {
         son los que MapaInversiones asocia al código SNIP; la ficha de cada uno
         consulta la DGCP en vivo.
       </p>
+      <Conversacion className="mt-6" referencia={{ tipo: "obra", ref: enlace.obra(snip), titulo: tituloLegible(o.nombre), href: enlace.obra(snip) }} />
     </div>
   );
 }

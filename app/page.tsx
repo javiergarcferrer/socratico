@@ -53,6 +53,7 @@ import Plegable from "@/components/plegable";
 import LlamadaCuenta from "@/components/espacios/llamada-cuenta";
 import { enlace } from "@/lib/grafo";
 import { cn } from "@/lib/cn";
+import ConversacionesVivas from "@/components/espacios/conversaciones-vivas";
 
 export const revalidate = 1800;
 
@@ -202,6 +203,11 @@ export default function Inicio() {
           </Suspense>
         </div>
       </section>
+
+      {/* Lo que la gente discute: se lee en el navegador, la portada no toca la base. */}
+      <ConversacionesVivas
+        encabezado={<Encabezado id="comunidad-portada" rotulo="Comunidad" titulo="¿De qué está hablando la gente?" />}
+      />
 
       {/* 3. ¿Qué gano con una cuenta? */}
       <SeccionEspacio />

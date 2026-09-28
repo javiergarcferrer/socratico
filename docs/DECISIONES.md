@@ -117,6 +117,17 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   código sigue sirviendo. La interfaz igual nunca da de alta con contraseña
   (`lib/sesion.ts`): no se relaja si alguien vuelve a apagarlo.
 
+- **La conversación (28-09-2026).** El dueño pidió un componente social tipo
+  Reddit sobre todo registro. Decidió tres cosas:
+  - solo comenta quien registró su cédula; vota cualquier cuenta;
+  - se modera después: tres denuncias ocultan lo denunciado hasta que se
+    revise;
+  - se construye en el Postgres de Supabase que ya existe, no en Discourse.
+
+  Se implementó en `/comunidad` y en el final de cada ficha
+  (docs/PLAN-ESPACIOS.md §6). Aplicar su migración es un paso aparte que
+  requiere aprobación.
+
 - **Código abierto probado, nunca proyectos pequeños sin probar (28-09-2026).**
   Antes de escribir algo propio se busca una pieza de código abierto que lo
   resuelva; antes de adoptarla, pasa este criterio: uso amplio en producción

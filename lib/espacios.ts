@@ -170,3 +170,135 @@ export function slugDe(titulo: string): string {
   const azar = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => (b % 36).toString(36)).join("");
   return `${base || "proyecto"}-${azar}`;
 }
+
+/* ------------------------------------------------------- la conversación */
+
+/**
+ * Sobre qué se conversa: los registros con ficha propia y las
+ * investigaciones publicadas (`espacios.tipo_hilo_valido`). La clave es la
+ * ruta de la ficha (`ref` = `href`); en una investigación, su slug.
+ */
+export const TIPOS_HILO = [
+  "institucion",
+  "proveedor",
+  "proceso",
+  "norma",
+  "proyecto",
+  "expediente-senado",
+  "legislador",
+  "obra",
+  "investigacion",
+] as const;
+
+export type TipoHilo = (typeof TIPOS_HILO)[number];
+
+export function esTipoHilo(v: unknown): v is TipoHilo {
+  return typeof v === "string" && (TIPOS_HILO as readonly string[]).includes(v);
+}
+
+export const NOMBRE_HILO: Record<TipoHilo, string> = {
+  institucion: "Institución",
+  proveedor: "Proveedor",
+  proceso: "Compra pública",
+  norma: "Norma",
+  proyecto: "Iniciativa de Diputados",
+  "expediente-senado": "Expediente del Senado",
+  legislador: "Legislador",
+  obra: "Obra",
+  investigacion: "Investigación",
+};
+
+/** El registro del que se habla: lo que el hilo guarda de él. */
+export interface ReferenciaHilo {
+  tipo: TipoHilo;
+  ref: string;
+  titulo: string;
+  href: string;
+}
+
+export type EstadoComentario = "visible" | "oculto" | "retirado" | "borrado";
+
+export interface Comentario {
+  id: string;
+  padre: string | null;
+  estado: EstadoComentario;
+  /** Solo si está visible. */
+  autor: string | null;
+  cuerpo: string | null;
+  puntos: number;
+  creado: string;
+  mio: boolean;
+  mi_voto: -1 | 0 | 1;
+}
+
+export interface Hilo {
+  existe: boolean;
+  estado: "visible" | "oculto" | "retirado";
+  votos: number;
+  comentarios: number;
+  mi_voto: boolean;
+  lista: Comentario[];
+}
+
+export interface FilaComunidad extends ReferenciaHilo {
+  votos: number;
+  comentarios: number;
+  creado: string;
+  actividad: string;
+  mi_voto: boolean;
+}
+
+export type OrdenComunidad = "destacado" | "nuevo" | "votado";
+
+/** Lo que devuelve una lectura pública de la conversación. */
+export type Lectura<T> = { estado: "ok"; datos: T } | { estado: "cerrado" } | { estado: "caida" };
+
+/**
+ * Una función pública de `espacios` por HTTP, con la clave publicable: sin
+ * supabase-js, para que quien solo lee no lo descargue. `PGRST106` es el
+ * esquema aún no abierto en el API (PLAN-ESPACIOS §5, paso 2).
+ */
+async function rpcPublica<T>(fn: string, cuerpo: object, cache: RequestInit & { next?: { revalidate: number } }): Promise<Lectura<T>> {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        "Content-Profile": "espacios",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(cuerpo),
+      signal: AbortSignal.timeout(15_000),
+      ...cache,
+    });
+    const tipo = r.headers.get("content-type") ?? "";
+    if (!tipo.includes("json")) return { estado: "caida" };
+    const datos = (await r.json()) as T & { code?: string };
+    if (!r.ok) return datos?.code === "PGRST106" || datos?.code === "PGRST202" ? { estado: "cerrado" } : { estado: "caida" };
+    return { estado: "ok", datos };
+  } catch {
+    return { estado: "caida" };
+  }
+}
+
+/** Una conversación, leída por cualquiera (sin sesión: sin `mio` ni votos propios). */
+export function leerHilo(tipo: TipoHilo, ref: string): Promise<Lectura<Hilo>> {
+  return rpcPublica<Hilo>("hilo", { p_tipo: tipo, p_ref: ref }, { cache: "no-store" });
+}
+
+/**
+ * El feed de la comunidad. En el servidor se cachea medio minuto: una
+ * conversación nueva aparece enseguida y el feed no golpea la base en cada
+ * visita. Solo filas cuyo enlace es una ruta propia.
+ */
+export async function leerComunidad(orden: OrdenComunidad, limite = 50): Promise<Lectura<FilaComunidad[]>> {
+  const r = await rpcPublica<FilaComunidad[]>(
+    "comunidad",
+    { p_orden: orden, p_limite: limite, p_pagina: 0 },
+    { next: { revalidate: 30 } },
+  );
+  if (r.estado !== "ok") return r;
+  return { estado: "ok", datos: (r.datos ?? []).filter((f) => esTipoHilo(f.tipo) && rutaPropia(f.href)) };
+}

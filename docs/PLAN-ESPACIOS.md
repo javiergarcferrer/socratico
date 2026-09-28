@@ -136,6 +136,15 @@ La migración **no se aplica** sin que el dueño lo diga. Los pasos, en orden:
    is not null` sigue siendo `true` (el voto no se rompió); los avisos de
    seguridad de Supabase no marcan tablas de `espacios` ni `democracia`.
 
+4. La conversación (§6), con aprobación aparte:
+   - aplicar `20260928140000_conversacion.sql`;
+   - nombrar a quien modera con `insert into espacios.moderadores (usuario)
+     select id from auth.users where lower(email) = '<correo del dueño>'`.
+     Se corre a mano y no va en la migración, para que ningún correo quede en
+     el repositorio;
+   - comprobar que `select espacios.comunidad('destacado', 5, 0)` devuelve
+     `[]` como `anon`.
+
 Mientras 1 y 2 no estén hechos, todo lo demás funciona: la portada, las
 fichas y «Seguir» en el navegador. `/cuenta` permite entrar (Auth ya
 existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
@@ -155,3 +164,76 @@ existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
   following schemas are exposed: public, storage, graphql_public,
   democracia»). Hasta que se añada `espacios`, las pantallas de cuenta dicen
   que los proyectos aún no están abiertos.
+
+## 6. La conversación
+
+Decisión del dueño (2026-09-28, docs/DECISIONES.md): cada registro con ficha
+propia y cada investigación publicada tiene una conversación, y `/comunidad`
+es su feed. Migración `supabase/migrations/20260928140000_conversacion.sql`,
+en el mismo esquema `espacios`: es de lo que pone el lector, no del Estado.
+
+**Quién puede qué.**
+- **Leer**: cualquiera, sin cuenta, por dos funciones públicas: `hilo(tipo,
+  ref)` y `comunidad(orden, límite, página)`. Devuelven lo visible con el
+  nombre de firma; nunca ids de usuario, correos ni cédulas.
+- **Votar**: cualquier cuenta con correo verificado. «Importa» es un voto solo
+  a favor sobre el registro (`votar_hilo`); los comentarios se votan arriba o
+  abajo (`votar_comentario`); lo propio no se vota.
+- **Comentar**: solo quien registró su cédula (una fila en
+  `democracia.votantes`, la misma puerta del voto). Además tiene que firmar
+  con nombre y haber aceptado las normas (`perfiles.normas`,
+  `components/espacios/normas.ts`, publicadas en `/comunidad/normas`).
+- ⚠️ **Límite de la cédula.** Hoy el registro de la cédula comprueba el
+  dígito verificador y que nadie más la usó, no la coteja con la JCE; eso
+  llega con Cuenta Única (PLAN-DEMOCRACIA §9). `/comunidad/normas` lo dice.
+
+**Cómo se hace cumplir.** Nadie escribe en una tabla. Las ocho tablas
+(`hilos`, `comentarios`, `votos_hilo`, `votos_comentario`, `denuncias`,
+`moderadores`, `suspensiones`, `acciones_moderacion`) tienen RLS sin políticas
+y ningún permiso. Todo pasa por funciones definidoras, que aplican las reglas:
+- cédula, nombre y normas;
+- suspensión;
+- ritmo: 5 comentarios en 10 minutos y 40 al día; 120 votos «Importa» por
+  hora; 30 denuncias al día;
+- como mucho 3 enlaces por comentario;
+- no responder a lo que no está visible.
+
+**La clave de un hilo es la ruta de su ficha.** Se cumple `ref = href`, y
+`ruta_de_tipo` exige el prefijo que le toca a cada tipo en `lib/grafo.ts`: un
+«proceso» es `/procesos/…`. Sentencias, documentos, datos y búsquedas no
+tienen ficha propia, así que no tienen conversación. El título lo pone quien
+abre la conversación, desde la ficha; si es falso, se denuncia y se retira.
+
+**Moderación posterior.**
+- Tres denuncias de cuentas distintas ocultan un comentario o un hilo hasta
+  que un moderador decida en `/espacio/moderar` (`cola_moderacion`,
+  `moderar`, `suspender`).
+- Cada decisión cierra sus denuncias y queda en `acciones_moderacion` con
+  quién, qué y la nota.
+- Lo retirado se muestra como retirado, sin texto, para que sus respuestas
+  conserven el sitio.
+- Quien escribe puede borrar lo suyo: el texto se vacía de verdad.
+- Los moderadores se añaden a mano (paso 4 de §5): la app no tiene forma de
+  nombrarlos.
+
+**Dónde vive.**
+- `components/espacios/conversacion.tsx`, al final de las fichas de proceso,
+  norma, iniciativa, expediente del Senado, legislador, proveedor,
+  institución y obra, y en `/p/[slug]`.
+  - No carga nada hasta que el lector se acerca (IntersectionObserver).
+  - Sin sesión lee por HTTP (`leerHilo` en `lib/espacios.ts`), sin supabase-js.
+- `components/espacios/voto-hilo.tsx` es el voto «Importa».
+- `/comunidad` es el feed, leído en el servidor con 30 s de caché. Tiene tres
+  órdenes:
+  - Destacado: `(votos + 2·comentarios + 1) / (horas desde la última
+    actividad + 2)^1,5`, como Hacker News.
+  - Nuevo.
+  - Más votado.
+- La portada muestra las cinco destacadas desde el navegador
+  (`conversaciones-vivas.tsx`). La portada no lee la base, y mientras la
+  conversación no esté abierta esa sección no se pinta.
+
+✅ Probado el 2026-09-28 con `supabase/pruebas/conversacion_rls.py`: 82
+casos, desde quien registró su cédula, quien solo tiene cuenta, un correo sin
+confirmar, una cuenta suspendida, la moderadora y `anon`. Las tres
+migraciones se aplicaron dos veces. `FALLOS: 0`.

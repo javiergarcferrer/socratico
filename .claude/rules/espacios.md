@@ -3,11 +3,13 @@ paths:
   - "app/cuenta/**"
   - "app/espacio/**"
   - "app/p/**"
+  - "app/comunidad/**"
   - "components/espacios/**"
   - "lib/espacios.ts"
   - "lib/espacios-cliente.ts"
   - "lib/sesion.ts"
   - "supabase/migrations/*espacios*"
+  - "supabase/migrations/*conversacion*"
   - "supabase/pruebas/**"
 ---
 # The reader's account and spaces — the second exception
@@ -36,10 +38,22 @@ Read §1 (contract) and §5 (applying) before changing anything here.
   `espacios.publicado(slug)` over HTTP (`lib/espacios.ts`), which returns no
   user ids and no emails.
 
+## The conversation (PLAN §6)
+- Threads, comments, votes and reports live in `espacios`; nobody writes a
+  table. Every write is a definer function that enforces cédula
+  (`democracia.votantes`), name + rules, suspension and rate limits. Reads are
+  the public `hilo`/`comunidad` functions: visible text and signing names,
+  never ids or emails.
+- A thread's key is its ficha's path (`ref = href`, `ruta_de_tipo`). A new
+  ficha that wants a conversation adds its type there and in `TIPOS_HILO`.
+- `Conversacion` goes at the **end** of a ficha (understand first, opine
+  after) and loads nothing until the reader scrolls near it.
+
 ## Changing the database
 - Migrations under `supabase/migrations/`, re-runnable. Run
   `python3 supabase/pruebas/espacios_rls.py` (throwaway Postgres simulating
   `auth`) and keep `FALLOS: 0`; add a case for every new policy or function.
+  Conversation changes: `python3 supabase/pruebas/conversacion_rls.py`, same bar.
   Touching the follow sync in `lib/espacios-cliente.ts`: run
   `node supabase/pruebas/sincronizar_seguidos.cjs` (no network) and keep `FALLOS: 0`.
 - Applying the migration or exposing the schema in the Data API is an

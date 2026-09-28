@@ -30,6 +30,7 @@ import { TextoEnlazado } from "@/components/texto-enlazado";
 import { ConectadoCon } from "@/components/conectado-con";
 import { desdeMayusculas } from "@/lib/congreso";
 import { hrefInstitucion, institucionesNombradasEn } from "@/lib/instituciones";
+import Conversacion from "@/components/espacios/conversacion";
 
 export const revalidate = 3600;
 
@@ -334,6 +335,10 @@ export default async function ExpedienteSenadoPage({ params }: Props) {
           )}
         </div>
       </div>
+      <Conversacion
+        className="mt-6"
+        referencia={{ tipo: "expediente-senado", ref: enlace.expedienteSenado(ficha.cuatrienio, ficha.id), titulo: ficha.titulo, href: enlace.expedienteSenado(ficha.cuatrienio, ficha.id) }}
+      />
     </div>
   );
 }

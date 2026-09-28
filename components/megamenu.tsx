@@ -12,6 +12,7 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
+  navigationMenuDisparador,
 } from "@/components/ui/navigation-menu";
 
 /**
@@ -91,6 +92,17 @@ export default function Megamenu() {
             </NavigationMenuContent>
           </NavigationMenuItem>
         ))}
+        {/*
+          La cuarta puerta no abre panel: la comunidad es un sitio, no un
+          grupo de destinos. Lleva la misma raya dibujada que las otras.
+        */}
+        <NavigationMenuItem>
+          <NavigationMenuLink asChild>
+            <Link href="/comunidad" className={navigationMenuDisparador} data-activo={pathname.startsWith("/comunidad")}>
+              Comunidad
+            </Link>
+          </NavigationMenuLink>
+        </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
   );

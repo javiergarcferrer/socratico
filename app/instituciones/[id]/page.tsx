@@ -41,6 +41,7 @@ import { FiltroEnlace, NavFiltros } from "@/components/nav-filtros";
 import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { filtrarInformes, getAuditorias, informesDe } from "@/lib/auditorias";
+import Conversacion from "@/components/espacios/conversacion";
 
 /** Normas a la vista en «Lo que decreta el Ejecutivo»; el resto, plegado. */
 const NORMAS_A_LA_VISTA = 2;
@@ -363,6 +364,7 @@ export default async function InstitucionPage({ params }: Props) {
         </Link>
         .
       </p>
+      <Conversacion className="mt-6" referencia={{ tipo: "institucion", ref: hrefInstitucion(i), titulo: i.nombre, href: hrefInstitucion(i) }} />
     </div>
   );
 }
