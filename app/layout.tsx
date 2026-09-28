@@ -9,6 +9,8 @@ import ScrollTop from "@/components/scroll-top";
 import Megamenu from "@/components/megamenu";
 import { SITIO } from "@/lib/sitio";
 import Paleta from "@/components/paleta";
+import PuertaCuenta from "@/components/espacios/puerta-cuenta";
+import SincronizarCuenta from "@/components/espacios/sincronizar";
 import Rastro from "@/components/rastro";
 import SectionBar from "@/components/section-bar";
 import { SECCIONES } from "@/lib/secciones";
@@ -142,8 +144,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               la mano que sostiene el teléfono, y dice su nombre en todas las
               anchuras: una lupa sola no dice qué recorre.
             */}
-            <div className="shrink-0">
+            <div className="flex shrink-0 items-center gap-2">
               <Paleta />
+              {/* La cuenta: «Entrar» o «Tu espacio» (docs/PLAN-ESPACIOS.md). */}
+              <PuertaCuenta />
             </div>
           </div>
           <div className="h-px bg-canvas/20" />
@@ -159,6 +163,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ScrollTop />
         <Rastro />
         <InstallPrompt />
+        <SincronizarCuenta />
 
         <footer className="mt-10 border-t border-hairline bg-surface">
           <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-ink-soft sm:py-10">
@@ -255,8 +260,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <p className="mt-1 font-semibold text-ink">Protección de datos personales</p>
                   <p className="mt-0.5">
                     Las superficies de inteligencia no guardan datos personales.
-                    En Democracia, la cédula se cifra con una clave que no sale
-                    de la base y el voto es privado a nivel de base de datos.
+                    La cuenta, opcional, guarda solo lo que eliges y ningún dato
+                    del Estado. En Democracia, la cédula se cifra con una clave
+                    que no sale de la base y el voto es privado.
                   </p>
                 </div>
                 <div>
@@ -295,7 +301,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 nóminas de transparencia institucional.
               </p>
               <nav className="-mx-1 flex shrink-0 flex-wrap gap-x-2 sm:mx-0 sm:gap-x-4">
-                <Link href="/" className="inline-flex min-h-11 items-center px-1 hover:text-brand-700 sm:min-h-0 sm:px-0">Panorama</Link>
+                <Link href="/" className="inline-flex min-h-11 items-center px-1 hover:text-brand-700 sm:min-h-0 sm:px-0">Inicio</Link>
                 <Link href="/seguimiento" className="inline-flex min-h-11 items-center px-1 hover:text-brand-700 sm:min-h-0 sm:px-0">Mi seguimiento</Link>
                 <Link href="/seguridad" className="inline-flex min-h-11 items-center px-1 hover:text-brand-700 sm:min-h-0 sm:px-0">Seguridad</Link>
                 <Link href="/fuentes" className="inline-flex min-h-11 items-center px-1 font-medium text-brand-700 hover:underline sm:min-h-0 sm:px-0">

@@ -553,7 +553,20 @@ sources impose:
   chunked loading on browsers a couple of versions behind.
 
 ## Pages — `app/`
-- `/` → panorama (server). `/licitaciones` → `app/buscador.tsx` (client) inside
+- `/` → la portada (server, 2026-09-28), en el orden en que se entiende:
+  qué es (misión, la caja que busca en todo, «Crear tu cuenta»), qué pasa hoy
+  (los cuatro dominios con sus cifras —en el teléfono solo la destacada— y
+  una tira con deuda, dólar, gasolina y remesas, cada cifra con fuente y
+  fecha), qué vence esta semana (cierres, perención, decretos), para qué
+  sirve la cuenta (`docs/PLAN-ESPACIOS.md`; el ejemplo es la forma de una
+  investigación, sin nombres reales) y todo lo que hay por tema, leído de
+  `lib/menu.ts` para que no se desalinee del megamenú. Los diez tableros de
+  indicadores que la empujaban hacia abajo viven enteros en `/indicadores`.
+  ⚠️ `line-clamp-*` junto a `block` no recorta: el `display` de `block` pisa
+  el `-webkit-box` del recorte (lo arrastraban los paneles de la portada y
+  las filas de `/buscar`).
+- `/cuenta`, `/espacio`, `/espacio/proyecto?id=`, `/p/[slug]` → la cuenta y
+  los espacios del lector (`docs/PLAN-ESPACIOS.md` §3). `/licitaciones` → `app/buscador.tsx` (client) inside
   `<Suspense>`. Filters live entirely in
   the **URL** so any search is shareable/bookmarkable: `nuqs` reads and writes
   it through one parser map shared with the search field

@@ -242,6 +242,17 @@ export function marcarVistos(
   if (tocado) escribir(lista);
 }
 
+/**
+ * Pone la lista entera —la que trae la cuenta del lector al entrar
+ * (`lib/espacios-cliente.ts`)—, pasada por la misma normalización que lo leído
+ * del almacenamiento. Con cuenta, la cuenta manda: así «dejar de seguir» en
+ * un dispositivo no revive en otro.
+ */
+export function reemplazarSeguidos(lista: unknown): void {
+  if (typeof window === "undefined") return;
+  escribir(normalizar(lista));
+}
+
 /* ------------------------------------------ la forma de antes (procesos) */
 
 /**

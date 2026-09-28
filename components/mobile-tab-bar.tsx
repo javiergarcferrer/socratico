@@ -135,7 +135,7 @@ export default function MobileTabBar() {
   const tabs = [
     {
       href: "/",
-      label: "Panorama",
+      label: "Inicio",
       Icon: IconGrid,
       activa: pathname === "/",
       barra: "bg-ink",

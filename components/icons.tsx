@@ -254,3 +254,34 @@ export const IconGrid = (p: P) => (
     <rect x="13.5" y="13.5" width="7" height="7" rx="1" />
   </Svg>
 );
+
+/** La persona: la cuenta del lector. */
+export const IconUser = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8" r="3.6" />
+    <path d="M5 20a7 7 0 0 1 14 0" />
+  </Svg>
+);
+
+/** Dos eslabones: un enlace entre dos registros de un proyecto. */
+export const IconLink = (p: P) => (
+  <Svg {...p}>
+    <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1" />
+    <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" />
+  </Svg>
+);
+
+/** El folio: un proyecto de investigación. */
+export const IconFolder = (p: P) => (
+  <Svg {...p}>
+    <path d="M3.5 7.5a1.5 1.5 0 0 1 1.5-1.5h4.2l2 2.2H19a1.5 1.5 0 0 1 1.5 1.5v8.3A1.5 1.5 0 0 1 19 19.5H5a1.5 1.5 0 0 1-1.5-1.5z" />
+  </Svg>
+);
+
+/** El lápiz: una nota del lector. */
+export const IconPencil = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 20l4.2-1 10.3-10.3a2 2 0 0 0-2.83-2.83L5.4 16.2z" />
+    <path d="M14.5 7.5l2 2" />
+  </Svg>
+);

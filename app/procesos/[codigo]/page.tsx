@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { MarcaEstado } from "@/components/marca-estado";
 import SeguirButton from "@/components/seguir-button";
+import Guardar from "@/components/espacios/guardar";
 import AccionesProceso from "@/components/acciones-proceso";
 import { IconDoc, IconExternal, IconStar } from "@/components/icons";
 import { Esqueleto } from "@/components/esqueleto";
@@ -154,6 +155,14 @@ export default async function ProcesoPage({
         <Ruta seccion="licitaciones" actual={`Proceso ${p.codigo_proceso}`} />
         <div className="hidden items-center gap-2 lg:flex">
           <SeguirButton codigo={p.codigo_proceso} titulo={p.titulo} huella={huellaDe({ estado: p.estado_proceso })} />
+          <Guardar
+            referencia={{
+              tipo: "proceso",
+              ref: enlace.proceso(p.codigo_proceso),
+              titulo: p.titulo,
+              href: enlace.proceso(p.codigo_proceso),
+            }}
+          />
           <Compartir titulo={p.titulo} />
         </div>
       </div>

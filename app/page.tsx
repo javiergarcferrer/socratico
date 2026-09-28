@@ -17,50 +17,48 @@ import { getDeuda } from "@/lib/deuda";
 import { etiquetaCorte, getResumenFiscal } from "@/lib/fiscal";
 import { formatCompactDOP, formatInt } from "@/lib/nomina";
 import { getResumenNomina } from "@/lib/nomina-server";
+import { getTasa } from "@/lib/tasa";
+import { getCombustibles } from "@/lib/combustibles";
+import { getMacro } from "@/lib/macro";
 import { diasHasta, formatFecha, formatMagnitud, formatMonto, formatPesos } from "@/lib/format";
 import { SECCIONES } from "@/lib/secciones";
-import { INSTITUCIONES, hrefInstitucion } from "@/lib/instituciones";
+import { MENU, puntoDe, type GrupoMenu } from "@/lib/menu";
 import { consultarNormativa } from "@/lib/normativa";
 import { desdeMayusculas } from "@/lib/congreso";
-import { cn } from "@/lib/cn";
-import { Esqueleto } from "@/components/esqueleto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardAction,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   IconArrowRight,
+  IconBell,
+  IconBookmark,
   IconChartBar,
   IconClock,
   IconCoins,
+  IconDoc,
+  IconFolder,
   IconLayers,
+  IconLink,
+  IconPencil,
   IconSearch,
+  IconShare,
   IconTrendingUp,
 } from "@/components/icons";
 import { MarcaEstado } from "@/components/marca-estado";
 import { Portada } from "@/components/portada";
-import { SeccionBolsillo } from "@/components/fuentes-nuevas/indicadores-bolsillo";
-import { AlertasTiempo } from "@/components/fuentes-nuevas/alertas-tiempo";
-import { SiniestralidadVial } from "@/components/fuentes-nuevas/siniestralidad-vial";
-import { DiaElectrico } from "@/components/fuentes-nuevas/dia-electrico";
-import { IndicadoresMacro } from "@/components/fuentes-nuevas/indicadores-macro";
-import { ComercioExterior } from "@/components/fuentes-nuevas/comercio-exterior";
-import { InflacionTurismo } from "@/components/fuentes-nuevas/inflacion-turismo";
-import { IndicadoresBanca } from "@/components/fuentes-nuevas/indicadores-banca";
-import { EstadisticasJudiciales } from "@/components/fuentes-nuevas/estadisticas-judiciales";
+import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
+import Plegable from "@/components/plegable";
+import LlamadaCuenta from "@/components/espacios/llamada-cuenta";
 import { enlace } from "@/lib/grafo";
+import { cn } from "@/lib/cn";
 
 export const revalidate = 1800;
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
-/** Páginas del SIL que alimentan el panorama (10 iniciativas por página). */
+/** Páginas del SIL que alimentan la portada (10 iniciativas por página). */
 const PAGINAS_CONGRESO = 10;
 
 /**
@@ -68,8 +66,7 @@ const PAGINAS_CONGRESO = 10;
  *
  * No confundir con `hace()` de `lib/format.ts`, que hace lo contrario: recibe
  * una fecha y devuelve «hace 4 meses» para que lo lea una persona. Este toma
- * un número de días y devuelve `2026-08-05` para que lo lea la DGCP. Se
- * llamaba igual que aquella y la tapaba dentro de este archivo.
+ * un número de días y devuelve `2026-08-05` para que lo lea la DGCP.
  */
 function fechaHaceDias(dias: number): string {
   const d = new Date(Date.now() - dias * 86400000);
@@ -78,9 +75,8 @@ function fechaHaceDias(dias: number): string {
 
 /**
  * Los procesos de los últimos 30 días alimentan dos piezas —el dominio de
- * compras y el panel de cierres— que ahora se renderizan por separado:
- * `cache` garantiza una sola lectura por render, pase lo que pase con la
- * memorización de `fetch`.
+ * compras y el panel de cierres—: `cache` garantiza una sola lectura por
+ * render.
  */
 const procesosRecientes = cache(() =>
   dgcpFetch<Proceso>("/procesos", { startdate: fechaHaceDias(30), limit: 1000 }, 1800).catch(
@@ -89,31 +85,41 @@ const procesosRecientes = cache(() =>
 );
 
 /*
-  Cada pieza del panorama espera solo a su fuente. Antes un único
-  `Promise.all` retenía la página entera hasta que respondía la más lenta
-  —diez páginas del SIL, o la DGCP en un mal momento—; ahora el hero y la
-  estructura llegan de inmediato y cada tarjeta o panel cae en su hueco
-  cuando su origen contesta. Con `revalidate` la página sigue sirviéndose
-  cacheada; el streaming cuenta en la primera generación y en cada
-  regeneración, que es donde el lector esperaba.
+  La portada responde, en orden, las cuatro preguntas de quien llega
+  (docs/IDENTIDAD.md §4, «el orden de los bloques es el orden en que se
+  entiende»):
+
+  1. ¿Qué es esto? — la misión en una frase y la caja que busca en todo.
+  2. ¿Qué pasa hoy? — cuatro dominios con sus cifras y una línea con los
+     cuatro indicadores que más se preguntan; lo que vence esta semana.
+  3. ¿Qué gano con una cuenta? — guardar, investigar, enlazar, anotar,
+     publicar, colaborar, enterarse. Va después de los datos: se pide la
+     cuenta a quien ya vio lo que hay, no antes.
+  4. ¿Qué más hay? — la plataforma entera ordenada por tema, con el mismo
+     índice que el megamenú (`lib/menu.ts`): una sola lista de destinos.
+
+  Los diez tableros de indicadores que vivían aquí, uno bajo otro, están
+  enteros en `/indicadores`: empujaban todo lo anterior fuera de la vista.
+  Cada pieza espera solo a su fuente (`Suspense`); la estructura llega de
+  inmediato.
 */
-export default function Panorama() {
+export default function Inicio() {
   const legislatura = legislaturaVigente();
   const diasCierre = legislatura ? diffDias(new Date(), legislatura.cierre) : null;
 
   return (
-    <div className="space-y-6">
-      {/* Hero */}
+    <div className="space-y-10">
       <Portada
         principal
-        rotulo="República Dominicana · fuentes oficiales leídas en vivo"
-        titulo="¿Qué compra, qué legisla y a quién le paga el Estado?"
+        rotulo="Independiente y no oficial · con lo que publica el Estado dominicano"
+        titulo="¿Qué hace el Estado con lo que es de todos?"
         descripcion={
           <p className="sm:text-base">
-            Fuentes oficiales leídas en vivo y puestas en un mismo lugar: compras
-            públicas, Congreso Nacional, normativa del Ejecutivo, nómina estatal y
-            deuda pública. Sin intermediarios y sin copiar los datos a ningún lado
-            — y con un piloto de voto ciudadano sobre lo que se legisla.
+            Socrático reúne en un solo lugar lo que publica el Estado —compras,
+            presupuesto, deuda, nómina, leyes, Congreso, tribunales, obras—, leído
+            de sus fuentes oficiales y explicado en llano. Busca, compara y entiende
+            sin cuenta; con una, investiga: guarda registros, enlázalos, anótalos y
+            publica lo que encuentres.
           </p>
         }
       >
@@ -132,7 +138,7 @@ export default function Panorama() {
             name="q"
             type="search"
             enterKeyHint="search"
-            placeholder="Una institución, una ley, un RNC, un tema…"
+            placeholder="Una institución, una ley, un RNC, una compra…"
             className="border-canvas/25 bg-canvas text-ink"
           />
           <Button type="submit" size="lg" className="shrink-0 bg-canvas text-ink hover:bg-surface">
@@ -141,139 +147,86 @@ export default function Panorama() {
           </Button>
         </form>
         <div className="flex flex-wrap gap-2.5">
-          {/*
-            Sobre la banda de tinta la llamada principal se invierte: papel
-            sobre tinta. El `hover` sube a `surface` —la hoja—, que es un paso
-            real de la escala y no el mismo relleno repetido.
-          */}
-          <Button asChild size="lg" className="bg-canvas text-ink hover:bg-surface">
-            <Link href="/licitaciones">
-              <IconSearch className="h-4 w-4" />
-              Buscar licitaciones
-            </Link>
-          </Button>
+          <LlamadaCuenta sobreTinta />
           <Button
             asChild
             size="lg"
             variant="tinta"
             className="border border-canvas/20 bg-canvas/10 text-canvas hover:bg-canvas/20"
           >
-            <Link href="/congreso">
+            <Link href="#explorar">
               <IconLayers className="h-4 w-4" />
-              Explorar el Congreso
+              Ver todo lo que hay
             </Link>
           </Button>
         </div>
       </Portada>
 
-      {/* Dominios: cada tarjeta espera solo a su fuente */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Suspense fallback={<DominioEsqueleto seccion="licitaciones" Icon={IconCoins} />}>
-          <DominioCompras />
-        </Suspense>
-        <Suspense fallback={<DominioEsqueleto seccion="finanzas" Icon={IconTrendingUp} />}>
-          <DominioFinanzas />
-        </Suspense>
-        <Suspense fallback={<DominioEsqueleto seccion="congreso" Icon={IconLayers} />}>
-          <DominioCongreso diasCierre={diasCierre} />
-        </Suspense>
-        <Suspense fallback={<DominioEsqueleto seccion="nomina" Icon={IconChartBar} />}>
-          <DominioNomina />
-        </Suspense>
+      {/* 2. ¿Qué pasa hoy? */}
+      <section aria-labelledby="hoy" className="space-y-4">
+        <Encabezado
+          id="hoy"
+          rotulo="Hoy"
+          titulo="¿Qué está pasando con el dinero y las leyes?"
+          enlace={{ href: "/indicadores", texto: "Todos los indicadores" }}
+        />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Suspense fallback={<DominioEsqueleto seccion="licitaciones" Icon={IconCoins} />}>
+            <DominioCompras />
+          </Suspense>
+          <Suspense fallback={<DominioEsqueleto seccion="finanzas" Icon={IconTrendingUp} />}>
+            <DominioFinanzas />
+          </Suspense>
+          <Suspense fallback={<DominioEsqueleto seccion="congreso" Icon={IconLayers} />}>
+            <DominioCongreso diasCierre={diasCierre} />
+          </Suspense>
+          <Suspense fallback={<DominioEsqueleto seccion="nomina" Icon={IconChartBar} />}>
+            <DominioNomina />
+          </Suspense>
+        </div>
+        <IndicadoresClave />
       </section>
 
-      {/* Las puertas que no son un dominio con cifras: la institución, lo que
-          decreta el Ejecutivo y el voto ciudadano. */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <PuertaInstituciones />
-        <Suspense fallback={<Esqueleto className="h-[220px]" />}>
-          <PuertaNormativa />
-        </Suspense>
-        <PuertaDemocracia />
+      {/* Lo que vence o acaba de salir: donde hay algo que hacer esta semana. */}
+      <section aria-labelledby="semana" className="space-y-4">
+        <Encabezado id="semana" rotulo="Esta semana" titulo="¿Qué vence y qué acaba de salir?" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Suspense fallback={<PanelEsqueleto titulo="Cierran esta semana" href="/licitaciones?orden=cierre" Icon={IconClock} />}>
+            <PanelCierran />
+          </Suspense>
+          <Suspense fallback={<PanelEsqueleto titulo="Se archivan al cerrar la legislatura" href="/congreso/perencion" Icon={IconClock} />}>
+            <PanelPerencion legislatura={legislatura} diasCierre={diasCierre} />
+          </Suspense>
+          <Suspense fallback={<PanelEsqueleto titulo="Lo último que decretó el Ejecutivo" href="/normativa" Icon={IconDoc} />}>
+            <PanelDecretos />
+          </Suspense>
+        </div>
       </section>
 
-      {/*
-        Indicadores macro del Estado. La silueta lleva dos alturas: en teléfono
-        la tarjeta apila sus tres casillas y mide más que en la fila de tres de
-        escritorio.
-      */}
-      <Suspense fallback={<Esqueleto className="h-[404px] sm:h-[200px]" />}>
-        <SeccionDeuda />
-      </Suspense>
+      {/* 3. ¿Qué gano con una cuenta? */}
+      <SeccionEspacio />
 
-      {/* Lo que el Estado fija y se paga de bolsillo: combustibles y dólar. */}
-      <SeccionBolsillo />
-
-      {/* La economía: remesas, reservas y tasa activa (BCRD); lo que entra y sale por Aduanas. */}
-      <section className="grid gap-4 lg:grid-cols-2" aria-label="Economía y comercio exterior">
-        <Suspense fallback={<Esqueleto className="h-[780px] sm:h-[420px]" />}>
-          <IndicadoresMacro />
-        </Suspense>
-        <Suspense fallback={<Esqueleto className="h-[780px] sm:h-[420px]" />}>
-          <ComercioExterior />
-        </Suspense>
+      {/* 4. ¿Qué más hay? */}
+      <section id="explorar" aria-labelledby="explorar-titulo" className="scroll-mt-24 space-y-4">
+        <Encabezado
+          id="explorar-titulo"
+          rotulo="Todo lo que hay"
+          titulo="¿Qué quieres mirar?"
+          enlace={{ href: "/buscar", texto: "Buscar en todo" }}
+        />
+        <div className="grid gap-4 lg:grid-cols-3">
+          {MENU.map((g) => (
+            <Tema key={g.id} grupo={g} />
+          ))}
+        </div>
       </section>
 
-      {/* Precios y turismo: las dos series del BCRD que solo vienen en .xls viejo (instantánea). */}
-      <section className="grid gap-4 lg:grid-cols-2" aria-label="Precios, turismo y banca">
-        <Suspense fallback={<Esqueleto className="h-[640px] sm:h-[460px]" />}>
-          <InflacionTurismo />
-        </Suspense>
-        <Suspense fallback={<Esqueleto className="h-[520px] sm:h-[420px]" />}>
-          <IndicadoresBanca />
-        </Suspense>
-      </section>
-
-      {/* La carga de los tribunales ordinarios, del boletín mensual del Poder Judicial (instantánea). */}
-      <Suspense fallback={<Esqueleto className="h-[640px] sm:h-[460px]" />}>
-        <EstadisticasJudiciales />
-      </Suspense>
-
-      {/* Lo que el Estado avisa y registra de la calle: la luz, el tiempo y las vías. */}
-      <section className="grid gap-4 lg:grid-cols-3" aria-label="Luz, tiempo y vías">
-        <Suspense fallback={<Esqueleto className="h-[280px]" />}>
-          <DiaElectrico />
-        </Suspense>
-        <Suspense fallback={<Esqueleto className="h-[220px]" />}>
-          <AlertasTiempo />
-        </Suspense>
-        <Suspense fallback={<Esqueleto className="h-[300px]" />}>
-          <SiniestralidadVial />
-        </Suspense>
-      </section>
-
-      {/* Señales que exigen atención */}
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Suspense
-          fallback={
-            <PanelEsqueleto
-              titulo="Cierran esta semana"
-              href="/licitaciones?orden=cierre"
-              Icon={IconClock}
-            />
-          }
-        >
-          <PanelCierran />
-        </Suspense>
-        <Suspense
-          fallback={
-            <PanelEsqueleto
-              titulo="Se archivan al cerrar la legislatura"
-              href="/congreso/perencion"
-              Icon={IconClock}
-            />
-          }
-        >
-          <PanelPerencion legislatura={legislatura} diasCierre={diasCierre} />
-        </Suspense>
-      </section>
-
-      {/* El pie del panorama declara los límites: a 12 px en un teléfono nadie lo lee. */}
+      {/* El pie de la portada declara los límites: a 12 px en un teléfono nadie lo lee. */}
       <p className="px-1 text-[13px] leading-relaxed text-ink-soft sm:text-xs">
         Herramienta independiente y no oficial. Los datos se muestran tal como los
-        publican sus fuentes y se leen en vivo, sin base de datos intermedia. Las
-        cifras del Congreso marcadas “de {PAGINAS_CONGRESO * SIL_PAGE_SIZE}” salen
-        de una muestra acotada, no del corpus completo —{" "}
+        publican sus fuentes; ninguna cifra del Estado se guarda en una base de datos
+        propia. Las cifras del Congreso marcadas “de {PAGINAS_CONGRESO * SIL_PAGE_SIZE}”
+        salen de una muestra acotada —{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           ver el estado y los límites de cada fuente
         </Link>
@@ -283,112 +236,296 @@ export default function Panorama() {
   );
 }
 
-/* ---------------------------------------------------------------- puertas */
+/* ------------------------------------------------------------ encabezados */
 
-/** Seis ministerios que casi todo el mundo busca, como atajo a su ficha. */
-function PuertaInstituciones() {
-  const atajos = ["MINERD", "MISPAS", "MOPC", "MIREX", "MIDE", "MIP"]
-    .map((siglas) => INSTITUCIONES.find((i) => i.acronimo === siglas))
-    .filter((i): i is NonNullable<typeof i> => Boolean(i));
+/** El encabezado de un bloque: epígrafe, la pregunta y, si hay, adónde sigue. */
+function Encabezado({
+  id,
+  rotulo,
+  titulo,
+  enlace: siguiente,
+}: {
+  id: string;
+  rotulo: string;
+  titulo: string;
+  enlace?: { href: string; texto: string };
+}) {
   return (
-    <Card as="article" className="flex flex-col p-5">
-      <CardTitle className="text-base tracking-tight">Instituciones</CardTitle>
-      <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-        Cada ministerio, dirección, hospital y ayuntamiento en una página: su
-        presupuesto, lo que compra y a quién, su nómina y lo que se decreta sobre él.
-      </p>
-      {/*
-        Seis siglas de 16 px de alto con cuatro de aire eran seis objetivos que
-        el pulgar no acierta. Cada atajo es un mando de la talla de la casa
-        —44 px en el teléfono, 40 desde `sm`— y lleva el nombre entero en el
-        `title` y en lo que lee un lector de pantalla.
-      */}
-      <ul className="mt-3 flex flex-1 flex-wrap content-start gap-2">
-        {atajos.map((i) => (
-          <li key={i.id}>
-            <Button asChild variant="outline" className="px-3 font-mono text-xs tracking-wide text-brand-700">
-              <Link href={hrefInstitucion(i)} title={i.nombre} aria-label={`${i.nombre} (${i.acronimo})`}>
-                {i.acronimo}
-              </Link>
-            </Button>
-          </li>
-        ))}
-      </ul>
-      <Button asChild variant="link" className="mt-3 justify-start gap-1.5 px-0 font-semibold">
-        <Link href="/instituciones">
-          Todas las instituciones
-          <IconArrowRight className="h-4 w-4" />
-        </Link>
-      </Button>
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+      <div>
+        <Rotulo>{rotulo}</Rotulo>
+        <h2 id={id} className="font-display mt-1 text-2xl text-ink sm:text-[28px]">
+          {titulo}
+        </h2>
+      </div>
+      {siguiente && (
+        <Button asChild variant="link" className="-mb-1 gap-1.5 px-0 font-semibold">
+          <Link href={siguiente.href}>
+            {siguiente.texto}
+            <IconArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------ indicadores clave */
+
+/**
+ * Las cuatro cifras del país que más se preguntan, en una tira: la deuda, el
+ * dólar, la gasolina y las remesas. Cada una con su fuente y su fecha debajo
+ * (`Cifra`), cada una esperando solo a su fuente. Los tableros enteros, con
+ * sus series y comparaciones, están en `/indicadores`.
+ */
+function IndicadoresClave() {
+  return (
+    <Card as="section" aria-label="Indicadores clave del país" className="overflow-hidden">
+      <TiraDeCifras>
+        <Suspense fallback={<CifraEsqueleto etiqueta="Deuda pública" />}>
+          <CifraDeuda />
+        </Suspense>
+        <Suspense fallback={<CifraEsqueleto etiqueta="Dólar (venta)" />}>
+          <CifraDolar />
+        </Suspense>
+        <Suspense fallback={<CifraEsqueleto etiqueta="Gasolina premium" />}>
+          <CifraGasolina />
+        </Suspense>
+        <Suspense fallback={<CifraEsqueleto etiqueta="Remesas del mes" />}>
+          <CifraRemesas />
+        </Suspense>
+      </TiraDeCifras>
     </Card>
   );
 }
 
-/** Los decretos más recientes, del año en curso. */
-async function PuertaNormativa() {
-  const { docs, origen } = await consultarNormativa("3", new Date().getFullYear());
-  const recientes = docs.slice(0, 3);
+function CifraEsqueleto({ etiqueta }: { etiqueta: string }) {
   return (
-    <Card as="article" className="flex flex-col p-5">
-      <CardTitle className="text-base tracking-tight">Lo último que decretó el Ejecutivo</CardTitle>
-      {origen === null ? (
-        <p className="mt-1 flex-1 text-sm leading-relaxed text-ink-soft">
-          La Consultoría Jurídica no respondió. Los decretos vuelven solos cuando el
-          origen se restablece.
-        </p>
-      ) : recientes.length === 0 ? (
-        <p className="mt-1 flex-1 text-sm leading-relaxed text-ink-soft">
-          Todavía no hay decretos publicados este año.
-        </p>
-      ) : (
-        <ul className="mt-2 flex-1 divide-y divide-hairline">
-          {recientes.map((d) => (
-            <li key={d.numero} className="py-2">
-              <Link href={enlace.norma("decreto", d.numero) ?? "/normativa"} className="group block">
-                <span className="font-mono text-xs font-semibold tabular-nums text-brand-700">
-                  Decreto {d.numero}
-                </span>
-                <span className="mt-0.5 line-clamp-2 block text-sm leading-snug text-ink group-hover:text-brand-700">
-                  {desdeMayusculas(d.titulo)}
-                </span>
+    <div className="flex flex-col gap-1" aria-busy="true">
+      <span className="text-xs leading-tight text-ink-soft">{etiqueta}</span>
+      <Skeleton className="h-7 w-32 bg-hairline/70" />
+      <Skeleton className="h-3 w-40 bg-hairline/70" />
+    </div>
+  );
+}
+
+/** Cuando la fuente no contesta: la cifra no se inventa, se dice. */
+function CifraCaida({ etiqueta }: { etiqueta: string }) {
+  return <Cifra etiqueta={etiqueta} valor="—" nota="La fuente no respondió." />;
+}
+
+async function CifraDeuda() {
+  const d = await getDeuda();
+  if (!d) return <CifraCaida etiqueta="Deuda pública" />;
+  return (
+    <Cifra
+      etiqueta="Deuda pública"
+      valor={formatMagnitud(d.saldoTotal)}
+      nota={`Crédito Público · saldo a ${d.periodo}${d.desdeInstantanea && d.generadoEn ? ` · instantánea del ${formatFecha(d.generadoEn)}` : ""}`}
+    />
+  );
+}
+
+async function CifraDolar() {
+  const t = await getTasa();
+  if (!t) return <CifraCaida etiqueta="Dólar (venta)" />;
+  return (
+    <Cifra
+      etiqueta="Dólar (venta)"
+      valor={`RD$ ${t.ultimo.venta.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+      nota={`Banco Central · ${formatFecha(t.ultimo.fecha)}`}
+    />
+  );
+}
+
+async function CifraGasolina() {
+  const c = await getCombustibles();
+  const premium = c?.precios.find((p) => /gasolina\s+premium/i.test(p.nombre));
+  if (!c || !premium) return <CifraCaida etiqueta="Gasolina premium" />;
+  return (
+    <Cifra
+      etiqueta="Gasolina premium, el galón"
+      valor={`RD$ ${premium.precio.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+      nota={`MICM${c.semana ? ` · semana del ${c.semana}` : ""}`}
+    />
+  );
+}
+
+async function CifraRemesas() {
+  const m = await getMacro();
+  const r = m.remesas;
+  if (!r) return <CifraCaida etiqueta="Remesas del mes" />;
+  return (
+    <Cifra
+      etiqueta="Remesas del mes"
+      valor={r.unidad === "millones de US$" ? formatMagnitud(r.valor) : `${r.valor} ${r.unidad}`}
+      nota={`Banco Central · ${r.periodo}${r.preliminar ? " · preliminar" : ""}`}
+    />
+  );
+}
+
+/* ---------------------------------------------------------- tu espacio */
+
+/**
+ * Para qué sirve la cuenta, dicho con lo que se hace y no con adjetivos. El
+ * ejemplo de la derecha es la **forma** de una investigación —tipos de
+ * registro y lo que los une—, sin nombres: un caso inventado con una
+ * institución real sería una acusación que nadie hizo.
+ */
+function SeccionEspacio() {
+  const razones: { Icon: (p: { className?: string }) => React.ReactElement; titulo: string; texto: string }[] = [
+    { Icon: IconBookmark, titulo: "Guarda lo que encuentras", texto: "Una compra, una ley, un proveedor, una sentencia, una búsqueda: con un toque desde su ficha." },
+    { Icon: IconFolder, titulo: "Arma investigaciones", texto: "Junta registros de toda la plataforma en un mismo expediente, con su descripción." },
+    { Icon: IconLink, titulo: "Enlaza y anota", texto: "Di qué une a dos registros —«la adjudicó», «la firmó»— y anota qué encontraste en cada uno." },
+    { Icon: IconShare, titulo: "Publica o trabaja en equipo", texto: "Publica la investigación con tu firma o invita a colegas a editarla o leerla." },
+    { Icon: IconBell, titulo: "Entérate de lo que cambia", texto: "Lo que sigues viaja con tu cuenta: al entrar, en cualquier dispositivo, ves qué cambió." },
+  ];
+  const ejemplo: { tipo: string; que: string; une?: string }[] = [
+    { tipo: "Institución", que: "Un ministerio", une: "publicó" },
+    { tipo: "Compra pública", que: "Un proceso de compra", une: "lo ganó" },
+    { tipo: "Proveedor", que: "Una empresa", une: "aparece en" },
+    { tipo: "Sentencia", que: "Un fallo del Tribunal Constitucional" },
+  ];
+  return (
+    <section aria-labelledby="espacio" className="space-y-4">
+      <Encabezado id="espacio" rotulo="Tu espacio" titulo="¿Investigas algo? No lo dejes en veinte pestañas." />
+      <Card className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_22rem]">
+        <div>
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {razones.map(({ Icon, titulo, texto }) => (
+              <li key={titulo} className="flex gap-3">
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+                <div>
+                  <p className="text-sm font-semibold text-ink">{titulo}</p>
+                  <p className="mt-0.5 text-[13px] leading-relaxed text-ink-soft sm:text-sm">{texto}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <LlamadaCuenta />
+            <p className="text-xs leading-relaxed text-ink-soft">
+              Gratis. Entras con un código al correo, sin contraseña. Guardamos lo que eliges
+              —nunca los datos del Estado, que siguen leyéndose de su fuente—.{" "}
+              <Link href="/cuenta" className="font-medium text-brand-700 hover:underline">
+                Qué guardamos
               </Link>
-            </li>
+            </p>
+          </div>
+        </div>
+
+        <figure className="rounded-lg border border-hairline bg-canvas p-4">
+          <figcaption className="rotulo text-ink-soft">Así se ve una investigación</figcaption>
+          <ol className="mt-3">
+            {ejemplo.map((e, i) => (
+              <li key={e.tipo}>
+                <div className="rounded-md border border-hairline bg-surface px-3 py-2">
+                  <Badge variant="neutro">{e.tipo}</Badge>
+                  <p className="mt-1 text-sm text-ink">{e.que}</p>
+                  {i === 1 && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-ink-soft">
+                      <IconPencil className="h-3 w-3" />
+                      Tu nota: «revisar el monto adjudicado»
+                    </p>
+                  )}
+                </div>
+                {e.une && (
+                  <p className="flex items-center gap-1.5 py-1.5 pl-4 text-xs text-ink-soft">
+                    <IconLink className="h-3.5 w-3.5" />
+                    {e.une}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </figure>
+      </Card>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------ el mapa */
+
+/**
+ * Un tema del índice (`lib/menu.ts`): su pregunta, su entrada principal y,
+ * plegados, todos sus destinos por columna con la línea que dice qué hay. Es
+ * el mismo índice del megamenú, así que no puede desalinearse de él.
+ */
+function Tema({ grupo }: { grupo: GrupoMenu }) {
+  const total = grupo.columnas.reduce((n, c) => n + c.enlaces.length, 0);
+  return (
+    <Card as="article" className="flex flex-col">
+      <div className="p-5 pb-4">
+        <Rotulo>{grupo.label}</Rotulo>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink">{grupo.resumen}</p>
+        <div className="relative mt-3 rounded-lg border border-hairline bg-canvas px-3.5 py-3">
+          <Link href={grupo.destacado.href} className="estira text-sm font-semibold text-brand-700">
+            {grupo.destacado.label}
+          </Link>
+          <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{grupo.destacado.nota}</p>
+        </div>
+      </div>
+      <Plegable etiqueta={`Ver sus ${total} destinos`} className="mt-auto">
+        <div className="space-y-4 px-5 pb-5 pt-1">
+          {grupo.columnas.map((c) => (
+            <div key={c.titulo}>
+              <p className="flex items-center gap-2 text-xs font-semibold text-ink">
+                <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${puntoDe(c)}`} />
+                {c.titulo}
+              </p>
+              <ul className="mt-1 divide-y divide-hairline">
+                {c.enlaces.map((e) => (
+                  <li key={e.href} className="relative py-2">
+                    <Link href={e.href} className="estira text-sm font-medium text-ink">
+                      {e.label}
+                    </Link>
+                    <p className="text-xs leading-snug text-ink-soft">{e.nota}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
-      )}
-      {origen && origen !== "vivo" && (
-        <p className="mt-1 text-xs text-ink-soft">Instantánea del {formatFecha(origen)}.</p>
-      )}
-      <Button asChild variant="link" className="mt-3 justify-start gap-1.5 px-0 font-semibold">
-        <Link href="/normativa">
-          Toda la normativa
-          <IconArrowRight className="h-4 w-4" />
-        </Link>
-      </Button>
-    </Card>
-  );
-}
-
-function PuertaDemocracia() {
-  return (
-    <Card as="article" className="flex flex-col p-5">
-      <CardTitle className="text-base tracking-tight">Tu voto sobre lo que se legisla</CardTitle>
-      <p className="mt-1 flex-1 text-sm leading-relaxed text-ink-soft">
-        Un piloto de voto ciudadano: lee una iniciativa del Congreso y di si estás
-        a favor o en contra. Una cédula, un voto por iniciativa; después de votar
-        ves cuántos opinaron como tú.
-      </p>
-      <Button asChild variant="link" className="mt-3 justify-start gap-1.5 px-0 font-semibold">
-        <Link href="/congreso">
-          Elegir una iniciativa para votar
-          <IconArrowRight className="h-4 w-4" />
-        </Link>
-      </Button>
+        </div>
+      </Plegable>
     </Card>
   );
 }
 
 /* ------------------------------------------------------- piezas asíncronas */
+
+/** Los decretos más recientes, del año en curso, como panel de «Esta semana». */
+async function PanelDecretos() {
+  const { docs, origen } = await consultarNormativa("3", new Date().getFullYear());
+  const recientes = docs.slice(0, 4);
+  return (
+    <Panel titulo="Lo último que decretó el Ejecutivo" nota={`${recientes.length}`} href="/normativa" Icon={IconDoc}>
+      {origen === null ? (
+        <Vacio caida texto="La Consultoría Jurídica no respondió. Los decretos vuelven solos cuando el origen se restablece." />
+      ) : recientes.length === 0 ? (
+        <Vacio texto="Todavía no hay decretos publicados este año." />
+      ) : (
+        <>
+          <ul className="divide-y divide-hairline">
+            {recientes.map((d) => (
+              <li key={d.numero}>
+                <Link
+                  href={enlace.norma("decreto", d.numero) ?? "/normativa"}
+                  className="block px-5 py-3 transition-colors hover:bg-canvas/60"
+                >
+                  <span className="font-mono text-xs font-semibold tabular-nums text-brand-700">Decreto {d.numero}</span>
+                  <span className="mt-0.5 line-clamp-2 text-sm leading-snug text-ink">{desdeMayusculas(d.titulo)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {origen !== "vivo" && (
+            <p className="px-5 pb-3 text-xs text-ink-soft">Instantánea del {formatFecha(origen)}.</p>
+          )}
+        </>
+      )}
+    </Panel>
+  );
+}
 
 async function DominioCompras() {
   const compras = await procesosRecientes();
@@ -540,69 +677,6 @@ async function DominioNomina() {
   );
 }
 
-async function SeccionDeuda() {
-  const deuda = await getDeuda();
-  if (!deuda) return null;
-
-  return (
-    <Card as="section" className="p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <IconTrendingUp className="h-4 w-4 text-ink-soft" />
-            Deuda pública
-          </CardTitle>
-          <p className="mt-0.5 text-xs text-ink-soft">
-            Sector Público No Financiero · saldo a {deuda.periodo}
-          </p>
-        </div>
-        {/*
-          El enlace al origen medía 100 × 16 px: en un teléfono eso no se
-          acierta. Toma la altura de la primitiva y los márgenes negativos
-          devuelven el bloque a su sitio, así que el objetivo crece sin que el
-          diseño se mueva.
-        */}
-        <Button asChild variant="link" className="-my-2 -mr-2 px-2 text-xs">
-          <a
-            href="https://www.creditopublico.gob.do/inicio/estadisticas"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Crédito Público ↗
-          </a>
-        </Button>
-      </div>
-      {/*
-        A 390 px las tres casillas en fila de tres partían «US$ 61.5 mil
-        millones» en cuatro líneas y la última se recortaba contra el filete:
-        la cifra más grande de la página quedaba ilegible. En teléfono las tres
-        se apilan y cada una pone su etiqueta a la izquierda y su cifra a la
-        derecha —la fila completa da los 326 px que el monto necesita—; desde
-        `sm`, donde caben, vuelven a la fila de tres con la etiqueta encima.
-      */}
-      <div className="mt-4 grid gap-2 sm:grid-cols-3 sm:gap-4">
-        <IndicadorDeuda
-          etiqueta="Deuda total"
-          valor={formatMagnitud(deuda.saldoTotal)}
-          destacar
-        />
-        <IndicadorDeuda etiqueta="Externa" valor={formatMagnitud(deuda.saldoExterna)} />
-        <IndicadorDeuda etiqueta="Interna" valor={formatMagnitud(deuda.saldoInterna)} />
-      </div>
-      <p className="mt-3 text-xs text-ink-soft">
-        Fuente: Dirección General de Crédito Público del Ministerio de Hacienda.
-        {deuda.desdeInstantanea && (
-          <>
-            {" "}
-            Instantánea verificada del {deuda.generadoEn}: el servidor del origen
-            no acepta lecturas desde la nube.
-          </>
-        )}
-      </p>
-    </Card>
-  );
-}
-
 async function PanelCierran() {
   const compras = await procesosRecientes();
   const procesos = compras?.payload.content ?? [];
@@ -635,7 +709,7 @@ async function PanelCierran() {
                   {dias === 0 ? "hoy" : `${dias} d`}
                 </Badge>
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 block text-sm text-ink">{p.titulo}</span>
+                  <span className="line-clamp-2 text-sm text-ink">{p.titulo}</span>
                   <span className="mt-0.5 block truncate text-xs text-ink-soft">
                     {p.unidad_compra}
                   </span>
@@ -681,7 +755,7 @@ async function PanelPerencion({
                 href={enlace.iniciativa(ini.id)}
                 className="block px-5 py-3 transition-colors hover:bg-canvas/60"
               >
-                <span className="line-clamp-2 block text-sm text-ink">{ini.titulo}</span>
+                <span className="line-clamp-2 text-sm text-ink">{ini.titulo}</span>
                 <span className="mt-0.5 block font-mono text-xs tabular-nums text-ink-soft">
                   {ini.numero?.completo ?? `#${ini.id}`}
                 </span>
@@ -746,8 +820,17 @@ function Dominio({
 
       {disponible ? (
         <dl className="mt-4 flex-1 space-y-2.5">
+          {/*
+            En el teléfono cada tarjeta enseña su cifra destacada y nada más:
+            las cuatro apiladas medían mil píxeles antes de llegar a lo que
+            vence esta semana. El desglose vuelve desde `sm`, y está entero en
+            la vertical, a un toque.
+          */}
           {cifras.map((c) => (
-            <div key={c.etiqueta} className="flex items-baseline justify-between gap-3">
+            <div
+              key={c.etiqueta}
+              className={cn("items-baseline justify-between gap-3", c.destacar ? "flex" : "hidden sm:flex")}
+            >
               {/*
                 En teléfono la tarjeta ocupa el ancho entero y la etiqueta
                 puede respirar a 13 px; desde `sm` la rejilla la estrecha a un
@@ -927,47 +1010,5 @@ function Vacio({ texto, caida = false }: { texto: string; caida?: boolean }) {
         {texto}
       </p>
     </div>
-  );
-}
-
-function IndicadorDeuda({
-  etiqueta,
-  valor,
-  destacar,
-}: {
-  etiqueta: string;
-  valor: string;
-  destacar?: boolean;
-}) {
-  /*
-    La destacada se queda apilada también en teléfono: «US$ 61.5 mil millones»
-    a 18 px necesita los 326 px de la fila entera, y compartiéndola con su
-    etiqueta se partía en dos. Externa e interna van a 16 px y sí caben al lado
-    de la suya, que es lo que las deja leerse como el desglose de la de arriba.
-  */
-  return (
-    <Card
-      className={cn(
-        "bg-canvas/60 px-4 py-3",
-        destacar ? "block" : "flex items-baseline justify-between gap-3 sm:block",
-      )}
-    >
-      <div className="shrink-0 text-[13px] text-ink-soft sm:text-xs">{etiqueta}</div>
-      {/*
-        Las tres cifras son comparables entre sí, así que las tres van en mono
-        tabular: lo único que distingue a la destacada es el tamaño. Con una
-        en mono y dos en sans, los dígitos no alinean y el ojo lee dos de
-        ellas como texto.
-      */}
-      <div
-        className={
-          destacar
-            ? "mt-0.5 font-mono text-lg font-semibold tabular-nums tracking-tight text-ink"
-            : "font-mono text-base font-semibold tabular-nums text-ink sm:mt-0.5"
-        }
-      >
-        {valor}
-      </div>
-    </Card>
   );
 }

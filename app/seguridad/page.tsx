@@ -49,9 +49,25 @@ export default function SeguridadPlataformaPage() {
         <Medida titulo="Las superficies de inteligencia no guardan datos personales">
           Licitaciones, Congreso, Normativa, Nómina y los indicadores del panorama
           se leen <strong>en vivo</strong> de fuentes oficiales y se cachean unos
-          minutos; no hay base de datos, ni cuentas, ni rastreo de quién consulta.
-          La forma más fuerte de proteger un dato personal es no recolectarlo, y
-          en toda esta parte de la plataforma sencillamente no existe.
+          minutos; no hay base de datos ni rastreo de quién consulta, y se leen
+          igual con cuenta que sin ella. La forma más fuerte de proteger un dato
+          personal es no recolectarlo, y en toda esta parte de la plataforma
+          sencillamente no existe.
+        </Medida>
+
+        <Medida titulo="Tu cuenta guarda lo que eliges, nunca los datos del Estado">
+          La cuenta es opcional y se abre con un código al correo, sin
+          contraseña. Guarda tu correo, el nombre con que firmas si lo das, y lo
+          que eliges: la <strong>referencia</strong> a cada registro —tipo,
+          número, título, enlace—, tus notas, tus enlaces y lo que sigues. Ninguna
+          cifra del Estado entra en la base: cada registro se sigue leyendo de su
+          fuente. Lo tuyo es privado a nivel de base de datos hasta que lo
+          publiques o invites a alguien, y quien lee lo publicado no ve tu correo
+          ni quién colabora.{" "}
+          <Link href="/cuenta" className="font-medium text-brand-700 hover:underline">
+            Qué guarda la cuenta
+          </Link>
+          .
         </Medida>
 
         <Medida titulo="La nómina se publica sin nombres ni identificadores">
@@ -61,7 +77,7 @@ export default function SeguridadPlataformaPage() {
         </Medida>
 
         <Medida titulo="En Democracia, la cédula se cifra y el voto es privado">
-          El único vertical con datos ciudadanos aplica minimización estricta: la
+          El voto aplica minimización estricta: la
           cédula se convierte en un código irreversible con una clave que{" "}
           <strong>vive solo dentro de la base de datos</strong>, el voto es
           privado a nivel de base de datos (no solo de interfaz), y solo se

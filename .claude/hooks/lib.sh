@@ -16,12 +16,18 @@ es_archivo_ui() {
   esac
 }
 
-# Files that legitimately touch Supabase / env vars (the /democracia
-# exception, docs/PLAN-DEMOCRACIA.md). Everything else is stateless by contract.
-es_archivo_democracia() {
+# Files that legitimately touch Supabase / env vars: the two documented
+# exceptions — /democracia (docs/PLAN-DEMOCRACIA.md) and the reader's account
+# and spaces (docs/PLAN-ESPACIOS.md, owner decision 2026-09-28). A data surface
+# (a ficha, a listing) never imports Supabase: it renders a component from
+# components/espacios/, and that component is the only thing that talks to the
+# database. Everything else is stateless by contract.
+es_archivo_con_estado() {
   case "$1" in
     *lib/supabase.ts|*lib/supabase-config.ts|*lib/democracia.ts|*lib/cedula.ts) return 0 ;;
+    *lib/espacios.ts|*lib/espacios-cliente.ts|*lib/sesion.ts) return 0 ;;
     *app/democracia/*|*components/democracia/*|*supabase/*) return 0 ;;
+    *app/cuenta/*|*app/espacio/*|*app/p/*|*components/espacios/*) return 0 ;;
     *) return 1 ;;
   esac
 }

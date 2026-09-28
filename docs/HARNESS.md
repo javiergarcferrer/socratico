@@ -71,6 +71,7 @@ decisiones del dueño vivían dentro del archivo de arranque.
 | `.claude/rules/identidad.md` | `app/`, `components/` | `docs/IDENTIDAD.md` | mantener |
 | `.claude/rules/fuentes.md` | `lib/*.ts`, `app/api/` | `docs/AUDITORIA.md` + `docs/RECON.md` | mantener |
 | `.claude/rules/democracia.md` | `app/democracia/`, `supabase/`, `lib/supabase*` | `docs/PLAN-DEMOCRACIA.md` | mantener |
+| `.claude/rules/espacios.md` | `app/cuenta/`, `app/espacio/`, `app/p/`, `components/espacios/`, `lib/espacios*`, `lib/sesion.ts` | `docs/PLAN-ESPACIOS.md` | mantener |
 
 ### T2 — al invocar un disparador
 

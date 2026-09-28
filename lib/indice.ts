@@ -39,6 +39,8 @@ export interface Destino extends EnlaceMenu {
 export const FUERA_DEL_INDICE: Record<string, string> = {
   "/democracia/registro": "Trámite: se llega desde el voto, no se elige.",
   "/democracia/cuenta-unica/callback": "Retorno del inicio de sesión de Cuenta Única.",
+  "/cuenta": "Trámite: se llega desde «Entrar» o «Guardar», no se elige.",
+  "/espacio/proyecto": "Una investigación concreta: se abre desde tu espacio, no desde el índice.",
 };
 
 function construir(): Destino[] {

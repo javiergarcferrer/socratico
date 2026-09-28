@@ -153,6 +153,7 @@ export const MENU: GrupoMenu[] = [
       {
         titulo: "El país y sus datos",
         enlaces: [
+          { href: "/indicadores", label: "Indicadores del país", nota: "Deuda, dólar, combustibles, economía, tribunales y la calle, al día", tarea: "vigilar" },
           { href: "/pais", label: "El país en cifras", nota: "Seguridad, escuela y vivienda, provincia por provincia", tarea: "comparar" },
           { href: "/luz", label: "Cortes de luz programados", nota: "Los mantenimientos anunciados para esta semana", tarea: "vigilar" },
           { href: "/documentos", label: "Biblioteca del Estado", nota: "Informes, memorias y estadísticas que publica cada institución", tarea: "leer" },
@@ -162,7 +163,8 @@ export const MENU: GrupoMenu[] = [
       {
         titulo: "La plataforma",
         enlaces: [
-          { href: "/", label: "Panorama", nota: "Todo lo importante en una página", tarea: "vigilar" },
+          { href: "/", label: "Inicio", nota: "Qué es Socrático, qué pasa hoy y todo lo que hay", tarea: "vigilar" },
+          { href: "/espacio", label: "Tu espacio", nota: "Tus investigaciones, lo que guardaste y lo que sigues", tarea: "participar" },
           { href: "/seguimiento", label: "Mi seguimiento", nota: "Lo que sigues y qué cambió", tarea: "participar" },
           { href: "/fuentes", label: "Estado de las fuentes", nota: "Qué leemos, con qué límites y qué está bloqueado", tarea: "entender" },
           { href: "/seguridad", label: "Seguridad y cumplimiento", nota: "Cómo tratamos los datos", tarea: "entender" },

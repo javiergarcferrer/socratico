@@ -8,7 +8,7 @@ paths:
   - "lib/cedula.ts"
   - "supabase/**"
 ---
-# `/democracia` — the one stateful vertical
+# `/democracia` — the voting exception
 
 docs/PLAN-DEMOCRACIA.md governs; read §2 (architecture), §3 (schema), §4 (security)
 before changing anything here. This is an **independent, unofficial citizen
@@ -33,10 +33,12 @@ pilot**; every surface says so.
   on every app surface; `supabase/` (the GRANT, the Edge Function) and the
   docs may name it. That scope is deliberate (`.claude/hooks/lib.sh`); do not
   widen it further.
-- The Supabase client (`lib/supabase.ts`) is imported only by democracia
-  modules. Other verticals may render `components/democracia/*` and call
+- The Supabase client (`lib/supabase.ts`) is imported only by the two
+  exceptions: democracia modules and the reader's spaces
+  (`.claude/rules/espacios.md`). Other verticals may render
+  `components/democracia/*` and `components/espacios/*` and call
   `lib/democracia.ts` helpers (the congress fichas embed the vote widget);
-  they never touch the client. Hooks enforce this.
+  they never touch the client. Hooks enforce this (`es_archivo_con_estado`).
 
 ## Security invariants (PLAN §4) — do not weaken
 1. Store the HMAC of the cédula, never the cédula; no names; email only in Auth.

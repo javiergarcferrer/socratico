@@ -3,14 +3,16 @@
 import { useEffect } from "react";
 
 import SeguirButton from "./seguir-button";
+import Guardar from "./espacios/guardar";
+import { enlace } from "@/lib/grafo";
 import { compartirEnlace } from "./compartir";
 import { IconExternal, IconShare } from "./icons";
 import { Button } from "@/components/ui/button";
 
 /**
  * La barra de acciones de un proceso en el teléfono: fija sobre la tab bar,
- * con lo único que se puede hacer desde aquí —seguirlo, compartirlo y ofertar
- * en el portal—. En escritorio no existe: allí las acciones están en la
+ * con lo único que se puede hacer desde aquí —seguirlo, guardarlo en una
+ * investigación, compartirlo y ofertar en el portal—. En escritorio no existe: allí las acciones están en la
  * cabecera de la ficha, a la vista.
  */
 export default function AccionesProceso({
@@ -50,6 +52,7 @@ export default function AccionesProceso({
     >
       <div className="mx-auto flex max-w-md items-center gap-2">
         <SeguirButton codigo={codigo} titulo={titulo} huella={huella} variant="bar" />
+        <Guardar referencia={{ tipo: "proceso", ref: enlace.proceso(codigo), titulo, href: enlace.proceso(codigo) }} className="h-12" />
         <Button
           variant="secondary"
           size="icon"

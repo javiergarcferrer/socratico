@@ -45,11 +45,13 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   Cuenta Única login confirms a cédula someone else typed unverified, the RPC
   refuses with `cedula_declarada_en_uso` and displaces nobody. Decide whether
   verification should win (deleting the unverified row and its votes).
-- **Push notifications for «seguimiento»** (docs/PLAN-ACCESO.md §6): following
-  anything is built and lives in the browser (`localStorage`), with «qué
-  cambió desde tu última visita» and RSS per ficha. Push would need stored
-  subscriptions on a server — the first state outside `/democracia`. Until
-  decided: no push.
+- **Alerts by e-mail or push** (docs/PLAN-ACCESO.md §6, PLAN-ESPACIOS §Alertas):
+  since 2026-09-28 what a signed-in reader follows lives in their account
+  (`espacios.seguimientos`) and «qué cambió» is shown on any device when they
+  sign in. Sending it — an e-mail digest or a push — needs a scheduled job
+  that reads the sources and a sender: an e-mail provider (money, a key) or
+  web-push keys, and the job would hold a service credential outside the
+  app. Until decided: alerts are seen on arrival, not sent.
 - **Scheduled snapshot refresh** (PLAN-ACCESO §6): eight snapshots now feed
   the platform (`scripts/build-{fiscal,nomina,deuda,normativa,instituciones,
   obras,rnc,sismap}.py`). Normativa matters most: the Consultoría challenges
@@ -81,6 +83,22 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crea el dueño en su panel, con tope de gasto.
 
 ## Cerradas, para que nadie las reabra
+
+- **Cuentas y espacios del lector** (28-09-2026). El dueño pidió una portada que
+  explique por qué crear una cuenta y espacios donde guardar registros, armar
+  proyectos de investigación que enlacen registros distintos, anotarlos,
+  publicarlos, trabajarlos con otras personas y recibir alertas; eligió
+  **cuentas reales en Supabase** frente a espacios solo en el navegador. Es la
+  segunda excepción a la invariante, con el mismo contrato que la primera: un
+  esquema propio (`espacios`), RLS en cada tabla, solo claves publicables en la
+  app, y **ningún dato del Estado** en la base —se guarda la referencia (tipo,
+  identificador, título, enlace, huella), nunca la cifra: el registro se sigue
+  leyendo de su origen—. Una ficha no toca la DB; pinta un componente de
+  `components/espacios/` (los hooks lo vigilan). La migración y la exposición
+  del esquema en el API se aplican **solo con la aprobación del dueño**
+  (`docs/PLAN-ESPACIOS.md` §Aplicar). Las alertas por correo o push siguen
+  abiertas (arriba): las alertas de la cuenta se ven al entrar, en cualquier
+  dispositivo.
 
 - **El buscador no va a una base de datos** (26-09-2026). Se propuso una
   búsqueda híbrida en Postgres (texto por idioma + trigramas + `pgvector`,

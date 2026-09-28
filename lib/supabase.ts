@@ -4,10 +4,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase-config";
 
 /**
- * Cliente de Supabase para el navegador — SOLO lo usa la vertical
- * `/democracia` (la excepción documentada en CLAUDE.md). Maneja la sesión OTP
- * en localStorage; las operaciones de datos van al schema `democracia`, cuya
- * seguridad vive en la base (RLS + funciones SECURITY DEFINER), nunca aquí.
+ * Cliente de Supabase para el navegador — SOLO lo usan las dos excepciones de
+ * CLAUDE.md: `/democracia` (esquema `democracia`) y la cuenta con sus espacios
+ * (esquema `espacios`, `lib/espacios.ts`). Una sola sesión OTP en
+ * localStorage para las dos: quien vota y quien investiga es la misma cuenta.
+ * La seguridad vive en la base (RLS + funciones SECURITY DEFINER), nunca aquí.
  */
 
 let cliente: SupabaseClient | null = null;
@@ -32,4 +33,9 @@ export function supabase(): SupabaseClient {
 /** Acceso al schema de la iniciativa (tablas y RPC viven en `democracia`). */
 export function db() {
   return supabase().schema("democracia");
+}
+
+/** Acceso al esquema del espacio del lector (`docs/PLAN-ESPACIOS.md`). */
+export function espacios() {
+  return supabase().schema("espacios");
 }

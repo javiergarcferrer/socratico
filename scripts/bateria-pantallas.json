@@ -1,16 +1,16 @@
 {
-  "descripcion": "Sesenta preguntas en llano y la pantalla que las contesta (docs/PLAN-ACCESO.md §6 ter, G4). Hecho cuando cada una llega a su pantalla entre los tres primeros resultados de buscarPantallas. Se corre con: node scripts/probar-pantallas.mjs",
+  "descripcion": "Sesenta y dos preguntas en llano y la pantalla que las contesta (docs/PLAN-ACCESO.md §6 ter, G4). Hecho cuando cada una llega a su pantalla entre los tres primeros resultados de buscarPantallas. Se corre con: node scripts/probar-pantallas.mjs",
   "preguntas": [
-    ["precio del dólar", "/"],
-    ["cuánto está la gasolina premium", "/"],
-    ["tasa de cambio del peso", "/"],
-    ["inflación de este año", "/"],
-    ["cuánto dinero mandan los dominicanos del exterior", "/"],
-    ["reservas del banco central", "/"],
-    ["llegada de turistas", "/"],
-    ["hay apagones hoy en el país", "/"],
-    ["viene una tormenta", "/"],
-    ["muertos en accidentes de motor", "/"],
+    ["precio del dólar", "/indicadores"],
+    ["cuánto está la gasolina premium", "/indicadores"],
+    ["tasa de cambio del peso", "/indicadores"],
+    ["inflación de este año", "/indicadores"],
+    ["cuánto dinero mandan los dominicanos del exterior", "/indicadores"],
+    ["reservas del banco central", "/indicadores"],
+    ["llegada de turistas", "/indicadores"],
+    ["hay apagones hoy en el país", "/indicadores"],
+    ["viene una tormenta", "/indicadores"],
+    ["muertos en accidentes de motor", "/indicadores"],
     ["licitaciones abiertas", "/licitaciones"],
     ["qué compras publicó el gobierno hoy", "/licitaciones"],
     ["concursos para vender computadoras al Estado", "/licitaciones"],
@@ -60,6 +60,8 @@
     ["ranking de ayuntamientos", "/gestion"],
     ["auditoría de la cámara de cuentas", "/auditorias"],
     ["memoria institucional del ministerio", "/documentos"],
-    ["descargar datos abiertos", "/datos"]
+    ["descargar datos abiertos", "/datos"],
+    ["dónde guardo lo que encuentro", "/espacio"],
+    ["qué es socrático", "/"]
   ]
 }

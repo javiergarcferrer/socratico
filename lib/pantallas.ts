@@ -28,19 +28,8 @@ export interface Pantalla {
 
 export const PANTALLAS: Record<string, Pantalla> = {
   "/": {
-    que: "El panorama del país en una página: la tasa del dólar, los precios de los combustibles, la inflación, las remesas, las reservas, el turismo, la banca, el comercio exterior, la electricidad del día, las alertas del tiempo, los accidentes de tránsito y lo último del Estado.",
-    preguntas: [
-      "¿A cómo está el dólar hoy?",
-      "¿Cuánto cuesta la gasolina?",
-      "¿Cuál es la inflación?",
-      "¿Cuántas remesas llegaron?",
-      "¿Cuántos turistas vienen al país?",
-      "¿Hay apagones hoy?",
-      "¿Hay alerta por tormenta o ciclón?",
-      "¿Cuántos muertos hay en accidentes de tránsito?",
-      "¿Cuánto exporta e importa el país?",
-      "¿A qué tasa prestan los bancos?",
-    ],
+    que: "Qué es Socrático: la plataforma independiente para explorar lo que publica el Estado dominicano —compras, presupuesto, deuda, nómina, leyes, Congreso, tribunales— con lo que pasa hoy, todo lo que hay organizado por tema y para qué sirve tener una cuenta.",
+    preguntas: ["¿Qué es Socrático?", "¿Qué puedo hacer en esta plataforma?", "¿Para qué sirve crear una cuenta?"],
   },
   "/buscar": {
     que: "Una sola caja para buscar en toda la plataforma: instituciones, legisladores, proveedores, compras, leyes, iniciativas, sentencias, obras, documentos, datos abiertos y cargos.",
@@ -269,6 +258,29 @@ export const PANTALLAS: Record<string, Pantalla> = {
     preguntas: [
       "¿Dónde descargo datos abiertos del gobierno?",
       "¿Hay un archivo con estadísticas en Excel?",
+    ],
+  },
+  "/indicadores": {
+    que: "El panorama del país en una página: la deuda pública, la tasa del dólar, los precios de los combustibles, la inflación, las remesas, las reservas, el turismo, la banca, el comercio exterior, los tribunales, la electricidad del día, las alertas del tiempo y los accidentes de tránsito.",
+    preguntas: [
+      "¿A cómo está el dólar hoy?",
+      "¿Cuánto cuesta la gasolina?",
+      "¿Cuál es la inflación?",
+      "¿Cuántas remesas llegaron?",
+      "¿Cuántos turistas vienen al país?",
+      "¿Hay apagones hoy?",
+      "¿Hay alerta por tormenta o ciclón?",
+      "¿Cuántos muertos hay en accidentes de tránsito?",
+      "¿Cuánto exporta e importa el país?",
+      "¿A qué tasa prestan los bancos?",
+    ],
+  },
+  "/espacio": {
+    que: "Tu espacio con cuenta: investigaciones que juntan compras, leyes, proveedores y documentos, con notas, enlaces entre ellos, colaboradores y publicación.",
+    preguntas: [
+      "¿Dónde guardo lo que encuentro?",
+      "¿Cómo armo una investigación con varios registros?",
+      "¿Cómo comparto una investigación con otro periodista?",
     ],
   },
   "/seguimiento": {

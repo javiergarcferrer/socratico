@@ -22,7 +22,8 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/`.
 | Obra pública y país | `/obras`, `/pais` | MapaInversiones; robos y armas (MIP), matrícula (MINERD), licencias (MIVHED) (instantáneas) | `lib/obras.ts`, `lib/sociedad.ts` |
 | Gestión, control y datos | `/gestion`, `/auditorias`, `/documentos`, `/datos` | SISMAP; Contraloría y Cámara de Cuentas; bibliotecas WordPress de 22 instituciones; datos.gob.do (instantáneas) | `lib/sismap.ts`, `lib/auditorias.ts`, `lib/biblioteca.ts`, `lib/catalogo.ts` |
 | Indicadores del panorama | tarjetas en `/`, `/luz` | MICM, BCRD (CDN), SB (SIMBAD), Aduanas, OC (luz), mantenimientos de Edenorte y Edesur, INDOMET (alertas), OPSEVI (vías), en vivo | `lib/combustibles.ts`, `lib/tasa.ts`, `lib/macro.ts`, `lib/bcrd.ts`, `lib/banca.ts`, `lib/aduanas.ts`, `lib/energia.ts`, `lib/alertas.ts`, `lib/siniestralidad.ts`, `lib/cortes.ts` |
-| Democracia | `/democracia` | Supabase, esquema `democracia` — **la excepción** | `lib/democracia.ts`, `lib/supabase.ts` |
+| Democracia | `/democracia` | Supabase, esquema `democracia` — **excepción** | `lib/democracia.ts`, `lib/supabase.ts` |
+| Tu espacio | `/cuenta`, `/espacio`, `/p/[slug]` | Supabase, esquema `espacios` — **excepción**: lo guardado, proyectos, notas, alertas | `lib/espacios.ts`, `lib/espacios-cliente.ts`, `lib/sesion.ts` |
 
 `lib/secciones.ts` es la fuente única de verticales; `lib/indice.ts` (de `lib/menu.ts`) la de destinos y su tarea. `/` es el panorama; `/fuentes` declara
 qué alimenta la plataforma, qué está bloqueado y con qué límites de cobertura — mantenerlo cierto es parte de tocar una fuente. Toda lectura pasa por `lib/pedir.ts` (el contrato, con `zod`); HTML por `lib/html.ts`, XLSX por `lib/xlsx.ts`; todo enlace a una entidad sale de `lib/grafo.ts` (y `lib/grafo-servidor.ts`).
@@ -34,12 +35,11 @@ entorno.** Todo se lee en vivo y se cachea con `revalidate`. Nunca se introduce
 una DB, una API key ni un secreto en licitaciones, congreso, nómina, finanzas,
 normativa, deuda, el panorama ni `/fuentes`.
 
-**La única excepción documentada es `/democracia`** (voto ciudadano), que por
-naturaleza necesita persistencia e identidad. Usa Supabase confinado al esquema
-`democracia`, y la app solo lleva claves **publicables**; lo sensible —el pepper
-de la cédula, la verificación del ID token, el service role— vive dentro de
-Postgres y de una Edge Function. La excepción no se filtra: ninguna otra
-vertical lee ni escribe la DB. Los hooks lo impiden antes de que se escriba.
+**Dos excepciones, ambas de lo que es del lector y no del Estado:** `/democracia` (voto,
+esquema `democracia`) y la cuenta con sus espacios (`/cuenta`, `/espacio`, `/p`; esquema
+`espacios`). Supabase, solo claves **publicables**; lo sensible vive en Postgres y en una Edge
+Function. Ningún dato del Estado entra a la DB: una ficha no la lee, pinta un componente de
+`components/espacios/`. Los hooks lo impiden antes de que se escriba.
 
 ## Qué documento responde a qué
 
@@ -49,7 +49,7 @@ vertical lee ni escribe la DB. Los hooks lo impiden antes de que se escriba.
 | ¿Dónde vive **X**? ¿Por qué está escrito así? | `docs/ARQUITECTURA.md` — capas, rutas de API, páginas, rendimiento percibido |
 | ¿Cómo se lee el **Congreso**? | `docs/RECON.md` — mecánica verificada del SIL, el consultante, cadenas de documentos |
 | ¿Y **cualquier otra fuente** del Estado? | `docs/AUDITORIA.md` — estado ✅/⚠️/❌, familias de acceso, bloqueos y su desbloqueo institucional |
-| ¿Cómo funciona la **excepción** de la DB? | `docs/PLAN-DEMOCRACIA.md` — esquema, RLS, RPCs, seguridad, Cuenta Única (§9) |
+| ¿Cómo funcionan las **excepciones** de la DB? | `docs/PLAN-DEMOCRACIA.md` (voto, Cuenta Única §9) y `docs/PLAN-ESPACIOS.md` (cuentas, proyectos, alertas) |
 | ¿Qué se construye **después**? | `docs/PLAN-ACCESO.md` — plan de acceso: horizontes, orden, criterio de hecho |
 | ¿Qué **decidió el dueño** y qué falta decidir? | `docs/DECISIONES.md` — no se re-preguntan ni se deciden aquí |
 | ¿Qué archivos **moldean una sesión**? | `docs/HARNESS.md` — inventario, orden de carga, dónde va una regla nueva |

@@ -1,0 +1,157 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import type { Referencia } from "@/lib/espacios";
+import type { ProyectoConCuenta } from "@/lib/espacios-cliente";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { IconArrowRight, IconBookmark, IconPlus } from "@/components/icons";
+import { useHaySesion } from "./presencia";
+
+type Carga =
+  | { estado: "cargando" }
+  | { estado: "listo"; proyectos: ProyectoConCuenta[]; donde: Set<string> }
+  | { estado: "cerrado" }
+  | { estado: "error"; error: string };
+
+/** La bandeja «Guardado sin ordenar», como clave del conjunto `donde`. */
+const BANDEJA = "__bandeja__";
+
+/**
+ * «Guardar» en una ficha: en la bandeja o directo a una o varias
+ * investigaciones (docs/PLAN-ESPACIOS.md). Es la única pieza de una ficha que
+ * habla con la base, y la ficha no lo sabe: importa este componente, no el
+ * cliente de Supabase. El cliente se carga **al abrir**, no al pintar la
+ * ficha: la mayoría de las visitas no tiene cuenta y no tiene por qué
+ * pagarlo.
+ *
+ * Sin sesión, no finge: dice qué haría la cuenta y lleva a crearla,
+ * volviendo después a esta misma ficha.
+ */
+export default function Guardar({ referencia, className }: { referencia: Referencia; className?: string }) {
+  const hay = useHaySesion();
+  const pathname = usePathname();
+  const [carga, setCarga] = useState<Carga>({ estado: "cargando" });
+  const [nuevo, setNuevo] = useState("");
+  const [guardado, setGuardado] = useState(false);
+
+  async function abrir(abierto: boolean) {
+    if (!abierto || !hay) return;
+    setCarga({ estado: "cargando" });
+    const c = await import("@/lib/espacios-cliente");
+    const u = await c.sesionActual();
+    if (!u) return setCarga({ estado: "error", error: "Tu sesión venció. Vuelve a entrar." });
+    const [p, d] = await Promise.all([c.misProyectos(u), c.dondeEsta(referencia)]);
+    if ((!p.ok && p.cerrado) || (!d.ok && d.cerrado)) return setCarga({ estado: "cerrado" });
+    if (!p.ok) return setCarga({ estado: "error", error: p.error });
+    if (!d.ok) return setCarga({ estado: "error", error: d.error });
+    const donde = new Set(d.datos.map((x) => x ?? BANDEJA));
+    setGuardado(donde.size > 0);
+    setCarga({ estado: "listo", proyectos: p.datos.filter((x) => x.rol !== "lector"), donde });
+  }
+
+  async function alternar(destino: string, marcar: boolean) {
+    if (carga.estado !== "listo") return;
+    const c = await import("@/lib/espacios-cliente");
+    const u = await c.sesionActual();
+    if (!u) return;
+    const proyecto = destino === BANDEJA ? null : destino;
+    const r = marcar ? await c.guardar(referencia, proyecto) : await c.quitarDe(referencia, u, proyecto);
+    if (!r.ok) return setCarga({ estado: "error", error: r.error });
+    const donde = new Set(carga.donde);
+    if (marcar) donde.add(destino);
+    else donde.delete(destino);
+    setGuardado(donde.size > 0);
+    setCarga({ ...carga, donde });
+  }
+
+  async function crearCon(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nuevo.trim() || carga.estado !== "listo") return;
+    const c = await import("@/lib/espacios-cliente");
+    const p = await c.crearProyecto(nuevo);
+    if (!p.ok) return setCarga({ estado: "error", error: p.error });
+    const r = await c.guardar(referencia, p.datos.id);
+    if (!r.ok) return setCarga({ estado: "error", error: r.error });
+    setNuevo("");
+    setGuardado(true);
+    setCarga({
+      ...carga,
+      proyectos: [{ ...p.datos, rol: "dueno", registros: 1 }, ...carga.proyectos],
+      donde: new Set([...carga.donde, p.datos.id]),
+    });
+  }
+
+  return (
+    <Popover onOpenChange={abrir}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className={className} aria-pressed={guardado}>
+          <IconBookmark filled={guardado} className="h-3.5 w-3.5" />
+          {guardado ? "Guardado" : "Guardar"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-3">
+        {!hay ? (
+          <div className="space-y-2.5">
+            <p className="text-sm font-semibold text-ink">Guárdalo en tu espacio</p>
+            <p className="text-xs leading-relaxed text-ink-soft">
+              Con una cuenta juntas registros como este en investigaciones, los anotas, los enlazas
+              y los publicas. Entrar es un código al correo.
+            </p>
+            <Button asChild className="w-full">
+              <Link href={`/cuenta?volver=${encodeURIComponent(pathname)}`}>
+                Crear cuenta o entrar
+                <IconArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+        ) : carga.estado === "cargando" ? (
+          <p className="py-2 text-sm text-ink-soft" aria-busy="true">Buscando tus investigaciones…</p>
+        ) : carga.estado === "cerrado" ? (
+          <p className="text-xs leading-relaxed text-ink-soft">
+            Guardar en investigaciones todavía no está abierto en esta plataforma. Mientras tanto,
+            «Seguir» guarda esta ficha en tu navegador.
+          </p>
+        ) : carga.estado === "error" ? (
+          <p className="text-xs leading-relaxed text-alerta-700">{carga.error}</p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-ink-soft">Guardar en</p>
+            <ul className="max-h-60 space-y-0.5 overflow-y-auto">
+              {[{ id: BANDEJA, titulo: "Guardado sin ordenar" }, ...carga.proyectos].map((d) => (
+                <li key={d.id}>
+                  <Label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md px-1.5 text-sm font-normal text-ink hover:bg-brand-50 sm:min-h-9">
+                    <Checkbox checked={carga.donde.has(d.id)} onCheckedChange={(v) => void alternar(d.id, v === true)} />
+                    <span className="min-w-0 truncate">{d.titulo}</span>
+                  </Label>
+                </li>
+              ))}
+            </ul>
+            <form onSubmit={crearCon} className="flex gap-1.5 border-t border-hairline pt-2">
+              <Label htmlFor="guardar-nueva" className="sr-only">Nueva investigación con este registro</Label>
+              <Input
+                id="guardar-nueva"
+                value={nuevo}
+                maxLength={140}
+                onChange={(e) => setNuevo(e.target.value)}
+                placeholder="Nueva investigación…"
+                className="h-11 text-base sm:h-9 sm:text-sm"
+              />
+              <Button type="submit" size="icon" variant="secondary" disabled={!nuevo.trim()} aria-label="Crear la investigación con este registro">
+                <IconPlus className="h-4 w-4" />
+              </Button>
+            </form>
+            <Link href="/espacio" className="block pt-1 text-xs font-medium text-brand-700 hover:underline">
+              Ir a tu espacio
+            </Link>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}

@@ -24,6 +24,7 @@ import { EsqueletoFilas } from "@/components/esqueleto";
 import { FiltroEnlace, NavFiltros } from "@/components/nav-filtros";
 import { Paginador } from "@/components/paginador";
 import { Resaltado } from "@/components/resaltado";
+import Guardar from "@/components/espacios/guardar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { IconArrowRight, IconExternal } from "@/components/icons";
@@ -229,6 +230,11 @@ async function Resultados({ q, tipo, pagina }: { q: string; tipo?: TipoResultado
           </FiltroEnlace>
         ))}
       </NavFiltros>
+
+      {/* Una búsqueda también se guarda: vuelve a correrla sobre el índice del día. */}
+      <div className="flex justify-end">
+        <Guardar referencia={{ tipo: "busqueda", ref: hrefBusqueda(q), titulo: `Búsqueda: «${q}»`, href: hrefBusqueda(q) }} />
+      </div>
 
       <p aria-live="polite" className="px-1 text-xs leading-relaxed text-ink-soft">
         {h.conErrata && <>Casi nada con «{q}» tal cual: se suman palabras a una letra de diferencia, detrás de lo exacto. </>}
@@ -487,7 +493,7 @@ function Fila({
   const cuerpo = (
     <>
       <span className="min-w-0 flex-1">
-        <span className="line-clamp-2 block text-sm leading-snug text-ink [overflow-wrap:anywhere] group-hover:text-brand-700">
+        <span className="line-clamp-2 text-sm leading-snug text-ink [overflow-wrap:anywhere] group-hover:text-brand-700">
           {titulo}
         </span>
         {(detalle || marca) && (

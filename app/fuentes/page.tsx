@@ -998,9 +998,10 @@ export default async function FuentesPage() {
             páginas más recientes. El SIL pagina de 10 en 10 y no expone agregados.
           </li>
           <li>
-            No hay base de datos ni ingesta persistente: cada vista lee su fuente en
-            vivo con caché de minutos. La detección de cambios por comparación de
-            instantáneas llega con esa capa.
+            Ningún dato del Estado va a una base de datos: cada vista lee su fuente
+            en vivo con caché de minutos, o su instantánea versionada en el
+            repositorio. La única base guarda lo que es del lector —su voto, y con
+            cuenta lo que guarda, anota y sigue—, nunca una cifra de una fuente.
           </li>
         </ul>
         <p className="mt-4 text-[13px] text-ink-soft sm:text-xs">

@@ -1,8 +1,9 @@
 "use client";
 
 import SeguirButton from "./seguir-button";
-import Compartir, { CopiarEnlace, type TipoCompartido } from "./compartir";
-import { IconChevronDown, IconRss } from "./icons";
+import Guardar from "./espacios/guardar";
+import Compartir, { CopiarEnlace, compartirEnlace, type TipoCompartido } from "./compartir";
+import { IconChevronDown, IconRss, IconShare } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
@@ -19,12 +20,17 @@ import { TIPOS_SEGUIDO, huellaDe, type Situacion, type TipoSeguido } from "@/lib
  * función que usa `/api/seguimiento`, así que lo que se guarda al seguir y lo
  * que se compara al volver no pueden divergir.
  *
- * **En el teléfono, una sola fila.** Los cuatro botones no caben a 390 px y
+ * **En el teléfono, una sola fila.** Los botones no caben a 390 px y
  * saltaban a dos renglones; como varias fichas los ponen encima del titular,
- * en `/congreso/158561` el h1 quedaba a 298 px del borde. Seguir y Compartir
- * —lo que se hace con una ficha— se quedan a la vista; copiar el enlace y el
- * RSS, que son del periodista, van a «Más opciones». Desde `sm` caben los
- * cuatro en fila y vuelven a estar sueltos.
+ * en `/congreso/158561` el h1 quedaba a 298 px del borde. Seguir y Guardar
+ * —lo que se hace con una ficha: que te avise, llevarla a tu investigación—
+ * se quedan a la vista; compartir, copiar el enlace y el RSS van a «Más
+ * opciones». Desde `sm` caben todos en fila y vuelven a estar sueltos.
+ *
+ * «Guardar» (`components/espacios/guardar.tsx`) es la única pieza que habla
+ * con la cuenta del lector, y carga su cliente solo al abrirla: la ficha
+ * sigue sin tocar la base (CLAUDE.md, la invariante). Lo que se guarda es la
+ * referencia —tipo, ruta, título—, nunca un dato de la ficha.
  *
  * Un tipo que no se puede seguir (el capítulo presupuestario, que es una
  * instantánea) no lleva Seguir.
@@ -66,9 +72,12 @@ export default function AccionesFicha({
           huella={situacion ? huellaDe(situacion) : undefined}
         />
       )}
-      <Compartir titulo={titulo} tipo={tipo} conCopiar={false} />
+      <Guardar referencia={{ tipo, ref: href, titulo, href }} />
 
       {/* Desde `sm`, sueltos en la misma fila. */}
+      <span className="hidden sm:inline-flex">
+        <Compartir titulo={titulo} tipo={tipo} conCopiar={false} />
+      </span>
       <CopiarEnlace className="hidden sm:inline-flex" />
       {rss && (
         <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
@@ -85,6 +94,15 @@ export default function AccionesFicha({
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="flex w-56 flex-col gap-1 p-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-11 w-full justify-start px-3 text-sm"
+            onClick={() => compartirEnlace(tipo, titulo)}
+          >
+            <IconShare className="h-3.5 w-3.5" />
+            Compartir
+          </Button>
           <CopiarEnlace variant="ghost" className="h-11 w-full justify-start px-3 text-sm" />
           {rss && (
             <Button
