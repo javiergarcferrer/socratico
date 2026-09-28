@@ -27,7 +27,7 @@ es_archivo_con_estado() {
     *lib/supabase.ts|*lib/supabase-config.ts|*lib/democracia.ts|*lib/cedula.ts) return 0 ;;
     *lib/espacios.ts|*lib/espacios-cliente.ts|*lib/sesion.ts) return 0 ;;
     *app/democracia/*|*components/democracia/*|*supabase/*) return 0 ;;
-    *app/cuenta/*|*app/espacio/*|*app/p/*|*app/comunidad/*|*components/espacios/*) return 0 ;;
+    *app/cuenta/*|*app/espacio/*|*app/p/*|*components/espacios/*) return 0 ;;
     *) return 1 ;;
   esac
 }

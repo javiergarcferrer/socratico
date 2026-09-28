@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ReferenciaHilo } from "@/lib/espacios";
 import { Button } from "@/components/ui/button";
 import { IconVoto } from "@/components/icons";
@@ -22,11 +22,14 @@ export default function VotoHilo({
   votos: votosIniciales,
   miVoto: miVotoInicial,
   vertical = false,
+  cerradoPorque = null,
   className,
 }: {
   referencia: ReferenciaHilo;
   votos: number;
   miVoto: boolean;
+  /** Por qué este lector no puede votar aquí todavía: se dice antes del toque. */
+  cerradoPorque?: string | null;
   /** En el feed: la cifra debajo de la flecha, como una columna. */
   vertical?: boolean;
   className?: string;
@@ -38,6 +41,7 @@ export default function VotoHilo({
   const [mio, setMio] = useState(miVotoInicial);
   const [enCurso, setEnCurso] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const idRazon = useId();
 
   // Una lectura nueva (con la sesión ya cargada) trae el voto propio.
   useEffect(() => {
@@ -77,7 +81,8 @@ export default function VotoHilo({
         aria-pressed={mio}
         aria-label={`${etiqueta}. ${votos} ${votos === 1 ? "cuenta lo dice" : "cuentas lo dicen"}.`}
         title={hay ? etiqueta : "Entra para votar"}
-        disabled={enCurso}
+        disabled={enCurso || !!cerradoPorque}
+        aria-describedby={cerradoPorque ? idRazon : undefined}
         onClick={alternar}
         className={cn(vertical ? "h-auto w-12 flex-col gap-0.5 py-1.5 sm:w-11" : "gap-2", mio && "text-brand-700")}
       >
@@ -91,6 +96,11 @@ export default function VotoHilo({
           </>
         )}
       </Button>
+      {cerradoPorque && (
+        <span id={idRazon} className="mt-1 max-w-56 text-center text-xs leading-snug text-ink-soft">
+          {cerradoPorque}
+        </span>
+      )}
       {error && (
         <span role="status" className="mt-1 max-w-48 text-center text-xs leading-snug text-alerta-700">
           {error}

@@ -63,7 +63,9 @@ export default async function CuentaPage({ searchParams }: { searchParams: Promi
                 conversación
               </Link>
               : tus comentarios (públicos, con tu nombre de firma), tus votos y tus denuncias (estos
-              dos, privados), y cuándo aceptaste las normas.
+              dos, privados), cuándo aceptaste las normas y, junto a lo que escribes, la huella
+              cifrada de tu cédula —nunca la cédula—, que sirve para los topes de ritmo y para que
+              una suspensión no se esquive con otra cuenta.
             </li>
             <li>
               Lo que el servicio de cuentas (Supabase) registra cada vez que inicias sesión: fecha,

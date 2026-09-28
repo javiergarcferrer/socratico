@@ -39,8 +39,9 @@ function traducir(e: FalloSupabase): { ok: false; error: string; cerrado?: boole
   const codigo = e.code ?? "";
   const texto = (e.message ?? "").toLowerCase();
   // PGRST106: el esquema no está entre los que expone el API (paso 2 de
-  // PLAN-ESPACIOS §5); 42P01/3F000: la migración aún no se aplicó.
-  if (codigo === "PGRST106" || codigo === "42P01" || codigo === "3F000" || texto.includes("schema must be one of")) {
+  // PLAN-ESPACIOS §5); 42P01/3F000: la migración aún no se aplicó;
+  // PGRST202/42883: la función todavía no existe (la conversación, paso 4).
+  if (["PGRST106", "42P01", "3F000", "PGRST202", "42883"].includes(codigo) || texto.includes("schema must be one of")) {
     return { ok: false, cerrado: true, error: "Los proyectos todavía no están abiertos en esta plataforma." };
   }
   // Las funciones de la conversación dicen el porqué en español (`raise
@@ -711,6 +712,8 @@ export interface DenunciaEnCola {
   motivo: MotivoDenuncia;
   detalle: string;
   creado: string;
+  /** Solo las de quien registró su cédula cuentan para ocultar. */
+  con_cedula: boolean;
 }
 
 export interface ColaModeracion {
@@ -747,7 +750,12 @@ export async function moderar(
   );
 }
 
-/** Días > 0 suspende; 0 levanta la suspensión. */
+/** Corrige el título de una conversación (`clave` es «tipo:ref»). */
+export async function retitular(clave: string, titulo: string, nota: string): Promise<Hecho<boolean>> {
+  return hecho<boolean>(espacios().rpc("retitular", { p_clave: clave, p_titulo: titulo, p_nota: nota }));
+}
+
+/** Días > 0 suspende; 0 levanta la suspensión (de la cuenta y de su cédula). */
 export async function suspender(usuario: string, dias: number, motivo: string): Promise<Hecho<boolean>> {
   return hecho<boolean>(espacios().rpc("suspender", { p_usuario: usuario, p_dias: dias, p_motivo: motivo }));
 }
