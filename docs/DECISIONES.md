@@ -22,11 +22,18 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   comes only from the BCRD CDN files (§A.6) or not at all.
 - **Dedicated Supabase project for /democracia in production**
   (PLAN-DEMOCRACIA §1): the pilot shares the `Transac` Auth pool.
-- **Supabase Auth panel**: Site URL still `http://localhost:3000`, production
-  domain (`https://socratico.vercel.app` since 2026-09-24; the project was
-  renamed from `brillo-soft`) not in the redirect allowlist, Magic Link template should send
-  `{{ .Token }}`. Fixing it is a panel action; registration works without it.
-  Measured 2026-09-04 (PLAN-DEMOCRACIA §5.1): GoTrue does **not** reject a
+- **Supabase Auth panel**: ✅ Site URL and redirect allowlist set by the owner
+  (2026-09-28). Measured without sending mail, by passing a bogus token to
+  `/auth/v1/verify`:
+  - `redirect_to=https://socratico.vercel.app/espacio` comes back 303 to that
+    same path;
+  - a foreign domain and `http://localhost:3000` fall back to
+    `https://socratico.vercel.app/`.
+
+  ⚠️ Still open: confirm that the two code-only templates (`supabase/templates/`)
+  are what arrives. No public endpoint shows the templates, so the proof is a
+  real email carrying six digits. Earlier measurement, 2026-09-04
+  (PLAN-DEMOCRACIA §5.1): 2026-09-04 (PLAN-DEMOCRACIA §5.1): GoTrue does **not** reject a
   non-allowlisted `redirect_to`, it substitutes the Site URL, and the answer
   always comes back in the URL **fragment** — so the OTP request now asks to
   return to `/democracia/registro` and self-heals the day the domain is
