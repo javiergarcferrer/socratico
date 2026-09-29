@@ -1165,6 +1165,35 @@ export default async function FuentesPage() {
             una está anotada en la auditoría de fuentes.
           </p>
         </Fuente>
+
+        <Fuente nombre="Mapeadas en la cuarta pasada, aún sin integrar" estado="descartada" etiqueta="Pendientes">
+          <p>
+            Verificadas y sin clave, a la espera de su turno: las resoluciones de
+            ProCompetencia (su canal RSS trae las diez más recientes con las partes), la
+            última sentencia de cada sala de la Suprema Corte, las empresas aprobadas en
+            zonas francas (el CNZFE publica un PDF por año desde 1999, sin RNC) y las
+            designaciones de los decretos de varias personas anteriores a agosto de 2012,
+            que son escaneos y pedirían un OCR propio.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Bloqueadas o sin vía hoy (cuarta pasada)" estado="bloqueada" etiqueta="Sin acceso">
+          <p>
+            <strong>Cámara de Cuentas</strong> y <strong>Procuraduría General</strong>:
+            respondieron 470 el 29 de septiembre de 2026; sus titulares solo están aquí si
+            un decreto o el MAP los nombra. <strong>Junta Monetaria</strong>: el Banco
+            Central sirve sus miembros por una consulta que no es un buscador público.{" "}
+            <strong>Registro de asociaciones sin fines de lucro</strong>: 403 de Cloudflare
+            hasta en su robots. <strong>BID</strong>: 403 de Cloudflare.{" "}
+            <strong>Banco Mundial</strong>: su lista de inhabilitados exige una clave que la
+            propia página publica; no se usa. <strong>Rol de audiencias del Poder
+            Judicial</strong> y <strong>expedientes del Registro Inmobiliario</strong>:
+            consultas que no son el buscador de una página, pendientes de decisión; el
+            parcelario lleva reCAPTCHA y las certificaciones de estado jurídico exigen
+            cuenta y pago. Ninguna se rodea: la vía es institucional (Ley 200-04), y cada
+            una está anotada en la auditoría de fuentes.
+          </p>
+        </Fuente>
       </div>
 
       <Card as="section" className="mt-8 p-5">
