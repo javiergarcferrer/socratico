@@ -200,9 +200,12 @@ def limpio(s: str) -> str:
 
 
 def capital(palabra: str) -> str:
-    """«d’aza» → «D’Aza», «pérez-tejada» → «Pérez-Tejada»."""
+    """«d’aza» → «D’Aza», «pérez-tejada» → «Pérez-Tejada», «(el» → «(El»."""
+    def primera(p: str) -> str:
+        m = re.search(r"[^\W\d_]", p)
+        return p[:m.start()] + p[m.start()].upper() + p[m.start() + 1:] if m else p
     partes = re.split(r"([\-’'])", palabra)
-    return "".join(p[:1].upper() + p[1:] if p not in "-’'" else p for p in partes)
+    return "".join(primera(p) if p not in "-’'" else p for p in partes)
 
 
 def en_titulo(s: str, sigla_max: int = 8) -> str:
@@ -219,7 +222,7 @@ def en_titulo(s: str, sigla_max: int = 8) -> str:
             continue
         # Una sigla entre paréntesis se queda como está: «(DIECOM)». Con tilde
         # es una palabra, no una sigla: «(HONORÍFICA)».
-        if re.fullmatch(r"\(?[A-Z0-9\.\-]{2,%d}\)?[,;.]?" % sigla_max, w) and w.startswith("("):
+        if re.fullmatch(r"\([A-Z0-9\.\-]{2,%d}\)[,;.]?" % sigla_max, w):
             salida.append(w)
             continue
         if re.fullmatch(r"[IVXL]{2,5}[,;.]?", w):
@@ -275,6 +278,11 @@ embajador embajadora consul viceministro viceministra general dominicana dominic
 decreto articulo presidente presidenta vicepresidente administrador administradora gerente sus
 funcionarios varios varias siguientes personas miembros senores senoras cargo cargos provincia municipio
 distrito ayuntamiento hospital universidad autoridad superintendencia tribunal corte procuraduria
+gobernador gobernadora subdirector subdirectora encargado encargada asesor asesora coordinador coordinadora
+inspector inspectora jefe jefa comandante subsecretario subsecretaria tesorero tesorera contralor contralora
+procurador procuradora juez jueza agregado agregada consejero consejera delegado delegada interventor
+interventora comisionado comisionada supervisor supervisora presidencia aeropuerto edificio oficinas
+departamento division unidad administracion
 """.split())
 
 
@@ -308,8 +316,10 @@ GRADO = (
     r"CAPIT[AÁ]N DE (?:NAV[IÍ]O|FRAGATA|CORBETA)|MAYOR(?: PILOTO)?|CAPIT[AÁ]N(?: PILOTO)?|"
     r"PRIMER TENIENTE|SEGUNDO TENIENTE|COMISIONAD[OA])"
 )
-# Rama tras el nombre: «, ERD», «, E.R.D.,», «, FARD.», «, P.N.», «ERD (DEM)».
-RAMA = (r"(?:\s*,?\s*\(?(?:E\.?\s?R\.?\s?D|A\.?\s?R\.?\s?D|F\.?\s?A\.?\s?R\.?\s?D|P\.?\s?N|M\.?\s?I\.?\s?D\.?\s?E)"
+# Rama tras el nombre: «, ERD», «, E.R.D.,», «, FARD.», «, P.N.», «ERD (DEM)», y las
+# siglas de antes de 2008: «, F.A.D.,», «, E.N.,», «, M. de G.,».
+RAMA = (r"(?:\s*,?\s*\(?(?:E\.?\s?R\.?\s?D|A\.?\s?R\.?\s?D|F\.?\s?A\.?\s?R\.?\s?D|F\.?\s?A\.?\s?D|E\.\s?N|"
+        r"M\.\s?DE\s?G|P\.?\s?N|M\.?\s?I\.?\s?D\.?\s?E)"
         r"\.?\)?(?:\s*\((?:DEM|DESN|DEMA|MA)\)\.?)?)")
 PALABRA = r"[A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ'’\.\-]*"
 NOMBRE = rf"{PALABRA}(?:\s+(?:DE LOS|DE LAS|DE LA|DEL|DE|Y|{PALABRA}))*?"
@@ -338,7 +348,9 @@ VARIOS = re.compile(r"\b(A LOS|A LAS|VARIOS|VARIAS|FUNCIONARIOS|MIEMBROS|SIGUIEN
 # Donde un cargo del título deja de ser el cargo: sigue otra persona o un detalle.
 CORTE_CARGO = re.compile(r",?\s+Y\s+(?:A|AL|A LA|A LOS|A LAS)\s+(?:SE(?:Ñ|N)OR|[A-ZÁÉÍÓÚÑ]{3,}\s+[A-ZÁÉÍÓÚÑ]).*$|"
                          r",\s*(?:CON SUELDO|EN SUSTITUCI[OÓ]N|EN ADICI[OÓ]N|QUIEN\b|MEDIANTE\b).*$|"
-                         r"\.\s*(?:DEROGA|MODIFICA|DEJA|DISPONE)\b.*$")
+                         r"\.\s*(?:DEROGA|MODIFICA|DEJA|DISPONE)\b.*$|"
+                         r",?\s+Y\s+(?:DICTA|DISPONE|DEROGA|MODIFICA|DEJA SIN EFECTO)\b.*$|"
+                         r",?\s+Y\s+(?:A\s+)?(?:VARIOS|OTROS|DIVERSOS)\s+(?:FUNCIONARIOS|MIEMBROS|SERVIDORES)\b.*$")
 
 
 def personas_del_titulo(titulo: str) -> tuple[list[dict], bool]:
@@ -347,6 +359,11 @@ def personas_del_titulo(titulo: str) -> tuple[list[dict], bool]:
     t = re.sub(r"\s+", " ", (titulo or "").upper()).strip()
     if EXCLUIR_TITULO.search(t):
         return [], False
+    # «Designa a X y a Y, subdirector de … y gobernador de …, respectivamente»:
+    # el título empareja por orden y esta lectura los cruzaría. Manda el PDF;
+    # antes de que se lean los PDF, esas designaciones no se toman.
+    if re.search(r"\bRESPECTIVAMENTE\b", t):
+        return [], True
     varios = bool(VARIOS.search(t))
     hallados: list[tuple[str, re.Match]] = []
     for m in ASCIENDE.finditer(t):
@@ -367,6 +384,10 @@ def personas_del_titulo(titulo: str) -> tuple[list[dict], bool]:
             continue
         if not es_nombre(nombre):
             continue
+        # «…, y al señor Z, director de…»: lo que siguió a la coma es otra persona.
+        if re.match(r"Y\s+(?:A|AL|A LA|A LOS|A LAS)\s", m.group("cargo")):
+            varios = True
+            continue
         cargo = CORTE_CARGO.sub("", m.group("cargo"))
         if re.search(r",\s+Y\s+(?:A|AL|A LA|A LOS|A LAS)\s", m.group("cargo")):
             varios = True
@@ -380,6 +401,24 @@ def personas_del_titulo(titulo: str) -> tuple[list[dict], bool]:
         salida.append({"mov": mov, "nombre": nombre, "grado": limpio(m.group("grado") or "") or None,
                        "cargo": cargo})
     return salida, varios
+
+
+# La provincia de una gobernación, como la escribe la fuente: la unidad del MAP
+# («Oficina de Gobernación Provincial de La Vega») o el cargo del decreto
+# («Gobernadora Civil de la Provincia Pedernales»). La interfaz la casa con su
+# tabla de provincias y alias (lib/provincias.ts); lo que no case no se asigna.
+GOBERNACION = re.compile(
+    r"^(?:oficina de )?gobernaci[oó]n provincial de (?P<unidad>[^,;(]+)|"
+    r"^gobernador[a]?(?: civil)?(?: interin[oa])?(?: provincial)? de la provincia (?:de )?(?P<cargo>[^,;(]+)",
+    re.I,
+)
+
+
+def provincia_de_gobernacion(texto: str | None) -> str | None:
+    m = GOBERNACION.match(limpio(texto or ""))
+    if not m:
+        return None
+    return nombre_legible(limpio(m.group("unidad") or m.group("cargo")).rstrip("."))
 
 
 def es_designacion(titulo: str) -> bool:
@@ -456,7 +495,7 @@ def personas_del_pdf(texto: str) -> list[dict]:
             if a and es_nombre(limpio(a.group("nombre"))):
                 nuevo = limpio(a.group("nuevo"))
                 salida.append({"mov": "asciende", "nombre": limpio(a.group("nombre")), "grado": nuevo[:1].upper() + nuevo[1:],
-                               "cargo": f"Ascendido a {nuevo}", "sustituye": None})
+                               "cargo": f"Ascenso a {nuevo}", "sustituye": None})
             continue
         nombre = limpio(m.group("nombre"))
         if not es_nombre(nombre):
@@ -1046,10 +1085,15 @@ def main() -> None:
         completo = cargo
         if institucion and plano(institucion) not in plano(cargo) and not plano(cargo).endswith("de la republica"):
             completo = f"{cargo}, {institucion}"
+        # Los gobernadores cuelgan de Interior y Policía; su provincia la dice la
+        # unidad, y el cargo se lee mejor con ella: «Gobernadora de la provincia La Vega».
+        provincia = provincia_de_gobernacion(unidad)
+        if provincia and re.match(r"gobernador", plano(cargo)):
+            completo = f"{cargo} de la provincia {provincia}"
         num = x.get("decreto") and limpio(x["decreto"])
         reg.cargo(nombre, {
             "t": cargo_legible(completo), "u": unidad if unidad and plano(unidad) not in ("despacho", plano(institucion)) else None,
-            "i": i["id"] if i else None, "in": institucion or None,
+            "i": i["id"] if i else None, "in": institucion or None, "pr": provincia,
             "d": fecha_iso(x.get("fechaDecreto")), "m": "vigente", "o": "map",
             "dec": [num, None, None] if num and re.fullmatch(r"\d{1,4}-\d{2}", num) else None,
             "pep": numeral_311(cargo, institucion), "n": x.get("orden"),
@@ -1085,7 +1129,8 @@ def main() -> None:
         for h in hallados:
             i = inst.de_cargo(h["cargo"])
             reg.cargo(h["nombre"], {
-                "t": cargo_legible(h["cargo"]), "i": i["id"] if i else None, "d": fecha, "m": h["mov"],
+                "t": cargo_legible(h["cargo"]), "i": i["id"] if i else None, "pr": provincia_de_gobernacion(h["cargo"]),
+                "d": fecha, "m": h["mov"],
                 "o": "decreto", "dec": dec, "g": en_titulo(h["grado"]) if h["grado"] else None,
                 "pep": numeral_311(h["cargo"], i["nombre"] if i else "", h["grado"]),
             })
@@ -1105,14 +1150,16 @@ def main() -> None:
         for h in personas_del_pdf(texto):
             i = inst.de_cargo(h["cargo"])
             reg.cargo(h["nombre"], {
-                "t": cargo_legible(h["cargo"]), "i": i["id"] if i else None, "d": dec[1], "m": h["mov"],
+                "t": cargo_legible(h["cargo"]), "i": i["id"] if i else None, "pr": provincia_de_gobernacion(h["cargo"]),
+                "d": dec[1], "m": h["mov"],
                 "o": "decreto", "dec": dec, "g": h["grado"],
                 "pep": numeral_311(h["cargo"], i["nombre"] if i else "", h["grado"]),
             })
             pdfs += 1
             if h.get("sustituye"):
                 reg.cargo(h["sustituye"], {
-                    "t": cargo_legible(h["cargo"]), "i": i["id"] if i else None, "d": dec[1], "m": "sustituido",
+                    "t": cargo_legible(h["cargo"]), "i": i["id"] if i else None, "pr": provincia_de_gobernacion(h["cargo"]),
+                    "d": dec[1], "m": "sustituido",
                     "o": "decreto", "dec": dec, "por": nombre_legible(h["nombre"]),
                     "pep": numeral_311(h["cargo"], i["nombre"] if i else ""),
                 })
@@ -1177,11 +1224,21 @@ def main() -> None:
         lugar = dm or e["municipio"]
         k = plano(lugar)
         i = locales.get(k) if k not in ambiguos else None
+        categoria = e["cargo"].upper()
         cargo_base = {"ALCALDE": "Alcalde", "VICEALCALDE": "Vicealcalde", "REGIDOR": "Regidor",
                       "DIRECTOR": "Director del distrito municipal", "SUBDIRECTOR": "Subdirector del distrito municipal",
-                      "VOCAL": "Vocal del distrito municipal"}.get(e["cargo"].upper(), en_titulo(e["cargo"]))
-        donde = f"{en_titulo(dm)} (distrito municipal de {en_titulo(e['municipio'])})" if dm else en_titulo(e["municipio"])
-        texto_cargo = f"{cargo_base} de {donde}" if not dm else f"{cargo_base} {en_titulo(dm)}, {en_titulo(e['municipio'])}"
+                      "VOCAL": "Vocal del distrito municipal"}.get(categoria, en_titulo(e["cargo"]))
+        # La JCE escribe «ALCALDE» para todas las personas; la ficha nombra el
+        # puesto, que no presume el género de nadie: «Alcaldía de Nagua».
+        puesto = {"ALCALDE": "Alcaldía", "VICEALCALDE": "Vicealcaldía", "REGIDOR": "Regiduría",
+                  "DIRECTOR": "Dirección del distrito municipal", "SUBDIRECTOR": "Subdirección del distrito municipal",
+                  "VOCAL": "Vocal del distrito municipal"}.get(categoria, en_titulo(e["cargo"]))
+        if not dm:
+            texto_cargo = f"{puesto} de {en_titulo(e['municipio'])}"
+        elif "distrito municipal" in puesto:
+            texto_cargo = f"{puesto} {en_titulo(dm)}, {en_titulo(e['municipio'])}"
+        else:
+            texto_cargo = f"{puesto} del distrito municipal {en_titulo(dm)}, {en_titulo(e['municipio'])}"
         if e.get("circunscripcion"):
             texto_cargo += f", {en_titulo(e['circunscripcion']).replace('Circ.', 'circunscripción')}"
         reg.cargo(e["nombre"], {
@@ -1189,7 +1246,7 @@ def main() -> None:
             "d": "2024-04-24", "m": "electo", "o": "jce2024", "per": "2024-2028",
             "par": en_titulo(e["partido"]) if e.get("partido") else None,
             "v": int(e["votos"]) if e.get("votos") is not None else None,
-            "pep": numeral_311(cargo_base) or (15 if e["cargo"].upper() in ("DIRECTOR", "SUBDIRECTOR") else None),
+            "pep": numeral_311(cargo_base) or (15 if categoria in ("DIRECTOR", "SUBDIRECTOR") else None),
         })
     print(f"  {len(electos):,} electos")
 

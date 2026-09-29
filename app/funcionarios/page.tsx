@@ -11,9 +11,12 @@ import { Termino } from "@/components/termino";
 import Antiguedad from "@/components/antiguedad";
 import { formatFecha } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
+import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
+import { desdeMayusculas } from "@/lib/congreso";
 import {
   PODERES,
   cabezasDelEstado,
+  cargoEnInstitucion,
   cargoPrincipal,
   esActual,
   filtrarPersonas,
@@ -39,15 +42,17 @@ const POR_PAGINA = 30;
 const ORDEN_PODERES: Poder[] = ["ejecutivo", "congreso", "justicia", "organos", "local"];
 
 type Props = {
-  searchParams: Promise<{ q?: string; poder?: string; pep?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; poder?: string; pep?: string; inst?: string; page?: string }>;
 };
 
 export default async function FuncionariosPage({ searchParams }: Props) {
   const p = await searchParams;
+  const institucion = p.inst && /^\d{1,7}$/.test(p.inst) ? institucionPorId(Number(p.inst)) : null;
   const filtros: FiltrosFuncionarios = {
     q: p.q?.trim().slice(0, 120) ?? "",
     poder: p.poder && p.poder in PODERES ? (p.poder as Poder) : "",
     pep: p.pep === "1",
+    inst: institucion ? institucion.id : null,
   };
   const pagina = Math.max(1, Number(p.page ?? "1") || 1);
   const datos = await getFuncionarios();
@@ -72,17 +77,18 @@ export default async function FuncionariosPage({ searchParams }: Props) {
     );
   }
 
-  const sinFiltro = !filtros.q && !filtros.poder && !filtros.pep;
+  const sinFiltro = !filtros.q && !filtros.poder && !filtros.pep && filtros.inst == null;
   const lista = filtrarPersonas(datos, {
     q: filtros.q,
     poder: filtros.poder || null,
     soloPep: filtros.pep,
+    institucionId: filtros.inst,
   });
   const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
   const actual = Math.min(pagina, paginas);
   const visibles = lista.slice((actual - 1) * POR_PAGINA, actual * POR_PAGINA);
   const cuentaPoder = (poder: Poder) =>
-    filtrarPersonas(datos, { q: filtros.q, poder, soloPep: filtros.pep }).length;
+    filtrarPersonas(datos, { q: filtros.q, poder, soloPep: filtros.pep, institucionId: filtros.inst }).length;
   const cabezas = sinFiltro ? cabezasDelEstado(datos) : [];
   const ministros = sinFiltro ? gabinete(datos) : [];
   const f = datos.fuentes;
@@ -152,7 +158,7 @@ export default async function FuncionariosPage({ searchParams }: Props) {
 
         <NavFiltros etiqueta="Poder del Estado" className="mt-4">
           <FiltroEnlace href={hrefFuncionarios({ ...filtros, poder: "" })} activo={!filtros.poder}>
-            {`Todos (${filtrarPersonas(datos, { q: filtros.q, soloPep: filtros.pep }).length.toLocaleString("es-DO")})`}
+            {`Todos (${filtrarPersonas(datos, { q: filtros.q, soloPep: filtros.pep, institucionId: filtros.inst }).length.toLocaleString("es-DO")})`}
           </FiltroEnlace>
           {ORDEN_PODERES.map((poder) => (
             <FiltroEnlace
@@ -172,6 +178,16 @@ export default async function FuncionariosPage({ searchParams }: Props) {
             Solo los obligados a declarar patrimonio
           </FiltroEnlace>
         </NavFiltros>
+        {institucion && (
+          <NavFiltros etiqueta="Institución" className="mt-2">
+            <FiltroEnlace href={hrefFuncionarios({ ...filtros, inst: null })} activo={false}>
+              Todas las instituciones
+            </FiltroEnlace>
+            <FiltroEnlace href={hrefFuncionarios(filtros)} activo>
+              {`Con cargo en ${desdeMayusculas(institucion.nombre)}`}
+            </FiltroEnlace>
+          </NavFiltros>
+        )}
 
         <p className="mt-4 text-sm text-ink-soft" aria-live="polite">
           <span className="font-mono tabular-nums">
@@ -183,13 +199,26 @@ export default async function FuncionariosPage({ searchParams }: Props) {
               <span className="font-medium text-ink">{`«${filtros.q}»`}</span>
             </>
           )}
+          {institucion && (
+            <>
+              {" con cargo en "}
+              <Link href={hrefInstitucion(institucion)} className="font-medium text-brand-700 hover:underline">
+                {desdeMayusculas(institucion.nombre)}
+              </Link>
+              , primero las de hoy
+            </>
+          )}
         </p>
 
         {visibles.length > 0 ? (
           <Card as="section" className="mt-3">
             <ul>
               {visibles.map((persona) => (
-                <FilaPersona key={persona.id} persona={persona} cargo={cargoPrincipal(persona)} />
+                <FilaPersona
+                  key={persona.id}
+                  persona={persona}
+                  cargo={(filtros.inst != null && cargoEnInstitucion(persona, filtros.inst)) || cargoPrincipal(persona)}
+                />
               ))}
             </ul>
           </Card>

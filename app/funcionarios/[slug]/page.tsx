@@ -322,7 +322,7 @@ function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Set<string>
             <span className="font-mono tabular-nums">{c.votos.toLocaleString("es-DO")}</span> votos ·{" "}
           </>
         )}
-        {c.sustituidoPor && `Lo sustituye ${c.sustituidoPor} · `}
+        {c.sustituidoPor && `En su lugar: ${c.sustituidoPor} · `}
         {decreto ? (
           hrefDecreto ? (
             <Link href={hrefDecreto} className="text-brand-700 hover:underline">

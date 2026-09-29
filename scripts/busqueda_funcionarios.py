@@ -14,6 +14,12 @@ tiene su entrada de legislador y no se repite.
 """
 import json
 
+# La instantánea nombra el puesto de la JCE («Alcaldía de Nagua»); quien busca
+# suele escribir a la persona («alcalde de Nagua»). Solo para el índice.
+SINONIMOS = (("Alcaldía", "alcalde alcaldesa"), ("Vicealcaldía", "vicealcalde vicealcaldesa"),
+             ("Regiduría", "regidor regidora"), ("Dirección del distrito municipal", "director directora"),
+             ("Subdirección del distrito municipal", "subdirector subdirectora"))
+
 
 def _actual(c: dict) -> bool:
     return c.get("m") == "vigente" or (c.get("m") == "electo" and c.get("per") == "2024-2028")
@@ -43,7 +49,8 @@ def entradas(datos) -> tuple[list[dict], str]:
         # en cada arranque en frío del buscador.
         cargos = list(dict.fromkeys(x["t"] for x in p["c"] if x is not c))[:3]
         insts = list(dict.fromkeys(x["in"] for x in p["c"] if x.get("in")))[:2]
-        aux = " · ".join([*(p.get("a") or [])[:2], *cargos, *insts])[:320]
+        sinonimos = next((v for k, v in SINONIMOS if c and c["t"].startswith(f"{k} ")), None)
+        aux = " · ".join([*(p.get("a") or [])[:2], *([sinonimos] if sinonimos else []), *cargos, *insts])[:320]
         out.append({
             "t": "funcionario",
             "ti": p["n"],

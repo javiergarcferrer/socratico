@@ -307,6 +307,8 @@ export interface FiltroFuncionarios {
   q?: string;
   poder?: Poder | null;
   soloPep?: boolean;
+  /** Solo quienes han tenido cargo en esta institución; entonces el orden es el de la institución. */
+  institucionId?: number | null;
 }
 
 /**
@@ -317,13 +319,31 @@ export interface FiltroFuncionarios {
  */
 export function filtrarPersonas(f: Funcionarios, filtro: FiltroFuncionarios): Persona[] {
   const q = filtro.q?.trim() ? agujas(filtro.q) : null;
-  const salida = f.personas.filter((p) => {
+  const pasa = (p: Persona) => {
     if (filtro.soloPep && p.pep.length === 0) return false;
     if (filtro.poder && !poderesDe(p).has(filtro.poder)) return false;
     if (q && !contieneTodas(plano([p.nombre, ...p.alias].join(" ")), q)) return false;
     return true;
-  });
-  return salida.sort((a, b) => puntaje(b) - puntaje(a) || a.nombre.localeCompare(b.nombre, "es"));
+  };
+  if (filtro.institucionId != null) {
+    // Una vez cada persona, en el orden de la institución: primero las de hoy.
+    const vistas = new Set<string>();
+    return personasDeInstitucion(f, filtro.institucionId)
+      .map(({ persona }) => persona)
+      .filter((p) => (vistas.has(p.id) ? false : (vistas.add(p.id), true)))
+      .filter(pasa);
+  }
+  return f.personas.filter(pasa).sort((a, b) => puntaje(b) - puntaje(a) || a.nombre.localeCompare(b.nombre, "es"));
+}
+
+/** El cargo que ata a la persona con la institución: el de hoy si lo hay, si no el más reciente. */
+export function cargoEnInstitucion(p: Persona, institucionId: number): Cargo | null {
+  const aqui = p.cargos.filter((c) => c.institucionId === institucionId);
+  return (
+    aqui.find(esActual) ??
+    [...aqui].sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""))[0] ??
+    null
+  );
 }
 
 function puntaje(p: Persona): number {
@@ -381,7 +401,7 @@ export function gabinete(f: Funcionarios): { persona: Persona; cargo: Cargo }[] 
   más reciente de un cargo de cabeza en los decretos. Un «vice», un «sub» o un
   «adjunto» no encabezan.
 */
-const CABEZA = /^(ministr[oa]|director[a]?( general| ejecutiv[oa]| nacional)?|administrador[a]?( general)?|superintendente|gerente general|presidente|presidenta|rector[a]?|alcalde|alcaldesa|contralor[a]? general|procurador[a]? general|tesorer[oa] nacional|defensor[a]? del pueblo|gobernador[a]?)\b/;
+const CABEZA = /^(ministr[oa]|director[a]?( general| ejecutiv[oa]| nacional)?|administrador[a]?( general)?|superintendente|gerente general|presidente|presidenta|rector[a]?|alcalde|alcaldesa|alcaldia|contralor[a]? general|procurador[a]? general|tesorer[oa] nacional|defensor[a]? del pueblo|gobernador[a]?)\b/;
 
 function esCabeza(c: Cargo): boolean {
   const t = plano(c.titulo).trim();
@@ -409,6 +429,63 @@ export function quienDirige(f: Funcionarios, institucionId: number): Dirigente |
     .filter(({ cargo }) => cargo.origen === "decreto" && (cargo.movimiento === "designa" || cargo.movimiento === "confirma") && esCabeza(cargo))
     .sort((a, b) => (b.cargo.fecha ?? "").localeCompare(a.cargo.fecha ?? ""));
   return decretos[0] ? { ...decretos[0], segun: "decreto" } : null;
+}
+
+export interface GobiernoProvincial {
+  /** Quien gobierna la provincia: el MAP hoy o, si no la lista, el último decreto de este Presidente. */
+  gobernador: Dirigente | null;
+  /** Las alcaldías de la elección de 2024, una por municipio. */
+  alcaldes: { persona: Persona; cargo: Cargo }[];
+  /** Las direcciones de distrito municipal de la elección de 2024. */
+  directores: { persona: Persona; cargo: Cargo }[];
+  /** Cuántas regidurías de la elección de 2024 tiene la provincia. */
+  regidores: number;
+}
+
+/*
+  ¿Quién gobierna la provincia? Su gobernador: el que el MAP pone hoy en la
+  «Oficina de Gobernación Provincial» y, si el MAP no la lista, la designación
+  más reciente en los decretos, solo si la firmó el Presidente en funciones
+  (una de 2002 no dice quién gobierna hoy). Debajo, las autoridades locales
+  que la JCE dio por electas en 2024. `esDeAqui` casa la provincia como la
+  escribe la fuente con la de la ficha (lib/provincias.ts, con sus alias).
+*/
+export function gobiernoDeProvincia(f: Funcionarios, esDeAqui: (texto: string) => boolean): GobiernoProvincial {
+  let hoy: { persona: Persona; cargo: Cargo } | null = null;
+  let decreto: { persona: Persona; cargo: Cargo } | null = null;
+  const alcaldes: { persona: Persona; cargo: Cargo }[] = [];
+  const directores: { persona: Persona; cargo: Cargo }[] = [];
+  let regidores = 0;
+  for (const persona of f.personas) {
+    for (const cargo of persona.cargos) {
+      if (!cargo.provincia || !esDeAqui(cargo.provincia)) continue;
+      const t = plano(cargo.titulo).trim();
+      if (/^gobernador/.test(t)) {
+        if (cargo.origen === "map" && esActual(cargo)) hoy ??= { persona, cargo };
+        else if (
+          cargo.origen === "decreto" &&
+          (cargo.movimiento === "designa" || cargo.movimiento === "confirma") &&
+          (cargo.fecha ?? "") > (decreto?.cargo.fecha ?? "")
+        ) {
+          decreto = { persona, cargo };
+        }
+      } else if (cargo.origen === "jce2024" && esActual(cargo)) {
+        // El puesto como lo escribe la instantánea («Alcaldía de…»), o la persona si otra fuente lo dice así.
+        if (/^alcald(e|esa|ia)\b/.test(t)) alcaldes.push({ persona, cargo });
+        else if (/^(direccion|director[a]?) del distrito municipal/.test(t)) directores.push({ persona, cargo });
+        else if (/^(regiduria|regidor[a]?)\b/.test(t)) regidores++;
+      }
+    }
+  }
+  const presidente = cabezasDelEstado(f).find(({ cargo }) => /^presidente de la republica/.test(plano(cargo.titulo).trim()));
+  const desde = presidente?.persona.firma?.desde ?? null;
+  const gobernador: Dirigente | null = hoy
+    ? { ...hoy, segun: "map" }
+    : decreto && desde && (decreto.cargo.fecha ?? "") >= desde
+      ? { ...decreto, segun: "decreto" }
+      : null;
+  const porTitulo = (a: { cargo: Cargo }, b: { cargo: Cargo }) => a.cargo.titulo.localeCompare(b.cargo.titulo, "es");
+  return { gobernador, alcaldes: alcaldes.sort(porTitulo), directores: directores.sort(porTitulo), regidores };
 }
 
 /** Las personas con cargo en una institución: primero las de hoy, luego la historia. */
@@ -447,7 +524,7 @@ export const ETIQUETA_MOVIMIENTO: Record<Movimiento, string> = {
   confirma: "Confirmación",
   cesa: "Deja el cargo",
   renuncia: "Renuncia aceptada",
-  sustituido: "Sustituido",
+  sustituido: "Sustitución",
   asciende: "Ascenso",
   electo: "Elección",
   anterior: "Gestión anterior",

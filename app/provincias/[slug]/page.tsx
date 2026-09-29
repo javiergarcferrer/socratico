@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Cargando, EsqueletoFilas } from "@/components/esqueleto";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { enlace } from "@/lib/grafo";
+import { GobiernoProvincial } from "@/components/fuentes-nuevas/gobierno-provincial";
 
 /*
   Dinámica: la agrupación cara ya se cachea un día en `lib/provincias.ts` y un
@@ -44,15 +45,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: p.nombre,
     alternates: { canonical: enlace.provincia(p.slug) },
-    description: `${p.nombre} y el Estado: proveedores del Estado inscritos en la provincia, sus ayuntamientos y sus legisladores.`,
+    description: `${p.nombre} y el Estado: quién la gobierna, proveedores del Estado inscritos en la provincia, sus ayuntamientos y sus legisladores.`,
   };
 }
 
 /**
- * Ficha de provincia. Tres bloques, cada uno con su alcance dicho: los
- * proveedores (una muestra de los grandes adjudicatarios, del registro de la
- * DGCP), los gobiernos locales que el cruce sabe ubicar, y el enlace a sus
- * legisladores.
+ * Ficha de provincia. Cada bloque con su alcance dicho: quién la gobierna
+ * (gobernación y autoridades locales electas, de la instantánea de
+ * funcionarios), los proveedores (una muestra de los grandes adjudicatarios,
+ * del registro de la DGCP), los gobiernos locales que el cruce sabe ubicar, y
+ * el enlace a sus legisladores.
  */
 export default async function ProvinciaPage({ params }: Props) {
   const p = provinciaDeSlug((await params).slug);
@@ -83,8 +85,8 @@ export default async function ProvinciaPage({ params }: Props) {
           ¿Qué hace el Estado en {p.nombre}?
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          Quién de aquí le vende al Estado, qué ayuntamientos compran y quién
-          representa a {p.nombre} en el Congreso.
+          Quién la gobierna, quién de aquí le vende al Estado, qué ayuntamientos
+          compran y quién representa a {p.nombre} en el Congreso.
         </p>
       </Card>
 
@@ -110,6 +112,8 @@ export default async function ProvinciaPage({ params }: Props) {
           { etiqueta: "Sus cifras: robos, escuela y vivienda", href: "/pais", fuente: "MIP, MINERD y MIVHED" },
         ]}
       />
+
+      <GobiernoProvincial provincia={p} />
 
       <Suspense
         fallback={

@@ -43,6 +43,8 @@ import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { filtrarInformes, getAuditorias, informesDe } from "@/lib/auditorias";
 import Conversacion from "@/components/espacios/conversacion";
+import { QuienDirige } from "@/components/fuentes-nuevas/quien-dirige";
+import { getFuncionarios, personasDeInstitucion } from "@/lib/funcionarios";
 
 /** Normas a la vista en «Lo que decreta el Ejecutivo»; el resto, plegado. */
 const NORMAS_A_LA_VISTA = 2;
@@ -90,7 +92,7 @@ export default async function InstitucionPage({ params }: Props) {
   const i = institucionDeSlug((await params).id);
   if (!i) notFound();
 
-  const [fiscal, nomina, resumenNomina, normas, obras, sismap, historia, sinAsignar, documentos, general, auditorias] = await Promise.all([
+  const [fiscal, nomina, resumenNomina, normas, obras, sismap, historia, sinAsignar, documentos, general, auditorias, funcionarios] = await Promise.all([
     i.capitulo ? getInstitucionFiscal(i.capitulo) : null,
     i.nomina ? getNominaDeInstitucion(i.nomina) : null,
     // Solo para decir de cuántas se lee la nómina cuando esta no está.
@@ -103,12 +105,14 @@ export default async function InstitucionPage({ params }: Props) {
     documentosDeInstitucion(i.id),
     nominaGeneralDeInstitucion(i.id),
     getAuditorias(),
+    getFuncionarios(),
   ]);
   const conHistoria = Boolean(historia?.historia.serie.some((f) => f[1] > 0)) || Boolean(sinAsignar);
   const hermanas = i.capitulo ? institucionesDelCapitulo(i.capitulo).filter((h) => h.id !== i.id) : [];
   const nObras = obras?.obras.length ?? 0;
   // La misma consulta que abre la arista: la cuenta es la de la lista.
   const nAuditorias = auditorias ? filtrarInformes(informesDe(auditorias), { q: i.nombre }).length : 0;
+  const conPersonas = funcionarios ? personasDeInstitucion(funcionarios, i.id).length > 0 : false;
 
   /*
     El índice de la ficha: una entrada por sección que de verdad está en la
@@ -116,6 +120,7 @@ export default async function InstitucionPage({ params }: Props) {
     a ninguna parte —el azul dice «se puede pulsar»—; ahora lo son.
   */
   const indice = [
+    conPersonas && { id: "dirige", texto: "Quién la dirige" },
     { id: "presupuesto", texto: i.capitulo ? `Presupuesto · cap. ${i.capitulo}` : "Presupuesto" },
     { id: "compras", texto: `Compras · DGCP ${i.id}` },
     conHistoria && { id: "historia", texto: "Desde 2015" },
@@ -203,6 +208,12 @@ export default async function InstitucionPage({ params }: Props) {
           sismap && { etiqueta: "Su lugar en el ranking de gestión", href: `/gestion?q=${encodeURIComponent(i.nombre)}`, fuente: "SISMAP del MAP" },
         ]}
       />
+
+      {conPersonas && (
+        <div id="dirige">
+          <QuienDirige uc={i.id} />
+        </div>
+      )}
 
       <div id="presupuesto">
         {fiscal ? (
