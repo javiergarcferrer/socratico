@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { esRncDeEmpresa } from "@/lib/padron";
 
 /**
  * Registro tributario (DGII) de un proveedor del Estado.
@@ -80,6 +81,30 @@ export async function getRegistroTributario(
     regimen,
     corteDgii: f.corteDgii,
   };
+}
+
+let sinFicha: Promise<Set<string> | null> | null = null;
+
+/**
+ * ¿Tiene este RNC su ficha en `/empresas`? Sí, si tiene forma de RNC de
+ * empresa y el padrón de empresas no lo dejó fuera por ser de una persona
+ * (`scripts/build-empresas.py` anota en su `meta.json` los proveedores que
+ * deja fuera: 16 en el corte del 19 sep 2026). Lee solo ese archivo de
+ * 8 KB, con su ruta entera, para que el trazado de Next no meta los 16 MB
+ * del padrón en la función de la ficha de proveedor. Si la instantánea no
+ * está, no hay enlace: nunca uno a una ficha que no existe.
+ */
+export async function tieneFichaDeEmpresa(rnc: string): Promise<boolean> {
+  if (!esRncDeEmpresa(rnc)) return false;
+  sinFicha ??= readFile(join(process.cwd(), "public", "data", "empresas", "meta.json"), "utf8")
+    .then((t) => new Set((JSON.parse(t) as { proveedoresSinFicha?: string[] }).proveedoresSinFicha ?? []))
+    .catch((err) => {
+      console.error("[rnc] empresas/meta.json:", err);
+      sinFicha = null;
+      return null;
+    });
+  const fuera = await sinFicha;
+  return fuera !== null && !fuera.has(rnc);
 }
 
 /** Días de calendario entre dos fechas ISO (b − a). */

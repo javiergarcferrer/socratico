@@ -124,6 +124,23 @@ export const GLOSARIO = {
     llano:
       "Registro Nacional de Contribuyentes: el número con el que la DGII identifica a una empresa para los impuestos. Una persona usa su cédula.",
   },
+
+  /* ------------------------------------------------------------ Empresas */
+  personaJuridica: {
+    termino: "Persona jurídica",
+    llano:
+      "Una empresa, asociación, fundación o entidad que existe aparte de las personas que la forman: tiene sus propios bienes, sus deudas y su RNC de nueve cifras. Una persona física se identifica con su cédula.",
+  },
+  regimenPago: {
+    termino: "Régimen de pago",
+    llano:
+      "Cómo le paga sus impuestos a la DGII. En el ordinario declara lo que factura y lo que gasta; el simplificado (RST) es para negocios pequeños, que pagan con un cálculo más sencillo sobre sus ingresos o sus compras.",
+  },
+  registroMercantil: {
+    termino: "Registro mercantil",
+    llano:
+      "La inscripción de una sociedad en la Cámara de Comercio y Producción de su provincia: ahí constan sus estatutos, sus socios, quién la administra y su capital. La Cámara expide el certificado a quien lo pide.",
+  },
   unidadCompra: {
     termino: "Unidad de compra",
     llano:

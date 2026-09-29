@@ -160,6 +160,15 @@ export const PANTALLAS: Record<string, Pantalla> = {
       "Todo sobre una institución pública",
     ],
   },
+  "/empresas": {
+    que: "El padrón de contribuyentes de la DGII: cualquier empresa, asociación o entidad por su RNC o su razón social, con su actividad económica, si está activa, suspendida o dada de baja, desde cuándo opera y si le vende al Estado. Sin personas físicas.",
+    preguntas: [
+      "¿Qué empresa tiene este RNC?",
+      "¿Esta empresa existe y está activa?",
+      "¿A qué se dedica esta compañía?",
+      "¿Desde cuándo opera una empresa?",
+    ],
+  },
   "/congreso": {
     que: "Las iniciativas de la Cámara de Diputados en vivo: proyectos de ley y resoluciones, en qué punto van, quién los propuso, y dónde votar a favor o en contra.",
     preguntas: [

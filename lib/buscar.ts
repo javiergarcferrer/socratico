@@ -1,7 +1,7 @@
 /**
  * El atajo del buscador de toda la plataforma (`/buscar`): **reconocer la
- * forma** de lo tecleado y llevar directo. Un RNC o una cédula es un
- * proveedor; «Ley 47-20» es una norma; `MOPC-CCC-LPN-2025-0010` es un
+ * forma** de lo tecleado y llevar directo. Un RNC es una empresa y una
+ * cédula, un proveedor; «Ley 47-20» es una norma; `MOPC-CCC-LPN-2025-0010` es un
  * proceso; unas siglas exactas son una institución.
  *
  * Lo que no tiene forma lo ordena el índice de `lib/busqueda.ts` (por palabra
@@ -38,8 +38,11 @@ export function rutaDirecta(consulta: string): string | null {
   const q = consulta.trim();
   const digitos = q.replace(/[\s-]/g, "");
 
-  // RNC (9 dígitos) o cédula (11): el registro de proveedores busca por ambos.
-  if (/^\d{9}$|^\d{11}$/.test(digitos)) return `/proveedores?q=${digitos}`;
+  // Un RNC de nueve cifras es la ficha de la empresa en el padrón de la DGII,
+  // que lleva a su registro de proveedor si lo tiene; una cédula (11) solo se
+  // busca entre los proveedores del Estado: las personas físicas no tienen ficha.
+  if (/^\d{9}$/.test(digitos)) return enlace.empresa(digitos);
+  if (/^\d{11}$/.test(digitos)) return `/proveedores?q=${digitos}`;
 
   // «Ley 47-20», «decreto núm. 606-26», «Resolución No. 12-2025», y también
   // «ley 47 20», como se teclea en el teléfono sin buscar el guion.

@@ -18,6 +18,7 @@ import {
   ResumenBiblioteca,
   ResumenCatalogo,
   ResumenCombustibles,
+  ResumenEmpresas,
   ResumenHistorico,
   ResumenObras,
   ResumenOfac,
@@ -609,6 +610,57 @@ export default async function FuentesPage() {
             documento; sus teléfonos y correos no se descargan a la plataforma.
             Regenerar con{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-rnc.py</code>.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="DGII · padrón de empresas" estado="activa" etiqueta="Instantánea local">
+          <p>
+            El mismo ZIP de la DGII, entero y no solo los proveedores, alimenta{" "}
+            <Link href="/empresas" className="font-medium text-brand-700 hover:underline">
+              ¿Qué empresa es esta?
+            </Link>
+            : cada persona jurídica del padrón, por su RNC o por cualquier palabra de su
+            razón social, con su actividad económica declarada, su estado ante la DGII,
+            su régimen de pago, la fecha en que dice haber iniciado operaciones y, si le
+            vende al Estado, su número en el Registro de Proveedores. <ResumenEmpresas />
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            Límites: el padrón no dice qué contribuyente es persona física, así que se
+            deduce. Fuera quedan las cédulas, los RNC de nueve cifras que empiezan por 5
+            (todos con nombre de persona), las sucesiones y las personas que la DGII
+            inscribió con RNC de empresa, que se reconocen por su nombre sin forma
+            jurídica ni palabra de negocio; es una regla medida sobre el propio padrón y
+            alguna puede escaparse en un sentido o en el otro. La razón social es la
+            inscrita, no el nombre comercial; la actividad, la fecha y el régimen los
+            declara la empresa. No hay domicilio, teléfonos, socios, gerentes ni
+            capital: eso no está en el padrón. Es la foto del último corte mensual, no
+            una consulta en vivo. Regenerar con{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-empresas.py</code>.
+          </p>
+        </Fuente>
+
+        <Fuente
+          nombre="Registro mercantil y nombres comerciales (ONAPI)"
+          estado="bloqueada"
+          etiqueta="Sin acceso"
+        >
+          <p>
+            Quiénes son los socios de una empresa, quién la administra y con qué
+            capital se constituyó consta en el registro mercantil de las Cámaras de
+            Comercio y Producción. Su consulta pública nacional solo{" "}
+            <strong>valida un certificado</strong> que ya se tiene, con su número y su
+            código, y devuelve la denominación, sus fechas y su estado: no busca por
+            nombre ni por RNC ni muestra socios, gerentes o capital. Su selector de
+            cámaras llama a un servicio con una clave incrustada en la página, que no
+            se usa. La búsqueda de nombres comerciales de la <strong>ONAPI</strong>{" "}
+            exige una clave antiautomatización que rota (sin ella responde 401).
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            Ninguna se rodea. La vía es institucional: una solicitud por la Ley 200-04
+            a la Cámara de Comercio y Producción de Santo Domingo, a FEDOCÁMARAS y al
+            Ministerio de Industria, Comercio y Mipymes para un archivo abierto del
+            registro, y otra a la ONAPI para el de nombres comerciales. Mientras tanto,
+            cada ficha de empresa enlaza a las dos consultas oficiales sin llamarlas.
           </p>
         </Fuente>
 

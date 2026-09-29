@@ -297,6 +297,12 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
       "Nombre de las personas con cargo público, sin importar tildes ni el orden: el Directorio de Funcionarios del MAP, los decretos, las altas cortes, la JCE y el Congreso (instantánea).",
   },
   {
+    etiqueta: "Empresas",
+    href: "/empresas",
+    alcance:
+      "Un RNC de nueve cifras abre su ficha; un nombre busca todas sus palabras, en cualquier orden y sin tildes, entre las personas jurídicas del padrón de la DGII (instantánea mensual). Las personas físicas no se publican.",
+  },
+  {
     seccion: "licitaciones",
     etiqueta: "Licitaciones",
     href: "/licitaciones",

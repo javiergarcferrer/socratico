@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
     "/buscar": ["./public/data/busqueda/**"],
     "/api/buscar": ["./public/data/busqueda/**"],
     "/proveedores": ["./public/data/busqueda/**"],
+    // El padrón de empresas (~16 MB: filas en gzip, índice por palabra) lo
+    // leen solo sus dos rutas; la clave casa también «/empresas/[rnc]». La
+    // ficha de proveedor y /fuentes leen únicamente su meta.json, por ruta
+    // literal, y no arrastran el resto.
+    "/empresas": ["./public/data/empresas/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus.

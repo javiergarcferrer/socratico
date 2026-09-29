@@ -14,7 +14,7 @@ import AccionesFicha from "@/components/acciones-ficha";
 import { Termino } from "@/components/termino";
 import { FichaRnc } from "@/components/fuentes-nuevas/ficha-rnc";
 import { HistoriaDeProveedor } from "@/components/fuentes-nuevas/historia-compras";
-import { diasEntre, getRegistroTributario } from "@/lib/rnc";
+import { diasEntre, getRegistroTributario, tieneFichaDeEmpresa } from "@/lib/rnc";
 import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
@@ -167,6 +167,8 @@ export default async function ProveedorPage({
 
   const principal = topInstituciones.find(([, a]) => a.href)?.[1] ?? null;
   const provincia = provinciaDeTexto(registro?.provincia);
+  // Solo si el padrón de empresas la publica: nunca una arista a una ficha que no existe.
+  const empresa = tributario && (await tieneFichaDeEmpresa(tributario.rnc)) ? tributario.rnc : null;
 
   return (
     <div className="space-y-5">
@@ -256,6 +258,12 @@ export default async function ProveedorPage({
             href: enlace.provincia(provincia.slug),
             nombre: provincia.nombre,
             fuente: "Registro de Proveedores",
+          },
+          empresa && {
+            etiqueta: "Su ficha en el padrón de empresas",
+            href: enlace.empresa(empresa),
+            nombre: `RNC ${empresa}`,
+            fuente: "padrón de contribuyentes de la DGII",
           },
         ]}
       />
