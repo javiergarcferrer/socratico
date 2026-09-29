@@ -124,6 +124,9 @@ export default async function InstitucionPage({ params }: Props) {
   // La misma consulta que abre la arista: la cuenta es la de la lista.
   const nAuditorias = auditorias ? filtrarInformes(informesDe(auditorias), { q: i.nombre }).length : 0;
   const conPersonas = funcionarios ? personasDeInstitucion(funcionarios, i.id).length > 0 : false;
+  // Lo que la Ley de Presupuesto le transfiere desde el Gobierno central (un
+  // ayuntamiento, sobre todo): solo cuando el cuadro de DIGEPRES la nombra sola.
+  const transfiere = Boolean(i.transferencia || i.transferenciaProyecto);
 
   /*
     El índice de la ficha: una entrada por sección que de verdad está en la
@@ -132,7 +135,10 @@ export default async function InstitucionPage({ params }: Props) {
   */
   const indice = [
     conPersonas && { id: "dirige", texto: "Quién la dirige" },
-    { id: "presupuesto", texto: i.capitulo ? `Presupuesto · cap. ${i.capitulo}` : "Presupuesto" },
+    {
+      id: "presupuesto",
+      texto: i.capitulo ? `Presupuesto · cap. ${i.capitulo}` : transfiere ? "Transferencias" : "Presupuesto",
+    },
     { id: "compras", texto: `Compras · DGCP ${i.id}` },
     conHistoria && { id: "historia", texto: "Desde 2015" },
     nObras > 0 && { id: "obras", texto: `Obras · ${formatInt(nObras)}` },
@@ -226,17 +232,20 @@ export default async function InstitucionPage({ params }: Props) {
         </div>
       )}
 
-      <div id="presupuesto">
+      <div id="presupuesto" className="space-y-5">
         {fiscal ? (
           <Presupuesto datos={fiscal} institucion={i} hermanas={hermanas} />
         ) : (
-          <EstadoVacio rotulo="Presupuesto" titulo="Sin presupuesto propio en el SIGEF">
-            La DGCP no adscribe esta unidad de compra a un capítulo del Presupuesto
-            General del Estado (pasa con ayuntamientos, empresas públicas y órganos
-            con presupuesto aparte), así que su gasto no aparece en la instantánea
-            del SIGEF.
-          </EstadoVacio>
+          !transfiere && (
+            <EstadoVacio rotulo="Presupuesto" titulo="Sin presupuesto propio en el SIGEF">
+              La DGCP no adscribe esta unidad de compra a un capítulo del Presupuesto
+              General del Estado (pasa con ayuntamientos, empresas públicas y órganos
+              con presupuesto aparte), así que su gasto no aparece en la instantánea
+              del SIGEF.
+            </EstadoVacio>
+          )
         )}
+        {transfiere && <Transferencias i={i} />}
       </div>
 
       <div id="compras">
