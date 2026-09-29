@@ -14,8 +14,10 @@ import { enlace } from "@/lib/grafo";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
 import { desdeMayusculas } from "@/lib/congreso";
 import {
+  FAMILIAS_PEP,
   PODERES,
   cabezasDelEstado,
+  cargoDeFamilia,
   cargoEnInstitucion,
   cargoPrincipal,
   esActual,
@@ -42,7 +44,7 @@ const POR_PAGINA = 30;
 const ORDEN_PODERES: Poder[] = ["ejecutivo", "congreso", "justicia", "organos", "local"];
 
 type Props = {
-  searchParams: Promise<{ q?: string; poder?: string; pep?: string; inst?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; poder?: string; pep?: string; tipo?: string; inst?: string; page?: string }>;
 };
 
 export default async function FuncionariosPage({ searchParams }: Props) {
@@ -52,6 +54,7 @@ export default async function FuncionariosPage({ searchParams }: Props) {
     q: p.q?.trim().slice(0, 120) ?? "",
     poder: p.poder && p.poder in PODERES ? (p.poder as Poder) : "",
     pep: p.pep === "1",
+    tipo: p.pep === "1" && FAMILIAS_PEP.some((x) => x.clave === p.tipo) ? (p.tipo as string) : "",
     inst: institucion ? institucion.id : null,
   };
   const pagina = Math.max(1, Number(p.page ?? "1") || 1);
@@ -82,13 +85,28 @@ export default async function FuncionariosPage({ searchParams }: Props) {
     q: filtros.q,
     poder: filtros.poder || null,
     soloPep: filtros.pep,
+    familiaPep: filtros.tipo || null,
     institucionId: filtros.inst,
   });
   const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
   const actual = Math.min(pagina, paginas);
   const visibles = lista.slice((actual - 1) * POR_PAGINA, actual * POR_PAGINA);
   const cuentaPoder = (poder: Poder) =>
-    filtrarPersonas(datos, { q: filtros.q, poder, soloPep: filtros.pep, institucionId: filtros.inst }).length;
+    filtrarPersonas(datos, {
+      q: filtros.q,
+      poder,
+      soloPep: filtros.pep,
+      familiaPep: filtros.tipo || null,
+      institucionId: filtros.inst,
+    }).length;
+  const cuentaFamilia = (clave: string) =>
+    filtrarPersonas(datos, {
+      q: filtros.q,
+      poder: filtros.poder || null,
+      soloPep: true,
+      familiaPep: clave,
+      institucionId: filtros.inst,
+    }).length;
   const cabezas = sinFiltro ? cabezasDelEstado(datos) : [];
   const ministros = sinFiltro ? gabinete(datos) : [];
   const f = datos.fuentes;
@@ -158,7 +176,7 @@ export default async function FuncionariosPage({ searchParams }: Props) {
 
         <NavFiltros etiqueta="Poder del Estado" className="mt-4">
           <FiltroEnlace href={hrefFuncionarios({ ...filtros, poder: "" })} activo={!filtros.poder}>
-            {`Todos (${filtrarPersonas(datos, { q: filtros.q, soloPep: filtros.pep, institucionId: filtros.inst }).length.toLocaleString("es-DO")})`}
+            {`Todos (${filtrarPersonas(datos, { q: filtros.q, soloPep: filtros.pep, familiaPep: filtros.tipo || null, institucionId: filtros.inst }).length.toLocaleString("es-DO")})`}
           </FiltroEnlace>
           {ORDEN_PODERES.map((poder) => (
             <FiltroEnlace
@@ -178,6 +196,18 @@ export default async function FuncionariosPage({ searchParams }: Props) {
             Solo los obligados a declarar patrimonio
           </FiltroEnlace>
         </NavFiltros>
+        {filtros.pep && (
+          <NavFiltros etiqueta="Tipo de cargo, según el art. 2 de la Ley 311-14" className="mt-2">
+            <FiltroEnlace href={hrefFuncionarios({ ...filtros, tipo: "" })} activo={!filtros.tipo}>
+              Todos los tipos
+            </FiltroEnlace>
+            {FAMILIAS_PEP.map((x) => (
+              <FiltroEnlace key={x.clave} href={hrefFuncionarios({ ...filtros, tipo: x.clave })} activo={filtros.tipo === x.clave}>
+                {`${x.etiqueta} (${cuentaFamilia(x.clave).toLocaleString("es-DO")})`}
+              </FiltroEnlace>
+            ))}
+          </NavFiltros>
+        )}
         {institucion && (
           <NavFiltros etiqueta="Institución" className="mt-2">
             <FiltroEnlace href={hrefFuncionarios({ ...filtros, inst: null })} activo={false}>
@@ -217,7 +247,11 @@ export default async function FuncionariosPage({ searchParams }: Props) {
                 <FilaPersona
                   key={persona.id}
                   persona={persona}
-                  cargo={(filtros.inst != null && cargoEnInstitucion(persona, filtros.inst)) || cargoPrincipal(persona)}
+                  cargo={
+                    (filtros.inst != null && cargoEnInstitucion(persona, filtros.inst)) ||
+                    (filtros.tipo && cargoDeFamilia(persona, filtros.tipo)) ||
+                    cargoPrincipal(persona)
+                  }
                 />
               ))}
             </ul>

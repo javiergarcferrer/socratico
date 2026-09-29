@@ -84,7 +84,7 @@ export default async function BuscarPage({
         <BuscadorUrl
           etiqueta="Buscar en toda la plataforma"
           placeholder="MINERD, Ley 47-20, agua potable, computadoras, sueldo de un médico…"
-          ayuda="Instituciones, legisladores, proveedores con contratos desde 2015, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, documentos, datos abiertos y cargos de nómina con su sueldo, por palabra y por tema. El Senado se abre en su vertical."
+          ayuda="Instituciones, personas con cargo público, legisladores, proveedores con contratos desde 2015, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, documentos, datos abiertos y cargos de nómina con su sueldo, por palabra y por tema. El Senado se abre en su vertical."
         />
       </Suspense>
 

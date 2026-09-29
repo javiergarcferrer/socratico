@@ -303,10 +303,29 @@ export function poderesDe(p: Persona): Set<Poder> {
   return salida;
 }
 
+/**
+ * Los numerales del art. 2 de la Ley 311-14 agrupados en familias de cargo, para
+ * filtrar a las personas expuestas políticamente por tipo. Cada familia dice sus
+ * numerales; ninguno queda en dos.
+ */
+export const FAMILIAS_PEP: { clave: string; etiqueta: string; numerales: number[] }[] = [
+  { clave: "presidencia", etiqueta: "Presidencia", numerales: [1] },
+  { clave: "congreso", etiqueta: "Congreso", numerales: [2] },
+  { clave: "justicia", etiqueta: "Jueces y Ministerio Público", numerales: [3, 4, 5, 6] },
+  { clave: "gobierno", etiqueta: "Ministerios y direcciones", numerales: [7, 18, 19, 29, 32] },
+  { clave: "control", etiqueta: "Órganos de control y electorales", numerales: [8, 10, 11, 12] },
+  { clave: "autonomos", etiqueta: "Banca, empresas y entes autónomos", numerales: [9, 13, 20, 21, 30, 31] },
+  { clave: "territorio", etiqueta: "Provincias y municipios", numerales: [14, 15, 22] },
+  { clave: "exterior", etiqueta: "Servicio exterior", numerales: [17] },
+  { clave: "seguridad", etiqueta: "Fuerzas Armadas y Policía", numerales: [23, 24, 26] },
+];
+
 export interface FiltroFuncionarios {
   q?: string;
   poder?: Poder | null;
   soloPep?: boolean;
+  /** Clave de `FAMILIAS_PEP`: solo quien tiene o tuvo un cargo de esa familia. */
+  familiaPep?: string | null;
   /** Solo quienes han tenido cargo en esta institución; entonces el orden es el de la institución. */
   institucionId?: number | null;
 }
@@ -319,8 +338,10 @@ export interface FiltroFuncionarios {
  */
 export function filtrarPersonas(f: Funcionarios, filtro: FiltroFuncionarios): Persona[] {
   const q = filtro.q?.trim() ? agujas(filtro.q) : null;
+  const familia = filtro.familiaPep ? FAMILIAS_PEP.find((x) => x.clave === filtro.familiaPep) : null;
   const pasa = (p: Persona) => {
     if (filtro.soloPep && p.pep.length === 0) return false;
+    if (familia && !p.pep.some((n) => familia.numerales.includes(n))) return false;
     if (filtro.poder && !poderesDe(p).has(filtro.poder)) return false;
     if (q && !contieneTodas(plano([p.nombre, ...p.alias].join(" ")), q)) return false;
     return true;
@@ -333,7 +354,21 @@ export function filtrarPersonas(f: Funcionarios, filtro: FiltroFuncionarios): Pe
       .filter((p) => (vistas.has(p.id) ? false : (vistas.add(p.id), true)))
       .filter(pasa);
   }
-  return f.personas.filter(pasa).sort((a, b) => puntaje(b) - puntaje(a) || a.nombre.localeCompare(b.nombre, "es"));
+  const salida = f.personas.filter(pasa);
+  if (familia) {
+    // Con un tipo elegido, primero quien ocupa hoy un cargo de ese tipo.
+    const hoy = (p: Persona) => Number(p.cargos.some((c) => esActual(c) && familia.numerales.includes(c.numeral311 ?? -1)));
+    return salida.sort((a, b) => hoy(b) - hoy(a) || puntaje(b) - puntaje(a) || a.nombre.localeCompare(b.nombre, "es"));
+  }
+  return salida.sort((a, b) => puntaje(b) - puntaje(a) || a.nombre.localeCompare(b.nombre, "es"));
+}
+
+/** El cargo de la persona que es de esa familia PEP: el de hoy si lo hay, si no el más reciente. */
+export function cargoDeFamilia(p: Persona, clave: string): Cargo | null {
+  const familia = FAMILIAS_PEP.find((x) => x.clave === clave);
+  if (!familia) return null;
+  const suyos = p.cargos.filter((c) => c.numeral311 != null && familia.numerales.includes(c.numeral311));
+  return suyos.find(esActual) ?? [...suyos].sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""))[0] ?? null;
 }
 
 /** El cargo que ata a la persona con la institución: el de hoy si lo hay, si no el más reciente. */

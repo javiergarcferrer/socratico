@@ -282,12 +282,18 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     etiqueta: "Toda la plataforma",
     href: "/buscar",
     alcance:
-      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores y proveedores con contratos desde 2015, y ofrece seguir en cada vertical.",
+      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores, personas con cargo público y proveedores con contratos desde 2015, y ofrece seguir en cada vertical.",
   },
   {
     etiqueta: "Instituciones",
     href: "/instituciones",
     alcance: "Nombre o siglas de las 739 unidades de compra activas, cada una con su ficha de presupuesto, compras, nómina y decretos.",
+  },
+  {
+    etiqueta: "Funcionarios",
+    href: "/funcionarios",
+    alcance:
+      "Nombre de las personas con cargo público, sin importar tildes ni el orden: el Directorio de Funcionarios del MAP, los decretos, las altas cortes, la JCE y el Congreso (instantánea).",
   },
   {
     seccion: "licitaciones",
