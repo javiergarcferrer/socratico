@@ -432,11 +432,11 @@ export function gabinete(f: Funcionarios): { persona: Persona; cargo: Cargo }[] 
 /*
   ¿Quién la dirige? El cargo de más arriba que el MAP da hoy en la
   institución (su orden jerárquico: 3 ministro, 13 director general, 15
-  director ejecutivo, 25 alcalde…), y si el MAP no la tiene, la designación
-  más reciente de un cargo de cabeza en los decretos. Un «vice», un «sub» o un
-  «adjunto» no encabezan.
+  director ejecutivo, 25 alcalde…) o, en una alta corte, quien la preside;
+  si no, la designación más reciente de un cargo de cabeza en los decretos.
+  Un «vice», un «sub», un «adjunto» o el presidente de una sala no encabezan.
 */
-const CABEZA = /^(ministr[oa]|director[a]?( general| ejecutiv[oa]| nacional)?|administrador[a]?( general)?|superintendente|gerente general|presidente|presidenta|rector[a]?|alcalde|alcaldesa|alcaldia|contralor[a]? general|procurador[a]? general|tesorer[oa] nacional|defensor[a]? del pueblo|gobernador[a]?)\b/;
+const CABEZA = /^(ministr[oa]|director[a]?( general| ejecutiv[oa]| nacional)?|administrador[a]?( general)?|superintendente|gerente general|presidente|presidenta|rector[a]?|alcalde|alcaldesa|alcaldia|contralor[a]? general|procurador[a]? general|tesorer[oa] nacional|defensor[a]? del pueblo|gobernador[a]?|juez[a]? president[ae] (de la suprema corte|del tribunal))\b/;
 
 function esCabeza(c: Cargo): boolean {
   const t = plano(c.titulo).trim();

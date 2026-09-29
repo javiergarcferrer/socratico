@@ -595,12 +595,14 @@ def palabras(s: str) -> frozenset:
     return frozenset(salida)
 
 
-# Nombres del MAP que el emparejamiento por palabras no alcanza porque la DGCP
-# escribe la misma institución de otra forma. Uno por uno, verificado contra
-# el cruce (id, nombre en la DGCP y capítulo): «Instituto de Auxilios» es el
-# 5202 del Clasificador, que la DGCP llama «Instituto Nacional de Auxilios y
-# Viviendas».
-MAP_A_INSTITUCION = {
+# Nombres (del MAP o de una corte) que el emparejamiento por palabras no
+# alcanza porque el cruce escribe la misma institución de otra forma. Uno por
+# uno, verificado contra el cruce (id, nombre y capítulo): «Instituto de
+# Auxilios» es el 5202 del Clasificador, que la DGCP llama «Instituto Nacional
+# de Auxilios y Viviendas»; la Suprema Corte no tiene capítulo propio: es el
+# Poder Judicial, capítulo 0301.
+NOMBRE_A_INSTITUCION = {
+    "suprema corte de justicia": 900301,  # «Poder Judicial», capítulo 0301
     "direccion general de la policia nacional": 144,  # «Policia Nacional», capítulo 0202
     "oficina nacional de evaluacion sismica y vulnerabilidad de infraestructura y edificaciones": 939,  # abreviada
     "autoridad portuaria dominicana": 687,  # «APORDOM (Autoridad Portuaria Dominicana)»
@@ -639,8 +641,8 @@ class Instituciones:
         p = plano(nombre)
         if not p:
             return None
-        if p in MAP_A_INSTITUCION:
-            return next((i for i in self.todas if i["id"] == MAP_A_INSTITUCION[p]), None)
+        if p in NOMBRE_A_INSTITUCION:
+            return next((i for i in self.todas if i["id"] == NOMBRE_A_INSTITUCION[p]), None)
         exactas = self.por_plano.get(p, [])
         if len(exactas) == 1:
             return exactas[0]

@@ -83,8 +83,8 @@ export async function QuienDirige({ uc }: { uc: number }) {
         </div>
       )}
       <p className="border-t border-hairline px-5 py-3 text-xs leading-relaxed text-ink-soft">
-        Según el Directorio de Funcionarios del MAP y los decretos de la Consultoría Jurídica. Una persona es
-        su nombre tal como lo escriben esas fuentes.
+        Según el Directorio de Funcionarios del MAP, los decretos de la Consultoría Jurídica, las páginas de
+        las altas cortes y la JCE. Una persona es su nombre tal como lo escriben esas fuentes.
       </p>
     </Card>
   );
