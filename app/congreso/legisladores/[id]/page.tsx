@@ -31,6 +31,7 @@ import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import { filtrarObras, getObras } from "@/lib/obras";
 import Conversacion from "@/components/espacios/conversacion";
+import { personaDeLegislador } from "@/lib/funcionarios";
 
 export const revalidate = 3600;
 
@@ -102,6 +103,9 @@ export default async function LegisladorPage({ params, searchParams }: Props) {
   const provincia = provinciaDeTexto(l.provincia);
   const obras = provincia ? await getObras() : null;
   const obrasProvincia = provincia && obras ? filtrarObras(obras.proyectos, { provincia: provincia.slug }).length : 0;
+  // Sus otros cargos públicos (decretos, el MAP): la misma persona por su nombre completo.
+  const persona = await personaDeLegislador(id);
+  const otrosCargos = persona ? persona.cargos.filter((c) => c.origen !== "congreso").length : 0;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -150,6 +154,12 @@ export default async function LegisladorPage({ params, searchParams }: Props) {
             href: hrefDirectorio({ partido: l.partidoSiglas }),
             nombre: l.partidoNombre ?? l.partidoSiglas,
             fuente: "SIL de la Cámara",
+          },
+          persona && otrosCargos > 0 && {
+            etiqueta: "Sus otros cargos públicos",
+            href: enlace.funcionario(persona.id),
+            cuenta: otrosCargos,
+            fuente: "Decretos y Directorio de Funcionarios del MAP",
           },
           provincia && {
             etiqueta: "Obras públicas en su provincia",

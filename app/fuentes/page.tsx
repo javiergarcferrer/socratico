@@ -701,6 +701,37 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
+        <Fuente nombre="Funcionarios · quién ocupa cada cargo público" estado="activa" etiqueta="Instantánea local">
+          <p>
+            En{" "}
+            <Link href="/funcionarios" className="font-medium text-brand-700 hover:underline">
+              funcionarios
+            </Link>{" "}
+            se juntan cinco fuentes del Estado sobre las mismas personas: el{" "}
+            <strong>Directorio de Funcionarios del MAP</strong> (unos 6,150 servidores con su
+            cargo, su unidad y el decreto que los nombró), <strong>todos los decretos</strong> de
+            la Consultoría Jurídica desde 1844 (quién los firmó; las designaciones y los ceses por
+            su título desde 1996 y, cuando nombran a varias personas, por su texto desde 2012), las
+            páginas de la <strong>Suprema Corte</strong>, el <strong>Consejo del Poder
+            Judicial</strong>, el <strong>Tribunal Constitucional</strong>, el <strong>Tribunal
+            Superior Electoral</strong> (con sus gestiones desde 2012), la <strong>Junta Central
+            Electoral</strong> y el <strong>Defensor del Pueblo</strong>, la relación de{" "}
+            <strong>electos municipales de 2024</strong> de la JCE y los legisladores del SIL.
+          </p>
+          <p className="mt-3">
+            Los límites: una persona es su nombre tal como lo escriben las fuentes, así que dos
+            grafías distintas son dos fichas (la ficha avisa de los nombres parecidos). Del MAP no
+            se guardan el género, los teléfonos, el correo ni la foto, y nunca se usa la cédula que
+            trae el buscador de la Consultoría. La marca de persona expuesta políticamente se asigna
+            por el nombre del cargo contra el artículo 2 de la Ley 311-14, con reglas
+            conservadoras. Los decretos anteriores a 2012 que nombran a varias personas son
+            escaneos y no se leen. Solo las fichas de cargos obligados a declarar patrimonio se
+            ofrecen a los buscadores externos. La Cámara de Cuentas y la Procuraduría rechazan hoy
+            la lectura (HTTP 470) y el Banco Central sirve su Junta Monetaria por una vía que no
+            devuelve el contenido: sus titulares no están salvo por un decreto o por el MAP.
+          </p>
+        </Fuente>
+
         <Fuente nombre="Biblioteca del Estado · documentos de las instituciones" estado="activa" etiqueta="Instantánea local">
           <p>
             Muchas instituciones publican en WordPress, y WordPress trae una vía

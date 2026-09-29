@@ -55,6 +55,7 @@ import { enlace } from "@/lib/grafo";
 export type TipoResultado =
   | "institucion"
   | "legislador"
+  | "funcionario"
   | "proveedor"
   | "proceso"
   | "norma"
@@ -69,6 +70,7 @@ export type TipoResultado =
 export const TIPOS_RESULTADO: { clave: TipoResultado; etiqueta: string; plural: string }[] = [
   { clave: "institucion", etiqueta: "Institución", plural: "Instituciones" },
   { clave: "legislador", etiqueta: "Legislador", plural: "Legisladores" },
+  { clave: "funcionario", etiqueta: "Funcionario", plural: "Funcionarios" },
   { clave: "proveedor", etiqueta: "Proveedor", plural: "Proveedores" },
   { clave: "proceso", etiqueta: "Proceso de compra", plural: "Procesos de compra" },
   { clave: "norma", etiqueta: "Norma", plural: "Normativa" },
@@ -366,6 +368,17 @@ const DE_LEGISLADOR = new Set([
   "legislador", "legisladora", "legisladores", "legisladoras",
 ]);
 
+/**
+ * Las de un cargo público que no es de legislador: «ministro de educación»,
+ * «alcalde de Santiago», «jueza». Se exigen y prefieren a las personas
+ * (`/funcionarios`), como las de legislador prefieren a los legisladores.
+ */
+const DE_FUNCIONARIO = new Set([
+  "ministro", "ministra", "viceministro", "viceministra", "alcalde", "alcaldesa", "vicealcalde",
+  "vicealcaldesa", "regidor", "regidora", "juez", "jueza", "magistrado", "magistrada", "embajador",
+  "embajadora", "consul", "gobernador", "gobernadora", "funcionario", "funcionaria",
+]);
+
 interface Consulta {
   /** Lo tecleado, recortado: es lo que se embebe. */
   texto: string;
@@ -409,7 +422,9 @@ export function analizarConsulta(texto: string): Consulta {
             : undefined
         : requeridas.some((w) => DE_LEGISLADOR.has(w))
           ? "legislador"
-          : undefined,
+          : requeridas.some((w) => DE_FUNCIONARIO.has(w))
+            ? "funcionario"
+            : undefined,
     nucleo: requeridas.join(" "),
     pregunta,
   };

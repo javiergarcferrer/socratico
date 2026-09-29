@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { enlace, numeroCanonico } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
+import { ETIQUETA_MOVIMIENTO, getFuncionarios, personasDelDecreto } from "@/lib/funcionarios";
 
 export const revalidate = 86400;
 
@@ -125,6 +126,8 @@ export default async function NormaPage({ params }: Props) {
         </Card>
       )}
 
+      {tipo === "Decreto" && <PersonasDelDecreto numero={norma.numero} />}
+
       <Card as="section" className="mt-5">
         <CardHeader>
           <CardTitle>El texto</CardTitle>
@@ -161,6 +164,53 @@ export default async function NormaPage({ params }: Props) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * A quién nombra, confirma o cesa un decreto: lo que leyó de su título o de su
+ * texto `scripts/build-funcionarios.py`. Cada persona lleva a su ficha, con el
+ * resto de sus cargos.
+ */
+async function PersonasDelDecreto({ numero }: { numero: string }) {
+  const datos = await getFuncionarios();
+  if (!datos) return null;
+  const vistas = new Set<string>();
+  const filas = personasDelDecreto(datos, numero).filter(({ persona, cargo }) => {
+    const k = `${persona.id}|${cargo.titulo}|${cargo.movimiento}`;
+    if (vistas.has(k)) return false;
+    vistas.add(k);
+    return true;
+  });
+  if (filas.length === 0) return null;
+  return (
+    <Card as="section" className="mt-5">
+      <CardHeader>
+        <CardTitle>¿A quién nombra este decreto?</CardTitle>
+      </CardHeader>
+      <ul>
+        {filas.map(({ persona, cargo }) => (
+          <li key={`${persona.id}-${cargo.titulo}-${cargo.movimiento}`} className="relative border-t border-hairline">
+            <div className="px-4 py-3 sm:px-5">
+              <Link
+                href={enlace.funcionario(persona.id)}
+                className="text-[15px] font-medium text-ink estira hover:text-brand-700"
+              >
+                {persona.nombre}
+              </Link>
+              <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
+                {ETIQUETA_MOVIMIENTO[cargo.movimiento]} · {cargo.grado ? `${cargo.grado} · ` : ""}
+                {cargo.titulo}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="border-t border-hairline px-5 py-3 text-xs leading-relaxed text-ink-soft">
+        Leído del título del decreto o, cuando nombra a varias personas, de su texto. El texto oficial manda:
+        está justo debajo.
+      </p>
+    </Card>
   );
 }
 

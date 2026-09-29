@@ -263,6 +263,28 @@ function leerInstantanea(): Promise<Instantanea | null> {
   return instantanea;
 }
 
+let decretosInstantanea: Promise<Set<string>> | null = null;
+
+/**
+ * Los números de decreto que guarda la instantánea: su ficha abre aunque la
+ * Consultoría rechace la lectura en vivo, como hace con el egreso de Vercel.
+ * Quien enlaza un decreto más viejo (una designación de 2005 en la ficha de
+ * un funcionario) manda al PDF del origen, que es la ficha de las leyes sin
+ * ficha (docs/AUDITORIA.md §G.15), y no a una página que diría «no tenemos
+ * el texto».
+ */
+export function decretosEnInstantanea(): Promise<Set<string>> {
+  decretosInstantanea ??= leerInstantanea().then((inst) => {
+    const salida = new Set<string>();
+    for (const [clave, filas] of Object.entries(inst?.busquedas ?? {})) {
+      if (!clave.startsWith("3/")) continue;
+      for (const f of filas) if (f.Numero) salida.add(numeroCanonico("decreto", texto(f.Numero)));
+    }
+    return salida;
+  });
+  return decretosInstantanea;
+}
+
 /**
  * Todas las leyes desde 1844 (`public/data/leyes.json`, `scripts/build-leyes.py`),
  * en filas compactas: `campos` nombra las columnas de cada fila. Solo la lee la

@@ -29,6 +29,14 @@ claves, lectura en vivo con caché.
 > integradas y una veintena mapeadas. Va después de la segunda, en **TERCERA
 > PASADA** (§G); corrige §4.3 y §B.1 (Cámara de Cuentas ya responde), §5.2
 > (Poder Judicial: cadena TLS incompleta, resoluble) y §5.3 (el TC sí se lee).
+>
+> **Cuarta pasada: 2026-09-29.** Pedido del dueño: todas las entidades públicas,
+> los bancos, el registro mercantil y las personas expuestas políticamente, «todo
+> lo que un abogado necesita para investigar». Seis frentes de reconocimiento y
+> cinco capas nuevas. Va al final, en **CUARTA PASADA** (§H); corrige §5.6 (la
+> lista de la SB es HTML abierto con RNC), §5.7 (SIPEN: robots abierto, TLS sano),
+> §G.6 (Cámara de Cuentas y PGR vuelven a 470) y §A.7 (el «Directorio Virtual»
+> del SISMAP no existe).
 
 ---
 
@@ -1595,3 +1603,350 @@ User-Agent identificable; ninguna en una visita.
    expuestos en SIMBAD), CAASD (Tomcat), Cámara de Cuentas (500), SCJ (GET en
    su buscador), PJ (cadena TLS), SNS/MAP/MIDEREC (REST cerrada),
    Agricultura/INFOTEP/SIE/SIMV/ONE (WAF).
+
+# CUARTA PASADA — 2026-09-29
+
+Pedido del dueño: «todas las entidades públicas», los bancos, el registro
+mercantil, las personas expuestas políticamente «como el Presidente», y todo lo
+que un abogado necesita para empezar una investigación. Seis frentes a la vez
+(entidades financieras, registro mercantil y empresas, PEP del Ejecutivo, PEP de
+los otros poderes, universo del sector público, sanciones e investigación legal)
+con el método de siempre: robots primero, User-Agent identificable, ≤6 peticiones
+por host en el reconocimiento, solo GET salvo la consulta exacta que hace una
+página pública (el precedente del buscador de la Consultoría), ningún bloqueo
+rodeado, ninguna credencial filtrada usada. Los informes crudos vivieron en el
+scratchpad de la sesión; aquí queda lo verificado.
+
+**Un tropiezo de higiene, declarado.** El frente legal descargó una vez
+`www.dgcp.gob.do/new_dgcp/…/Lista de Proveedores del Estado Inhabilitados…csv`
+antes de leer entero el robots de ese host, que tiene `Disallow: /new_dgcp/`
+para `*`. El cuerpo se borró, no se usa y la vía que se integró es otra (§H.9).
+La regla sigue siendo leer el robots **completo** antes de la primera petición.
+
+### H.1 ⭐ MAP — el Directorio de Funcionarios (observicios.gob.do)
+
+- ✅ El Portal Único de Transparencia (DIGEIG) enlaza en «Consultas» un
+  «Directorio de Funcionarios» (post 1153, WP REST): es un `iframe` a
+  `https://observicios.gob.do/officials`, el Observatorio de Servicios Públicos
+  del MAP. Sin robots (la ruta devuelve el cascarón de la SPA). La SPA
+  (React/Vite, `assets/index-DacqX86J.js`) llama a `https://observicios.gob.do/back/api/`.
+  Su cliente añade `Authorization` **solo** si hay sesión: el portal público no la
+  usa.
+- ✅ `POST /back/api/portal/funcionarios` con `{"page":1}` → 200
+  `application/json`: `{"valid":true,"content":{"elementostotales":6153,"page":1,
+  "rows":10,"paginastotales":616,"repuestas":[…]}}` (sic, «repuestas»). Es la
+  consulta que hace la página. `{"page":1,"rows":500}` → 13 páginas: el
+  directorio entero en 13 lecturas.
+- ✅ Cada fila: `funcionarioId`, `institucion`, `funcionario` (nombre completo),
+  `cargoPrincipal`, `unidadNombreCompleto`, `decreto` (612 de 6,153), `fechaDecreto`
+  (todas), `orden` (nivel jerárquico: 1 Presidente, 2 Vicepresidenta, 3 los 21
+  ministros, 4 viceministros, 13 directores generales, 15 ejecutivos, 25 alcaldes,
+  29 regidores, 31–49 directores de área y encargados), `estado`. La primera fila
+  es «Luis Rodolfo Abinader Corona · Presidente de la República».
+- ⚠️ `declara` viene `false` para **todos**, el Presidente incluido: no es fiable
+  y no se usa. `fechaSalida` no significa lo que dice (en el Presidente es igual a
+  la fecha del decreto). La exportación declara además `genero`, `telefono`,
+  `email`, `extension`, `institucionTelefono` y una foto: **no se leen ni se
+  guardan**, tampoco en la caché del script.
+- ✅ `GET /back/api/portal/detalles_funcionario/{id}` responde JSON sin clave
+  (historial de cargos por persona); no hace falta para la instantánea.
+- ⚠️ 252 instituciones con nombres propios del MAP («Ministerio de Hacienda y
+  Economía», «Oficina Nacional de Estadística»): casan con el cruce de
+  instituciones por sus palabras (plural fuera, «de/la» fuera, un ganador claro)
+  228 de 252, ninguna mal en la revisión a mano; las 24 restantes (Policía
+  Nacional, ONESVIE, Consultoría Jurídica…) quedan como texto.
+- ✅ Presidencia (`presidencia.gob.do`, Drupal): `/ministros` sirve 21 tarjetas en
+  el servidor (nombre, cargo, foto, perfil), sin paginar; la fecha visible es la
+  del nodo, no la del nombramiento. `/presidencia/luis-abinader` y
+  `/presidencia/raquel-pena` traen biografía **con familia**: no se leen.
+  `/decretos` lista ~1,870 decretos con resumen de prensa (24 por página). ❌
+  `/jsonapi/node/ministers` → 404. Sirve de contraste, no de fuente: el MAP ya lo
+  trae estructurado.
+- ⚠️ El Portal Único publica 341 fichas de institución con una línea libre
+  «Titular actual:»; están desactualizadas (Jean Luis Rodríguez figura en APORDOM
+  y hoy es ministro). ❌ NORTIC (`nortic.ogtic.gob.do/instituciones/`) es Blazor
+  Server y no trae la máxima autoridad.
+- Implementado: `scripts/build-funcionarios.py` → `public/data/funcionarios.json`,
+  `lib/funcionarios.ts`, `/funcionarios` y `/funcionarios/[slug]`.
+
+### H.2 ⭐ Consultoría Jurídica — todos los decretos, su firmante y a quién nombran
+
+- ✅ `POST /api/consultas/search` con `DocumentTypeCode: 3` y `PublicationYear: ""`
+  → 201 `application/json`, **75,169,817 bytes en ~62 s**: **78,834 decretos
+  desde 1844** (989 sin fecha). Cada fila trae, además de lo que ya leía
+  `lib/normativa.ts`: `Presidente` (el firmante, 77,099 filas: «LUIS ABINADER»
+  4,808, «JOAQUÍN BALAGUER» 20,679, «LEONEL FERNANDEZ» 8,810, «DANILO MEDINA»
+  3,578…), `Consultor`, y campos de persona: `Nombre`/`Apellido` (9,220),
+  `Cargo` (4,408), `Carrera`/`Gremio` (los exequátur de abogados, notarios y
+  médicos), `TipoPension`/`Monto` (341) y `Cedula` (539).
+- ⚠️ **La cédula nunca se guarda**: el script la descarta antes de escribir su
+  caché. Tampoco las pensiones ni los exequátur: son personas sin cargo público.
+- ⚠️ Los campos de persona del buscador no sirven cuando el decreto nombra a
+  varias: concatenan todos los nombres en `Nombre` y todos los apellidos en
+  `Apellido`, con un solo `Cargo`. Manda el **título**, que es el texto oficial
+  («QUE DESIGNA AL SEÑOR VÍCTOR LIVIO ENMANUEL CEDEÑO BREA, SUPERINTENDENTE DE
+  BANCOS…», decreto 606-26).
+- ✅ Los decretos de varias personas («QUE INTEGRA EL GABINETE… Y NOMBRA
+  FUNCIONARIOS», 324-20; «QUE NOMBRA CINCUENTA Y SIETE (57) VICEMINISTROS»,
+  330-20) traen el detalle en el PDF: `GET /api/document/{DocId}` → 200
+  `application/pdf` con capa de texto desde 2012, en la fórmula «Artículo N.-
+  <Nombre> queda designado <cargo>.», con variantes militares («El General de
+  Brigada X (ERD), es ascendido a mayor general y queda designado…») y el
+  sustituido («… en sustitución de Y, designado mediante el artículo N del
+  Decreto núm. M»). Leído con `pdfminer.six`: 57 de 57 viceministros en 330-20,
+  27 de 28 gobernadoras en 340-20 (el que falta es el «Envíese»), el gabinete
+  de 2012 en 3368298.
+- ⚠️ Antes de 2012, y en algunos de 2012, el PDF es un **escaneo con OCR**
+  («Lie.» por «Lic.», «E1», «W illiams M uioz»): el script los detecta por esas
+  huellas y no los lee (se cuentan en la instantánea). `pypdf` parte palabras
+  («Alm ánzar»); pdfminer no, pero puede colgarse minutos en un escaneo: va con
+  un plazo de 40 s y cae a pypdf.
+- ⚠️ Un decreto de «LUIS ABINADER» viene fechado en 1900: el rango de firma
+  descarta la fecha suelta a más de un año de cualquier otro decreto del mismo
+  firmante.
+- Designaciones y ceses por título desde el 16-08-1996 (una persona por título;
+  «QUE DEROGA… QUE DESIGNÓ A X» es un cese; «ACEPTA LA RENUNCIA DE X»), por PDF
+  desde el 16-08-2012. Cifras de la corrida en la cabecera de la instantánea
+  (`fuentes.decretos`).
+
+### H.3 Altas cortes y órganos — quién los integra
+
+- ✅ **Suprema Corte**: `GET https://poderjudicial.gob.do/wp-json/wp/v2/pages?slug=jueces-actuales-spj&_fields=…`
+  → 200 JSON (WordPress con Elementor, BOM UTF-8): 17 jueces, «Magdo./Magda.
+  Nombre» y el cargo en la línea siguiente; `modified` 2026-01-07. Sin período.
+  ⚠️ El servidor omite el intermedio «Sectigo Public Server Authentication CA OV
+  R36» (§G.6): va en `scripts/certificados/sectigo-ov-r36.pem`, bajado de su AIA
+  (`http://crt.sectigo.com/SectigoPublicServerAuthenticationCAOVR36.crt`,
+  SHA-256 65:42:D1:76…:85:30, vence 2036), y la verificación TLS queda
+  **encendida**. robots de 0 bytes.
+- ✅ **Consejo del Poder Judicial**: `…/pages?slug=composicion-cpj` → 5
+  consejeros, `modified` 2026-05-07.
+- ✅ **Tribunal Constitucional**: `GET /sobre-el-tc/pleno/magistrados/` → 200
+  HTML, 13 jueces (`<a target="_self" href="/sobre-el-tc/pleno/magistrados/…"><strong>Nombre</strong></a><span>Cargo</span>`).
+  robots 404.
+- ✅ **Tribunal Superior Electoral**: `tse.gob.do` → 301 a `tse.do`; robots
+  `Allow: /`. `GET https://tse.do/wp-json/wp/v2/pages?slug=pleno-tse` → 5 jueces de
+  la «GESTIÓN 2025 – 2029 (ACTUAL)» y las gestiones 2021–2025, 2017–2021 y
+  2012–2017; nombres y cargos en dos columnas que se emparejan por posición.
+- ✅ **Junta Central Electoral**: `/Miembros-Titulares` y `/Miembros-Suplentes`
+  (DotNetNuke tras Zenedge, robots 404) → 200 HTML, «Nombre , Presidente JCE» /
+  «Nombre , Miembro Titular»: 5 + 5, gestión 2024-2028. ⚠️ A una petición
+  anterior respondió en brotli sin pedirlo; con `Accept-Encoding: identity`
+  llega plano.
+- ✅ **Defensor del Pueblo**: `…/wp-json/wp/v2/pages?slug=despacho-defensor-del-pueblo`
+  → «Pablo ULLOA · Defensor del Pueblo». ⚠️ Adjuntos y suplentes: páginas sin
+  nombres.
+- ✅ **Defensa** (`mide.gob.do`, WP REST): ministro y viceministros, con biografía
+  familiar (no se lee); ya los trae el MAP.
+- ❌ **Cámara de Cuentas** → 470 «Request Blocked» otra vez (corrige §G.6, que la
+  vio responder el 2026-09-24). ❌ **Procuraduría** (`pgr.gob.do`) → 470 del WAF de
+  CSIRT-RD («¡Hey, más despacio!»). ❌ `ministeriopublico.gob.do` → el proxy de
+  este entorno no llega (502 `connect_rejected`): límite del egreso, no de la
+  fuente. ⚠️ **Banco Central**: `/a/d/2557-miembros-jm` es un cascarón que pide el
+  contenido por `POST /Home/GetContentForRender` (`id=2557-miembros-jm`); la
+  consulta de prueba devolvió `"article": null`. ⚠️ Policía Nacional: robots
+  responde 500; con el antecedente `Disallow: /*?*` (§G.7) no se sigue.
+- ❌ SISMAP «Directorio Virtual» (`/Municipal/Directorio/Dir/Details/158`) → 404:
+  la ruta no existe (corrige la pista de §A.7). `/Municipal/ayuntamientos` sí lista
+  160 ayuntamientos y `/Municipal/ayuntamientos/16` las 233 juntas, sin el nombre
+  del alcalde. ❌ Liga Municipal: sin directorio; sus «datos abiertos» son un
+  Power BI.
+
+### H.4 JCE — los electos municipales de 2024
+
+- ✅ `GET https://elecciones2024.jce.gob.do/DesktopModules/EasyDNNNews/DocumentDownload.ashx?portalid=0&moduleid=469&articleid=10&documentid=14`
+  → 200 `application/octet-stream`, 252,057 B, `content-disposition` «RELACIÓN DE
+  CANDIDATOS ELECTOS EN LAS ELECCIONES ORDINARIAS GENERALES MUNICIPALES DEL 18 DE
+  FEBRERO 2024.xlsx». Sin CAPTCHA (el Zenedge de §B.3 no saltó en una lectura).
+  Enlazado desde `/sala-de-prensa/relacion-general-definitiva-del-computo-del-proceso-municipal-2024`.
+- ✅ Una hoja, 3,858 electos: `PROVINCIA, MUNICIPIO, CIRC., DISTRITO MUNICIPAL,
+  CARGO (ALCALDE, VICEALCALDE, REGIDOR, DIRECTOR, SUBDIRECTOR, VOCAL),
+  POSICION_ELEC, ORGANIZACION POLITICA, NOMBRE/APELLIDO, SEXO, VOTOS, PARTIDO DEL
+  CANDIDATO`. El sexo no se lee.
+- ⚠️ Los nombres de municipio no siempre casan con los del catálogo de la DGCP
+  («Ayuntamiento Municipal de Azua», «Ayuntamiento Santiago de los Caballeros»):
+  se enlaza el ayuntamiento solo cuando el nombre del lugar, sin «Ayuntamiento
+  (Municipal) (del Municipio) de», es único.
+
+### H.5 La definición legal de PEP
+
+- ✅ `https://uaf.gob.do/phocadownload/transparencia/BaseLegalInstitucional/Leyes/Ley%20155-17%20Contra%20Lavado%20de%20Activos%20y%20Financiamiento%20del%20Terrorismo.pdf`
+  → 200 `application/pdf`, 9,178,454 B, con texto. **Art. 2, num. 19**: «Persona
+  Expuesta Políticamente o PEP: Cualquier individuo que desempeña o ha
+  desempeñado, durante los últimos tres (3) años altas funciones públicas, por
+  elección o nombramientos ejecutivos … **Los cargos considerados PEP serán todos
+  aquellos funcionarios obligados a presentar declaración jurada de bienes.**»
+- ✅ Ley 311-14 (`…/Ley%20No.-311-14%20Sobre%20Declaracion%20Jurada%20de%20Patrimonio.pdf`,
+  2,034,220 B, escaneo con OCR ruidoso): el **art. 2** enumera en 33 numerales
+  quién declara (Presidente y Vicepresidente; legisladores; jueces; Ministerio
+  Público; ministros y viceministros; Defensor del Pueblo; Banco Central; Cámara
+  de Cuentas; JCE; Contralor; bancos del Estado; alcaldes, vicealcaldes, regidores
+  y tesoreros; directores de distrito; embajadores y cónsules generales;
+  administradores; directores nacionales y generales y subdirectores; empresas
+  del Estado; consejos de órganos autónomos; gobernadores provinciales; oficiales
+  generales; Policía; DNCD; Tesorero; UASD; Junta Monetaria; encargados de
+  compras…). `numeral_311()` los asigna por el texto del cargo.
+- ❌ **No existe una lista oficial pública de PEP** (UAF, CONCLAFIT, Portal
+  Único): la ley no la necesita, remite a la 311-14. ⚠️ El enlace viejo al
+  Decreto 408-17 (`?download=3581…`) devuelve la portada (200 que no prueba
+  nada).
+- El art. 46 extiende la debida diligencia a cónyuge, parientes y «asociados
+  cercanos»: es obligación de los bancos, y la plataforma no publica parentescos
+  (docs/DECISIONES.md).
+
+### H.6 ⭐ Banca — la Superintendencia de Bancos y las otras supervisoras
+
+- ✅ `sb.gob.do` (Umbraco tras Sucuri): robots `User-agent: * / Disallow: /umbraco/`
+  (corrige §5.6: el patrón de Aduanas `/umbraco/api/…` está **vetado** aquí y no
+  hace falta).
+- ✅ `/supervisados/entidades-de-intermediacion-financiera/?page=1&size=100` →
+  200 HTML de servidor, 220,959 B: **47 entidades** (18 bancos múltiples, 14 de
+  ahorro y crédito, 3 corporaciones de crédito, 10 asociaciones de ahorros y
+  préstamos, 2 públicas; 45 operando, 1 cancelada, 1 en liquidación), cada una con
+  activos, participación, empleados, estatus y ficha. Una lectura se quedó en 0
+  bytes a los 25 s: un reintento.
+- ✅ Ficha `/supervisados/entidades-de-intermediacion-financiera/banreservas/` →
+  registro SB (H-001-1-00-0101), razón social, **RNC con guiones** (4-01-01006-2),
+  calificación y calificadora, oficinas, cajeros, subagentes, accionistas, consejo
+  y principales funcionarios; «Datos actualizados al 01 septiembre 2026». Estados
+  financieros solo en PDF con URL por hash. Teléfonos y correos: no se muestran.
+- ✅ Otras categorías de `/supervisados/`: cambiarias, fiduciarias, sociedades de
+  información crediticia, oficinas de representación, otras entidades, auditores
+  externos, subagentes, sanciones (detalle de su lectura en la sección de
+  implementación, abajo).
+- ✅ datos.gob.do → `https://sb.gob.do/media/4g4nrdxa/listado-de-entidades-autorizadas-a-operar-2018-2026.csv`
+  (200 `text/csv`, BOM, 11,183 filas, `ENTIDAD,TIPO DE ENTIDAD,MES,AÑO`, sin RNC):
+  el registro mes a mes desde 2018. `…/estad%C3%ADsticas-de-sanciones-impuestas-2017-2026.csv`
+  → agregado por tipo de entidad, **no nominal**.
+- ✅ SIPEN: robots `Disallow:` vacío y TLS sano por el proxy (corrige §5.7 y §B.2).
+  `/institucional-normativas/administradora-de-fondos-de-pensiones` → 7 AFP con
+  razón social, fecha de registro y resolución; sin RNC.
+- ✅ Superintendencia de Seguros: `superseguros.gob.do` → 301 a `sis.gob.do`
+  (WordPress, robots `Allow: /`). `/companias-aseguradoras-y-reaseguradoras/` → 35
+  compañías en texto libre, sin RNC. ❌ Registro de intermediarios
+  (`ofv.superseguros.gob.do`) → 403 de Cloudflare.
+- ✅ IDECOOP: `…/wp-content/uploads/2024/07/Cooperativas-Incorporadas-por-Centros-Regionales-Julio-1953-Junio-2024.-IDECOOP-Excel.xlsx`
+  → 2,304 cooperativas con número y fecha del decreto que las incorpora, región y
+  provincia; congelado en junio de 2024; sin RNC.
+- ❌ SIMV: desafío de Cloudflare hasta en robots (sin cambios). ⚠️ BCRD: el único
+  listado de entidades en su CDN es `entidades_fondo.pdf` (43 aportantes al fondo
+  de contingencia, jun-2025); el XLSX hermano da 404.
+
+### H.7 El registro mercantil y las empresas
+
+- ⚠️ **Registro mercantil: no hay búsqueda pública.** La consulta de todas las
+  cámaras (`app.registromercantil.do/consultas`, Laravel + Vue; API
+  `https://ccapi.registromercantil.do/consultapublica/api/`) solo **valida un
+  certificado que ya se tiene**: pide número de RM **y** su código de validación y
+  devuelve denominación, fechas y estado. No busca por nombre ni por RNC, y no hay
+  socios, gerentes ni capital en ningún canal público. La consulta vieja
+  (`servicios.camarasantodomingo.do/consultaRm.aspx`) no pasa del proxy (502).
+- ❌ **ONAPI** (nombres comerciales y marcas): el buscador es un iframe a
+  `https://www.onapi.gob.do/busquedas2021/`, cuya API `…/bsapi26/signos?…` exige un
+  `X-API-Key` que el propio cliente rota por hora (401 sin él). Es un control
+  anti-automatización: no se replica. `GET /bsapi26/lookups` responde sin llave
+  (solo la taxonomía).
+- ✅ **DGII**: el padrón `RNC_CONTRIBUYENTES.zip` sigue en §A.2, 26,878,229 B,
+  `last-modified` 19-sep-2026 (sin corte nuevo en diez días: mensual, hacia el
+  19). Es la única fuente de empresas legible entera: RNC, razón social,
+  actividad, inicio de operaciones, estado y régimen; sin número de RM, socios ni
+  domicilio.
+- ✅ **Zonas francas** (CNZFE): `/publicaciones/empresas-aprobadas/` enlaza un PDF
+  por año 1999–2026 con texto (`Empresas-Aprobadas-2026.pdf`, 295,280 B: empresa,
+  actividad, ubicación, empleos, inversión); sin RNC. ❌ Su REST de WordPress: 403.
+- ❌ Formalízate: sin consulta pública de empresas. ❌ ProDominicana: sin
+  directorio de exportadores; `connectprodominicana.gob.do` veta `*` en su robots.
+- ❌ **Asociaciones sin fines de lucro** (el Centro Nacional de Fomento, hoy en
+  `minpre.gob.do/casfl/`): el registro vive en `sigasfl.gob.do`, 403 de Cloudflare
+  hasta en robots; minpre sirve un desafío intermitente («One moment, please…»).
+
+### H.8 ⭐ El universo del sector público — el Clasificador Institucional
+
+- ✅ `https://digepres.gob.do/wp-content/uploads/2026/05/Clasificador-Institucional.pdff_.pdf`
+  (el sufijo no es predecible: se descubre por `/wp-json/wp/v2/media?search=clasificador`,
+  `X-WP-Total` 40) → 200 `application/pdf`, 2,435,402 B, 46 págs., «Actualizado al:
+  09/01/2026», con texto. Columnas `SECTOR … PODERES ENTIDAD CAPÍTULO SUBCAPÍTULO
+  UNID. EJEC. DENOMINACIÓN`: **528 capítulos, 537 subcapítulos, 666 unidades
+  ejecutoras**: Gobierno central 32 (con los poderes y órganos constitucionales),
+  descentralizadas 60, seguridad social 8, **gobiernos locales 393** (ADN, 158
+  ayuntamientos, 234 juntas de distrito), empresas públicas no financieras 25,
+  financieras 10. La columna ENTIDAD no es única: no sirve de id. Trae una
+  bitácora de cambios.
+- ✅ Sus capítulos **son** los del SIGEF y los de la DGCP (`codigo_capitulo[4:8]`
+  de `unidades_compra`, 759 unidades: 739 activas y 20 suprimidas): casan 364 de
+  378. La DGCP arrastra códigos viejos (la CDEEE 6105 para EGEHID, ETED y las EDE;
+  SB 5126 por 5009; SIMV 5145 por 5008; MEPyD 0220, capítulo inhabilitado; DGII
+  0999, una partida de deuda); los fideicomisos 6201–6207 no están en el
+  clasificador. `lib/capitulos.ts` tiene 13 códigos que el clasificador ya no trae
+  y le faltan 9.
+- ✅ Transferencias por entidad receptora (XLSX de DIGEPRES): proyecto 2027
+  (`…/2026/09/12.-Clasificacion-Institucional-segun-Entidad-Receptora.xlsx`, 553
+  filas) y presupuesto 2026 (`…/2026/02/1.10-…-2.xlsx`, 545): el monto por
+  capítulo, gobiernos locales incluidos; las filas 9xxx son ONG y 4xxx subsidios.
+- ❌ API del SIGEF (`api-sigef.hacienda.gob.do`) → 403 de Cloudflare desde este
+  entorno, hasta en robots (Ray a42e3ec13ca2b58e): afecta la regeneración de
+  `scripts/build-fiscal.py` desde aquí. ❌ DIGECOG → 470. ❌ MAP: su única
+  «estructura del Estado» es un PDF narrativo de 2018. ❌ Liga Municipal: sin
+  lista de municipios con códigos (el código útil es el de DIGEPRES, 7001–7394).
+
+### H.9 Sanciones e investigación legal
+
+- ✅ **Proveedores inhabilitados de la DGCP**: la visualización del portal es un
+  Power BI incrustado (no se lee). La tabla sí baja por la misma API de §G.1:
+  `GET https://datosabiertos.dgcp.gob.do/api-dgcp/v1/tablas/proveedores?Type=csv&inhabilitados=true`
+  → 200 `text/csv`, `ProveedoresInhabilitados.csv`, 933,864 B: **2,317 medidas
+  sobre 1,734 RPE**, 2010-12-19 → 2026-09-22 (`RPE, MOTIVO_INHABILITACION, FECHA,
+  FECHA_INHABILITACION, FECHA_HABILITACION, FECHA_FIRMA_RESOLUCION,
+  OFICIO_INHABILITACION, URL_CERTIFICACION_RPE`). No hay campo de tipo: se lee
+  del motivo (suspensión o cancelación de oficio, inhabilitación, régimen de
+  prohibiciones, bajas a solicitud del propio proveedor, «vínculo con
+  investigados»). `FECHA_HABILITACION` trae centinelas futuros (2027, 2040, 2055).
+  Con `inhabilitados=false` la tabla entera (80 MB) da razón social y RNC: casa
+  el 100 %. ⚠️ 400 son personas físicas (399 cédulas): decisión del dueño
+  (docs/DECISIONES.md).
+- ✅ **OFAC** (lista SDN del Tesoro de EE. UU., fuente extranjera y oficial):
+  `https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV`
+  → 302 a un S3 firmado → 200 `text/csv`, 5,716,625 B, 19,444 filas; `ADD.CSV`
+  1,695,007 B. 27 entradas tocan la República Dominicana (14 personas, 13
+  entidades; 11 con RNC como «Tax ID»). ✅ Lista consolidada de la ONU: 0
+  menciones (control negativo). ❌ Banco Mundial: la tabla de inhabilitados sale
+  de una API con `apikey` publicada en su JS: no se usa (decisión del dueño). ❌
+  BID: 403 de Cloudflare hasta en robots.
+- ✅ **ProCompetencia**: robots con `Crawl-Delay: 20`; sus resoluciones no están en
+  la REST, pero `https://procompetencia.gob.do/resoluciones-procompetencia/feed/`
+  → 200 RSS con las 10 más recientes y las partes en el extracto. ⚠️ Pro
+  Consumidor no publica sancionados nominales.
+- ✅ **Poder Judicial**: `ultimassentencias.poderjudicial.gob.do/` sirve la última
+  sentencia de cada sala de la SCJ (5 filas, PDF en blob de Azure). ⚠️ El rol de
+  audiencias (`apigestionaudienciasroles.poderjudicial.gob.do/api/Materias/` responde
+  sin clave) se consulta por `POST /api/Audiencias/ObtenerRolAudiencias/`: no se
+  probó. ❌ El buscador de la SCJ sigue siendo POST de formulario.
+- ⚠️ **Registro Inmobiliario**: `servicios.ri.gob.do/ConsultaDeExpedientes` da el
+  estado de un trámite por número exacto (POST); ❌ el parcelario lleva reCAPTCHA;
+  ❌ las certificaciones de estado jurídico exigen cuenta y pago. No hay consulta
+  pública del estado jurídico de un inmueble.
+
+### H.10 Hallazgos de seguridad (se notifican; no se usan)
+
+- **CCPSD / app.registromercantil.do**: el selector de cámaras llama a
+  `POST /api/getfetch` con **usuario y contraseña escritos en el JS público** y una
+  consulta FetchXML arbitraria contra un Dynamics CRM. No se llamó; se notifica a
+  la CCPSD como el precedente del 311 (§A.9).
+- **CNZFE**: su `robots.txt` empieza con advertencias de PHP que exponen rutas del
+  servidor y el plugin `wp-file-manager`.
+
+### H.11 Pendientes que deja esta pasada
+
+1. Designaciones anteriores a 2012 de decretos de varias personas: escaneos. Solo
+   con un OCR propio en build, y se declara.
+2. Las listas de omisos y tardíos de la Cámara de Cuentas contra la capa de
+   personas (el conteo por institución de §G.12): la Cámara volvió a 470.
+3. La Junta Monetaria (BCRD) y los adjuntos del Defensor: sin vía hoy.
+4. Rol de audiencias del Poder Judicial y expedientes del Registro Inmobiliario:
+   consultas POST sin efecto; decisión del dueño antes de probarlas.
+5. ProCompetencia (RSS) y las últimas sentencias de la SCJ: tarjetas en vivo,
+   baratas, sin hacer.
+6. Institucional (Ley 200-04 y divulgación responsable): CCPSD/FEDOCÁMARAS/MICM
+   (extracto del registro mercantil), ONAPI (acceso a `bsapi26`), SIMV, SIS
+   (intermediarios), CASFL (registro de ASFL), Cámara de Cuentas y PGR (470),
+   DIGECOG (470), Hacienda (API del SIGEF, 403), BID; y los dos avisos de §H.10.

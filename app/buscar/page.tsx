@@ -145,6 +145,7 @@ const NOTAS: Partial<Record<TipoResultado, string>> = {
   proveedor: NOTA_PROVEEDORES,
   proceso: "Los publicados en el Portal Transaccional en los últimos doce meses, por su carátula, código y unidad de compra; el monto es el estimado.",
   legislador: "Diputados y senadores con ficha en la plataforma, por nombre, cámara y provincia. Se encuentran por palabra, no por tema.",
+  funcionario: "Personas con cargo público según el Directorio de Funcionarios del MAP, los decretos, las altas cortes y la JCE, por nombre y por cargo. Se encuentran por palabra, no por tema.",
   iniciativa: "Proyectos de ley y de resolución del SIL de la Cámara de Diputados, por su título y número de expediente.",
   sentencia: "Del Tribunal Constitucional (desde 2012) y del Tribunal Superior Electoral (desde 2021), por lo que dice su listado; el texto de la sentencia no se busca. Abren la ficha del Tribunal.",
   norma: "Decretos, reglamentos y resoluciones de los últimos cuatro años y todas las leyes desde 1844. Las leyes sin ficha propia abren su PDF en la Consultoría Jurídica.",

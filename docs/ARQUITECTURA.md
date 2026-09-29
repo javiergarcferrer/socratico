@@ -254,6 +254,38 @@ composed in `app/page.tsx`):
   `unstable_cache` over the parsed rows (6 h current year, 7 d closed years)
   with a 60 s timeout (a year measured 7.7 s).
 
+## Cuarta pasada — las entidades y sus personas (`docs/AUDITORIA.md` §H)
+Snapshots only (build-time `scripts/build-*.py` → `public/data/`, read with
+`node:fs`, memoised; the UI states the cut date). Nothing here reads a source
+during a visit.
+
+- **`lib/funcionarios.ts`** — who holds each public post (§H.1–§H.5).
+  `scripts/build-funcionarios.py` joins five State sources on the same people:
+  MAP's Directorio de Funcionarios (13 `POST`s of 500 rows, the public page's
+  own query), every Consultoría decree (one `POST`, ~75 MB: titles since 1996,
+  the signer of each; multi-person decrees from their PDF text since 2012 with
+  `pdfminer.six`, a 40 s limit per file and `pypdf` as fallback; OCR'd scans are
+  detected and skipped), the high courts and constitutional bodies (the Poder
+  Judicial's missing Sectigo intermediate ships in `scripts/certificados/`; TLS
+  verification stays on), JCE's 2024 municipal winners (XLSX, `openpyxl`) and
+  the SIL legislators (local file). A person is their normalised name, never
+  the cédula (dropped before the cache is written); gender, phones, e-mail,
+  photos and biographies are never read. `numeral_311()` maps each post to the
+  Ley 311-14 art. 2 numeral that makes it a PEP (Ley 155-17 art. 2 num. 19),
+  conservatively. Institutions are matched by exact name, then by content
+  words with a clear winner (calibrated on MAP's 252: 228 matched, none wrong),
+  then by acronym; ambassadors and consuls go to MIREX. The raw downloads cache
+  under `$TMPDIR/socratico-funcionarios` (`--cache`, `--sin-red` to re-parse
+  offline). Pages: `/funcionarios` (heads of each branch, the cabinet, then
+  every person with filters by branch and «obliged to declare»),
+  `/funcionarios/[slug]` (the PEP answer with its numeral, signed decrees for a
+  president, every post with its source, similar names). Only PEP fichas are
+  offered to external search engines (`noindex` otherwise; sitemap lists only
+  them). Cross-links: legislator ficha → «Sus otros cargos públicos»; decree
+  ficha → «¿A quién nombra este decreto?»; older decrees link to the
+  Consultoría PDF (`decretosEnInstantanea` in `lib/normativa.ts` says which
+  numbers the snapshot holds).
+
 ## API routes — `app/api/*` (all `export const dynamic = "force-dynamic"`)
 Thin proxies that call a `lib/dgcp.ts` function inside try/catch and return
 `502` on upstream failure: `procesos` (search/list; `procesos/csv` the whole

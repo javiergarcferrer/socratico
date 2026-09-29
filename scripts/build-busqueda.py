@@ -6,11 +6,12 @@ No lee ninguna fuente: junta en un solo corpus lo que ya traen las
 instantáneas —instituciones, normativa reciente y todas las leyes, obras,
 documentos, datos abiertos, cargos de nómina (con su sueldo), procesos de
 compra del último año, sentencias del TC y del TSE, iniciativas y
-legisladores del Congreso, y proveedores con contratos desde 2015— y calcula
+legisladores del Congreso, personas con cargo público (`busqueda_funcionarios`)
+y proveedores con contratos desde 2015— y calcula
 para cada entrada su vector semántico con el modelo podado de
 `scripts/build-modelo-semantico.py`. Las fuentes nuevas traen su propio
-lector de entradas (`scripts/busqueda_*.py`, `entradas(datos)`). Legisladores
-y proveedores no llevan vector: un nombre de persona o de empresa no dice de
+lector de entradas (`scripts/busqueda_*.py`, `entradas(datos)`). Legisladores,
+funcionarios y proveedores no llevan vector: un nombre de persona o de empresa no dice de
 qué trata. Van al final del corpus, y `vectorizados` dice hasta dónde hay
 vector. El servidor lee sobre esto un índice por palabra ya construido (BM25,
 raíces del español, erratas; `scripts/build-indice-busqueda.mjs`) y compara
@@ -50,6 +51,7 @@ from tokenizers import Tokenizer
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 # Las fuentes que traen su propio lector de entradas (`entradas(datos)`).
 import busqueda_congreso  # noqa: E402
+import busqueda_funcionarios  # noqa: E402
 import busqueda_leyes  # noqa: E402
 import busqueda_procesos  # noqa: E402
 import busqueda_sentencias  # noqa: E402
@@ -405,6 +407,8 @@ def main() -> None:
     # final: un nombre de persona o de empresa no dice de qué trata.
     vectorizados = len(docs)
     docs += de_modulo([e for e in congreso if e["t"] == "legislador"])
+    personas, fechas["funcionario"] = busqueda_funcionarios.entradas(DATOS)
+    docs += de_modulo(personas)
     lista, fechas["proveedor"] = proveedores()
     docs += lista
 

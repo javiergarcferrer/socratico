@@ -279,6 +279,19 @@ export const GLOSARIO = {
     llano:
       "El sueldo antes de descontar impuestos y seguridad social. Lo que la persona recibe en la mano es menos.",
   },
+
+  /* -------------------------------------------------------- Funcionarios */
+  pep: {
+    termino: "Persona expuesta políticamente (PEP)",
+    llano:
+      "Quien ocupa, o ocupó en los últimos tres años, un cargo obligado a declarar su patrimonio. La Ley 155-17 la llama así para que bancos y notarios revisen sus operaciones con más cuidado. Es una categoría legal, no una acusación.",
+    enLlano: "Cargo obligado a declarar patrimonio",
+  },
+  declaracionJurada: {
+    termino: "Declaración jurada de patrimonio",
+    llano:
+      "Lo que ciertos funcionarios deben declarar de sus bienes ante la Cámara de Cuentas al entrar al cargo y al salir. La Ley 311-14 dice en su artículo 2 quiénes.",
+  },
 } satisfies Record<string, Glosa>;
 
 export type ClaveGlosario = keyof typeof GLOSARIO;

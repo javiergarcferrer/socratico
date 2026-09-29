@@ -104,6 +104,15 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   SQL and staff users) and CAASD (default Tomcat), and Ley 200-04 requests to
   SNS/MAP/MIDEREC (closed WordPress REST), SIE/SIMV/Agricultura/INFOTEP (WAF),
   the SCJ (GET on its rulings search) and the Poder Judicial (full TLS chain).
+  Added by the fourth pass (AUDITORIA §H.11): Ley 200-04 requests to the
+  CCPSD, FEDOCÁMARAS and MICM (a periodic extract of the registro mercantil:
+  name, RNC, RM number, chamber, status, dates), ONAPI (access to `bsapi26`),
+  SIMV and SIS (entity and intermediary registries), CASFL (the ASFL registry),
+  Cámara de Cuentas and PGR (both 470 again), DIGECOG (470) and Hacienda (the
+  SIGEF API answers 403 to this egress); and two responsible-disclosure notes:
+  the CCPSD (a CRM user and password in the public JS of
+  app.registromercantil.do) and the CNZFE (PHP warnings exposing server paths in
+  its robots.txt).
 
 - **Clave del AI Gateway para las instantáneas** (ver «Clasificadores de IA»
   abajo): solo si se quiere Jev en un script de `scripts/`, nunca en Vercel.
@@ -112,7 +121,61 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crear claves del Gateway ni tokens OIDC (403, verificado 24-09-2026): la
   crea el dueño en su panel, con tope de gasto.
 
+- **Medidas de la DGCP sobre personas físicas** (AUDITORIA §H.9): de las 2,317
+  medidas de la tabla de inhabilitados, unas 400 caen sobre personas físicas
+  identificadas por cédula. Se publican solo las de personas jurídicas; las otras
+  se cuentan y no se muestran, como las declaraciones juradas (arriba): hacer
+  buscable por nombre la sanción de un particular es un juicio de
+  proporcionalidad de la Ley 172-13. Decidir: publicarlas (quitar un filtro de
+  `scripts/build-sanciones.py` y regenerar) o dejarlas fuera.
+- **Guardar y seguir funcionarios, entidades financieras y empresas**: las fichas
+  nuevas de la cuarta pasada comparten y enlazan, pero no ofrecen «Guardar» ni
+  «Seguir», porque `espacios.guardados.tipo` lleva un `check` con seis tipos
+  (`supabase/migrations/20260928120000_espacios.sql`, línea 117). Hace falta una
+  migración sobre el Supabase vivo que amplíe el `check` con `'funcionario',
+  'entidad-financiera', 'empresa'`, y luego `TipoCompartido`/`TIPOS_SEGUIDO`. Pasos:
+  (1) nueva migración `alter table espacios.guardados drop constraint …; add
+  constraint … check (tipo in (…los seis…, 'funcionario', 'entidad-financiera',
+  'empresa'))`; (2) aplicarla con aprobación; (3) sumar los tipos en
+  `components/compartir.tsx` y `lib/seguimiento.ts` y pasar `AccionesFicha` en las
+  tres fichas.
+- **Consultas POST sin efecto que no son el buscador de una página** (AUDITORIA
+  §H.3, §H.9): el rol de audiencias del Poder Judicial (`POST
+  /api/Audiencias/ObtenerRolAudiencias/`), los expedientes del Registro
+  Inmobiliario y el contenido de la Junta Monetaria del BCRD (`POST
+  /Home/GetContentForRender`). No escriben nada, pero no son el formulario de
+  búsqueda que la regla admite (Senado, Consultoría, el Directorio del MAP).
+  Decidir si se amplía el precedente.
+- **Lista de inhabilitados del Banco Mundial**: su API exige un `apikey` que la
+  propia página publica en su JavaScript. Aunque sea pública, meterla contradice
+  «sin claves» en una superficie. Decidir si una clave de página cuenta como clave.
+
 ## Cerradas, para que nadie las reabra
+
+- **Personas con cargo público y la marca PEP (29-09-2026).** El dueño pidió
+  «todas las entidades públicas», los bancos, el registro mercantil y poder
+  enlazar a las personas expuestas políticamente, «como el Presidente». Se hizo
+  `/funcionarios` con estas reglas, que no se reabren:
+  - **La fuente es el Estado**: el Directorio de Funcionarios del MAP, los
+    decretos de la Consultoría, las altas cortes, la JCE y el SIL. Nada de
+    prensa ni de terceros.
+  - **Una persona es su nombre**, normalizado; nunca la cédula (el buscador de
+    la Consultoría la trae y se descarta al leer). Dos grafías son dos fichas, y
+    la ficha avisa de los nombres parecidos en vez de unirlos.
+  - **PEP es la categoría legal y nada más**: la Ley 155-17 (art. 2, num. 19)
+    remite a los obligados a declarar de la Ley 311-14 (art. 2). La ficha dice
+    el numeral y que no es una acusación; con reglas conservadoras, ante la duda
+    no se marca.
+  - **Solo el cargo**: ni género, ni teléfono, ni correo, ni foto, ni
+    biografía, ni parentesco (sigue en pie «Es familiar de no se publica»).
+  - **Proporcionalidad**: solo las fichas de cargos obligados a declarar se
+    ofrecen a los buscadores externos (sitemap e índice); la de un encargado de
+    departamento se lee en la plataforma y lleva `noindex`.
+  - Las declaraciones juradas mismas siguen fuera (arriba, abierta).
+- **El registro mercantil no es público (29-09-2026)**: la consulta de las
+  cámaras solo valida un certificado que ya se tiene (AUDITORIA §H.7). En su lugar
+  va el padrón completo de personas jurídicas de la DGII (`/empresas`), y la vía
+  institucional queda escrita (Ley 200-04 a la CCPSD, FEDOCÁMARAS y el MICM).
 
 - **Plataforma para todos, no contra nadie (28-09-2026).** El dueño: el
   espacio de trabajo se leía como un programa anticorrupción («caso»,

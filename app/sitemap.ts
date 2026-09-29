@@ -6,6 +6,7 @@ import { INDICE } from "@/lib/indice";
 import { PROVINCIAS } from "@/lib/provincias";
 import { getObras } from "@/lib/obras";
 import { getDirectorioLegisladores } from "@/lib/congreso";
+import { getFuncionarios } from "@/lib/funcionarios";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -49,10 +50,11 @@ async function rutasDeNormas(): Promise<string[]> {
  * cambian a diario: el buscador los encuentra por sus enlaces desde estas.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [obrasInst, normas, directorio] = await Promise.all([
+  const [obrasInst, normas, directorio, funcionarios] = await Promise.all([
     getObras(),
     rutasDeNormas(),
     getDirectorioLegisladores().catch(() => null),
+    getFuncionarios(),
   ]);
   const obras = obrasInst?.proyectos ?? [];
   const vistas = SECCIONES.flatMap((s) => s.vistas.map((v) => v.href));
@@ -83,5 +85,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${SITIO}/finanzas/${c.codigo}`,
       changeFrequency: "monthly" as const,
     })),
+    // Solo las personas con cargo obligado a declarar patrimonio (PEP): la
+    // ficha de un servidor sin ese cargo se lee aquí y no se indexa
+    // (app/funcionarios/[slug]/page.tsx, proporcionalidad de la Ley 172-13).
+    ...(funcionarios?.personas ?? [])
+      .filter((p) => p.pep.length > 0)
+      .map((p) => ({
+        url: `${SITIO}${enlace.funcionario(p.id)}`,
+        changeFrequency: "monthly" as const,
+      })),
   ];
 }

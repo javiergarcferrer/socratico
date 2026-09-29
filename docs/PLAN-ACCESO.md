@@ -458,6 +458,28 @@ Orden: G1 → G4 (índice de pantallas, barato y visible) → G2 → G3. Nada de
 esto guarda datos: el grafo se deriva en cada lectura de las mismas fuentes e
 instantáneas (`docs/DECISIONES.md`, «El buscador no va a una base de datos»).
 
+## 6 quater. Horizonte 6 — el Estado entero y sus personas (pedido del dueño, 2026-09-29)
+
+El dueño: «todas las entidades públicas», los bancos como entidades, el registro
+mercantil, las personas expuestas políticamente «como el Presidente», y todo lo
+que un abogado necesita para empezar a investigar. Reconocimiento en
+`docs/AUDITORIA.md` §H; decisiones en `docs/DECISIONES.md` (29-09-2026).
+
+| # | Entrega | Hecho cuando |
+|---|---|---|
+| H6.1 ✅ | **Funcionarios** `/funcionarios`, `/funcionarios/[slug]` (`lib/funcionarios.ts`): quién encabeza cada poder, el gabinete, y cada persona con sus cargos, la fuente de cada uno y la marca PEP con su numeral de la Ley 311-14 | El Presidente tiene ficha con su cargo y los decretos que firmó; un legislador enlaza a sus otros cargos; un decreto dice a quién nombra |
+| H6.2 | **Bancos y financieras** `/banca`, `/banca/[slug]`: las 47 entidades de intermediación de la SB y las demás supervisadas, con RNC, activos, accionistas y consejo | Cada banco tiene ficha con su fuente y su corte; el RNC lleva al padrón y a sus compras |
+| H6.3 | **El universo del sector público**: el Clasificador Institucional de DIGEPRES completa `/instituciones` (los 393 gobiernos locales y las empresas públicas sin unidad de compra) y da a cada institución su sector | Toda entidad con presupuesto propio tiene ficha; las que no compran por sí mismas lo dicen |
+| H6.4 | **Empresas** `/empresas`, `/empresas/[rnc]`: el padrón de personas jurídicas de la DGII, buscable por nombre y RNC, como sustituto declarado del registro mercantil | Cualquier RNC de nueve cifras abre su ficha; la ficha dice por qué no hay socios ni gerentes |
+| H6.5 | **Medidas sobre proveedores** `/proveedores/inhabilitados` y la marca en la ficha: las 2,317 medidas de la DGCP (personas jurídicas) y las entidades dominicanas de la lista SDN de la OFAC | La ficha de un proveedor suspendido lo dice con la resolución y el motivo textual |
+| H6.6 | **Quién la dirige**: cada ficha de institución dice su titular (el MAP hoy o el último decreto) y lleva a sus funcionarios | Las 21 carteras del gabinete muestran a su ministro |
+
+Siguiente, por valor ÷ esfuerzo: personas y entidades en `/buscar` (hecho con
+H6.1–H6.2), guardar y seguir personas, bancos y empresas (migración del `check`
+de `espacios.guardados`, decisión del dueño), las últimas sentencias de la SCJ y
+las resoluciones de ProCompetencia en vivo, y el OCR propio de los decretos
+anteriores a 2012.
+
 ## 7. Guardarraíles para quien ejecute
 
 - Nada de esto introduce DB ni variables de entorno: los cruces son archivos
