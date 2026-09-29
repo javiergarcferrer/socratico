@@ -229,6 +229,11 @@ export function institucionesDelCapitulo(capitulo: string): Institucion[] {
   return INSTITUCIONES.filter((i) => i.dgcp && i.capitulo === capitulo);
 }
 
+/** La ficha que el Clasificador da a un capítulo sin unidad de compra (el Senado es 0101), si la hay. */
+export function fichaDelCapitulo(capitulo: string): Institucion | null {
+  return INSTITUCIONES.find((i) => !i.dgcp && i.capitulo === capitulo) ?? null;
+}
+
 const VACIAS = new Set(["de", "del", "la", "las", "el", "los", "y", "e", "para", "a", "al", "en", "rep", "dom"]);
 
 /** Las palabras con contenido de un nombre, sin siglas entre paréntesis y sin plural. */

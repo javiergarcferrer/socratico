@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { etiquetaCorte, getFiscal, getInstitucionFiscal } from "@/lib/fiscal";
 import { formatMonto, formatPesos, SIN_DATO } from "@/lib/format";
-import { cabezaDelCapitulo, hrefInstitucion, institucionesDelCapitulo } from "@/lib/instituciones";
+import { cabezaDelCapitulo, fichaDelCapitulo, hrefInstitucion, institucionesDelCapitulo } from "@/lib/instituciones";
 import { ConectadoCon } from "@/components/conectado-con";
 import { desdeMayusculas } from "@/lib/congreso";
 import { getObras } from "@/lib/obras";
@@ -63,6 +63,8 @@ export default async function InstitucionFiscalPage({
   const pendientePago = i.devengado - i.pagado;
   const unidades = institucionesDelCapitulo(i.codigo);
   const cabeza = cabezaDelCapitulo(i.nombreLegible, unidades);
+  // Un capítulo sin unidad de compra (el Senado, el Poder Judicial) tiene su ficha del Clasificador.
+  const ficha = unidades.length === 0 ? fichaDelCapitulo(i.codigo) : null;
   const obras = cabeza ? await getObras() : null;
   const obrasCabeza = obras && cabeza ? obras.proyectos.filter((o) => o.uc === cabeza.id).length : 0;
 
@@ -145,6 +147,12 @@ export default async function InstitucionFiscalPage({
             href: hrefInstitucion(cabeza),
             nombre: desdeMayusculas(cabeza.nombre),
             fuente: "DGCP ↔ SIGEF",
+          },
+          ficha && {
+            etiqueta: "Su ficha de institución",
+            href: hrefInstitucion(ficha),
+            nombre: desdeMayusculas(ficha.nombre),
+            fuente: "Clasificador Institucional de DIGEPRES",
           },
           { etiqueta: "Unidades de compra que gastan este presupuesto", href: "#unidades", cuenta: unidades.length, fuente: "DGCP" },
           cabeza && {
