@@ -47,10 +47,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     /*
       Proporcionalidad (Ley 172-13): la plataforma muestra lo que el Estado
       publica de cada servidor, pero solo ofrece a los buscadores externos la
-      ficha de quien ocupa un cargo obligado a declarar patrimonio. La de un
-      encargado de departamento se lee aquí y no se indexa.
+      ficha de quien es PEP hoy: ocupa un cargo obligado a declarar patrimonio
+      o lo ocupó en los últimos tres años. La de un encargado de departamento,
+      o la de quien dejó un ministerio en 2004, se lee aquí y no se indexa.
     */
-    ...(p.pep.length ? {} : { robots: { index: false, follow: true } }),
+    ...(p.pepVigente ? {} : { robots: { index: false, follow: true } }),
   };
 }
 
@@ -111,12 +112,26 @@ export default async function FuncionarioPage({ params }: Props) {
         <p className="rotulo text-ink-soft">¿Es persona expuesta políticamente?</p>
         {numerales.length > 0 ? (
           <>
-            <p className="mt-1.5 text-sm leading-relaxed text-ink">
-              Sí, por su cargo. La Ley 311-14 obliga a declarar patrimonio a quien ocupa{" "}
-              {numerales.length === 1 ? "este tipo de cargo" : "estos tipos de cargo"}, y la Ley 155-17 (art.
-              2, num. 19) considera <Termino clave="pep">persona expuesta políticamente</Termino> a todo
-              funcionario obligado a declarar, mientras ocupe el cargo y hasta tres años después.
-            </p>
+            {persona.pepVigente ? (
+              <p className="mt-1.5 text-sm leading-relaxed text-ink">
+                Sí, por su cargo. La Ley 311-14 obliga a declarar patrimonio a quien ocupa{" "}
+                {numerales.length === 1 ? "este tipo de cargo" : "estos tipos de cargo"}, y la Ley 155-17 (art.
+                2, num. 19) considera <Termino clave="pep">persona expuesta políticamente</Termino> a todo
+                funcionario obligado a declarar, mientras ocupe el cargo y hasta tres años después.
+                {persona.pepUltimaFecha &&
+                  ` Las fuentes no lo dan en el cargo hoy; su fecha más reciente en él es del ${formatFecha(persona.pepUltimaFecha)}, dentro de esos tres años.`}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-sm leading-relaxed text-ink">
+                No consta hoy. Ocupó {numerales.length === 1 ? "un cargo" : "cargos"} de los que la Ley 311-14
+                obliga a declarar patrimonio
+                {persona.pepUltimaFecha ? `; la fecha más reciente que dan las fuentes es del ${formatFecha(persona.pepUltimaFecha)}` : ""}
+                . La Ley 155-17 (art. 2, num. 19) considera{" "}
+                <Termino clave="pep">persona expuesta políticamente</Termino> a quien lo ocupa y hasta tres
+                años después de dejarlo, y las fuentes que lee la plataforma no lo dan en ese cargo hoy ni en
+                los últimos tres años.
+              </p>
+            )}
             <ul className="mt-2 space-y-1 text-sm text-ink">
               {numerales.map((n) => (
                 <li key={n}>

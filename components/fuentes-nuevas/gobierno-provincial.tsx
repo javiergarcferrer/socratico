@@ -43,9 +43,9 @@ export async function GobiernoProvincial({ provincia }: { provincia: Provincia }
               ? `En el cargo según el Directorio de Funcionarios del MAP, consultado el ${formatFecha(datos.fuentes.map.corte)}${
                   gob.cargo.decreto ? `; decreto de designación: ${gob.cargo.decreto.numero}` : ""
                 }.`
-              : `El MAP no lista hoy esta gobernación. El decreto más reciente que la cubre es el ${gob.cargo.decreto?.numero ?? ""}${
-                  gob.cargo.fecha ? `, del ${formatFecha(gob.cargo.fecha)}` : ""
-                }: puede haber cambiado desde entonces.`}
+              : `El MAP no lista hoy esta gobernación. La nombra un decreto del Presidente en funciones${
+                  gob.cargo.decreto ? `, el ${gob.cargo.decreto.numero}` : ""
+                }${gob.cargo.fecha ? `, del ${formatFecha(gob.cargo.fecha)}` : ""}: puede haber cambiado desde entonces.`}
           </p>
         </div>
       ) : (

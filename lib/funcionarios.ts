@@ -148,8 +148,17 @@ export interface Persona {
   /** Si firmó decretos del Poder Ejecutivo: cuántos y entre qué fechas. */
   firma: { como: string; decretos: number; desde: string; hasta: string } | null;
   legislador: number | null;
-  /** Numerales de la Ley 311-14 de sus cargos. */
+  /** Numerales de la Ley 311-14 de sus cargos, de hoy o de antes. */
   pep: number[];
+  /**
+   * PEP hoy según la Ley 155-17 (art. 2, num. 19: quien «desempeña o ha
+   * desempeñado, durante los últimos tres (3) años» un cargo obligado a
+   * declarar): un cargo así de hoy, o uno cuya fecha más reciente cae en los
+   * últimos tres años. Solo esto se afirma, se marca y se indexa.
+   */
+  pepVigente: boolean;
+  /** La fecha más reciente que las fuentes dan de un cargo obligado a declarar, si no es de hoy. */
+  pepUltimaFecha: string | null;
 }
 
 export type Poder = "ejecutivo" | "congreso" | "justicia" | "organos" | "local";
@@ -220,15 +229,22 @@ export function getFuncionarios(): Promise<Funcionarios | null> {
     .then((t) => {
       const d = JSON.parse(t) as Instantanea;
       if (!Array.isArray(d?.personas) || d.personas.length === 0) return null;
-      const personas: Persona[] = d.personas.map((p) => ({
-        id: p.id,
-        nombre: p.n,
-        alias: p.a ?? [],
-        cargos: p.c.map(aCargo),
-        firma: p.f,
-        legislador: p.leg,
-        pep: p.pep ?? [],
-      }));
+      const limite = haceTresAnios();
+      const personas: Persona[] = d.personas.map((p) => {
+        const cargos = p.c.map(aCargo);
+        const { hoy, ultima } = estadoPep(cargos);
+        return {
+          id: p.id,
+          nombre: p.n,
+          alias: p.a ?? [],
+          cargos,
+          firma: p.f,
+          legislador: p.leg,
+          pep: p.pep ?? [],
+          pepVigente: hoy || (ultima !== null && ultima >= limite),
+          pepUltimaFecha: hoy ? null : ultima,
+        };
+      });
       const porId = new Map(personas.map((p) => [p.id, p]));
       const porInstitucion = new Map<number, { persona: Persona; cargo: Cargo }[]>();
       const porDecreto = new Map<string, { persona: Persona; cargo: Cargo }[]>();
@@ -267,6 +283,32 @@ export async function personaPorId(id: string): Promise<Persona | null> {
 export async function personaDeLegislador(id: number): Promise<Persona | null> {
   const f = await getFuncionarios();
   return f?.personas.find((p) => p.legislador === id) ?? null;
+}
+
+/** La fecha (ISO) de hace tres años: el plazo del art. 2, num. 19 de la Ley 155-17. */
+function haceTresAnios(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 3);
+  return d.toISOString().slice(0, 10);
+}
+
+/*
+  De los cargos obligados a declarar: ¿alguno es de hoy? y, si no, ¿cuál es
+  la fecha más reciente que las fuentes dan de ellos? La fecha de un cese o
+  una sustitución es cuándo dejó el cargo; la de una designación, cuándo
+  entró (las fuentes no dicen si sigue); la de un período electo o de una
+  gestión anterior, el año en que terminó.
+*/
+function estadoPep(cargos: Cargo[]): { hoy: boolean; ultima: string | null } {
+  let ultima: string | null = null;
+  for (const c of cargos) {
+    if (c.numeral311 == null) continue;
+    if (esActual(c)) return { hoy: true, ultima: null };
+    const fin = c.periodo?.match(/(\d{4})\D*$/)?.[1];
+    const fecha = fin ? `${fin}-12-31` : c.fecha;
+    if (fecha && (ultima === null || fecha > ultima)) ultima = fecha;
+  }
+  return { hoy: false, ultima };
 }
 
 /* ------------------------------------------------------------ lecturas */
@@ -324,6 +366,8 @@ export interface FiltroFuncionarios {
   q?: string;
   poder?: Poder | null;
   soloPep?: boolean;
+  /** Solo quien es PEP hoy (`pepVigente`). */
+  soloPepVigente?: boolean;
   /** Clave de `FAMILIAS_PEP`: solo quien tiene o tuvo un cargo de esa familia. */
   familiaPep?: string | null;
   /** Solo quienes han tenido cargo en esta institución; entonces el orden es el de la institución. */
@@ -336,16 +380,24 @@ export interface FiltroFuncionarios {
  * consulta, todas las palabras en cualquier orden sobre el nombre y sus
  * grafías (la regla de `/buscar`).
  */
-export function filtrarPersonas(f: Funcionarios, filtro: FiltroFuncionarios): Persona[] {
+const COLADOR = new Intl.Collator("es");
+
+/** El filtro como predicado, sin ordenar: lo comparten la lista y las cuentas. */
+function predicado(filtro: FiltroFuncionarios): (p: Persona) => boolean {
   const q = filtro.q?.trim() ? agujas(filtro.q) : null;
   const familia = filtro.familiaPep ? FAMILIAS_PEP.find((x) => x.clave === filtro.familiaPep) : null;
-  const pasa = (p: Persona) => {
+  return (p) => {
     if (filtro.soloPep && p.pep.length === 0) return false;
+    if (filtro.soloPepVigente && !p.pepVigente) return false;
     if (familia && !p.pep.some((n) => familia.numerales.includes(n))) return false;
     if (filtro.poder && !poderesDe(p).has(filtro.poder)) return false;
     if (q && !contieneTodas(plano([p.nombre, ...p.alias].join(" ")), q)) return false;
     return true;
   };
+}
+
+export function filtrarPersonas(f: Funcionarios, filtro: FiltroFuncionarios): Persona[] {
+  const pasa = predicado(filtro);
   if (filtro.institucionId != null) {
     // Una vez cada persona, en el orden de la institución: primero las de hoy.
     const vistas = new Set<string>();
@@ -355,12 +407,26 @@ export function filtrarPersonas(f: Funcionarios, filtro: FiltroFuncionarios): Pe
       .filter(pasa);
   }
   const salida = f.personas.filter(pasa);
-  if (familia) {
-    // Con un tipo elegido, primero quien ocupa hoy un cargo de ese tipo.
-    const hoy = (p: Persona) => Number(p.cargos.some((c) => esActual(c) && familia.numerales.includes(c.numeral311 ?? -1)));
-    return salida.sort((a, b) => hoy(b) - hoy(a) || puntaje(b) - puntaje(a) || a.nombre.localeCompare(b.nombre, "es"));
-  }
-  return salida.sort((a, b) => puntaje(b) - puntaje(a) || a.nombre.localeCompare(b.nombre, "es"));
+  // El puntaje se calcula una vez por persona, no en cada comparación.
+  const puntos = new Map(salida.map((p) => [p, puntaje(p)]));
+  const familia = filtro.familiaPep ? FAMILIAS_PEP.find((x) => x.clave === filtro.familiaPep) : null;
+  // Con un tipo elegido, primero quien ocupa hoy un cargo de ese tipo.
+  const hoy = familia
+    ? new Map(salida.map((p) => [p, Number(p.cargos.some((c) => esActual(c) && familia.numerales.includes(c.numeral311 ?? -1)))]))
+    : null;
+  return salida.sort(
+    (a, b) =>
+      (hoy ? hoy.get(b)! - hoy.get(a)! : 0) || puntos.get(b)! - puntos.get(a)! || COLADOR.compare(a.nombre, b.nombre),
+  );
+}
+
+/** Cuántas personas cumplen el filtro, sin ordenarlas: para las cuentas de cada filtro. */
+export function contarPersonas(f: Funcionarios, filtro: FiltroFuncionarios): number {
+  if (filtro.institucionId != null) return filtrarPersonas(f, filtro).length;
+  const pasa = predicado(filtro);
+  let n = 0;
+  for (const p of f.personas) if (pasa(p)) n++;
+  return n;
 }
 
 /** El cargo de la persona que es de esa familia PEP: el de hoy si lo hay, si no el más reciente. */
@@ -460,10 +526,36 @@ export function quienDirige(f: Funcionarios, institucionId: number): Dirigente |
     const segun = d.cargo.origen === "map" ? "map" : d.cargo.origen === "jce2024" ? "eleccion" : "organo";
     return { ...d, segun };
   }
+  // Sin cabeza de hoy, un decreto solo cuenta si lo firmó el Presidente en
+  // funciones, si nombra la cabeza de verdad («director general», no «director
+  // de inteligencia») y si ningún decreto posterior sacó a esa persona de ahí.
+  const desde = presidenteEnFunciones(f)?.firma?.desde ?? null;
+  if (!desde) return null;
   const decretos = lista
-    .filter(({ cargo }) => cargo.origen === "decreto" && (cargo.movimiento === "designa" || cargo.movimiento === "confirma") && esCabeza(cargo))
+    .filter(
+      ({ persona, cargo }) =>
+        cargo.origen === "decreto" &&
+        (cargo.movimiento === "designa" || cargo.movimiento === "confirma") &&
+        (cargo.fecha ?? "") >= desde &&
+        CABEZA_POR_DECRETO.test(plano(cargo.titulo).trim()) &&
+        esCabeza(cargo) &&
+        !persona.cargos.some(
+          (c) =>
+            c.institucionId === institucionId &&
+            (c.movimiento === "cesa" || c.movimiento === "renuncia" || c.movimiento === "sustituido") &&
+            (c.fecha ?? "") >= (cargo.fecha ?? ""),
+        ),
+    )
     .sort((a, b) => (b.cargo.fecha ?? "").localeCompare(a.cargo.fecha ?? ""));
   return decretos[0] ? { ...decretos[0], segun: "decreto" } : null;
+}
+
+/** Los cargos de cabeza que un decreto puede nombrar: sin «director de…» a secas. */
+const CABEZA_POR_DECRETO = /^(ministr[oa]|director[a]? (general|ejecutiv[oa]|nacional)|administrador[a]? general|superintendente|gerente general|presidente|presidenta|rector[a]?|contralor[a]? general|procurador[a]? general|tesorer[oa] nacional|defensor[a]? del pueblo|gobernador[a]?)\b/;
+
+/** Quien el MAP pone hoy como Presidente de la República, con sus firmas. */
+function presidenteEnFunciones(f: Funcionarios): Persona | null {
+  return cabezasDelEstado(f).find(({ cargo }) => /^presidente de la republica/.test(plano(cargo.titulo).trim()))?.persona ?? null;
 }
 
 export interface GobiernoProvincial {
@@ -512,8 +604,7 @@ export function gobiernoDeProvincia(f: Funcionarios, esDeAqui: (texto: string) =
       }
     }
   }
-  const presidente = cabezasDelEstado(f).find(({ cargo }) => /^presidente de la republica/.test(plano(cargo.titulo).trim()));
-  const desde = presidente?.persona.firma?.desde ?? null;
+  const desde = presidenteEnFunciones(f)?.firma?.desde ?? null;
   const gobernador: Dirigente | null = hoy
     ? { ...hoy, segun: "map" }
     : decreto && desde && (decreto.cargo.fecha ?? "") >= desde

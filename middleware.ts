@@ -11,10 +11,10 @@ import { enlace } from "@/lib/grafo";
  * corre. Sin estado, sin variables de entorno: lee la URL y un JSON del
  * repositorio.
  *
- * `/empresas` hace lo mismo con un RNC de nueve cifras: va a su ficha, que
- * responde 404 y lo explica si ese número no es de ninguna persona jurídica
- * del padrón. Aquí no se lee el padrón (el middleware no tiene `fs`); la
- * página de búsqueda comprueba la existencia antes de su propia redirección.
+ * `/empresas` hace lo mismo con un RNC de nueve cifras: va a su ficha, que,
+ * si ese número no es de ninguna persona jurídica del padrón, lo dice y ofrece
+ * buscarlo en el registro de proveedores. Aquí no se lee el padrón (el
+ * middleware no tiene `fs`).
  */
 export function middleware(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 120);

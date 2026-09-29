@@ -20,7 +20,9 @@ import {
   cargoDeFamilia,
   cargoEnInstitucion,
   cargoPrincipal,
+  contarPersonas,
   esActual,
+  ETIQUETA_MOVIMIENTO,
   filtrarPersonas,
   gabinete,
   getFuncionarios,
@@ -53,8 +55,8 @@ export default async function FuncionariosPage({ searchParams }: Props) {
   const filtros: FiltrosFuncionarios = {
     q: p.q?.trim().slice(0, 120) ?? "",
     poder: p.poder && p.poder in PODERES ? (p.poder as Poder) : "",
-    pep: p.pep === "1",
-    tipo: p.pep === "1" && FAMILIAS_PEP.some((x) => x.clave === p.tipo) ? (p.tipo as string) : "",
+    pep: p.pep === "1" || p.pep === "hoy" ? p.pep : "",
+    tipo: (p.pep === "1" || p.pep === "hoy") && FAMILIAS_PEP.some((x) => x.clave === p.tipo) ? (p.tipo as string) : "",
     inst: institucion ? institucion.id : null,
   };
   const pagina = Math.max(1, Number(p.page ?? "1") || 1);
@@ -81,32 +83,21 @@ export default async function FuncionariosPage({ searchParams }: Props) {
   }
 
   const sinFiltro = !filtros.q && !filtros.poder && !filtros.pep && filtros.inst == null;
-  const lista = filtrarPersonas(datos, {
+  // El filtro de la página, del que cada cuenta cambia una sola cosa.
+  const base = {
     q: filtros.q,
     poder: filtros.poder || null,
-    soloPep: filtros.pep,
+    soloPep: filtros.pep !== "",
+    soloPepVigente: filtros.pep === "hoy",
     familiaPep: filtros.tipo || null,
     institucionId: filtros.inst,
-  });
+  };
+  const lista = filtrarPersonas(datos, base);
   const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
   const actual = Math.min(pagina, paginas);
   const visibles = lista.slice((actual - 1) * POR_PAGINA, actual * POR_PAGINA);
-  const cuentaPoder = (poder: Poder) =>
-    filtrarPersonas(datos, {
-      q: filtros.q,
-      poder,
-      soloPep: filtros.pep,
-      familiaPep: filtros.tipo || null,
-      institucionId: filtros.inst,
-    }).length;
-  const cuentaFamilia = (clave: string) =>
-    filtrarPersonas(datos, {
-      q: filtros.q,
-      poder: filtros.poder || null,
-      soloPep: true,
-      familiaPep: clave,
-      institucionId: filtros.inst,
-    }).length;
+  const cuentaPoder = (poder: Poder | null) => contarPersonas(datos, { ...base, poder });
+  const cuentaFamilia = (clave: string) => contarPersonas(datos, { ...base, soloPep: true, familiaPep: clave });
   const cabezas = sinFiltro ? cabezasDelEstado(datos) : [];
   const ministros = sinFiltro ? gabinete(datos) : [];
   const f = datos.fuentes;
@@ -117,9 +108,9 @@ export default async function FuncionariosPage({ searchParams }: Props) {
         <h1 className="font-display text-3xl text-ink sm:text-4xl">¿Quién ocupa cada cargo público?</h1>
         <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
           El Presidente, el gabinete, las altas cortes, los legisladores, los alcaldes y los regidores, con
-          los decretos que los nombraron. Quien ocupa un cargo obligado a declarar su patrimonio es, por
-          ley, una <Termino clave="pep">persona expuesta políticamente</Termino>: aquí se dice cuál y por
-          qué artículo, nunca más que eso.
+          los decretos que los nombraron. Quien ocupa un cargo obligado a declarar su patrimonio, o lo ocupó
+          en los últimos tres años, es por ley una <Termino clave="pep">persona expuesta políticamente</Termino>:
+          aquí se dice cuál y por qué artículo, nunca más que eso.
         </p>
       </header>
 
@@ -166,7 +157,10 @@ export default async function FuncionariosPage({ searchParams }: Props) {
         </Card>
       )}
 
-      <section className={sinFiltro ? "mt-8" : ""} aria-labelledby="todas">
+      <section
+        className={sinFiltro ? "mt-8" : ""}
+        {...(sinFiltro ? { "aria-labelledby": "todas" } : { "aria-label": "Personas con cargo público" })}
+      >
         {sinFiltro && (
           <h2 id="todas" className="mb-3 font-display text-2xl text-ink">
             ¿A quién buscas?
@@ -176,7 +170,7 @@ export default async function FuncionariosPage({ searchParams }: Props) {
 
         <NavFiltros etiqueta="Poder del Estado" className="mt-4">
           <FiltroEnlace href={hrefFuncionarios({ ...filtros, poder: "" })} activo={!filtros.poder}>
-            {`Todos (${filtrarPersonas(datos, { q: filtros.q, soloPep: filtros.pep, familiaPep: filtros.tipo || null, institucionId: filtros.inst }).length.toLocaleString("es-DO")})`}
+            {`Todos (${cuentaPoder(null).toLocaleString("es-DO")})`}
           </FiltroEnlace>
           {ORDEN_PODERES.map((poder) => (
             <FiltroEnlace
@@ -189,14 +183,17 @@ export default async function FuncionariosPage({ searchParams }: Props) {
           ))}
         </NavFiltros>
         <NavFiltros etiqueta="Qué cargos" className="mt-2">
-          <FiltroEnlace href={hrefFuncionarios({ ...filtros, pep: false })} activo={!filtros.pep}>
+          <FiltroEnlace href={hrefFuncionarios({ ...filtros, pep: "", tipo: "" })} activo={!filtros.pep}>
             Todos los cargos
           </FiltroEnlace>
-          <FiltroEnlace href={hrefFuncionarios({ ...filtros, pep: true })} activo={filtros.pep}>
-            Solo los obligados a declarar patrimonio
+          <FiltroEnlace href={hrefFuncionarios({ ...filtros, pep: "hoy" })} activo={filtros.pep === "hoy"}>
+            PEP hoy
+          </FiltroEnlace>
+          <FiltroEnlace href={hrefFuncionarios({ ...filtros, pep: "1" })} activo={filtros.pep === "1"}>
+            Con algún cargo obligado a declarar patrimonio
           </FiltroEnlace>
         </NavFiltros>
-        {filtros.pep && (
+        {filtros.pep !== "" && (
           <NavFiltros etiqueta="Tipo de cargo, según el art. 2 de la Ley 311-14" className="mt-2">
             <FiltroEnlace href={hrefFuncionarios({ ...filtros, tipo: "" })} activo={!filtros.tipo}>
               Todos los tipos
@@ -333,7 +330,8 @@ function FilaPersona({ persona, cargo }: { persona: Persona; cargo: Cargo | null
               {cargo.fecha ? (
                 <>
                   {" · "}
-                  <Antiguedad iso={cargo.fecha} prefijo={hoy ? "Desde" : undefined} />
+                  {/* Un cargo que no es de hoy dice qué pasó: «Deja el cargo hace 3 años», no el título a secas. */}
+                  <Antiguedad iso={cargo.fecha} prefijo={hoy ? "Desde" : ETIQUETA_MOVIMIENTO[cargo.movimiento]} />
                 </>
               ) : (
                 cargo.periodo && <> · <span className="font-mono tabular-nums">{cargo.periodo}</span></>
@@ -347,8 +345,12 @@ function FilaPersona({ persona, cargo }: { persona: Persona; cargo: Cargo | null
             </p>
           )}
         </div>
-        {persona.pep.length > 0 && (
-          <Badge variant="contorno" className="mt-0.5" title="Cargo obligado a declarar patrimonio (Ley 311-14, art. 2)">
+        {persona.pepVigente && (
+          <Badge
+            variant="contorno"
+            className="mt-0.5"
+            title="Ocupa, o ocupó en los últimos tres años, un cargo obligado a declarar patrimonio (Ley 311-14, art. 2; Ley 155-17, art. 2, num. 19)"
+          >
             PEP
           </Badge>
         )}

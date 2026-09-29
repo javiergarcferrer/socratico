@@ -1,3 +1,4 @@
+import { documentoPublicable, esPersonaFisica } from "@/lib/padron";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -6,7 +7,7 @@ import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
 import { notFound } from "next/navigation";
 import { getHistorialProveedor, getProveedorRegistro } from "@/lib/dgcp";
 import { titulizar } from "@/lib/capitulos";
-import { formatFecha, formatMonto, tituloLegible, SIN_DATO } from "@/lib/format";
+import { formatFecha, formatMonto, tituloLegible } from "@/lib/format";
 import { Ruta } from "@/components/ruta";
 import Antiguedad from "@/components/antiguedad";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
@@ -57,6 +58,11 @@ export async function generateMetadata({
   ]);
   const nombre = registro?.razonSocial ?? medidas?.razonSocial;
   return {
+    // La ficha de una persona física se lee aquí, pero no se ofrece a los
+    // buscadores: su nombre no es el de una empresa (proporcionalidad, Ley 172-13).
+    ...(registro && esPersonaFisica(registro.tipoPersona, registro.tipoDocumento)
+      ? { robots: { index: false, follow: true } }
+      : {}),
     title: nombre ? `${nombre}: proveedor del Estado` : `Proveedor RPE ${rpe}`,
     description: nombre
       ? `Contratos de ${nombre} con el Estado dominicano: a quién le vende, cuánto y desde cuándo, con su ficha del Registro de Proveedores (RPE ${rpe}).`
@@ -292,9 +298,9 @@ export default async function ProveedorPage({
           </p>
           <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <dt className="rotulo text-ink-soft">{registro.tipoDocumento}</dt>
+              <dt className="rotulo text-ink-soft">Documento</dt>
               <dd className="font-mono font-medium tabular-nums">
-                {registro.numeroDocumento || SIN_DATO}
+                {documentoPublicable(registro.tipoDocumento, registro.numeroDocumento)}
               </dd>
             </div>
             <div>

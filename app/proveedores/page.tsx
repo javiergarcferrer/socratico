@@ -1,3 +1,4 @@
+import { documentoPublicable } from "@/lib/padron";
 import Link from "next/link";
 import { Suspense, cache, type ReactNode } from "react";
 import type { Metadata } from "next";
@@ -430,9 +431,7 @@ async function QuienesSon() {
               </div>
 
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <Badge variant="neutro">
-                  {f.tipoDocumento} {f.numeroDocumento || "sin número"}
-                </Badge>
+                <Badge variant="neutro">{documentoPublicable(f.tipoDocumento, f.numeroDocumento)}</Badge>
                 {f.estado === "Activo" ? (
                   <Badge variant="valido">Activo en el RPE</Badge>
                 ) : (
@@ -613,9 +612,7 @@ function FichaEncontrada({
         </h2>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          <Badge variant="neutro">
-            {registro.tipoDocumento} {registro.numeroDocumento || "sin número"}
-          </Badge>
+          <Badge variant="neutro">{documentoPublicable(registro.tipoDocumento, registro.numeroDocumento)}</Badge>
           {registro.estado === "Activo" ? (
             <Badge variant="valido">Activo en el RPE</Badge>
           ) : (

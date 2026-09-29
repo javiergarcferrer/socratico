@@ -28,6 +28,22 @@ export function esRncDeEmpresa(rnc: string): boolean {
   return /^[14]\d{8}$/.test(rnc);
 }
 
+/**
+ * El documento de un proveedor como se puede enseñar: el RNC de una persona
+ * jurídica, sí; la cédula o el pasaporte de una persona, nunca (el registro de
+ * la DGCP los publica, pero publicar no es exponer: docs/AUDITORIA.md §E).
+ */
+export function documentoPublicable(tipo: string | null | undefined, numero: string | null | undefined): string {
+  const t = (tipo ?? "").trim();
+  if (/^rnc$/i.test(t)) return `RNC ${numero?.trim() || "sin número"}`;
+  return t ? `${t}, sin publicar` : "Documento sin publicar";
+}
+
+/** ¿Es persona física quien el registro de proveedores dice? Su ficha no se indexa. */
+export function esPersonaFisica(tipoPersona: string | null | undefined, tipoDocumento?: string | null): boolean {
+  return /f[ií]sica|natural/i.test(tipoPersona ?? "") || /c[eé]dula|pasaporte/i.test(tipoDocumento ?? "");
+}
+
 /** Lo tecleado, sin espacios, guiones ni puntos: «4-01-01006-2» → «401010062». */
 export function soloCifras(texto: string): string {
   return texto.replace(/[\s.\-/]/g, "");

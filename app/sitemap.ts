@@ -93,11 +93,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${SITIO}${enlace.capitulo(c.codigo)}`,
       changeFrequency: "monthly" as const,
     })),
-    // Solo las personas con cargo obligado a declarar patrimonio (PEP): la
-    // ficha de un servidor sin ese cargo se lee aquí y no se indexa
-    // (app/funcionarios/[slug]/page.tsx, proporcionalidad de la Ley 172-13).
+    // Solo quien es PEP hoy (un cargo obligado a declarar patrimonio, de hoy o
+    // de los últimos tres años): la ficha de los demás se lee aquí y no se
+    // indexa (app/funcionarios/[slug]/page.tsx, proporcionalidad de la Ley 172-13).
     ...(funcionarios?.personas ?? [])
-      .filter((p) => p.pep.length > 0)
+      .filter((p) => p.pepVigente)
       .map((p) => ({
         url: `${SITIO}${enlace.funcionario(p.id)}`,
         changeFrequency: "monthly" as const,

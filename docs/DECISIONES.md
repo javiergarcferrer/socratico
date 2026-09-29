@@ -149,7 +149,11 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   Inmobiliario y el contenido de la Junta Monetaria del BCRD (`POST
   /Home/GetContentForRender`). No escriben nada, pero no son el formulario de
   búsqueda que la regla admite (Senado, Consultoría, el Directorio del MAP).
-  Decidir si se amplía el precedente.
+  Decidir si se amplía el precedente. Caso vecino, ya en uso: el Directorio del
+  MAP se lee con `{"page":n,"rows":500}` (13 lecturas) y no de 10 en 10 como su
+  página (616 lecturas); es la misma consulta con otro tamaño de página
+  (AUDITORIA §H.1). Si el dueño exige la consulta literal, se cambia `rows` en
+  `scripts/build-funcionarios.py` y el build tarda unos diez minutos más.
 - **Lista de inhabilitados del Banco Mundial**: su API exige un `apikey` que la
   propia página publica en su JavaScript. Aunque sea pública, meterla contradice
   «sin claves» en una superficie. Decidir si una clave de página cuenta como clave.
@@ -169,12 +173,19 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   - **PEP es la categoría legal y nada más**: la Ley 155-17 (art. 2, num. 19)
     remite a los obligados a declarar de la Ley 311-14 (art. 2). La ficha dice
     el numeral y que no es una acusación; con reglas conservadoras, ante la duda
-    no se marca.
+    no se marca. **Y solo mientras dura**: la misma norma dice «desempeña o ha
+    desempeñado, durante los últimos tres (3) años». Se afirma PEP con un cargo
+    de hoy o con uno cuya fecha más reciente cae en los últimos tres años; de un
+    cargo más viejo, la ficha dice que lo ocupó y que las fuentes no lo dan en él
+    (revisión del 29-09-2026: de 4,908 personas con un cargo así, 1,973 lo tenían
+    solo de hace más de tres años; ahora se afirma PEP de 2,935).
   - **Solo el cargo**: ni género, ni teléfono, ni correo, ni foto, ni
     biografía, ni parentesco (sigue en pie «Es familiar de no se publica»).
-  - **Proporcionalidad**: solo las fichas de cargos obligados a declarar se
-    ofrecen a los buscadores externos (sitemap e índice); la de un encargado de
-    departamento se lee en la plataforma y lleva `noindex`.
+  - **Proporcionalidad**: solo las fichas de quien es PEP hoy se ofrecen a los
+    buscadores externos (sitemap e índice); la de un encargado de departamento,
+    o la de quien dejó un cargo hace más de tres años, se lee en la plataforma y
+    lleva `noindex`. Tampoco se indexa la ficha de proveedor de una persona
+    física, y su cédula nunca se enseña aunque el registro de la DGCP la publique.
   - Las declaraciones juradas mismas siguen fuera (arriba, abierta).
 - **El registro mercantil no es público (29-09-2026)**: la consulta de las
   cámaras solo valida un certificado que ya se tiene (AUDITORIA §H.7). En su lugar

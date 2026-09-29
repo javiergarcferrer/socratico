@@ -890,9 +890,11 @@ export default async function FuentesPage() {
             se guardan el género, los teléfonos, el correo ni la foto, y nunca se usa la cédula que
             trae el buscador de la Consultoría. La marca de persona expuesta políticamente se asigna
             por el nombre del cargo contra el artículo 2 de la Ley 311-14, con reglas
-            conservadoras. Los decretos anteriores a 2012 que nombran a varias personas son
-            escaneos y no se leen. Solo las fichas de cargos obligados a declarar patrimonio se
-            ofrecen a los buscadores externos. La Cámara de Cuentas y la Procuraduría rechazan hoy
+            conservadoras, y solo mientras dura: un cargo de hoy, o uno cuya fecha más reciente
+            cae en los últimos tres años (Ley 155-17, art. 2, num. 19); de un cargo más viejo se
+            dice que lo ocupó, no que sea PEP. Los decretos anteriores a 2012 que nombran a varias
+            personas son escaneos y no se leen. Solo las fichas de quien es PEP hoy se ofrecen a los
+            buscadores externos. La Cámara de Cuentas y la Procuraduría rechazan hoy
             la lectura (HTTP 470) y el Banco Central sirve su Junta Monetaria por una vía que no
             devuelve el contenido: sus titulares no están salvo por un decreto o por el MAP.
           </p>

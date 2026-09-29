@@ -980,7 +980,7 @@ Bellas Artes, en ±2 %; Mujer publica 487 plazas frente a 1,037 del MAP.
 | Aduanas (DGA) | ⚠️ | `servicios.aduanas.gob.do/public` responde; estadísticas de comercio exterior sin ruta estable hallada |
 | Organismo Coordinador (energía) | ⚠️ | `apps.oc.org.do` sirve reportes ASPX de generación programada vs. real; el de hoy respondió «sin datos para la fecha» |
 | ProDominicana, MT, PGR, SNS, MINERD, SISALRIL | ⚠️ | Portales vivos; publicaciones en PDF, sin series legibles por máquina |
-| Observatorio de Servicios Públicos | ❌ | `observicios.gob.do/back/api/` exige autenticación (401/405) |
+| Observatorio de Servicios Públicos | ✅ | Corregido en §H.1 (2026-09-29): el directorio de funcionarios responde sin sesión a la consulta de su página pública; el 401/405 era de otras rutas |
 
 ---
 
@@ -1636,7 +1636,10 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   `application/json`: `{"valid":true,"content":{"elementostotales":6153,"page":1,
   "rows":10,"paginastotales":616,"repuestas":[…]}}` (sic, «repuestas»). Es la
   consulta que hace la página. `{"page":1,"rows":500}` → 13 páginas: el
-  directorio entero en 13 lecturas.
+  directorio entero en 13 lecturas. ⚠️ La página pide de 10 en 10 (616
+  lecturas); pedir 500 cambia solo el tamaño de página de la misma consulta y
+  carga menos al servidor, pero no es literalmente la que hace el formulario:
+  queda anotado en docs/DECISIONES.md.
 - ✅ Cada fila: `funcionarioId`, `institucion`, `funcionario` (nombre completo),
   `cargoPrincipal`, `unidadNombreCompleto`, `decreto` (612 de 6,153), `fechaDecreto`
   (todas), `orden` (nivel jerárquico: 1 Presidente, 2 Vicepresidenta, 3 los 21

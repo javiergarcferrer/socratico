@@ -83,15 +83,46 @@ export default async function EmpresaPage({ params }: Props) {
       </div>
     );
   }
-  if (!e) notFound();
+  if (!e) {
+    // Un RNC bien formado que el padrón no trae: una empresa inscrita después
+    // del corte, una persona física con RNC de nueve cifras (no se publican) o
+    // un número que no existe. El registro de proveedores de la DGCP busca por
+    // ese mismo número hoy: se ofrece, en vez de un callejón sin salida.
+    return (
+      <div className="mx-auto max-w-4xl space-y-4">
+        <Ruta raiz={{ href: "/empresas", label: "Empresas" }} actual={`RNC ${rnc}`} />
+        <EstadoVacio
+          como="h1"
+          titulo={`¿Y el RNC ${rnc}?`}
+          accion={
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Button asChild>
+                <Link href={enlace.documentoProveedor(rnc)}>Buscarlo en el registro de proveedores</Link>
+              </Button>
+              <Button asChild variant="secondary">
+                <Link href="/empresas">Buscar otra empresa</Link>
+              </Button>
+            </div>
+          }
+        >
+          Ninguna persona jurídica del padrón de contribuyentes de la DGII
+          {padron?.corteDgii ? ` (corte del ${formatFecha(padron.corteDgii)})` : ""} tiene ese número. Puede
+          ser una empresa inscrita después de ese corte, o una persona física: el padrón las inscribe a veces con
+          RNC de nueve cifras y aquí no se publican. El registro de proveedores del Estado busca por el mismo
+          número, al día.
+        </EstadoVacio>
+      </div>
+    );
+  }
 
   const corte = padron?.corteDgii ?? null;
   const antiguedad = hace(e.inicio);
   const [rpe, ...otrosRpe] = e.rpe;
   // Lo que un abogado mira primero: si el Estado le cerró la puerta a alguno de
   // sus registros de proveedor, y si Estados Unidos la tiene en su lista SDN.
+  // Solo se dice lo que hay: un «sin medidas» sería un certificado que una
+  // instantánea con fecha de corte no puede dar (components/fuentes-nuevas/medidas-proveedor.tsx).
   const [conMedidas, ofac, meta] = await Promise.all([medidasDeRnc(e.rnc), ofacDeRnc(e.rnc), metaSanciones()]);
-  const nMedidas = conMedidas.reduce((n, p) => n + p.eventos.length, 0);
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -176,12 +207,6 @@ export default async function EmpresaPage({ params }: Props) {
         ]}
       />
 
-      {nMedidas === 0 && meta && (
-        <p className="px-1 text-sm leading-relaxed text-ink-soft">
-          La tabla de proveedores inhabilitados de la DGCP, descargada el {formatFecha(meta.generado)}, no
-          registra ninguna medida sobre este RNC.
-        </p>
-      )}
 
       {ofac && <NotaOfac entidad={ofac} fecha={meta?.fuentes.ofac.fecha ?? null} />}
 

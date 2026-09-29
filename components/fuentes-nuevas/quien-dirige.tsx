@@ -49,6 +49,12 @@ export async function QuienDirige({ uc }: { uc: number }) {
       <CardHeader>
         <CardTitle>¿Quién la dirige?</CardTitle>
       </CardHeader>
+      {!dirige && (
+        <p className="border-t border-hairline px-4 py-3 text-sm leading-relaxed text-ink-soft sm:px-5">
+          Las fuentes que lee la plataforma no nombran hoy a quien la encabeza: ni el Directorio de
+          Funcionarios del MAP ni un decreto del Presidente en funciones.
+        </p>
+      )}
       {dirige && (
         <div className="relative border-t border-hairline px-4 py-4 sm:px-5">
           <Link
@@ -61,10 +67,14 @@ export async function QuienDirige({ uc }: { uc: number }) {
           <p className="mt-1 text-xs leading-relaxed text-ink-soft">{segun(dirige.segun, dirige.cargo, datos.fuentes.map.corte)}</p>
         </div>
       )}
-      {filas.length > 1 && filas.length <= EN_TARJETA && (
+      {(filas.length > 1 || (!dirige && filas.length === 1)) && filas.length <= EN_TARJETA && (
         <Plegable
-          etiqueta={`Ver las ${formatInt(filas.length)} personas con cargo en esta institución${hoy ? ` (${formatInt(hoy)} hoy)` : ""}`}
-          etiquetaCerrar="Ocultar las personas"
+          etiqueta={
+            filas.length === 1
+              ? "Ver la persona con cargo en esta institución"
+              : `Ver las ${formatInt(filas.length)} personas con cargo en esta institución${hoy ? ` (${formatInt(hoy)} hoy)` : ""}`
+          }
+          etiquetaCerrar={filas.length === 1 ? "Ocultar la persona" : "Ocultar las personas"}
         >
           <ul>
             {filas.map(({ persona, cargo }) => (
