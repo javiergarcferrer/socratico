@@ -188,6 +188,30 @@ export const GLOSARIO = {
       "El documento que dice exactamente qué se compra, qué hay que presentar y cómo se va a elegir al ganador. Es lo primero que hay que leer.",
     guia: GUIA_COMPRAS,
   },
+  inhabilitacion: {
+    termino: "Inhabilitación",
+    llano:
+      "Una sanción que la DGCP impone por resolución: el proveedor no puede venderle al Estado durante un plazo (temporal) o nunca más (permanente). Los motivos que más se repiten son presentar documentos falsos o alterados e incumplir un contrato.",
+  },
+  suspensionRpe: {
+    termino: "Suspensión del RPE",
+    llano:
+      "El registro de proveedor queda en pausa y, mientras dure, no puede ofertar ni contratar con el Estado. La pide el propio proveedor o la aplica la DGCP, por ejemplo mientras uno de sus dueños ocupa un cargo público. No es, por sí sola, una sanción.",
+  },
+  deOficio: {
+    termino: "De oficio",
+    llano: "Por iniciativa de la propia institución, sin que nadie lo pida.",
+  },
+  regimenProhibiciones: {
+    termino: "Régimen de prohibiciones",
+    llano:
+      "La lista de quienes la ley no deja venderle al Estado: ciertos funcionarios, sus parientes cercanos y las empresas en que participan, entre otros. Está en el artículo 14 de la Ley 340-06 y, en la ley nueva, en el artículo 38 de la Ley 47-25.",
+  },
+  listaSdn: {
+    termino: "Lista SDN de la OFAC",
+    llano:
+      "La lista de personas y entidades sancionadas por la Oficina de Control de Activos Extranjeros (OFAC) del Tesoro de Estados Unidos: quien está sujeto a la ley estadounidense no puede hacer negocios con ellas, y sus bienes bajo esa ley quedan bloqueados. Es una lista extranjera, no una medida del Estado dominicano.",
+  },
 
   /* ------------------------------------------------------------ Finanzas */
   presupuestoInicial: {

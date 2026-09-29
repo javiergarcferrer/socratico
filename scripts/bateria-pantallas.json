@@ -1,5 +1,5 @@
 {
-  "descripcion": "Sesenta y dos preguntas en llano y la pantalla que las contesta (docs/PLAN-ACCESO.md §6 ter, G4). Hecho cuando cada una llega a su pantalla entre los tres primeros resultados de buscarPantallas. Se corre con: node scripts/probar-pantallas.mjs",
+  "descripcion": "Sesenta y cuatro preguntas en llano y la pantalla que las contesta (docs/PLAN-ACCESO.md §6 ter, G4). Hecho cuando cada una llega a su pantalla entre los tres primeros resultados de buscarPantallas. Se corre con: node scripts/probar-pantallas.mjs",
   "preguntas": [
     ["precio del dólar", "/indicadores"],
     ["cuánto está la gasolina premium", "/indicadores"],
@@ -18,6 +18,8 @@
     ["empresas que más contratos tienen con el gobierno", "/contratos"],
     ["buscar empresa por RNC", "/proveedores"],
     ["esta compañía le vende al Estado", "/proveedores"],
+    ["empresas inhabilitadas por compras públicas", "/proveedores/inhabilitados"],
+    ["proveedor suspendido del registro de proveedores", "/proveedores/inhabilitados"],
     ["compras directas sin concurso", "/estadisticas"],
     ["plan anual de compras de un ministerio", "/planes"],
     ["contratos del gobierno en 2018", "/historico"],

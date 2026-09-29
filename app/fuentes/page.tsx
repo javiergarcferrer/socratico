@@ -19,7 +19,9 @@ import {
   ResumenCombustibles,
   ResumenHistorico,
   ResumenObras,
+  ResumenOfac,
   ResumenRnc,
+  ResumenSanciones,
   ResumenTasa,
 } from "@/components/fuentes-nuevas/resumen-fuentes";
 
@@ -681,6 +683,51 @@ export default async function FuentesPage() {
               el buscador
             </Link>{" "}
             encuentra por lo que se compra. Cada uno abre su ficha, leída en vivo.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="DGCP · medidas sobre proveedores" estado="activa" etiqueta="Instantánea local">
+          <p>
+            La misma sección «Tablas» de la DGCP sirve como archivo la tabla de proveedores
+            inhabilitados: una fila por cada suspensión, cancelación o inhabilitación de un
+            registro de proveedor, con su motivo, sus fechas y el oficio o la resolución que
+            cita. Se cruza con el Registro de Proveedores entero para el nombre, el RNC y el
+            estado de cada registro, y alimenta{" "}
+            <Link href="/proveedores/inhabilitados" className="font-medium text-brand-700 hover:underline">
+              los proveedores con medidas
+            </Link>{" "}
+            y el bloque «¿Tiene medidas de la DGCP?» de cada ficha. <ResumenSanciones />
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            La tabla no dice qué tipo de medida es cada fila: lo leemos del texto de la DGCP con
+            reglas fijas, en una lista cerrada de quince tipos (lo que no encaja queda como «Otro
+            motivo»), y el texto va siempre entero al lado. Mezcla sanciones con suspensiones
+            preventivas, prohibiciones por cargo público, bajas que pidió el propio proveedor,
+            correcciones del registro y bajas de instituciones públicas que estaban inscritas
+            como proveedoras. La fecha de habilitación a veces es futura (un plazo, no algo que
+            ya pasó) y algunas son lejanísimas, de 2044 o 2055, sin explicación. Las medidas
+            sobre personas físicas no se publican, ni su nombre ni su cédula, solo cuántas son:
+            decisión pendiente del dueño. Tampoco las filas de prueba del propio sistema ni las
+            repetidas, y en los motivos se omiten el nombre y el documento de quien firma una
+            solicitud. Es una instantánea: una medida posterior a su fecha no sale. Regenerar con{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-sanciones.py</code>.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="OFAC · lista SDN del Tesoro de Estados Unidos" estado="activa" etiqueta="Instantánea local">
+          <p>
+            La lista de personas y entidades sancionadas por la Oficina de Control de Activos
+            Extranjeros (OFAC) de Estados Unidos se descarga entera, con sus direcciones, y se
+            guardan solo las entidades ligadas a la República Dominicana por un RNC, una
+            dirección o una mención. <ResumenOfac />
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            Es una lista extranjera: dice lo que decidió el Tesoro de Estados Unidos, no una
+            medida del Estado dominicano, y así se presenta. Las personas de la lista no se
+            guardan ni se muestran. El RNC de cada entidad es el que publica la OFAC, y con él se
+            cruza el Registro de Proveedores; una entidad sin RNC en la lista no se puede cruzar.
+            Cada una enlaza a su entrada en el buscador de la OFAC. Se regenera con las medidas de
+            la DGCP, en el mismo script.
           </p>
         </Fuente>
 
