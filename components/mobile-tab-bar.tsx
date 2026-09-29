@@ -39,12 +39,12 @@ import {
  * `lib/secciones`. Las vistas internas de cada vertical viven en la barra de
  * sección, no aquí: la tab bar cambia de vertical, no de vista.
  *
- * **Por qué cinco casillas y no siete.** Con el panorama y las seis verticales
+ * **Por qué cinco casillas y no siete.** Con el panorama y las seis verticales de entonces
  * la fila medía 504 px contra los 390 px de un iPhone, así que se dejó
  * deslizable — y el precio era el peor posible: en `/democracia` la pestaña
  * activa quedaba a 432 px, fuera de pantalla, o sea que la barra dejaba de
  * responder «¿dónde estoy?», que es lo único que tiene que hacer. Medido a
- * 390 px, siete casillas dan 55 px cada una y «Licitaciones» necesita 68 px:
+ * 390 px, siete casillas dan 55 px cada una y «Licitaciones» (hoy «Compras») necesitaba 68 px:
  * no caben con dignidad. Cinco dan 78 px, que sí sostienen la etiqueta entera
  * a 11 px sin recortes ni desplazamiento lateral.
  *

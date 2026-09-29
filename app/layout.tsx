@@ -209,8 +209,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/*
                 Columnas de texto y no una rejilla. Las verticales tienen entre
                 una y siete vistas, y con `grid-cols-2` la altura de cada fila
-                la fijaba la columna más larga: «Finanzas», con una sola vista,
-                abría un hueco de seis renglones al lado de «Licitaciones». En
+                la fijaba la columna más larga: «Finanzas», cuando tenía una
+                sola vista, abría un hueco de seis renglones al lado de
+                «Licitaciones». En
                 columnas los bloques fluyen y se reparten solos; cada uno se
                 mantiene entero con `break-inside-avoid`.
               */}

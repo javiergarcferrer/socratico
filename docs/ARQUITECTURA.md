@@ -561,8 +561,8 @@ sources impose:
   sirve la cuenta (`docs/PLAN-ESPACIOS.md`; el ejemplo es la forma de una
   investigación, sin nombres reales) y todo lo que hay por tema, leído de
   `lib/menu.ts` para que no se desalinee del megamenú: desde 2026-09-29 a la
-  vista, sin plegar, cada sección con su punto (en el teléfono, dos nombres
-  por fila y sin la `nota`). Los diez tableros de
+  vista, sin plegar, cada sección con su punto (en el teléfono, dos destinos
+  por fila con la `nota` recortada a dos renglones). Los diez tableros de
   indicadores que la empujaban hacia abajo viven enteros en `/indicadores`.
   ⚠️ `line-clamp-*` junto a `block` no recorta: el `display` de `block` pisa
   el `-webkit-box` del recorte (lo arrastraban los paneles de la portada y
@@ -722,8 +722,8 @@ sources impose:
   `--color-v-estado`/`--color-v-pais`) and `/obras` joined Finanzas (public
   investment). `.claude/hooks/indice.py` fails the gate when a link sits in a
   column whose section's `rutas` do not contain it. Outside the tree only the
-  platform pages remain (buscar, comunidad, espacio, seguimiento, fuentes,
-  seguridad), which are not State data.
+  platform pages remain (`/`, buscar, comunidad, cuenta, espacio, seguimiento,
+  `/p/[slug]`, fuentes, seguridad), which are not State data.
 - **The index** (`lib/indice.ts`, taxonomy in `lib/tareas.ts`): every
   destination once, derived from `MENU`, where each link declares its `tarea`
   (vigilar · buscar · comparar · leer · participar · entender). The palette

@@ -13,8 +13,10 @@ import { cn } from "@/lib/cn";
  * Aparece solo dentro de una vertical y responde dos preguntas sin que el
  * usuario piense: «¿en qué vertical estoy?» (nombre + punto de matiz, siempre
  * en el mismo sitio) y «¿qué vistas tiene esta vertical?» (tabs con indicador
- * de activo). En el panorama y en páginas de plataforma (/fuentes) no pinta
- * nada: ahí no hay sección de la que orientarse.
+ * de activo). En la portada y en las páginas de la plataforma (/buscar,
+ * /fuentes, la cuenta) no pinta nada: ahí no hay sección de la que
+ * orientarse. Toda página de datos del Estado es de una sección (el árbol
+ * de `lib/secciones.ts`).
  *
  * En el teléfono las vistas no caben —licitaciones mide 554 px de pestañas
  * contra 390 px de pantalla— y la fila se desplaza. Dos decisiones sostienen

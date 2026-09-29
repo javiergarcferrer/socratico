@@ -7,8 +7,9 @@
  * lado. Todo el chrome —megamenú, barra de sección, tab bar móvil, pie, mapa
  * de la portada— se deriva de aquí: una sección nueva aparece en todos a la
  * vez, con el mismo nombre y el mismo punto de color. Fuera del árbol solo
- * quedan las páginas de la plataforma (buscar, comunidad, tu espacio,
- * fuentes), que no son datos del Estado.
+ * quedan las páginas de la plataforma (portada, buscar, comunidad, cuenta,
+ * tu espacio, seguimiento, proyectos publicados, fuentes, seguridad), que no
+ * son datos del Estado.
  *
  * Reglas de ergonomía que este módulo hace cumplir:
  *  - Cada ruta pertenece a lo sumo a una vertical (`seccionDe` es determinista).
@@ -50,7 +51,7 @@ export interface Seccion {
    * La vertical dicha como pregunta. Ya no se pinta en la cabecera —el dueño
    * la cambió por el megamenú de `lib/menu.ts` (docs/DECISIONES.md)—; queda
    * como palabra clave de la paleta, para que «qué compra» encuentre
-   * Licitaciones.
+   * Compras.
    */
   pregunta: string;
   /** Ruta raíz de la vertical (a donde lleva el nav global). */
@@ -67,8 +68,8 @@ export interface Seccion {
    * nada.
    *
    * Existe porque la ruta sola no distingue dos casos opuestos. `/procesos/ABC`
-   * es la **ficha** de lo que un listado lista: viene de «Buscar» y encender
-   * «Buscar» dice la verdad. `/democracia/registro` es un **trámite** que no
+   * es la **ficha** de lo que un listado lista: viene de «Licitaciones» y
+   * encender «Licitaciones» dice la verdad. `/democracia/registro` es un **trámite** que no
    * cuelga de ninguna vista, y encender «Consenso» —que además es `exact`— le
    * dice al visitante que está en una página en la que no está. Como no se
    * puede deducir del camino, se declara.
@@ -93,7 +94,7 @@ export const SECCIONES: Seccion[] = [
     nombre: "Compras",
     pregunta: "¿Qué compra?",
     href: "/licitaciones",
-    descriptor: "Compras públicas · DGCP",
+    descriptor: "Licitaciones y contratos · DGCP",
     rutas: [
       "/licitaciones",
       "/procesos",
@@ -239,7 +240,7 @@ export const SECCIONES: Seccion[] = [
     nombre: "Quién es quién",
     pregunta: "¿Quién es quién?",
     href: "/instituciones",
-    descriptor: "Instituciones, provincias y quién las controla",
+    descriptor: "Instituciones, provincias, su gestión y sus auditorías",
     rutas: ["/instituciones", "/provincias", "/gestion", "/auditorias"],
     vistas: [
       { href: "/instituciones", label: "Instituciones" },
@@ -277,7 +278,7 @@ export const SECCIONES: Seccion[] = [
   },
 ];
 
-/** La vertical a la que pertenece una ruta, o `null` (panorama, fuentes…). */
+/** La sección a la que pertenece una ruta, o `null` (portada, buscar, fuentes…). */
 export function seccionDe(pathname: string): Seccion | null {
   for (const seccion of SECCIONES) {
     if (
@@ -299,8 +300,8 @@ export function vistaActiva(vista: VistaSeccion, pathname: string): boolean {
 
 /**
  * La vista activa de una sección: la más específica que matchee. Así
- * `/congreso/perencion` enciende «Perención» y `/congreso/155693` enciende
- * «Iniciativas», sin que ambas compitan.
+ * `/congreso/perencion` enciende «Por archivarse» y `/congreso/155693`
+ * enciende «Diputados», sin que ambas compitan.
  */
 export function vistaActivaDe(seccion: Seccion, pathname: string): VistaSeccion | null {
   // Un trámite declarado no enciende ninguna vista: ver `sinVista`.

@@ -49,18 +49,41 @@ for p in sorted((en_menu | fuera) - paginas):
 
 secciones = (raiz / "lib" / "secciones.ts").read_text(encoding="utf-8")
 rutas_de = {}
-for m in re.finditer(r'\n    id: "([a-z]+)",(.*?)\n    rutas: \[(.*?)\]', secciones, re.S):
+for m in re.finditer(r'\n    id: "([a-z-]+)",(.*?)\n    rutas: \[(.*?)\]', secciones, re.S):
     rutas_de[m.group(1)] = re.findall(r'"(/[^"]*)"', m.group(3))
-for m in re.finditer(r'columna\("([a-z]+)", \[(.*?)\n\s*\]\)', menu, re.S):
+if not rutas_de:
+    hallazgos.append("could not read the sections of lib/secciones.ts")
+
+# Cada columna se abre con `columna(` y termina donde empieza la siguiente
+# apertura (o el cierre del grupo): partir por aperturas no depende de cómo se
+# cierre la lista, así que una columna cerrada en su misma línea no se come a
+# la siguiente.
+llamadas = [m.start() for m in re.finditer(r"(?<!function )\bcolumna\(", menu)]
+columnas = 0
+for i, ini in enumerate(llamadas):
+    fin = llamadas[i + 1] if i + 1 < len(llamadas) else len(menu)
+    trozo = menu[ini:fin]
+    m = re.match(r"""columna\(\s*["'`]([a-z-]+)["'`]\s*,""", trozo)
+    if not m:
+        hallazgos.append(f"unreadable columna(...) call in lib/menu.ts: {trozo[:60]!r}")
+        continue
+    columnas += 1
     sid = m.group(1)
+    # Solo hasta el cierre de esta columna; lo que siga (otra columna escrita a
+    # mano, el destacado) no es suyo.
+    cierre = re.search(r"\]\s*\)", trozo)
+    cuerpo = trozo[: cierre.start()] if cierre else trozo
     if sid not in rutas_de:
         hallazgos.append(f"menu column for unknown section: {sid}")
         continue
-    for href in re.findall(r'href: "(/[^"?#]*)"', m.group(2)):
+    for href in re.findall(r"""href:\s*["'`](/[^"'`?#]*)""", cuerpo):
         if not any(href == r or href.startswith(r + "/") for r in rutas_de[sid]):
             hallazgos.append(f"menu link {href} sits in column «{sid}» but is outside that section's rutas in lib/secciones.ts")
-if not rutas_de:
-    hallazgos.append("could not read the sections of lib/secciones.ts")
+if not columnas:
+    hallazgos.append("no columna(\"<sección>\", …) call found in lib/menu.ts: the tree check read nothing")
+# Una columna escrita a mano con `seccion:` se saltaría todo lo anterior.
+if re.search(r"""\bseccion:\s*["'`]""", menu):
+    hallazgos.append("a menu column declares `seccion:` by hand; build it with columna(\"<sección>\", …) so the tree check sees it")
 
 print("\n".join(hallazgos))
 sys.exit(1 if hallazgos else 0)

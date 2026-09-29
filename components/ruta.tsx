@@ -43,9 +43,13 @@ export function Ruta({
   actual,
   className,
 }: {
-  /** La vertical de la ficha. Las páginas transversales pasan `raiz`. */
+  /** La sección de la ficha (`lib/secciones.ts`). */
   seccion?: SeccionId;
-  /** Raíz de una página que no es de ninguna vertical: «Instituciones». */
+  /**
+   * Una raíz que no es el nombre de su sección. La ficha de una institución
+   * vuelve a «Instituciones», no a «Quién es quién»: una vuelta dice a qué
+   * lista se regresa.
+   */
   raiz?: { href: string; label: string };
   /** La vista de la que cuelga la ficha, si no es la raíz de la vertical. */
   padre?: { href: string; label: string };

@@ -80,7 +80,7 @@ export const MENU: GrupoMenu[] = [
       ]),
       columna("nomina", [
         { href: "/nomina", label: "Nómina pública", nota: "Plazas y sueldos por institución y cargo", tarea: "comparar" },
-        { href: "/nomina/general", label: "Nómina de todo el Estado", nota: "Casi medio millón de plazas, institución por institución", tarea: "comparar" },
+        { href: "/nomina/general", label: "Nómina de todo el Estado", nota: "Casi medio millón de plazas y sus sueldos, institución por institución", tarea: "comparar" },
       ]),
     ],
     destacado: {
@@ -103,9 +103,9 @@ export const MENU: GrupoMenu[] = [
         { href: "/congreso/guia", label: "Cómo nace una ley", nota: "Del depósito a la Gaceta", tarea: "entender" },
       ]),
       columna("normativa", [
-        { href: "/normativa", label: "Decretos y leyes", nota: "Lo que se promulga y se firma, por año", tarea: "leer" },
-        { href: "/constitucional", label: "Tribunal Constitucional", nota: "Sus sentencias, año por año", tarea: "leer" },
-        { href: "/tse", label: "Tribunal Superior Electoral", nota: "Sus sentencias desde 2021", tarea: "leer" },
+        { href: "/normativa", label: "Decretos y leyes", nota: "Lo que el Ejecutivo promulga y firma, por año", tarea: "leer" },
+        { href: "/constitucional", label: "Tribunal Constitucional", nota: "Las sentencias de este alto tribunal, año por año", tarea: "leer" },
+        { href: "/tse", label: "Tribunal Superior Electoral", nota: "Las sentencias de este alto tribunal desde 2021", tarea: "leer" },
       ]),
       columna("democracia", [
         { href: "/democracia", label: "Consenso ciudadano", nota: "Qué opinaron los votantes de cada iniciativa", tarea: "participar" },

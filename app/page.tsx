@@ -479,27 +479,33 @@ function Tema({ grupo }: { grupo: GrupoMenu }) {
           // La portada no se ofrece a sí misma.
           const enlaces = c.enlaces.filter((e) => e.href !== "/");
           return (
-            <section key={c.titulo} aria-label={c.titulo}>
+            // Un `div` y no un `section` con nombre: nueve regiones más en la
+            // portada estorbaban al lector de pantalla; el h3 ya agrupa.
+            <div key={c.titulo}>
               <h3 className="flex items-center gap-2 border-b border-hairline pb-2 text-xs font-semibold uppercase tracking-wide text-ink">
                 <span aria-hidden className={`h-2 w-2 rounded-full ${puntoDe(c)}`} />
                 {c.titulo}
               </h3>
               {/*
-                En el teléfono, dos nombres por fila y sin la línea de qué hay:
-                con ella el mapa medía 3,500 px a 390, y la línea sigue en la
-                hoja «Más». Desde `sm`, una fila por destino con su línea.
+                En el teléfono, dos destinos por fila: en una sola columna el
+                mapa medía 3,500 px a 390. La línea de qué hay se queda, porque
+                «Mercado» o «Desde 2015» solos obligan a saber antes de entrar;
+                se recorta a dos renglones y entera sigue en la hoja «Más».
+                Desde `sm`, una fila por destino con su línea completa.
               */}
               <ul className="grid grid-cols-2 gap-x-4 sm:grid-cols-1 sm:divide-y sm:divide-hairline">
                 {enlaces.map((e) => (
-                  <li key={e.href} className="relative flex min-h-11 flex-col justify-center py-1.5 sm:min-h-0 sm:py-2">
+                  <li key={e.href} className="relative min-h-11 py-2">
                     <Link href={e.href} className="estira text-sm font-medium leading-snug text-ink">
                       {e.label}
                     </Link>
-                    <p className="hidden text-xs leading-snug text-ink-soft sm:block">{e.nota}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-ink-soft sm:line-clamp-none">
+                      {e.nota}
+                    </p>
                   </li>
                 ))}
               </ul>
-            </section>
+            </div>
           );
         })}
       </div>
@@ -587,7 +593,9 @@ async function DominioFinanzas() {
   return (
     <Dominio
       titulo={hue.finanzas.nombre}
-      fuente={hue.finanzas.descriptor}
+      // La cifra es del SIGEF; el descriptor de la sección abarca también
+      // deuda y obras, que esta tarjeta no cuenta.
+      fuente="Ejecución del presupuesto · SIGEF"
       chip={hue.finanzas.hue.chip}
       href="/finanzas"
       cta="Ver la ejecución"
