@@ -8,11 +8,14 @@ unos pocos de sus cargos e instituciones, para que «ministro de educación» o
 (`enlace.funcionario` de lib/grafo.ts).
 
 Sin vector: un nombre de persona no dice de qué trata (el criterio de
-legisladores y proveedores). Peso 0 si alguno de sus cargos obliga a declarar
-patrimonio (PEP, Ley 311-14), 1 si no. Quien solo figura como legislador ya
-tiene su entrada de legislador y no se repite.
+legisladores y proveedores). Peso 0 si es PEP hoy (un cargo obligado a
+declarar patrimonio, de hoy o con fecha en los últimos tres años: la regla
+de `pepVigente` en lib/funcionarios.ts), 1 si no. Quien solo figura como
+legislador ya tiene su entrada de legislador y no se repite.
 """
+import datetime
 import json
+import re
 
 # La instantánea nombra el puesto de la JCE («Alcaldía de Nagua»); quien busca
 # suele escribir a la persona («alcalde de Nagua»). Solo para el índice.
@@ -32,8 +35,24 @@ def _principal(p: dict) -> dict | None:
     return next((c for c in p["c"] if c.get("m") not in ("cesa", "sustituido")), p["c"][0] if p["c"] else None)
 
 
+def _pep_hoy(p: dict, limite: str) -> bool:
+    ultima = None
+    for c in p["c"]:
+        if c.get("pep") is None:
+            continue
+        if _actual(c):
+            return True
+        fin = re.search(r"(\d{4})\D*$", c.get("per") or "")
+        fecha = f"{fin.group(1)}-12-31" if fin else c.get("d")
+        if fecha and (ultima is None or fecha > ultima):
+            ultima = fecha
+    return ultima is not None and ultima >= limite
+
+
 def entradas(datos) -> tuple[list[dict], str]:
     d = json.loads((datos / "funcionarios.json").read_text(encoding="utf-8"))
+    hoy = datetime.date.today()
+    limite = hoy.replace(year=hoy.year - 3, day=min(hoy.day, 28)).isoformat()
     out = []
     for p in d["personas"]:
         if p["c"] and all(c.get("o") == "congreso" for c in p["c"]):
@@ -57,6 +76,6 @@ def entradas(datos) -> tuple[list[dict], str]:
             "x": aux,
             "d": detalle,
             "h": f"/funcionarios/{p['id']}",
-            "p": 0 if p.get("pep") else 1,
+            "p": 0 if _pep_hoy(p, limite) else 1,
         })
     return out, d["generado"]
