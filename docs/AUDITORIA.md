@@ -2019,7 +2019,15 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
    consultas POST sin efecto; decisión del dueño antes de probarlas.
 5. ProCompetencia (RSS) y las últimas sentencias de la SCJ: tarjetas en vivo,
    baratas, sin hacer.
-6. Institucional (Ley 200-04 y divulgación responsable): CCPSD/FEDOCÁMARAS/MICM
+6. Rehacer contra el universo nuevo de 894 fichas los scripts que casan por
+   nombre con `instituciones.json` (`build-sismap.py`, `build-auditorias.py`,
+   `build-obras.py`, `build-nomina-general.py`): así las 155 entidades del
+   Clasificador ganan sus aristas. No se corrió aquí porque la Cámara de Cuentas
+   responde 470 y una regeneración parcial borraría lo que ya se tiene.
+7. `lib/capitulos.ts` (el catálogo del formulario de Hacienda) tiene once códigos
+   que el Clasificador retiró y le faltan nueve: el sitemap ya lista los de
+   `fiscal.json`; regenerar el catálogo depende de la API del SIGEF (403 aquí).
+8. Institucional (Ley 200-04 y divulgación responsable): CCPSD/FEDOCÁMARAS/MICM
    (extracto del registro mercantil), ONAPI (acceso a `bsapi26`), SIMV, SIS
    (intermediarios), CASFL (registro de ASFL), Cámara de Cuentas y PGR (470),
    DIGECOG (470), Hacienda (API del SIGEF, 403), BID; y los dos avisos de §H.10.
