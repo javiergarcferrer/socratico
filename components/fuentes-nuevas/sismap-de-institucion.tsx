@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { sismapDeInstitucion, TABLAS_SISMAP } from "@/lib/sismap";
+import { sismapDeGobiernoLocal, sismapDeInstitucion, TABLAS_SISMAP } from "@/lib/sismap";
 import { formatFecha } from "@/lib/format";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,10 +10,12 @@ import { IconExternal } from "@/components/icons";
  * valoración en el ranking del SISMAP, contra cuántos se mide.
  *
  * Si la institución no está en el ranking (o su nombre no casó en
- * `scripts/build-sismap.py`), no pinta nada.
+ * `scripts/build-sismap.py`), no pinta nada. Con `gobiernoLocal` (el nombre
+ * de un gobierno local que entró por el Clasificador Institucional) prueba
+ * además el cruce cierto de `sismapDeGobiernoLocal`.
  */
-export async function SismapDeInstitucion({ uc }: { uc: number }) {
-  const s = await sismapDeInstitucion(uc);
+export async function SismapDeInstitucion({ uc, gobiernoLocal }: { uc: number; gobiernoLocal?: string }) {
+  const s = gobiernoLocal ? await sismapDeGobiernoLocal(uc, gobiernoLocal) : await sismapDeInstitucion(uc);
   if (!s) return null;
   const { fila, tabla, total, consultado } = s;
   const t = TABLAS_SISMAP.find((x) => x.clave === tabla)!;

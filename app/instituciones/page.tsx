@@ -3,14 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import {
+  FUENTES_DEL_CRUCE,
   INSTITUCIONES,
+  SECTORES,
   buscarInstituciones,
   cabezaDelCapitulo,
+  contarPorSector,
+  esSector,
+  hrefDirectorio,
   hrefInstitucion,
+  sectorDe,
   type Institucion,
 } from "@/lib/instituciones";
 import { etiquetaCorte, getFiscal } from "@/lib/fiscal";
-import { formatPesos } from "@/lib/format";
+import { formatFecha, formatPesos } from "@/lib/format";
 import { desdeMayusculas } from "@/lib/congreso";
 import { formatInt } from "@/lib/nomina";
 import { BuscadorUrl } from "@/components/buscador-url";
@@ -18,6 +24,8 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EstadoVacio } from "@/components/estado-vacio";
 import Plegable from "@/components/plegable";
+import { FiltroEnlace, NavFiltros } from "@/components/nav-filtros";
+import { Paginador } from "@/components/paginador";
 import { IconChevronRight } from "@/components/icons";
 import { normalize } from "@/lib/dgcp";
 import { enlace } from "@/lib/grafo";
@@ -30,11 +38,14 @@ import { recortar } from "@/lib/raiz";
  */
 const A_LA_VISTA = 5;
 
+/** Filas por página en la lista de un sector: los gobiernos locales son 393. */
+const POR_PAGINA = 50;
+
 export const metadata: Metadata = {
   alternates: { canonical: "/instituciones" },
   title: "Instituciones del Estado",
   description:
-    "Cada institución del Estado dominicano en una página: presupuesto, compras, nómina y normativa, que el Estado publica en cuatro catálogos distintos.",
+    "Cada institución del Estado dominicano en una página, con su sector: las entidades del Clasificador Institucional de DIGEPRES y las unidades de compra de la DGCP, con su presupuesto, compras, nómina y normativa.",
 };
 
 export const revalidate = 86400;
@@ -42,16 +53,20 @@ export const revalidate = 86400;
 /**
  * El directorio de instituciones: la puerta a las fichas.
  *
- * Sin búsqueda, lista los capítulos del presupuesto de mayor gasto con sus
- * unidades de compra —lo que casi todo el mundo busca—, y deja hospitales y
- * ayuntamientos a una búsqueda de distancia. Con `?q=`, filtra el cruce entero.
+ * Sin búsqueda ni sector, lista los capítulos del presupuesto de mayor gasto
+ * con sus unidades de compra —lo que casi todo el mundo busca—. El sector
+ * (`?sector=`, del Clasificador Institucional) lista entero el suyo, de 50 en
+ * 50, y ahí están los gobiernos locales, las empresas y las financieras que
+ * el SIGEF no trae. Con `?q=`, filtra el cruce entero o el sector elegido.
  */
 export default async function InstitucionesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; sector?: string; pagina?: string }>;
 }) {
-  const q = recortar((await searchParams).q, 80);
+  const sp = await searchParams;
+  const q = recortar(sp.q, 80);
+  const sector = esSector(sp.sector) ? sp.sector : null;
   const fiscal = await getFiscal();
   const porCapitulo = new Map<string, Institucion[]>();
   for (const i of INSTITUCIONES) {
@@ -75,19 +90,50 @@ export default async function InstitucionesPage({
     return cabeza ? [{ i: cabeza, devengado: c.devengado }] : [];
   });
   const conTarjeta = capitulos.filter((c) => !propios.some((p) => p.i.capitulo === c.codigo));
-  const locales = INSTITUCIONES.filter((i) => i.tipo === "Gobierno local").length;
-  const hospitales = INSTITUCIONES.filter((i) => i.tipo === "Hospital").length;
-  const resultados = q ? buscarInstituciones(q, INSTITUCIONES.length) : [];
+
+  // El universo y de dónde sale, para la línea de la cabecera.
+  const clasificador = FUENTES_DEL_CRUCE.clasificador;
+  const unidadesDeCompra = INSTITUCIONES.filter((i) => i.dgcp).length;
+  const sinUnidad = INSTITUCIONES.filter((i) => !i.dgcp);
+  const localesSinUnidad = sinUnidad.filter((i) => i.sector === "local").length;
+
+  // Con búsqueda, los conteos de los filtros son los de lo encontrado.
+  const encontradas = q ? buscarInstituciones(q, INSTITUCIONES.length) : INSTITUCIONES;
+  const cuenta = contarPorSector(encontradas);
+  const resultados = q ? encontradas.filter((i) => !sector || i.sector === sector) : [];
+  const elegido = sector ? sectorDe(sector) : null;
+
+  // La lista de un sector, sin búsqueda: entera, por nombre, de 50 en 50.
+  const lista =
+    sector && !q
+      ? INSTITUCIONES.filter((i) => i.sector === sector).sort((a, b) =>
+          desdeMayusculas(a.nombre).localeCompare(desdeMayusculas(b.nombre), "es"),
+        )
+      : [];
+  const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
+  const pagina = Math.min(Math.max(1, Number.parseInt(sp.pagina ?? "1", 10) || 1), paginas);
+  const visibles = lista.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+  const sinUnidadEnLista = lista.filter((i) => !i.dgcp).length;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <header>
-        <h1 className="font-display text-3xl text-ink sm:text-4xl">Instituciones del Estado</h1>
+        <h1 className="font-display text-3xl text-ink sm:text-4xl">¿Qué instituciones forman el Estado?</h1>
         <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-          El Estado publica cada institución en cuatro catálogos que no se hablan:
+          El Estado publica cada institución en catálogos que no se hablan:
           presupuesto, compras, nómina y normativa. Aquí cada una tiene una sola
-          página. {formatInt(INSTITUCIONES.length)} unidades de compra, entre ellas{" "}
-          {formatInt(hospitales)} hospitales y {formatInt(locales)} gobiernos locales.
+          página.
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+          <span className="font-mono tabular-nums text-ink">{formatInt(INSTITUCIONES.length)}</span> fichas
+          con las{" "}
+          <span className="font-mono tabular-nums text-ink">{formatInt(clasificador.capitulos)}</span>{" "}
+          entidades del Clasificador Institucional de DIGEPRES, actualizado al{" "}
+          {formatFecha(clasificador.actualizado)}, y las{" "}
+          <span className="font-mono tabular-nums text-ink">{formatInt(unidadesDeCompra)}</span> unidades de
+          compra activas de la DGCP. Una entidad del presupuesto puede tener varias unidades de compra, y{" "}
+          {formatInt(sinUnidad.length)} no tienen ninguna, entre ellas {formatInt(localesSinUnidad)} gobiernos
+          locales.
         </p>
       </header>
 
@@ -95,18 +141,49 @@ export default async function InstitucionesPage({
         <BuscadorUrl
           etiqueta="Buscar una institución"
           placeholder="Nombre o siglas: MINERD…"
-          ayuda={`Busca en el nombre y las siglas de las ${formatInt(INSTITUCIONES.length)} unidades de compra activas de la DGCP: todas las palabras, en cualquier orden y sin distinguir tildes.`}
+          ayuda={
+            elegido
+              ? `Busca en el nombre y las siglas de las ${formatInt(contarPorSector()[elegido.clave])} instituciones de «${elegido.nombre}»: todas las palabras, en cualquier orden y sin distinguir tildes.`
+              : `Busca en el nombre y las siglas de las ${formatInt(INSTITUCIONES.length)} instituciones: todas las palabras, en cualquier orden y sin distinguir tildes.`
+          }
         />
       </Suspense>
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-ink-soft">
+          Sector del Estado{q ? `, entre lo que coincide con «${q}»` : ""}
+        </p>
+        <NavFiltros etiqueta="Sector del Estado">
+          <FiltroEnlace href={hrefDirectorio({ q })} activo={!sector}>
+            {`Todas (${formatInt(encontradas.length)})`}
+          </FiltroEnlace>
+          {SECTORES.map((s) => (
+            <FiltroEnlace key={s.clave} href={hrefDirectorio({ q, sector: s.clave })} activo={sector === s.clave}>
+              {`${s.nombre} (${formatInt(cuenta[s.clave])})`}
+            </FiltroEnlace>
+          ))}
+        </NavFiltros>
+        {elegido && <p className="text-sm leading-relaxed text-ink-soft">{elegido.que}</p>}
+      </div>
 
       {q ? (
         resultados.length === 0 ? (
           <EstadoVacio
-            titulo={`Ninguna institución coincide con «${q}»`}
+            titulo={
+              elegido
+                ? `Ninguna institución de «${elegido.nombre}» coincide con «${q}»`
+                : `Ninguna institución coincide con «${q}»`
+            }
             accion={
-              <Button asChild variant="secondary">
-                <Link href={`/buscar?q=${encodeURIComponent(q)}`}>Buscar «{q}» en toda la plataforma</Link>
-              </Button>
+              elegido && encontradas.length > 0 ? (
+                <Button asChild variant="secondary">
+                  <Link href={hrefDirectorio({ q })}>Ver las {formatInt(encontradas.length)} de todos los sectores</Link>
+                </Button>
+              ) : (
+                <Button asChild variant="secondary">
+                  <Link href={`/buscar?q=${encodeURIComponent(q)}`}>Buscar «{q}» en toda la plataforma</Link>
+                </Button>
+              )
             }
           >
             Prueba con las siglas (MOPC, MINERD) o con una palabra del nombre.
@@ -116,6 +193,7 @@ export default async function InstitucionesPage({
             <p className="px-5 pt-4 text-sm text-ink-soft" aria-live="polite">
               <span className="font-mono tabular-nums">{formatInt(resultados.length)}</span>{" "}
               {resultados.length === 1 ? "institución" : "instituciones"} para «{q}»
+              {elegido ? ` en «${elegido.nombre}»` : ""}
             </p>
             <ul className="mt-2 divide-y divide-hairline">
               {resultados.map((i) => (
@@ -124,13 +202,44 @@ export default async function InstitucionesPage({
             </ul>
           </Card>
         )
+      ) : elegido ? (
+        <Card as="section" aria-labelledby="lista-sector">
+          <div className="px-5 pb-3 pt-4">
+            <CardTitle id="lista-sector">{elegido.nombre}</CardTitle>
+            <p className="mt-1 text-xs leading-relaxed text-ink-soft" aria-live="polite">
+              {formatInt(lista.length)} {lista.length === 1 ? "institución" : "instituciones"}
+              {sinUnidadEnLista > 0
+                ? `, ${formatInt(sinUnidadEnLista)} de ellas sin unidad de compra en la DGCP`
+                : ""}
+              , por orden alfabético{paginas > 1 ? `: se ven de ${POR_PAGINA} en ${POR_PAGINA}` : ""}.
+            </p>
+          </div>
+          <ul className="divide-y divide-hairline border-t border-hairline">
+            {visibles.map((i) => (
+              <FilaInstitucion key={i.id} i={i} />
+            ))}
+          </ul>
+          {paginas > 1 && (
+            <div className="border-t border-hairline px-5 py-3 sm:px-6">
+              <Paginador pagina={pagina} paginas={paginas} href={(p) => hrefDirectorio({ sector, pagina: p })} />
+            </div>
+          )}
+        </Card>
       ) : (
         <div className="space-y-4">
           {fiscal && (
-            <p className="rotulo text-ink-soft">
-              Montos: lo devengado en {fiscal.anio}, con corte a{" "}
-              {etiquetaCorte(fiscal.mesCorte, fiscal.anio)} · SIGEF
-            </p>
+            <div className="space-y-1.5">
+              <p className="rotulo text-ink-soft">
+                Montos: lo devengado en {fiscal.anio}, con corte a{" "}
+                {etiquetaCorte(fiscal.mesCorte, fiscal.anio)} · SIGEF
+              </p>
+              <p className="text-sm leading-relaxed text-ink-soft">
+                Los capítulos que ejecuta el SIGEF, del que más gasta al que menos.
+                Los gobiernos locales, las empresas públicas y las instituciones
+                financieras no están en esa instantánea: búscalos en su sector,
+                arriba.
+              </p>
+            </div>
           )}
           {conTarjeta.map((c) => (
             <TarjetaCapitulo
@@ -162,9 +271,23 @@ export default async function InstitucionesPage({
       )}
 
       <p className="text-xs leading-relaxed text-ink-soft">
-        La institución es la unidad de compra de la DGCP; su presupuesto es el del
-        capítulo al que la propia DGCP la adscribe. El cruce se regenera con{" "}
-        <code className="font-mono">scripts/build-instituciones.py</code>.
+        Cada unidad de compra de la DGCP tiene su ficha, con el presupuesto del
+        capítulo al que la propia DGCP la adscribe; cada entidad del{" "}
+        <a
+          href={clasificador.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-brand-700 hover:underline"
+        >
+          Clasificador Institucional
+        </a>{" "}
+        que no tiene unidad de compra, también. El sector es el del clasificador. El
+        cruce se regenera con <code className="font-mono">scripts/build-instituciones.py</code>, y sus
+        límites están en{" "}
+        <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
+          el estado de las fuentes
+        </Link>
+        .
       </p>
     </div>
   );
@@ -260,9 +383,10 @@ function siglaUtil(i: Institucion): string | null {
 }
 
 /**
- * Una unidad de compra como fila entera: nombre completo y, detrás, su sigla.
+ * Una institución como fila entera: nombre completo y, detrás, su sigla.
  * `compacta` es la fila dentro de un capítulo, donde decir «Presupuesto» en
- * cada una no informa: todas lo tienen.
+ * cada una no informa: todas lo tienen. La que entró por el Clasificador
+ * Institucional lo dice en la fila: no tiene compras que abrir.
  */
 function FilaInstitucion({
   i,
@@ -301,7 +425,7 @@ function FilaInstitucion({
           <span className="min-w-0">
             <span className="block text-[15px] leading-snug text-ink">{desdeMayusculas(i.nombre)}</span>
             <span className="mt-0.5 block text-xs text-ink-soft">
-              {[i.acronimo, i.tipo].filter(Boolean).join(" · ")}
+              {[i.acronimo, i.tipo, !i.dgcp && "sin unidad de compra en la DGCP"].filter(Boolean).join(" · ")}
             </span>
           </span>
         )}

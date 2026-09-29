@@ -3,17 +3,23 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
+  FUENTES_DEL_CRUCE,
+  contarPorSector,
   getComprasDeInstitucion,
+  hrefDirectorio,
   hrefInstitucion,
   institucionDeSlug,
   institucionesDelCapitulo,
+  sectorDe,
   type Institucion,
   type SenalesDeCompra,
+  type Transferencia,
 } from "@/lib/instituciones";
 import { etiquetaCorte, getInstitucionFiscal } from "@/lib/fiscal";
 import { getNominaDeInstitucion, getResumenNomina } from "@/lib/nomina-server";
 import { obrasDeInstitucion } from "@/lib/obras";
-import { sismapDeInstitucion } from "@/lib/sismap";
+import { sismapDeGobiernoLocal, sismapDeInstitucion } from "@/lib/sismap";
+import { variacion } from "@/lib/cifras";
 import { normasDeInstitucion, RUTA_POR_TIPO } from "@/lib/normativa";
 import { listPacc } from "@/lib/dgcp";
 import { desdeMayusculas } from "@/lib/congreso";
@@ -74,7 +80,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // `/instituciones/237` y `/instituciones/237-minerd` son la misma página:
     // la canónica es la del tramo legible.
     alternates: { canonical: hrefInstitucion(i) },
-    description: `Qué compra, cuánto gasta, a quién le paga y qué decreta el Estado sobre ${i.nombre}: presupuesto, contratos, nómina y normativa en una sola página.`,
+    description: i.dgcp
+      ? `Qué compra, cuánto gasta, a quién le paga y qué decreta el Estado sobre ${i.nombre}: presupuesto, contratos, nómina y normativa en una sola página.`
+      : `Su sector y su capítulo en el Clasificador Institucional, su presupuesto, lo que le transfiere el Gobierno central y lo que decreta el Estado sobre ${i.nombre}, en una sola página.`,
   };
 }
 
@@ -89,6 +97,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function InstitucionPage({ params }: Props) {
   const i = institucionDeSlug((await params).id);
   if (!i) notFound();
+  // La que entró por el Clasificador Institucional no tiene unidad de compra:
+  // su ficha no le pregunta nada a la DGCP (ver `FichaDelClasificador`).
+  if (!i.dgcp) return <FichaDelClasificador i={i} />;
 
   const [fiscal, nomina, resumenNomina, normas, obras, sismap, historia, sinAsignar, documentos, general, auditorias] = await Promise.all([
     i.capitulo ? getInstitucionFiscal(i.capitulo) : null,
@@ -237,61 +248,8 @@ export default async function InstitucionPage({ params }: Props) {
       )}
 
       <div id="nomina">
-        {nomina ? (
-          <Card as="section" className="p-5 sm:p-6">
-            <CardTitle>Nómina</CardTitle>
-            <p className="mt-1 text-xs text-ink-soft">
-              Foto de {nomina.periodo}: el último mes que la institución publicó en
-              formato procesable. Sin nombres: cargo y sueldo bruto.
-            </p>
-            <TiraDeCifras className="mt-4 lg:grid-cols-3">
-              <Cifra etiqueta="Plazas" valor={formatInt(nomina.plazas)} ancla={{ alcance: "instantanea", periodo: nomina.periodo }} />
-              <Cifra etiqueta="Masa salarial del mes" valor={formatPesos(nomina.masa)} ancla={{ alcance: "instantanea", periodo: nomina.periodo }} />
-              <Cifra etiqueta="Sueldo mediano" valor={formatDOP(nomina.mediana)} ancla={{ alcance: "instantanea", periodo: nomina.periodo }} />
-            </TiraDeCifras>
-            <ul className="mt-4 divide-y divide-hairline text-sm">
-              {nomina.cargos.map((c) => (
-                <li key={c.cargo} className="flex items-baseline justify-between gap-3 py-2">
-                  <span className="min-w-0">{desdeMayusculas(c.cargo)}</span>
-                  <span className="shrink-0 font-mono text-xs tabular-nums text-ink-soft">
-                    {formatInt(c.plazas)} {c.plazas === 1 ? "plaza" : "plazas"} · mediana {formatDOP(c.mediana)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <Button asChild variant="secondary" className="mt-4">
-              <Link href={`/nomina?inst=${encodeURIComponent(nomina.codigo)}`}>Explorar su nómina</Link>
-            </Button>
-          </Card>
-        ) : general ? (
-          <Card as="section" className="p-5 sm:p-6">
-            <CardTitle>Nómina</CardTitle>
-            <p className="mt-1 text-xs text-ink-soft">
-              Según la nómina general del Ministerio de Administración Pública,{" "}
-              {mesGeneral(general.anio, general.mes)}. Sin nombres: cargo y sueldo bruto,
-              sin el área de trabajo.
-            </p>
-            <TiraDeCifras className="mt-4 lg:grid-cols-3">
-              <Cifra etiqueta="Plazas" valor={formatInt(general.inst.plazas)} ancla={{ alcance: "instantanea", periodo: mesGeneral(general.anio, general.mes) }} />
-              <Cifra etiqueta="Masa salarial del mes" valor={formatPesos(general.inst.masa)} />
-              <Cifra etiqueta="Sueldo mediano" valor={formatDOP(general.inst.mediana)} />
-            </TiraDeCifras>
-            <ul className="mt-4 divide-y divide-hairline text-sm">
-              {general.inst.cargos.slice(0, 6).map(([cargo, n, , mediana]) => (
-                <li key={cargo} className="flex items-baseline justify-between gap-3 py-2">
-                  <span className="min-w-0">{desdeMayusculas(cargo)}</span>
-                  <span className="shrink-0 font-mono text-xs tabular-nums text-ink-soft">
-                    {formatInt(n)} {n === 1 ? "plaza" : "plazas"} · mediana {formatDOP(mediana)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <Button asChild variant="secondary" className="mt-4">
-              <Link href={`/nomina/general?inst=${claveInstitucion(general.inst.nombre)}`}>
-                Ver sus {formatInt(general.inst.cargos.length)} cargos
-              </Link>
-            </Button>
-          </Card>
+        {nomina || general ? (
+          <NominaLeida nomina={nomina} general={general} />
         ) : i.nomina ? (
           <EstadoVacio variante="caida" rotulo="Nómina" titulo="No pudimos leer su nómina">
             Esta institución está en la foto de nómina, pero el archivo no se pudo
@@ -327,26 +285,7 @@ export default async function InstitucionPage({ params }: Props) {
 
       <DocumentosDeInstitucion uc={i.id} />
 
-      <Card as="section" id="decretos">
-        <div className="p-5 pb-3 sm:p-6 sm:pb-3">
-          <CardTitle>Lo que decreta el Ejecutivo</CardTitle>
-          {normas.docs.length === 0 ? (
-            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-              No encontramos normas de los últimos cuatro años con una etiqueta de la
-              Consultoría Jurídica que coincida con este nombre. El cruce es por
-              nombre: si la Consultoría escribe la institución de otra forma, aquí
-              no aparece.
-            </p>
-          ) : (
-            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-              {formatInt(normas.docs.length)} normas que la Consultoría Jurídica
-              etiqueta con esta institución, de las más recientes a las más antiguas
-              {normas.docs.length > NORMAS_MAX ? `; se muestran las ${NORMAS_MAX} más recientes` : ""}.
-            </p>
-          )}
-        </div>
-        {normas.docs.length > 0 && <ListaNormas docs={normas.docs.slice(0, NORMAS_MAX)} />}
-      </Card>
+      <LoQueDecreta docs={normas.docs} />
 
       <div id="plan">
         <Suspense fallback={<Cargando titulo="Plan anual de compras" texto="Consultando su PACC…" />}>
@@ -368,6 +307,366 @@ export default async function InstitucionPage({ params }: Props) {
       {/* La clave es la ruta con solo el código: si cambia el nombre, la conversación sigue siendo la misma. */}
       <Conversacion className="mt-6" referencia={{ tipo: "institucion", ref: enlace.institucion(i.id), titulo: i.nombre, href: enlace.institucion(i.id) }} />
     </div>
+  );
+}
+
+/**
+ * La ficha de una entidad del Clasificador Institucional de DIGEPRES que no
+ * tiene unidad de compra en la DGCP: el Congreso, el Poder Judicial, el Banco
+ * Central, la mayoría de las juntas de distrito.
+ *
+ * No consulta la DGCP. No hay nada suyo que consultar, y la ficha de siempre
+ * habría dicho «no publicó procesos», que es una afirmación sobre una unidad
+ * que no existe. Lo dice llano y ofrece el camino que sí hay. Lo demás sale de
+ * donde siempre: el presupuesto del SIGEF si su capítulo se ejecuta ahí, lo
+ * que el Gobierno central le transfiere (cuadro de DIGEPRES), su gestión en el
+ * SISMAP si es un gobierno local y casa sin duda, su nómina si está en la foto
+ * y lo que decreta el Ejecutivo.
+ */
+async function FichaDelClasificador({ i }: { i: Institucion }) {
+  const local = i.sector === "local";
+  const [fiscal, nomina, general, normas, sismap, auditorias] = await Promise.all([
+    i.capitulo ? getInstitucionFiscal(i.capitulo) : null,
+    i.nomina ? getNominaDeInstitucion(i.nomina) : null,
+    nominaGeneralDeInstitucion(i.id),
+    normasDeInstitucion(i.consultoria),
+    local ? sismapDeGobiernoLocal(i.id, i.nombre) : sismapDeInstitucion(i.id),
+    getAuditorias(),
+  ]);
+  const sector = sectorDe(i.sector);
+  const clasificador = FUENTES_DEL_CRUCE.clasificador;
+  const hermanasDeSector = contarPorSector()[i.sector] - 1;
+  const nAuditorias = auditorias ? filtrarInformes(informesDe(auditorias), { q: i.nombre }).length : 0;
+  const transfiere = Boolean(i.transferencia || i.transferenciaProyecto);
+  const deSuSector = hrefDirectorio({ sector: i.sector });
+
+  const indice = [
+    { id: "presupuesto", texto: fiscal ? `Presupuesto · cap. ${i.capitulo}` : transfiere ? "Transferencias" : "Presupuesto" },
+    { id: "compras", texto: "Compras · sin unidad" },
+    sismap && { id: "gestion", texto: "Gestión" },
+    (nomina || general) && { id: "nomina", texto: "Nómina" },
+    { id: "decretos", texto: normas.docs.length > 0 ? `Normativa · ${formatInt(normas.docs.length)}` : "Normativa" },
+  ].filter((e): e is { id: string; texto: string } => Boolean(e));
+
+  return (
+    <div className="space-y-5">
+      <Ruta
+        raiz={{ href: "/instituciones", label: "Instituciones" }}
+        padre={{ href: deSuSector, label: sector.nombre }}
+        actual={i.acronimo || i.nombre}
+      />
+
+      <Card as="section" className="p-5 sm:p-6">
+        <div className="rotulo text-ink-soft">
+          {[i.tipo, i.acronimo, i.clasificador && `Capítulo ${i.clasificador}`].filter(Boolean).join(" · ")}
+        </div>
+        <h1 className="mt-1 font-display text-2xl leading-tight sm:text-3xl">{desdeMayusculas(i.nombre)}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+          El Clasificador Institucional de DIGEPRES, la lista de entidades del
+          presupuesto, la registra con el capítulo{" "}
+          <span className="font-mono tabular-nums text-ink">{i.clasificador}</span> en el sector «{sector.nombre}».
+          No tiene unidad de compra propia en la DGCP, así que aquí no hay compras
+          suyas; sí lo demás que el Estado publica sobre ella en las fuentes que lee
+          la plataforma.
+        </p>
+        <AccionesFicha
+          className="mt-3"
+          tipo="institucion"
+          id={String(i.id)}
+          titulo={i.nombre}
+          href={hrefInstitucion(i)}
+        />
+        <NavFiltros etiqueta="Secciones de esta ficha" className="mt-4">
+          {indice.map((e) => (
+            <FiltroEnlace key={e.id} href={`#${e.id}`} activo={false}>
+              {e.texto}
+            </FiltroEnlace>
+          ))}
+        </NavFiltros>
+      </Card>
+
+      <ConectadoCon
+        aristas={[
+          fiscal &&
+            i.capitulo && {
+              etiqueta: "Capítulo del presupuesto",
+              href: enlace.capitulo(i.capitulo),
+              nombre: fiscal.institucion.nombreLegible,
+              fuente: "SIGEF",
+            },
+          {
+            etiqueta: `Las demás de su sector: ${sector.nombre}`,
+            href: deSuSector,
+            cuenta: hermanasDeSector,
+            fuente: "Clasificador Institucional de DIGEPRES",
+          },
+          {
+            etiqueta: "Normas que la nombran",
+            href: "#decretos",
+            cuenta: normas.docs.length,
+            fuente: "Consultoría Jurídica",
+          },
+          {
+            etiqueta: "Informes de auditoría",
+            href: `/auditorias?q=${encodeURIComponent(i.nombre)}`,
+            cuenta: nAuditorias,
+            fuente: "Contraloría y Cámara de Cuentas",
+          },
+          nomina
+            ? { etiqueta: "Plazas en su nómina", href: `/nomina?inst=${encodeURIComponent(nomina.codigo)}`, cuenta: nomina.plazas, fuente: `Nómina de ${nomina.periodo}` }
+            : general && {
+                etiqueta: "Plazas en su nómina",
+                href: `/nomina/general?inst=${claveInstitucion(general.inst.nombre)}`,
+                cuenta: general.inst.plazas,
+                fuente: "Nómina general del MAP",
+              },
+          sismap && {
+            etiqueta: "Su lugar en el ranking de gestión",
+            href: `/gestion?${new URLSearchParams({ tabla: sismap.tabla, q: sismap.fila.nombre })}`,
+            fuente: "SISMAP del MAP",
+          },
+        ]}
+      />
+
+      <div id="presupuesto" className="space-y-5">
+        {fiscal && <Presupuesto datos={fiscal} institucion={i} hermanas={[]} />}
+        {transfiere && <Transferencias i={i} />}
+        {!fiscal && !transfiere && (
+          <EstadoVacio rotulo="Presupuesto" titulo="Sin presupuesto en las fuentes que leemos">
+            Su capítulo no está en la instantánea del SIGEF, que cubre el
+            Presupuesto General del Estado, y el cuadro de transferencias de la Ley
+            de Presupuesto no le asigna nada del Gobierno central.
+          </EstadoVacio>
+        )}
+      </div>
+
+      <div id="compras">
+        <EstadoVacio
+          rotulo="Compras"
+          titulo="No tiene unidad de compra propia en la DGCP"
+          accion={
+            <Button asChild variant="secondary">
+              <Link href={`/buscar?q=${encodeURIComponent(desdeMayusculas(i.nombre))}`}>
+                Buscar su nombre en toda la plataforma
+              </Link>
+            </Button>
+          }
+        >
+          El catálogo de unidades de compra de la Dirección General de
+          Contrataciones Públicas no tiene ninguna para esta entidad, así que esta
+          ficha no puede consultar procesos, contratos ni plan anual suyos. Eso no
+          dice que no compre: dice que no hay una unidad suya que consultar.
+        </EstadoVacio>
+      </div>
+
+      {sismap && (
+        <div id="gestion">
+          <SismapDeInstitucion uc={i.id} gobiernoLocal={local ? i.nombre : undefined} />
+        </div>
+      )}
+
+      {(nomina || general) && (
+        <div id="nomina">
+          <NominaLeida nomina={nomina} general={general} />
+        </div>
+      )}
+
+      <LoQueDecreta docs={normas.docs} />
+
+      <p className="text-xs leading-relaxed text-ink-soft">
+        Fuentes:{" "}
+        <a
+          href={clasificador.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-brand-700 hover:underline"
+        >
+          Clasificador Institucional de DIGEPRES
+        </a>{" "}
+        (capítulo {i.clasificador}, actualizado al {formatFecha(clasificador.actualizado)})
+        {fiscal ? `, SIGEF (capítulo ${i.capitulo})` : ""}
+        {transfiere ? ", cuadros de entidades receptoras de DIGEPRES" : ""}
+        {sismap ? ", SISMAP" : ""}
+        {nomina || general ? ", nóminas" : ""} y Consultoría Jurídica. Tiene ficha
+        porque el clasificador la registra, aunque la DGCP no le dé unidad de compra;
+        lo que cada fuente cubre está en{" "}
+        <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
+          el estado de las fuentes
+        </Link>
+        .
+      </p>
+      <Conversacion className="mt-6" referencia={{ tipo: "institucion", ref: enlace.institucion(i.id), titulo: i.nombre, href: enlace.institucion(i.id) }} />
+    </div>
+  );
+}
+
+/**
+ * «¿Cuánto le transfiere el Gobierno central?»: la Ley de Presupuesto vigente
+ * y, si ya se depositó, el proyecto del año siguiente, del cuadro de entidades
+ * receptoras de DIGEPRES. La comparación entre los dos es del mismo cuadro y
+ * de la misma entidad; si la ley no le asigna nada, no hay porcentaje.
+ */
+function Transferencias({ i }: { i: Institucion }) {
+  const ley = i.transferencia;
+  const proyecto = i.transferenciaProyecto;
+  const cuadro = (t: Transferencia | undefined) => (t ? (FUENTES_DEL_CRUCE.transferencias[t.fuente] ?? null) : null);
+  const cuadroLey = cuadro(ley);
+  const cuadroProyecto = cuadro(proyecto);
+  const cambio = ley && proyecto ? variacion(proyecto.monto, ley.monto) : null;
+  const local = i.sector === "local";
+  const enlaceCuadro = (url: string, texto: string) => (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-11 items-center gap-1 font-medium text-brand-700 hover:underline sm:min-h-0"
+    >
+      {texto}
+      <IconExternal className="h-3.5 w-3.5" />
+    </a>
+  );
+
+  return (
+    <Card as="section" className="p-5 sm:p-6">
+      <CardTitle>¿Cuánto le transfiere el Gobierno central?</CardTitle>
+      <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+        Lo que el presupuesto del Gobierno central le asigna como transferencia,
+        según el cuadro «Clasificación institucional según entidad receptora» que
+        publica DIGEPRES.{" "}
+        {local
+          ? "Para un ayuntamiento o una junta de distrito es su parte de lo que el Estado reparte entre los gobiernos locales; lo que recauda por su cuenta no está aquí."
+          : "Si tiene ingresos propios, no están aquí."}
+      </p>
+      <TiraDeCifras className="mt-4 lg:grid-cols-2">
+        {ley && (
+          <Cifra
+            etiqueta={`Presupuesto ${ley.anio}`}
+            valor={formatPesos(ley.monto)}
+            ancla={{ alcance: "instantanea", periodo: `Ley de Presupuesto ${ley.anio}` }}
+          />
+        )}
+        {proyecto && (
+          <Cifra
+            etiqueta={`Propuesto para ${proyecto.anio}`}
+            valor={formatPesos(proyecto.monto)}
+            nota={`Proyecto de Ley de Presupuesto ${proyecto.anio}${
+              cambio?.pct != null && ley
+                ? ` · ${Math.abs(cambio.pct).toFixed(1)} % ${cambio.abs >= 0 ? "más" : "menos"} que en ${ley.anio}`
+                : ""
+            }`}
+          />
+        )}
+      </TiraDeCifras>
+      {local && cuadroLey && (
+        <p className="mt-3 text-xs leading-relaxed text-ink-soft">
+          La Ley de Presupuesto {cuadroLey.anio} transfiere {formatPesos(cuadroLey.totalLocales)} a los
+          gobiernos locales
+          {cuadroLey.sinRepartir > 0
+            ? `; ${formatPesos(cuadroLey.sinRepartir)} de ellos van en una partida «Ayuntamientos» sin repartir por municipio.`
+            : "."}
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        {cuadroLey && enlaceCuadro(cuadroLey.url, `El cuadro de la ley ${cuadroLey.anio}`)}
+        {cuadroProyecto && enlaceCuadro(cuadroProyecto.url, `El del proyecto ${cuadroProyecto.anio}`)}
+      </div>
+    </Card>
+  );
+}
+
+/** La nómina leída de una institución: la foto de su portal o, si no, la general del MAP. */
+function NominaLeida({
+  nomina,
+  general,
+}: {
+  nomina: Awaited<ReturnType<typeof getNominaDeInstitucion>>;
+  general: Awaited<ReturnType<typeof nominaGeneralDeInstitucion>>;
+}) {
+  if (nomina) {
+    return (
+      <Card as="section" className="p-5 sm:p-6">
+        <CardTitle>Nómina</CardTitle>
+        <p className="mt-1 text-xs text-ink-soft">
+          Foto de {nomina.periodo}: el último mes que la institución publicó en
+          formato procesable. Sin nombres: cargo y sueldo bruto.
+        </p>
+        <TiraDeCifras className="mt-4 lg:grid-cols-3">
+          <Cifra etiqueta="Plazas" valor={formatInt(nomina.plazas)} ancla={{ alcance: "instantanea", periodo: nomina.periodo }} />
+          <Cifra etiqueta="Masa salarial del mes" valor={formatPesos(nomina.masa)} ancla={{ alcance: "instantanea", periodo: nomina.periodo }} />
+          <Cifra etiqueta="Sueldo mediano" valor={formatDOP(nomina.mediana)} ancla={{ alcance: "instantanea", periodo: nomina.periodo }} />
+        </TiraDeCifras>
+        <ul className="mt-4 divide-y divide-hairline text-sm">
+          {nomina.cargos.map((c) => (
+            <li key={c.cargo} className="flex items-baseline justify-between gap-3 py-2">
+              <span className="min-w-0">{desdeMayusculas(c.cargo)}</span>
+              <span className="shrink-0 font-mono text-xs tabular-nums text-ink-soft">
+                {formatInt(c.plazas)} {c.plazas === 1 ? "plaza" : "plazas"} · mediana {formatDOP(c.mediana)}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <Button asChild variant="secondary" className="mt-4">
+          <Link href={`/nomina?inst=${encodeURIComponent(nomina.codigo)}`}>Explorar su nómina</Link>
+        </Button>
+      </Card>
+    );
+  }
+  if (!general) return null;
+  return (
+    <Card as="section" className="p-5 sm:p-6">
+      <CardTitle>Nómina</CardTitle>
+      <p className="mt-1 text-xs text-ink-soft">
+        Según la nómina general del Ministerio de Administración Pública,{" "}
+        {mesGeneral(general.anio, general.mes)}. Sin nombres: cargo y sueldo bruto,
+        sin el área de trabajo.
+      </p>
+      <TiraDeCifras className="mt-4 lg:grid-cols-3">
+        <Cifra etiqueta="Plazas" valor={formatInt(general.inst.plazas)} ancla={{ alcance: "instantanea", periodo: mesGeneral(general.anio, general.mes) }} />
+        <Cifra etiqueta="Masa salarial del mes" valor={formatPesos(general.inst.masa)} />
+        <Cifra etiqueta="Sueldo mediano" valor={formatDOP(general.inst.mediana)} />
+      </TiraDeCifras>
+      <ul className="mt-4 divide-y divide-hairline text-sm">
+        {general.inst.cargos.slice(0, 6).map(([cargo, n, , mediana]) => (
+          <li key={cargo} className="flex items-baseline justify-between gap-3 py-2">
+            <span className="min-w-0">{desdeMayusculas(cargo)}</span>
+            <span className="shrink-0 font-mono text-xs tabular-nums text-ink-soft">
+              {formatInt(n)} {n === 1 ? "plaza" : "plazas"} · mediana {formatDOP(mediana)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Button asChild variant="secondary" className="mt-4">
+        <Link href={`/nomina/general?inst=${claveInstitucion(general.inst.nombre)}`}>
+          Ver sus {formatInt(general.inst.cargos.length)} cargos
+        </Link>
+      </Button>
+    </Card>
+  );
+}
+
+/** «Lo que decreta el Ejecutivo»: las normas que la Consultoría etiqueta con su nombre. */
+function LoQueDecreta({ docs }: { docs: Norma[] }) {
+  return (
+    <Card as="section" id="decretos">
+      <div className="p-5 pb-3 sm:p-6 sm:pb-3">
+        <CardTitle>Lo que decreta el Ejecutivo</CardTitle>
+        {docs.length === 0 ? (
+          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+            No encontramos normas de los últimos cuatro años con una etiqueta de la
+            Consultoría Jurídica que coincida con este nombre. El cruce es por
+            nombre: si la Consultoría escribe la institución de otra forma, aquí
+            no aparece.
+          </p>
+        ) : (
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+            {formatInt(docs.length)} normas que la Consultoría Jurídica
+            etiqueta con esta institución, de las más recientes a las más antiguas
+            {docs.length > NORMAS_MAX ? `; se muestran las ${NORMAS_MAX} más recientes` : ""}.
+          </p>
+        )}
+      </div>
+      {docs.length > 0 && <ListaNormas docs={docs.slice(0, NORMAS_MAX)} />}
+    </Card>
   );
 }
 
