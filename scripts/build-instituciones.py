@@ -20,7 +20,9 @@ Cada institución se ata a:
 - su **capítulo presupuestario** (SIGEF), por el campo `codigo_capitulo` que la
   propia DGCP publica (`{año}{capítulo}{…}`): el cruce no es un emparejamiento
   de nombres, lo declara el Estado. `capitulo` es ese código solo si la
-  instantánea del SIGEF (`fiscal.json`) tiene su ejecución;
+  instantánea del SIGEF (`fiscal.json`) tiene su ejecución; cuando el código de
+  la DGCP no es el de la entidad y un alias la lleva a otro (abajo), `capitulo`
+  es el de ese alias si el SIGEF lo tiene, o ninguno;
 - su **capítulo del Clasificador** (`clasificador`) y con él su **sector**. Casi
   siempre es el mismo código; cuando la DGCP conserva uno que el clasificador
   ya retiró, la tabla `ALIAS_CODIGO`, la tabla `ALIAS_UNIDAD`, el anexo de
@@ -671,6 +673,12 @@ def main() -> None:
         if motivo:
             alias.append((x, crudo, destino, motivo))
         x["clasificador"] = destino
+        # Si la DGCP guarda un código que no es el de la entidad (un capítulo
+        # retirado, la línea de deuda 0999 en la DGII, el ministerio en que dejó
+        # a una junta de distrito), el presupuesto que la ficha enseña es el del
+        # capítulo vigente o ninguno: nunca el de otra entidad.
+        if motivo:
+            x["capitulo"] = destino if destino in capitulos else None
         if destino:
             x["sector"] = sector_de_capitulo(caps[destino])
         else:
