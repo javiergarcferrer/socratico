@@ -8,6 +8,7 @@ import { getIndiceBiblioteca } from "@/lib/biblioteca";
 import { getCatalogo } from "@/lib/catalogo";
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
+import { metaSanciones } from "@/lib/sanciones";
 
 /**
  * Las cifras vivas de cada instantánea nueva, para `/fuentes`: cuántos
@@ -43,6 +44,34 @@ export async function ResumenRnc() {
   } catch {
     return <>La instantánea no está disponible ahora mismo.</>;
   }
+}
+
+export async function ResumenSanciones() {
+  const m = await metaSanciones();
+  if (!m) return <>La instantánea no está disponible ahora mismo.</>;
+  const d = m.fuentes.dgcp;
+  return (
+    <>
+      Tabla descargada el {formatFecha(m.generado)}
+      {d.corte ? `, con registros hasta el ${formatFecha(d.corte)}` : ""}: {formatInt(d.filas)} filas
+      sobre {formatInt(d.rpe)} registros de proveedor. Se publican {formatInt(d.eventos)} medidas
+      sobre {formatInt(d.juridicas)} empresas y entidades.
+    </>
+  );
+}
+
+export async function ResumenOfac() {
+  const m = await metaSanciones();
+  if (!m) return <>La instantánea no está disponible ahora mismo.</>;
+  const o = m.fuentes.ofac;
+  return (
+    <>
+      Lista{o.fecha ? ` publicada el ${formatFecha(o.fecha)}` : ""}: {formatInt(o.entradas)}{" "}
+      entradas, {formatInt(o.ligadasRd)} ligadas al país, de las que{" "}
+      {formatInt(o.ligadasRd - o.individuosOmitidos)} son entidades y{" "}
+      {formatInt(o.individuosOmitidos)} personas que no se guardan.
+    </>
+  );
 }
 
 export async function ResumenCombustibles() {

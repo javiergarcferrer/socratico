@@ -60,6 +60,15 @@ export const PANTALLAS: Record<string, Pantalla> = {
       "Buscar una empresa por su RNC",
     ],
   },
+  "/proveedores/inhabilitados": {
+    que: "Las medidas de la DGCP sobre proveedores del Estado: quién está suspendido, inhabilitado o dado de baja del registro, desde cuándo, con qué resolución y por qué, con el texto entero. Y las empresas ligadas al país en la lista de sanciones de la OFAC de Estados Unidos.",
+    preguntas: [
+      "¿Qué empresas están inhabilitadas para venderle al Estado?",
+      "¿Esta empresa tiene alguna sanción de Compras Públicas?",
+      "¿A quién suspendieron del registro de proveedores?",
+      "¿Qué empresas dominicanas están en la lista de la OFAC?",
+    ],
+  },
   "/estadisticas": {
     que: "El mercado de compras públicas de los últimos treinta días: cuánto se compró, por qué modalidad, cuántas compras fueron directas y cuánta competencia hubo.",
     preguntas: [

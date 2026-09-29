@@ -19,6 +19,8 @@ import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import Conversacion from "@/components/espacios/conversacion";
+import { MedidasDelProveedor, NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
+import { medidasDeRnc, medidasDeRpe, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
 
 function nContratos(n: number): string {
   return `${n.toLocaleString("es-DO")} ${n === 1 ? "contrato" : "contratos"}`;
@@ -31,6 +33,16 @@ function plazoDias(dias: number): string {
   return `${Math.floor(n / 365.25)} años`;
 }
 
+/**
+ * El RNC de un documento del registro. Al cancelar un RPE la DGCP le pega
+ * «@C» al número para liberarlo («132406079@C2»): las nueve cifras de delante
+ * siguen siendo el RNC.
+ */
+function rncDeDocumento(documento: string | null | undefined): string | null {
+  const m = /^(\d{9})(?:@C\d*)*$/.exec((documento ?? "").replace(/[\s-]/g, ""));
+  return m ? m[1] : null;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -39,8 +51,11 @@ export async function generateMetadata({
   const { rpe } = await params;
   if (!/^\d{1,10}$/.test(rpe)) return { title: "Proveedor no encontrado" };
   // El nombre del proveedor es lo que se busca en Google, no su número de RPE.
-  const registro = await getProveedorRegistro(rpe).catch(() => null);
-  const nombre = registro?.razonSocial;
+  const [registro, medidas] = await Promise.all([
+    getProveedorRegistro(rpe).catch(() => null),
+    medidasDeRpe(rpe),
+  ]);
+  const nombre = registro?.razonSocial ?? medidas?.razonSocial;
   return {
     title: nombre ? `${nombre}: proveedor del Estado` : `Proveedor RPE ${rpe}`,
     description: nombre
@@ -58,17 +73,38 @@ export default async function ProveedorPage({
   const { rpe } = await params;
   if (!/^\d{1,10}$/.test(rpe)) notFound();
 
-  const [historial, registro, tributario] = await Promise.all([
+  const [historial, registro, tributario, conMedidas, metaMedidas] = await Promise.all([
     getHistorialProveedor(rpe),
     getProveedorRegistro(rpe),
     getRegistroTributario(rpe),
+    medidasDeRpe(rpe),
+    metaSanciones(),
   ]);
-  if (!historial) notFound();
+  const medidas = conMedidas ?? null;
+  /*
+    Un proveedor sin contratos también tiene ficha si el registro lo conoce o
+    si la DGCP le registra medidas: el directorio de medidas enlaza aquí a
+    cientos de inscritos que nunca contrataron (una institución dada de baja,
+    una empresa suspendida antes de ganar nada), y antes esta página les
+    respondía 404. Solo se niega si ninguna de las tres fuentes lo conoce.
+  */
+  if (!historial && !registro && !medidas) notFound();
 
-  const contratos = historial.contratos;
-  const nombre = registro?.razonSocial ?? historial.razonSocial;
-  const total = historial.totalRegistro;
-  const suma = historial.montoTotal;
+  const contratos = historial?.contratos ?? [];
+  const nombre =
+    registro?.razonSocial ?? historial?.razonSocial ?? medidas?.razonSocial ?? `RPE ${rpe}`;
+  const total = historial?.totalRegistro ?? 0;
+  const suma = historial?.montoTotal ?? 0;
+
+  // El RNC con que cruzar las otras listas: el de la tabla de medidas, el del
+  // registro en vivo o el del padrón de la DGII, el primero que haya.
+  const rnc =
+    medidas?.rnc ??
+    (registro?.tipoDocumento === "RNC" ? rncDeDocumento(registro.numeroDocumento) : null) ??
+    tributario?.rnc ??
+    null;
+  const [mismoRnc, ofac] = await Promise.all([medidasDeRnc(rnc), ofacDeRnc(rnc)]);
+  const otrosConMedidas = mismoRnc.filter((p) => p.rpe !== String(Number(rpe)));
 
   /*
     Los clientes se agrupan por código de unidad de compra —el que publica la
@@ -95,7 +131,7 @@ export default async function ProveedorPage({
     .sort((a, b) => b[1].monto - a[1].monto)
     .slice(0, 8);
 
-  const maxAnio = Math.max(1, ...historial.porAnio.map((a) => a.monto));
+  const maxAnio = Math.max(1, ...(historial?.porAnio ?? []).map((a) => a.monto));
 
   // Distancia entre la constitución de la empresa y su primer contrato con el
   // Estado. No acusa a nadie: es el dato que el registro permite comprobar y
@@ -154,34 +190,55 @@ export default async function ProveedorPage({
           declarar la base: el número de contratos sale del registro entero, el
           monto solo de los que la API devuelve.
         */}
-        <TiraDeCifras className="mt-5 lg:grid-cols-3">
-          <Cifra
-            etiqueta="Contratos registrados"
-            valor={total.toLocaleString("es-DO")}
-            nota="lo que el registro declara para este RPE"
-          />
-          <Cifra
-            etiqueta="Monto adjudicado"
-            valor={formatMonto(suma, "DOP")}
-            tono="text-brand-700"
-            nota={`sobre los ${contratos.length.toLocaleString("es-DO")} contratos que devuelve la API`}
-          />
-          <Cifra
-            etiqueta="Instituciones cliente"
-            valor={porInstitucion.size.toLocaleString("es-DO")}
-            nota="distintas, en esos mismos contratos"
-          />
-        </TiraDeCifras>
-        <p className="mt-3 text-xs leading-relaxed text-ink-soft">
-          Fuente: registro público de contratos de la DGCP. Útil para dimensionar a tu
-          competencia antes de ofertar. Los montos incluyen todas las
-          adjudicaciones; {formatMonto(historial.montoVigente, "DOP")} corresponden
-          a contratos vigentes (sin cancelados ni rescindidos).
-        </p>
+        {historial ? (
+          <>
+            <TiraDeCifras className="mt-5 lg:grid-cols-3">
+              <Cifra
+                etiqueta="Contratos registrados"
+                valor={total.toLocaleString("es-DO")}
+                nota="lo que el registro declara para este RPE"
+              />
+              <Cifra
+                etiqueta="Monto adjudicado"
+                valor={formatMonto(suma, "DOP")}
+                tono="text-brand-700"
+                nota={`sobre los ${contratos.length.toLocaleString("es-DO")} contratos que devuelve la API`}
+              />
+              <Cifra
+                etiqueta="Instituciones cliente"
+                valor={porInstitucion.size.toLocaleString("es-DO")}
+                nota="distintas, en esos mismos contratos"
+              />
+            </TiraDeCifras>
+            <p className="mt-3 text-xs leading-relaxed text-ink-soft">
+              Fuente: registro público de contratos de la DGCP. Útil para dimensionar a tu
+              competencia antes de ofertar. Los montos incluyen todas las
+              adjudicaciones; {formatMonto(historial.montoVigente, "DOP")} corresponden
+              a contratos vigentes (sin cancelados ni rescindidos).
+            </p>
+          </>
+        ) : (
+          <p className="mt-4 text-sm leading-relaxed text-ink-soft">
+            El registro público de contratos de la DGCP no le asigna ningún contrato a
+            este RPE. Lo que sigue es lo que otras fuentes dicen de él.
+          </p>
+        )}
       </Card>
 
       <ConectadoCon
         aristas={[
+          medidas && {
+            etiqueta: "Medidas de la DGCP",
+            href: "#medidas",
+            cuenta: medidas.eventos.length,
+            fuente: "Tabla de proveedores inhabilitados · DGCP",
+          },
+          ofac && {
+            etiqueta: "En la lista SDN de la OFAC",
+            href: "#ofac",
+            nombre: ofac.nombre,
+            fuente: "Tesoro de Estados Unidos",
+          },
           principal?.href && {
             etiqueta: "Su mayor cliente",
             href: principal.href,
@@ -202,6 +259,22 @@ export default async function ProveedorPage({
           },
         ]}
       />
+
+      {/*
+        Lo que pesa sobre el registro va antes que su ficha: responde «¿puede
+        venderle al Estado?», que es lo primero que se pregunta quien llega
+        aquí. Si no hay nada, no se dice nada: un «sin sanciones» sería un
+        certificado que una instantánea con fecha de corte no puede dar.
+      */}
+      {(medidas || otrosConMedidas.length > 0) && (
+        <MedidasDelProveedor
+          medidas={medidas}
+          otros={otrosConMedidas}
+          rnc={rnc}
+          meta={metaMedidas}
+        />
+      )}
+      {ofac && <NotaOfac entidad={ofac} fecha={metaMedidas?.fuentes.ofac.fecha ?? null} />}
 
       {registro && (
         <Card as="section" className="p-6">
@@ -356,7 +429,7 @@ export default async function ProveedorPage({
 
       <HistoriaDeProveedor rpe={rpe} />
 
-      {historial.porAnio.length > 1 && (
+      {historial && historial.porAnio.length > 1 && (
         <Card as="section" className="p-6">
           <CardTitle>Contratos por año</CardTitle>
           <BarrasHorizontales
@@ -376,72 +449,74 @@ export default async function ProveedorPage({
         </Card>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-5">
-        <Card as="section" id="clientes" className="p-6 lg:col-span-2">
-          <CardTitle>Sus principales clientes</CardTitle>
-          {porInstitucion.size > topInstituciones.length && (
-            <p className="mt-1 text-xs text-ink-soft">
-              Los {topInstituciones.length} que más le compraron, de {porInstitucion.size.toLocaleString("es-DO")} instituciones.
-            </p>
-          )}
-          {/*
-            Un ranking con nombre es `BarrasHorizontales`: antes eran cajas
-            sobre papel con el nombre cortado a un renglón («Hospital
-            General Region…») y una cuenta sin unidad («61 ·»).
-          */}
-          <BarrasHorizontales
-            className="mt-3"
-            lineas={2}
-            etiqueta="Instituciones que más le compraron, por monto"
-            barras={topInstituciones.map(([inst, a]) => ({
-              clave: inst,
-              etiqueta: a.nombre,
-              titulo: `${a.nombre}: ${formatMonto(a.monto, "DOP")} en ${nContratos(a.n)}`,
-              valor: a.monto,
-              cifra: formatMonto(a.monto, "DOP"),
-              detalle: nContratos(a.n),
-              href: a.href ?? undefined,
-            }))}
-          />
-        </Card>
+      {historial && (
+        <div className="grid gap-5 lg:grid-cols-5">
+          <Card as="section" id="clientes" className="p-6 lg:col-span-2">
+            <CardTitle>Sus principales clientes</CardTitle>
+            {porInstitucion.size > topInstituciones.length && (
+              <p className="mt-1 text-xs text-ink-soft">
+                Los {topInstituciones.length} que más le compraron, de {porInstitucion.size.toLocaleString("es-DO")} instituciones.
+              </p>
+            )}
+            {/*
+              Un ranking con nombre es `BarrasHorizontales`: antes eran cajas
+              sobre papel con el nombre cortado a un renglón («Hospital
+              General Region…») y una cuenta sin unidad («61 ·»).
+            */}
+            <BarrasHorizontales
+              className="mt-3"
+              lineas={2}
+              etiqueta="Instituciones que más le compraron, por monto"
+              barras={topInstituciones.map(([inst, a]) => ({
+                clave: inst,
+                etiqueta: a.nombre,
+                titulo: `${a.nombre}: ${formatMonto(a.monto, "DOP")} en ${nContratos(a.n)}`,
+                valor: a.monto,
+                cifra: formatMonto(a.monto, "DOP"),
+                detalle: nContratos(a.n),
+                href: a.href ?? undefined,
+              }))}
+            />
+          </Card>
 
-        <Card as="section" className="p-6 lg:col-span-3">
-          <CardTitle>Contratos recientes</CardTitle>
-          {/*
-            La fila entera lleva al proceso. Antes el enlace era «ver proceso →»
-            en 12 px al final de una línea de metadatos que en un teléfono ya
-            venía envuelta en tres: el objetivo medía unos ochenta píxeles de
-            ancho por dieciséis de alto. Ahora el título se estira sobre la
-            fila (`estira`) y la fecha pasa por `Antiguedad` —relativa en la
-            fila, exacta en el `title`—, que es la regla para un listado. Son
-            filas de una hoja y no una tarjeta por contrato dentro de otra: el
-            título va a dos renglones, porque a uno solo «ADQUISICION DE…» se
-            repetía veinte veces sin decir qué.
-          */}
-          <ul className="-mx-6 mt-3 divide-y divide-hairline border-t border-hairline text-sm">
-            {recientes.map((c, i) => (
-              <li key={i} className="relative px-6 py-3 transition-colors hover:bg-brand-50/40">
-                <span className="flex items-baseline justify-between gap-3">
-                  <Link
-                    href={enlace.proceso(c.codigo_proceso)}
-                    title={c.descripcion}
-                    className="line-clamp-2 min-w-0 break-words font-medium leading-snug text-ink estira hover:text-brand-700"
-                  >
-                    {tituloLegible(c.descripcion || c.codigo_proceso)}
-                  </Link>
-                  <span className="shrink-0 font-mono font-semibold tabular-nums">
-                    {formatMonto(c.valor_contratado, c.divisa)}
+          <Card as="section" className="p-6 lg:col-span-3">
+            <CardTitle>Contratos recientes</CardTitle>
+            {/*
+              La fila entera lleva al proceso. Antes el enlace era «ver proceso →»
+              en 12 px al final de una línea de metadatos que en un teléfono ya
+              venía envuelta en tres: el objetivo medía unos ochenta píxeles de
+              ancho por dieciséis de alto. Ahora el título se estira sobre la
+              fila (`estira`) y la fecha pasa por `Antiguedad` —relativa en la
+              fila, exacta en el `title`—, que es la regla para un listado. Son
+              filas de una hoja y no una tarjeta por contrato dentro de otra: el
+              título va a dos renglones, porque a uno solo «ADQUISICION DE…» se
+              repetía veinte veces sin decir qué.
+            */}
+            <ul className="-mx-6 mt-3 divide-y divide-hairline border-t border-hairline text-sm">
+              {recientes.map((c, i) => (
+                <li key={i} className="relative px-6 py-3 transition-colors hover:bg-brand-50/40">
+                  <span className="flex items-baseline justify-between gap-3">
+                    <Link
+                      href={enlace.proceso(c.codigo_proceso)}
+                      title={c.descripcion}
+                      className="line-clamp-2 min-w-0 break-words font-medium leading-snug text-ink estira hover:text-brand-700"
+                    >
+                      {tituloLegible(c.descripcion || c.codigo_proceso)}
+                    </Link>
+                    <span className="shrink-0 font-mono font-semibold tabular-nums">
+                      {formatMonto(c.valor_contratado, c.divisa)}
+                    </span>
                   </span>
-                </span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
-                  {c.unidad_compra} ·{" "}
-                  <Antiguedad iso={c.fecha_adjudicacion} prefijo="adjudicado" />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
+                    {c.unidad_compra} ·{" "}
+                    <Antiguedad iso={c.fecha_adjudicacion} prefijo="adjudicado" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
       {/* El RPE sin ceros a la izquierda: un proveedor, una conversación. */}
       <Conversacion className="mt-6" referencia={{ tipo: "proveedor", ref: enlace.proveedor(String(Number(rpe))), titulo: nombre ?? `RPE ${rpe}`, href: enlace.proveedor(String(Number(rpe))) }} />
     </div>
