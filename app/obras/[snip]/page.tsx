@@ -60,7 +60,7 @@ export default async function ObraPage({ params }: Props) {
 
   return (
     <div className="space-y-5">
-      <Ruta raiz={{ href: "/obras", label: "Obras" }} actual={`SNIP ${o.snip}`} />
+      <Ruta seccion="finanzas" padre={{ href: "/obras", label: "Obras" }} actual={`SNIP ${o.snip}`} />
 
       <Card as="section" className="p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">

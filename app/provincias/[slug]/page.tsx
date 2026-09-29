@@ -73,7 +73,7 @@ export default async function ProvinciaPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <Ruta raiz={{ href: "/provincias", label: "Provincias" }} actual={p.nombre} />
+      <Ruta seccion="estado" padre={{ href: "/provincias", label: "Provincias" }} actual={p.nombre} />
 
       <Card as="section" className="p-5 sm:p-6">
         <div className="rotulo text-ink-soft">

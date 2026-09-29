@@ -49,7 +49,6 @@ import {
 import { MarcaEstado } from "@/components/marca-estado";
 import { Portada } from "@/components/portada";
 import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
-import Plegable from "@/components/plegable";
 import LlamadaCuenta from "@/components/espacios/llamada-cuenta";
 import { enlace } from "@/lib/grafo";
 import { cn } from "@/lib/cn";
@@ -455,46 +454,55 @@ function SeccionEspacio() {
 /* ------------------------------------------------------------ el mapa */
 
 /**
- * Un tema del índice (`lib/menu.ts`): su pregunta, su entrada principal y,
- * plegados, todos sus destinos por columna con la línea que dice qué hay. Es
- * el mismo índice del megamenú, así que no puede desalinearse de él.
+ * Un tema del índice (`lib/menu.ts`): su pregunta, su entrada principal y
+ * todas sus secciones a la vista, cada una con su punto de color y sus
+ * destinos. Es el mismo árbol del megamenú y de la barra de sección, así que
+ * el punto que el lector ve aquí es el que encuentra arriba al llegar.
+ *
+ * Los destinos estaban plegados tras «Ver sus 14 destinos»: el mapa de la
+ * plataforma, justo en el bloque que se llama «Todo lo que hay», escondía
+ * lo que había. Quien baja hasta aquí vino a verlo.
  */
 function Tema({ grupo }: { grupo: GrupoMenu }) {
-  const total = grupo.columnas.reduce((n, c) => n + c.enlaces.length, 0);
   return (
-    <Card as="article" className="flex flex-col">
-      <div className="p-5 pb-4">
-        <Rotulo>{grupo.label}</Rotulo>
-        <p className="mt-1.5 text-sm leading-relaxed text-ink">{grupo.resumen}</p>
-        <Card className="relative mt-3 bg-canvas px-3.5 py-3">
-          <Link href={grupo.destacado.href} className="estira text-sm font-semibold text-brand-700">
-            {grupo.destacado.label}
-          </Link>
-          <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{grupo.destacado.nota}</p>
-        </Card>
-      </div>
-      <Plegable etiqueta={`Ver sus ${total} destinos`} className="mt-auto">
-        <div className="space-y-4 px-5 pb-5 pt-1">
-          {grupo.columnas.map((c) => (
-            <div key={c.titulo}>
-              <p className="flex items-center gap-2 text-xs font-semibold text-ink">
-                <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${puntoDe(c)}`} />
+    <Card as="article" aria-labelledby={`tema-${grupo.id}`} className="flex flex-col p-5">
+      <Rotulo id={`tema-${grupo.id}`}>{grupo.label}</Rotulo>
+      <p className="mt-1.5 text-sm leading-relaxed text-ink">{grupo.resumen}</p>
+      <Card className="relative mt-3 bg-canvas px-3.5 py-3">
+        <Link href={grupo.destacado.href} className="estira text-sm font-semibold text-brand-700">
+          {grupo.destacado.label}
+        </Link>
+        <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{grupo.destacado.nota}</p>
+      </Card>
+      <div className="mt-5 space-y-5">
+        {grupo.columnas.map((c) => {
+          // La portada no se ofrece a sí misma.
+          const enlaces = c.enlaces.filter((e) => e.href !== "/");
+          return (
+            <section key={c.titulo} aria-label={c.titulo}>
+              <h3 className="flex items-center gap-2 border-b border-hairline pb-2 text-xs font-semibold uppercase tracking-wide text-ink">
+                <span aria-hidden className={`h-2 w-2 rounded-full ${puntoDe(c)}`} />
                 {c.titulo}
-              </p>
-              <ul className="mt-1 divide-y divide-hairline">
-                {c.enlaces.map((e) => (
-                  <li key={e.href} className="relative py-2">
-                    <Link href={e.href} className="estira text-sm font-medium text-ink">
+              </h3>
+              {/*
+                En el teléfono, dos nombres por fila y sin la línea de qué hay:
+                con ella el mapa medía 3,500 px a 390, y la línea sigue en la
+                hoja «Más». Desde `sm`, una fila por destino con su línea.
+              */}
+              <ul className="grid grid-cols-2 gap-x-4 sm:grid-cols-1 sm:divide-y sm:divide-hairline">
+                {enlaces.map((e) => (
+                  <li key={e.href} className="relative flex min-h-11 flex-col justify-center py-1.5 sm:min-h-0 sm:py-2">
+                    <Link href={e.href} className="estira text-sm font-medium leading-snug text-ink">
                       {e.label}
                     </Link>
-                    <p className="text-xs leading-snug text-ink-soft">{e.nota}</p>
+                    <p className="hidden text-xs leading-snug text-ink-soft sm:block">{e.nota}</p>
                   </li>
                 ))}
               </ul>
-            </div>
-          ))}
-        </div>
-      </Plegable>
+            </section>
+          );
+        })}
+      </div>
     </Card>
   );
 }

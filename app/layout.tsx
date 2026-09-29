@@ -214,7 +214,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 columnas los bloques fluyen y se reparten solos; cada uno se
                 mantiene entero con `break-inside-avoid`.
               */}
-              <div className="flex-1 columns-2 gap-x-6 sm:columns-3 lg:columns-5">
+              <div className="flex-1 columns-2 gap-x-6 sm:columns-3 lg:columns-4">
                 {SECCIONES.map((seccion) => (
                   <nav
                     key={seccion.id}

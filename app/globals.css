@@ -112,6 +112,11 @@
   --color-v-democracia-tenue: #f9f0dc;
   --color-v-finanzas: #7a2f52;
   --color-v-finanzas-tenue: #f7eaef;
+  /* Las dos secciones transversales (2026-09-29): 6.8:1 y 7.4:1 sobre surface. */
+  --color-v-estado: #2d5f73;
+  --color-v-estado-tenue: #e9f0f3;
+  --color-v-pais: #6b4e2e;
+  --color-v-pais-tenue: #f3ede5;
 
   /*
     El canto del papel: el borde que se ve cuando una hoja descansa sobre

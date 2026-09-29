@@ -8,6 +8,7 @@ import { SECCIONES, seccionDe } from "@/lib/secciones";
 import { MENU, puntoDe } from "@/lib/menu";
 import { CampoBusqueda } from "@/components/campo-busqueda";
 import {
+  IconBuilding,
   IconChartBar,
   IconCheck,
   IconChevronRight,
@@ -15,6 +16,7 @@ import {
   IconDoc,
   IconGrid,
   IconLayers,
+  IconMapPin,
   IconMenu,
   IconTrendingUp,
 } from "./icons";
@@ -83,6 +85,8 @@ const ICONOS: Record<SeccionId, (p: { className?: string }) => React.ReactElemen
   normativa: IconDoc,
   nomina: IconChartBar,
   democracia: IconCheck,
+  estado: IconBuilding,
+  pais: IconMapPin,
 };
 
 /** Las que ocupan casilla fija, en orden. El resto va a la hoja. */

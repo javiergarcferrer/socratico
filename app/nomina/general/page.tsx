@@ -269,7 +269,7 @@ function Detalle({
 
   return (
     <div className="space-y-5">
-      <Ruta raiz={{ href: "/nomina/general", label: "Nómina general" }} actual={inst.nombre} />
+      <Ruta seccion="nomina" padre={{ href: "/nomina/general", label: "Todo el Estado" }} actual={inst.nombre} />
       <Card as="section" className="p-5 sm:p-6">
         <h1 className="font-display text-2xl text-ink sm:text-3xl">{inst.nombre}</h1>
         <p className="mt-1 text-xs text-ink-soft">Nómina general del MAP · {periodo}</p>

@@ -103,7 +103,7 @@ decisiones del dueño vivían dentro del archivo de arranque.
 | `.claude/hooks/typecheck.sh` | PostToolUse: `tsc --noEmit` tras cada edición de `.ts`/`.tsx`; ~2 s, así que el error sale en el momento y no en el build. |
 | `.claude/hooks/stop-gate.sh` | Stop: una sesión no puede terminar con el gate rápido en rojo. |
 | `.claude/hooks/sin-efecto.py` | Controles mudos: un `hover:` que repite lo que el elemento ya tiene, o un color de anillo sin ancho de anillo. |
-| `.claude/hooks/indice.py` | Que el índice diga la verdad: toda página estática de `app/` está en `lib/menu.ts` con su tarea o en `FUERA_DEL_INDICE` con su motivo, y ningún destino apunta a una página que no existe. `verificar.sh` además rechaza movimiento escrito a mano en un componente (`cubic-bezier`, `animate-bounce`, duraciones por encima de 300 ms). |
+| `.claude/hooks/indice.py` | Que el índice diga la verdad: toda página estática de `app/` está en `lib/menu.ts` con su tarea o en `FUERA_DEL_INDICE` con su motivo, ningún destino apunta a una página que no existe, y cada enlace de una columna `columna("x", …)` cae dentro de las `rutas` de la sección `x` (un solo árbol, 2026-09-29). `verificar.sh` además rechaza movimiento escrito a mano en un componente (`cubic-bezier`, `animate-bounce`, duraciones por encima de 300 ms). |
 | `.claude/hooks/harness.sh` | Que esta página siga siendo cierta: el techo de `CLAUDE.md`, que exista cada ruta que nombra, que cada `CLAUDE.md §"…"` citado desde el harness sea una sección real, que cada `rules/*.md` nombre su página dueña, y que cada habilidad y agente tenga frontmatter válido con `effort`. |
 
 ---

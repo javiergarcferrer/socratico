@@ -1,10 +1,14 @@
 /**
  * Arquitectura de información de la plataforma — fuente única de verdad.
  *
- * Socrático cubre tres verticales (licitaciones, congreso, nómina) y un
- * panorama transversal. Todo el chrome —megamenú (vía `lib/menu.ts`), barra de sección, tab bar
- * móvil, agrupación del pie— se deriva de este módulo para que la separación
- * entre verticales sea estructural y no una convención repetida a mano.
+ * Un solo árbol: grupo (las tres puertas de `lib/menu.ts`) → sección (este
+ * módulo) → vista. Cada destino de datos es una vista de una sección, así que
+ * en cualquier página la barra de sección dice dónde se está y qué hay al
+ * lado. Todo el chrome —megamenú, barra de sección, tab bar móvil, pie, mapa
+ * de la portada— se deriva de aquí: una sección nueva aparece en todos a la
+ * vez, con el mismo nombre y el mismo punto de color. Fuera del árbol solo
+ * quedan las páginas de la plataforma (buscar, comunidad, tu espacio,
+ * fuentes), que no son datos del Estado.
  *
  * Reglas de ergonomía que este módulo hace cumplir:
  *  - Cada ruta pertenece a lo sumo a una vertical (`seccionDe` es determinista).
@@ -25,7 +29,9 @@ export type SeccionId =
   | "congreso"
   | "normativa"
   | "nomina"
-  | "democracia";
+  | "democracia"
+  | "estado"
+  | "pais";
 
 export interface VistaSeccion {
   href: string;
@@ -80,10 +86,11 @@ export interface Seccion {
   };
 }
 
+/** En el orden del árbol: las tres puertas de `lib/menu.ts`, y en cada una sus secciones. */
 export const SECCIONES: Seccion[] = [
   {
     id: "licitaciones",
-    nombre: "Licitaciones",
+    nombre: "Compras",
     pregunta: "¿Qué compra?",
     href: "/licitaciones",
     descriptor: "Compras públicas · DGCP",
@@ -98,7 +105,11 @@ export const SECCIONES: Seccion[] = [
       "/guia",
     ],
     vistas: [
-      { href: "/licitaciones", label: "Buscar" },
+      /*
+        Se llamaba «Buscar», la misma palabra que el botón de la cabecera, que
+        busca en toda la plataforma: dos mandos con un nombre y dos alcances.
+      */
+      { href: "/licitaciones", label: "Licitaciones" },
       { href: "/estadisticas", label: "Mercado" },
       { href: "/contratos", label: "Contratado" },
       { href: "/proveedores", label: "Proveedores" },
@@ -118,11 +129,13 @@ export const SECCIONES: Seccion[] = [
     nombre: "Finanzas",
     pregunta: "¿En qué gasta?",
     href: "/finanzas",
-    descriptor: "Ejecución del presupuesto · SIGEF",
-    rutas: ["/finanzas", "/deuda"],
+    descriptor: "Presupuesto, deuda e inversión pública",
+    // Las obras son inversión pública: dinero del presupuesto hecho obra.
+    rutas: ["/finanzas", "/deuda", "/obras"],
     vistas: [
       { href: "/finanzas", label: "Ejecución" },
       { href: "/deuda", label: "Deuda" },
+      { href: "/obras", label: "Obras" },
       { href: "/finanzas/guia", label: "Guías" },
     ],
     hue: {
@@ -130,6 +143,24 @@ export const SECCIONES: Seccion[] = [
       barra: "bg-v-finanzas",
       punto: "bg-v-finanzas",
       chip: "bg-v-finanzas-tenue text-v-finanzas",
+    },
+  },
+  {
+    id: "nomina",
+    nombre: "Nómina",
+    pregunta: "¿A quién paga?",
+    href: "/nomina",
+    descriptor: "Plazas y sueldos · por institución",
+    rutas: ["/nomina"],
+    vistas: [
+      { href: "/nomina", label: "Por institución", exact: true },
+      { href: "/nomina/general", label: "Todo el Estado" },
+    ],
+    hue: {
+      activo: "text-v-nomina",
+      barra: "bg-v-nomina",
+      punto: "bg-v-nomina",
+      chip: "bg-v-nomina-tenue text-v-nomina",
     },
   },
   {
@@ -143,7 +174,8 @@ export const SECCIONES: Seccion[] = [
       { href: "/congreso", label: "Diputados" },
       { href: "/congreso/senado", label: "Senado" },
       { href: "/congreso/legisladores", label: "Legisladores" },
-      { href: "/congreso/perencion", label: "Perención", exact: true },
+      // «Perención» es la palabra del reglamento; el menú ya decía «Por archivarse».
+      { href: "/congreso/perencion", label: "Por archivarse", exact: true },
       { href: "/congreso/guia", label: "Guía" },
     ],
     hue: {
@@ -173,24 +205,6 @@ export const SECCIONES: Seccion[] = [
     },
   },
   {
-    id: "nomina",
-    nombre: "Nómina",
-    pregunta: "¿A quién paga?",
-    href: "/nomina",
-    descriptor: "Plazas y sueldos · por institución",
-    rutas: ["/nomina"],
-    vistas: [
-      { href: "/nomina", label: "Por institución", exact: true },
-      { href: "/nomina/general", label: "Todo el Estado" },
-    ],
-    hue: {
-      activo: "text-v-nomina",
-      barra: "bg-v-nomina",
-      punto: "bg-v-nomina",
-      chip: "bg-v-nomina-tenue text-v-nomina",
-    },
-  },
-  {
     id: "democracia",
     nombre: "Democracia",
     pregunta: "¿Qué opinas?",
@@ -209,6 +223,56 @@ export const SECCIONES: Seccion[] = [
       barra: "bg-v-democracia",
       punto: "bg-v-democracia",
       chip: "bg-v-democracia-tenue text-v-democracia",
+    },
+  },
+  /*
+    Las dos secciones transversales (2026-09-29). Antes, instituciones,
+    provincias, indicadores, cortes de luz, biblioteca y datos abiertos no
+    eran de ninguna vertical: la barra de sección no se pintaba y el lector
+    llegaba a media plataforma sin saber dónde estaba ni qué había al lado. El
+    menú ya las agrupaba en dos columnas; ahora esas columnas son secciones y
+    se orientan igual que las demás.
+  */
+  {
+    id: "estado",
+    // No «Instituciones»: la barra diría dos veces la misma palabra, sección y vista.
+    nombre: "Quién es quién",
+    pregunta: "¿Quién es quién?",
+    href: "/instituciones",
+    descriptor: "Instituciones, provincias y quién las controla",
+    rutas: ["/instituciones", "/provincias", "/gestion", "/auditorias"],
+    vistas: [
+      { href: "/instituciones", label: "Instituciones" },
+      { href: "/provincias", label: "Provincias" },
+      { href: "/gestion", label: "Gestión" },
+      { href: "/auditorias", label: "Auditorías" },
+    ],
+    hue: {
+      activo: "text-v-estado",
+      barra: "bg-v-estado",
+      punto: "bg-v-estado",
+      chip: "bg-v-estado-tenue text-v-estado",
+    },
+  },
+  {
+    id: "pais",
+    nombre: "El país",
+    pregunta: "¿Cómo va el país?",
+    href: "/indicadores",
+    descriptor: "Indicadores, cifras y datos abiertos",
+    rutas: ["/indicadores", "/pais", "/luz", "/documentos", "/datos"],
+    vistas: [
+      { href: "/indicadores", label: "Indicadores" },
+      { href: "/pais", label: "En cifras" },
+      { href: "/luz", label: "Cortes de luz" },
+      { href: "/documentos", label: "Biblioteca" },
+      { href: "/datos", label: "Datos abiertos" },
+    ],
+    hue: {
+      activo: "text-v-pais",
+      barra: "bg-v-pais",
+      punto: "bg-v-pais",
+      chip: "bg-v-pais-tenue text-v-pais",
     },
   },
 ];
@@ -267,7 +331,7 @@ export function vistaActivaDe(seccion: Seccion, pathname: string): VistaSeccion 
  * resultados». Un destino nuevo con `?q=` se declara aquí y aparece solo.
  */
 export interface DestinoBusqueda {
-  /** La vertical del destino; sin ella, es transversal (todo, instituciones). */
+  /** La sección del destino; sin ella, es transversal (toda la plataforma). */
   seccion?: SeccionId;
   /** Nombre corto del destino: «Diputados», «Proveedores». */
   etiqueta: string;
@@ -285,6 +349,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
       "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores y proveedores con contratos desde 2015, y ofrece seguir en cada vertical.",
   },
   {
+    seccion: "estado",
     etiqueta: "Instituciones",
     href: "/instituciones",
     alcance: "Nombre o siglas de las 739 unidades de compra activas, cada una con su ficha de presupuesto, compras, nómina y decretos.",
@@ -310,6 +375,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     alcance: "Todas las palabras, en cualquier orden y con o sin tildes, dentro de la descripción de las iniciativas de la Cámara.",
   },
   {
+    seccion: "finanzas",
     etiqueta: "Obras públicas",
     href: "/obras",
     alcance: "Nombre, entidad o código SNIP de los proyectos de inversión de MapaInversiones (instantánea).",
@@ -333,11 +399,13 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     alcance: "Número, expediente y asunto de las sentencias del año elegido, desde 2021; el texto está en la ficha de cada una.",
   },
   {
+    seccion: "pais",
     etiqueta: "Documentos",
     href: "/documentos",
     alcance: "Títulos y nombres de archivo de los documentos que publican las instituciones con biblioteca WordPress abierta; no busca dentro del documento.",
   },
   {
+    seccion: "pais",
     etiqueta: "Datos abiertos",
     href: "/datos",
     alcance: "Título y organización de los conjuntos del catálogo de datos.gob.do; lleva a su ficha en el portal.",

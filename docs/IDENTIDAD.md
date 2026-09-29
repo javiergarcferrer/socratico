@@ -595,9 +595,22 @@ Toda la plataforma se ordena en dos ejes, y los dos salen de un solo archivo:
   por tarea, y teclear «votar» o «comparar» encuentra aunque no sea el nombre
   de nada.
 
+**Un solo árbol** (2026-09-29). El tema tiene tres niveles y los tres se ven:
+la puerta (Dinero público, Leyes, El Estado), la sección (Compras, Finanzas,
+Nómina, Congreso, Normativa, Democracia, Quién es quién, El país) y la vista.
+Cada columna del megamenú **es** una sección y toma de ella su nombre y su
+punto de color, así que el punto que el lector ve en el menú, en el mapa de la
+portada y en el pie es el que encuentra en la barra de sección al llegar.
+Antes, media plataforma no tenía sección: se llegaba a `/instituciones` o a
+`/indicadores` sin barra que dijera dónde se estaba, y el menú llamaba
+«Compras públicas» a lo que la barra llamaba «Licitaciones». Era la sopa que
+el dueño señaló. Una vista tampoco repite el nombre de un mando global: la
+primera de Compras se llamaba «Buscar», como el botón de la cabecera.
+
 Cada enlace de `lib/menu.ts` declara su tarea (el tipo la exige);
 `lib/indice.ts` deriva de ahí el índice que leen la paleta y el mapa del sitio.
 Había tres listas de destinos y no coincidían —la paleta no conocía «El país
 en cifras» ni «Cortes de luz»—, que es la «segunda tabla» de §7. Una página
 nueva entra en el menú con su tarea o en `FUERA_DEL_INDICE` con su motivo; si
-no, el gate la rechaza como huérfana.
+no, el gate la rechaza como huérfana; y si cae en una columna cuya sección no
+la contiene, también.

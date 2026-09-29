@@ -560,7 +560,9 @@ sources impose:
   fecha), qué vence esta semana (cierres, perención, decretos), para qué
   sirve la cuenta (`docs/PLAN-ESPACIOS.md`; el ejemplo es la forma de una
   investigación, sin nombres reales) y todo lo que hay por tema, leído de
-  `lib/menu.ts` para que no se desalinee del megamenú. Los diez tableros de
+  `lib/menu.ts` para que no se desalinee del megamenú: desde 2026-09-29 a la
+  vista, sin plegar, cada sección con su punto (en el teléfono, dos nombres
+  por fila y sin la `nota`). Los diez tableros de
   indicadores que la empujaban hacia abajo viven enteros en `/indicadores`.
   ⚠️ `line-clamp-*` junto a `block` no recorta: el `display` de `block` pisa
   el `-webkit-box` del recorte (lo arrastraban los paneles de la portada y
@@ -707,6 +709,21 @@ sources impose:
   The trigger holding the current route gets a paper underline (`grupoActivo`).
   The phone's «Más» sheet renders the same `MENU`. No questions in the header
   (owner decision, DECISIONES): `pregunta` survives only as a palette keyword.
+- **One tree** (2026-09-29): group (the three doors of `lib/menu.ts`) →
+  section (`lib/secciones.ts`) → view. Every menu column except «La
+  plataforma» is `columna("<sección>", …)` and takes its name and dot from the
+  section, so the megamenu, the section bar, the tab bar's «Más», the footer
+  and the home map say the same word in the same colour. Before, half the data
+  pages (instituciones, provincias, gestión, auditorías, indicadores, país,
+  luz, documentos, datos, obras) belonged to no section: no section bar, not in
+  the footer, and the menu named the same place differently from the bar
+  («Compras públicas»/«Licitaciones», «Presupuesto y deuda»/«Finanzas»). Two
+  sections were added (`estado` «Quién es quién», `pais` «El país», tints
+  `--color-v-estado`/`--color-v-pais`) and `/obras` joined Finanzas (public
+  investment). `.claude/hooks/indice.py` fails the gate when a link sits in a
+  column whose section's `rutas` do not contain it. Outside the tree only the
+  platform pages remain (buscar, comunidad, espacio, seguimiento, fuentes,
+  seguridad), which are not State data.
 - **The index** (`lib/indice.ts`, taxonomy in `lib/tareas.ts`): every
   destination once, derived from `MENU`, where each link declares its `tarea`
   (vigilar · buscar · comparar · leer · participar · entender). The palette
