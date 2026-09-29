@@ -17,6 +17,7 @@ https://socratico.vercel.app
 | Panorama | `/indicadores` | Todas las de abajo | `app/indicadores/page.tsx` |
 | Tu espacio | `/cuenta`, `/espacio`, `/espacio/proyecto`, `/p/[slug]` | Supabase, esquema `espacios` (referencias, nunca datos del Estado) | `lib/espacios.ts`, `lib/espacios-cliente.ts`, `lib/sesion.ts` |
 | Licitaciones | `/licitaciones`, `/procesos/[codigo]`, `/proveedores`, `/proveedores/[rpe]`, `/estadisticas`, `/contratos`, `/planes`, `/seguimiento`, `/guia` | [API de datos abiertos de la DGCP](https://datosabiertos.dgcp.gob.do/api-dgcp/docs/index.html) | `lib/dgcp.ts` |
+| Entidades y personas | `/instituciones`, `/funcionarios`, `/funcionarios/[slug]`, `/empresas`, `/empresas/[rnc]`, `/proveedores/inhabilitados` | Clasificador Institucional de DIGEPRES, Directorio de Funcionarios del MAP, decretos, altas cortes y JCE, padrón de la DGII, medidas de la DGCP y lista SDN de la OFAC (instantáneas) | `lib/instituciones.ts`, `lib/funcionarios.ts`, `lib/empresas.ts`, `lib/sanciones.ts` |
 | Finanzas | `/finanzas`, `/finanzas/[capitulo]` | API de datos abiertos del SIGEF (Hacienda), en instantánea | `lib/fiscal.ts`, `lib/capitulos.ts`, `public/data/fiscal.json` |
 | Congreso | `/congreso`, `/congreso/[id]`, `/congreso/perencion`, `/congreso/senado`, `/congreso/senado/[cuatrienio]/[id]` | SIL de Diputados (API JSON interna) y consultante del Senado (HTML) | `lib/congreso.ts`, `lib/senado.ts`, `lib/legislacion.ts` |
 | Normativa | `/normativa`, `/normativa/[tipo]/[numero]` | Consultoría Jurídica del Poder Ejecutivo | `lib/normativa.ts` |
