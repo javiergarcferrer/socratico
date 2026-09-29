@@ -2022,8 +2022,9 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
 6. Rehacer contra el universo nuevo de 894 fichas los scripts que casan por
    nombre con `instituciones.json` (`build-sismap.py`, `build-auditorias.py`,
    `build-obras.py`, `build-nomina-general.py`): así las 155 entidades del
-   Clasificador ganan sus aristas. No se corrió aquí porque la Cámara de Cuentas
-   responde 470 y una regeneración parcial borraría lo que ya se tiene.
+   Clasificador ganan sus aristas. `build-auditorias.py` no se puede hoy: la
+   Cámara de Cuentas responde 470 y una regeneración parcial borraría lo que ya
+   se tiene; los otros tres quedaron fuera de esta pasada.
 7. `lib/capitulos.ts` (el catálogo del formulario de Hacienda) tiene once códigos
    que el Clasificador retiró y le faltan nueve: el sitemap ya lista los de
    `fiscal.json`; regenerar el catálogo depende de la API del SIGEF (403 aquí).
