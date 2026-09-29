@@ -222,7 +222,13 @@ export default async function InstitucionPage({ params }: Props) {
             cuenta: documentos.fuente.documentos,
             fuente: documentos.fuente.host,
           },
-          sismap && { etiqueta: "Su lugar en el ranking de gestión", href: `/gestion?q=${encodeURIComponent(i.nombre)}`, fuente: "SISMAP del MAP" },
+          // La tabla y el nombre de su fila: un ayuntamiento está en la tabla
+          // municipal, y buscarlo en la de instituciones no lo encuentra.
+          sismap && {
+            etiqueta: "Su lugar en el ranking de gestión",
+            href: `/gestion?${new URLSearchParams({ tabla: sismap.tabla, q: sismap.fila.nombre })}`,
+            fuente: "SISMAP del MAP",
+          },
         ]}
       />
 
