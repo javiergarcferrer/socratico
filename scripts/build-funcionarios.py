@@ -119,6 +119,15 @@ class Rechazo(Exception):
     """El origen dijo que no (403, 470, desafío): no se reintenta ni se rodea."""
 
 
+class NoExiste(Exception):
+    """El origen dice que eso no está (404, 410): no se reintenta."""
+
+
+# Los PDF que no se pudieron bajar por la red (no los que no existen): si son
+# muchos, la instantánea no se escribe.
+_fallos_pdf: list[int] = []
+
+
 def pedir(url: str, *, datos: bytes | None = None, tipo: str | None = None,
           cabeceras: dict | None = None, pausa: float = 1.0, espera: int = 60,
           contexto: ssl.SSLContext | None = None) -> tuple[bytes, dict]:
@@ -142,6 +151,8 @@ def pedir(url: str, *, datos: bytes | None = None, tipo: str | None = None,
             _ultimo[host] = time.monotonic()
             if e.code in (401, 403, 429, 470):
                 raise Rechazo(f"{url}: HTTP {e.code}")
+            if e.code in (404, 410):
+                raise NoExiste(f"{url}: HTTP {e.code}")
             if intento == 2:
                 raise
             time.sleep(5)
@@ -303,11 +314,29 @@ def es_nombre(n: str) -> bool:
     return sum(1 for p in palabras if p not in PARTICULAS) >= 2
 
 
+# Un tratamiento pegado al nombre («Sr. Adriano…», «Licda Neliza…») no es el
+# nombre; un sujeto en plural («Los Dres. …», «Los Agregados…») nombra a varias
+# personas a la vez y esta lectura no sabe separarlas: se descarta.
+TRATAMIENTO_NOMBRE = re.compile(
+    r"^(?:(?:el|la)\s+)?(?:(?:se[ñn]or(?:a|ita)?|sr(?:a|ta)?\.?|lic(?:da|do)?\.?|licenciad[oa]|dr(?:a)?\.?|"
+    r"doctor(?:a)?|ing\.?|ingenier[oa]|arq\.?|arquitect[oa]|prof\.?|profesor(?:a)?|monse[ñn]or)\s+)+",
+    re.I,
+)
+
+
+def depurar_nombre(n: str | None) -> str | None:
+    n = limpio(n or "")
+    if re.match(r"(?i)(?:los|las)\s", n):
+        return None
+    n = TRATAMIENTO_NOMBRE.sub("", n)
+    return n if es_nombre(n) else None
+
+
 # ------------------------------------------------ títulos de los decretos
 
 TRATAMIENTO = (
-    r"(?:SE(?:Ñ|N)OR(?:A|ITA)?|LICENCIAD[OA]|LICDA?\.|LIC\.|DOCTOR(?:A)?|DRA?\.|INGENIER[OA]|ING\.|"
-    r"ARQUITECT[OA]|ARQ\.|AGR[OÓ]NOMO|AGRON\.|PROFESOR(?:A)?|PROF\.|MONSE(?:Ñ|N)OR|PADRE|REVERENDO|"
+    r"(?:SE(?:Ñ|N)OR(?:A|ITA)?|SR(?:A|TA)?\.?|LICENCIAD[OA]|LIC(?:DA|DO)?\.?|DOCTOR(?:A)?|DRA?\.?|INGENIER[OA]|ING\.?|"
+    r"ARQUITECT[OA]|ARQ\.?|AGR[OÓ]NOMO|AGRON\.?|PROFESOR(?:A)?|PROF\.?|MONSE(?:Ñ|N)OR|PADRE|REVERENDO|"
     r"MAGISTRAD[OA]|EMBAJADOR(?:A)?|MINISTRO CONSEJERO)"
 )
 GRADO = (
@@ -326,21 +355,23 @@ NOMBRE = rf"{PALABRA}(?:\s+(?:DE LOS|DE LAS|DE LA|DEL|DE|Y|{PALABRA}))*?"
 TRATS = rf"(?:(?:{TRATAMIENTO})\.?\s+)*"
 VERBO = r"(?:DESIGNA|NOMBRA|CONFIRMA|RATIFICA|ENCARGA)(?:\s+INTERINAMENTE)?"
 
+# «Designa al señor…», y también como a veces lo escribe el título: «designa la
+# señora…», «nombra al la señora…».
 UNO = re.compile(
-    rf"\b(?P<verbo>{VERBO})\s+(?:AL|A LA|A)\s+{TRATS}(?:(?P<grado>{GRADO})\s*,?\s+)?"
-    rf"(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,\s*(?:COMO\s+)?(?P<cargo>[^;]+?)(?=\.\s|\.$|;|$)"
+    rf"\b(?P<verbo>{VERBO})\s+(?:(?:AL|A LA|A)\s+)?(?:(?:LA|EL)\s+)?{TRATS}(?:(?P<grado>{GRADO})\s*,?\s+)?"
+    rf"{TRATS}(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,\s*(?:COMO\s+)?(?P<cargo>[^;]+?)(?=\.\s|\.$|;|$)"
 )
 ASCIENDE = re.compile(
-    rf"\bASCIENDE\s+(?:AL|A LA)\s+(?:(?P<grado>{GRADO})\s*,?\s+)?(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,?\s*"
+    rf"\bASCIENDE\s+(?:AL|A LA)\s+{TRATS}(?:(?P<grado>{GRADO})\s*,?\s+)?{TRATS}(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,?\s*"
     rf"AL RANGO DE [^,]+?,?\s*Y\s+(?:LO|LA)\s+(?:DESIGNA|NOMBRA)\s+(?:COMO\s+)?(?P<cargo>[^;]+?)(?=\.\s|\.$|;|$)"
 )
 DESIGNO = re.compile(
     rf"\bQUE\s+(?:DESIGN[OÓ]|NOMBR[OÓ])\s+(?:AL|A LA|A)\s+{TRATS}(?:(?P<grado>{GRADO})\s*,?\s+)?"
-    rf"(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,\s*(?:COMO\s+)?(?P<cargo>[^;]+?)(?=\.\s|\.$|;|$)"
+    rf"{TRATS}(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,\s*(?:COMO\s+)?(?P<cargo>[^;]+?)(?=\.\s|\.$|;|$)"
 )
 RENUNCIA = re.compile(
-    rf"\bACEPTA\s+LA\s+RENUNCIA\s+(?:PRESENTADA\s+POR\s+|DEL?\s+|DE LA\s+){TRATS}(?:(?P<grado>{GRADO})\s*,?\s+)?"
-    rf"(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,?\s*(?:AL CARGO DE|COMO|A SU CARGO DE)\s+(?P<cargo>[^;]+?)(?=\.\s|\.$|;|$)"
+    rf"\bACEPTA\s+LA\s+RENUNCIA\s+(?:PRESENTADA\s+POR\s+(?:EL\s+|LA\s+)?|DEL?\s+|DE LA\s+){TRATS}(?:(?P<grado>{GRADO})\s*,?\s+)?"
+    rf"{TRATS}(?P<nombre>{NOMBRE})(?P<rama>{RAMA})?\s*,?\s*(?:AL CARGO DE|COMO|A SU CARGO DE)\s+(?P<cargo>[^;]+?)(?=\.\s|\.$|;|$)"
 )
 EXCLUIR_TITULO = re.compile(r"EXEQU[AÁ]TUR|PENSI[OÓ]N|JUBILACI[OÓ]N|CONDECORACI[OÓ]N|NATURALIZ|INDULTO|CONMUTA|"
                             r"PERSONALIDAD JUR[IÍ]DICA|INCORPORA")
@@ -350,7 +381,8 @@ CORTE_CARGO = re.compile(r",?\s+Y\s+(?:A|AL|A LA|A LOS|A LAS)\s+(?:SE(?:Ñ|N)OR|
                          r",\s*(?:CON SUELDO|EN SUSTITUCI[OÓ]N|EN ADICI[OÓ]N|QUIEN\b|MEDIANTE\b).*$|"
                          r"\.\s*(?:DEROGA|MODIFICA|DEJA|DISPONE)\b.*$|"
                          r",?\s+Y\s+(?:DICTA|DISPONE|DEROGA|MODIFICA|DEJA SIN EFECTO)\b.*$|"
-                         r",?\s+Y\s+(?:A\s+)?(?:VARIOS|OTROS|DIVERSOS)\s+(?:FUNCIONARIOS|MIEMBROS|SERVIDORES)\b.*$")
+                         r",?\s+Y\s+(?:A\s+)?(?:VARIOS|OTROS|DIVERSOS)\s+(?:FUNCIONARIOS|MIEMBROS|SERVIDORES)\b.*$|"
+                         r",?\s+Y\s+(?:NOMBRA|DESIGNA|CONFIRMA)\b.*\b(?:VARIOS|OTROS|DIVERSOS)\b.*$")
 
 
 def personas_del_titulo(titulo: str) -> tuple[list[dict], bool]:
@@ -382,7 +414,11 @@ def personas_del_titulo(titulo: str) -> tuple[list[dict], bool]:
         if re.search(r"\sY\s", nombre) and not re.search(r"\bDE\s+\S+\s+Y\s", nombre):
             varios = True
             continue
-        if not es_nombre(nombre):
+        if re.match(r"(?:LOS|LAS)\s", nombre):
+            varios = True
+            continue
+        nombre = depurar_nombre(nombre)
+        if not nombre:
             continue
         # «…, y al señor Z, director de…»: lo que siguió a la coma es otra persona.
         if re.match(r"Y\s+(?:A|AL|A LA|A LOS|A LAS)\s", m.group("cargo")):
@@ -492,13 +528,14 @@ def personas_del_pdf(texto: str) -> list[dict]:
         m = ART_QUEDA.match(art) or ART_SE.match(art)
         if not m:
             a = ART_ASCIENDE.match(art)
-            if a and es_nombre(limpio(a.group("nombre"))):
+            ascendido = depurar_nombre(a.group("nombre")) if a else None
+            if ascendido:
                 nuevo = limpio(a.group("nuevo"))
-                salida.append({"mov": "asciende", "nombre": limpio(a.group("nombre")), "grado": nuevo[:1].upper() + nuevo[1:],
+                salida.append({"mov": "asciende", "nombre": ascendido, "grado": nuevo[:1].upper() + nuevo[1:],
                                "cargo": f"Ascenso a {nuevo}", "sustituye": None})
             continue
-        nombre = limpio(m.group("nombre"))
-        if not es_nombre(nombre):
+        nombre = depurar_nombre(m.group("nombre"))
+        if not nombre:
             continue
         cargo_bruto = m.group("cargo")
         sust = SUSTITUCION.search(cargo_bruto)
@@ -512,7 +549,7 @@ def personas_del_pdf(texto: str) -> list[dict]:
             "nombre": nombre,
             "grado": limpio(m.group("grado") or "") or None,
             "cargo": cargo,
-            "sustituye": limpio(sust.group("nombre")) if sust and es_nombre(sust.group("nombre")) else None,
+            "sustituye": depurar_nombre(sust.group("nombre")) if sust else None,
         })
     return salida
 
@@ -558,6 +595,21 @@ def palabras(s: str) -> frozenset:
     return frozenset(salida)
 
 
+# Nombres del MAP que el emparejamiento por palabras no alcanza porque la DGCP
+# escribe la misma institución de otra forma. Uno por uno, verificado contra
+# el cruce (id, nombre en la DGCP y capítulo): «Instituto de Auxilios» es el
+# 5202 del Clasificador, que la DGCP llama «Instituto Nacional de Auxilios y
+# Viviendas».
+MAP_A_INSTITUCION = {
+    "direccion general de la policia nacional": 144,  # «Policia Nacional», capítulo 0202
+    "oficina nacional de evaluacion sismica y vulnerabilidad de infraestructura y edificaciones": 939,  # abreviada
+    "autoridad portuaria dominicana": 687,  # «APORDOM (Autoridad Portuaria Dominicana)»
+    "comision de fomento a la tecnificacion del sistema nacional de riego": 1158,  # «Tecnificación Nacional de Riego», 0210
+    "ayuntamiento de el factor": 1055,  # «Alcaldía Municipal El Factor»
+    "instituto de auxilios": 670,  # capítulo 5202 en los dos
+}
+
+
 class Instituciones:
     """El catálogo de `public/data/instituciones.json` y cómo se reconoce en un
     nombre o en un cargo. Mismo criterio que lib/grafo-servidor.ts: un enlace
@@ -587,6 +639,8 @@ class Instituciones:
         p = plano(nombre)
         if not p:
             return None
+        if p in MAP_A_INSTITUCION:
+            return next((i for i in self.todas if i["id"] == MAP_A_INSTITUCION[p]), None)
         exactas = self.por_plano.get(p, [])
         if len(exactas) == 1:
             return exactas[0]
@@ -826,8 +880,13 @@ def texto_de_pdf(doc_id: int, cache: pathlib.Path, sin_red: bool) -> str | None:
         return None
     try:
         pdf, _ = pedir(f"{CONSULTORIA}/api/document/{doc_id}", tipo="pdf", pausa=1.5, espera=90)
-    except Rechazo as e:
+    except (Rechazo, NoExiste) as e:
         print(f"  PDF {doc_id}: {e}", file=sys.stderr)
+        return None
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        # Un PDF que no baja no tumba la instantánea; muchos, sí (ver main).
+        print(f"  PDF {doc_id}: no se pudo bajar ({e})", file=sys.stderr)
+        _fallos_pdf.append(doc_id)
         return None
     if not pdf.startswith(b"%PDF"):
         return None
@@ -1025,10 +1084,9 @@ class Registro:
 
 
 def firmas_presidenciales(decretos: list[dict]) -> dict[str, dict]:
-    """Cuántos decretos firmó cada quien y entre qué fechas. Una fecha suelta,
-    sin otro decreto del mismo firmante a menos de un año, es un error de
-    captura (hay uno de «Luis Abinader» fechado en 1900) y no cuenta para el
-    rango; sí para el total."""
+    """Cuántos decretos firmó cada quien y entre qué fechas. Un puñado de
+    fechas lejos del resto es un error de captura (hay decretos de «Luis
+    Abinader» fechados en 1900) y no cuenta para el rango; sí para el total."""
     fechas: dict[str, list[str]] = {}
     for d in decretos:
         f = limpio(d.get("Presidente") or "")
@@ -1039,10 +1097,16 @@ def firmas_presidenciales(decretos: list[dict]) -> dict[str, dict]:
     for f, lista in fechas.items():
         lista.sort()
         dias = [datetime.date.fromisoformat(x) for x in lista]
-        buenas = [x for k, x in enumerate(lista)
-                  if (k > 0 and (dias[k] - dias[k - 1]).days <= 365) or
-                  (k + 1 < len(lista) and (dias[k + 1] - dias[k]).days <= 365)] or lista
-        salida[f] = {"n": len(lista), "desde": buenas[0], "hasta": buenas[-1]}
+        # Tramos de firmas sin un hueco de más de un año. Un tramo diminuto es un
+        # error de captura (dos decretos de «Luis Abinader» fechados en 1900); un
+        # período anterior del mismo presidente es un tramo grande y cuenta.
+        tramos: list[list[str]] = [[lista[0]]]
+        for k in range(1, len(lista)):
+            if (dias[k] - dias[k - 1]).days > 365:
+                tramos.append([])
+            tramos[-1].append(lista[k])
+        buenos = [t for t in tramos if len(t) >= max(5, len(lista) // 100)] or tramos
+        salida[f] = {"n": len(lista), "desde": buenos[0][0], "hasta": buenos[-1][-1]}
     return salida
 
 
@@ -1165,6 +1229,8 @@ def main() -> None:
                 })
     print(f"  designaciones leídas de {len(pendientes_pdf) - sin_texto - escaneos:,} PDF: {pdfs:,} "
           f"({sin_texto} sin texto, {escaneos} escaneos que no se leen)")
+    if len(_fallos_pdf) > max(20, len(pendientes_pdf) // 20):
+        sys.exit(f"Consultoría: {len(_fallos_pdf)} PDF no bajaron por la red: no se escribe")
 
     # El firmante de los decretos. El vigente se ata a quien el MAP pone como
     # Presidente de la República si todas las palabras de la firma están en su nombre.
