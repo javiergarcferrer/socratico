@@ -145,6 +145,7 @@ export const MENU: GrupoMenu[] = [
         titulo: "Quién es quién",
         enlaces: [
           { href: "/instituciones", label: "Instituciones", nota: "Cada ministerio, dirección y ayuntamiento", tarea: "buscar" },
+          { href: "/empresas", label: "Empresas", nota: "Cualquier empresa del padrón de la DGII, por RNC o por nombre", tarea: "buscar" },
           { href: "/provincias", label: "Provincias", nota: "El Estado visto desde tu provincia", tarea: "buscar" },
           { href: "/gestion", label: "Gestión pública", nota: "El ranking SISMAP de instituciones y municipios", tarea: "comparar" },
           { href: "/auditorias", label: "Auditorías y declaraciones", nota: "Quién audita a quién y quién rinde cuentas", tarea: "leer" },

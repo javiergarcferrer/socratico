@@ -45,6 +45,38 @@ export async function ResumenRnc() {
   }
 }
 
+/**
+ * El padrón de empresas (`scripts/build-empresas.py`). Lee solo su `meta.json`
+ * con la ruta entera, no `lib/empresas.ts`: así el trazado de Next no mete los
+ * 16 MB de la instantánea en la función de `/fuentes`.
+ */
+export async function ResumenEmpresas() {
+  try {
+    const m = JSON.parse(
+      await readFile(join(process.cwd(), "public", "data", "empresas", "meta.json"), "utf8"),
+    ) as {
+      corteDgii: string | null;
+      contribuyentes: number;
+      empresas: number;
+      conRpe: number;
+      fuera: Record<string, number>;
+    };
+    const f = (clave: string) => formatInt(m.fuera[clave] ?? 0);
+    return (
+      <>
+        Padrón{m.corteDgii ? ` al ${formatFecha(m.corteDgii)}` : ""} ({formatInt(m.contribuyentes)}{" "}
+        contribuyentes): {formatInt(m.empresas)} personas jurídicas publicadas,{" "}
+        {formatInt(m.conRpe)} de ellas inscritas como proveedoras del Estado. Fuera quedan{" "}
+        {f("cedula")} cédulas, {f("rncDePersona")} RNC de nueve cifras de personas,{" "}
+        {f("sucesion")} sucesiones y {formatInt((m.fuera["lote2009"] ?? 0) + (m.fuera["nombre"] ?? 0))}{" "}
+        personas físicas inscritas con RNC de empresa.
+      </>
+    );
+  } catch {
+    return <>La instantánea no está disponible ahora mismo.</>;
+  }
+}
+
 export async function ResumenCombustibles() {
   const c = await getCombustibles();
   if (!c) return <>Ahora mismo la portada no contestó o cambió de forma.</>;

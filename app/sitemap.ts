@@ -47,6 +47,10 @@ async function rutasDeNormas(): Promise<string[]> {
  * capítulos del presupuesto, las normas de la instantánea y los legisladores
  * del período—. Procesos, iniciativas y proveedores son cientos de miles y
  * cambian a diario: el buscador los encuentra por sus enlaces desde estas.
+ * Tampoco van las ~490 mil fichas de `/empresas`: un mapa de medio millón de
+ * direcciones pasa del tope de 50 mil por archivo, cambia con cada corte
+ * mensual de la DGII y casi todas son empresas que nadie busca en el
+ * Estado; las que le venden se alcanzan desde su ficha de proveedor.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [obrasInst, normas, directorio] = await Promise.all([

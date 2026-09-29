@@ -290,6 +290,12 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     alcance: "Nombre o siglas de las 739 unidades de compra activas, cada una con su ficha de presupuesto, compras, nómina y decretos.",
   },
   {
+    etiqueta: "Empresas",
+    href: "/empresas",
+    alcance:
+      "Un RNC de nueve cifras abre su ficha; un nombre busca todas sus palabras, en cualquier orden y sin tildes, entre las personas jurídicas del padrón de la DGII (instantánea mensual). Las personas físicas no se publican.",
+  },
+  {
     seccion: "licitaciones",
     etiqueta: "Licitaciones",
     href: "/licitaciones",

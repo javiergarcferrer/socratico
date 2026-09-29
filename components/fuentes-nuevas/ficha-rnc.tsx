@@ -1,21 +1,10 @@
-import { getRegistroTributario } from "@/lib/rnc";
-import type { Tono } from "@/lib/estados";
-import { formatFecha, SIN_DATO } from "@/lib/format";
+import Link from "next/link";
+import { getRegistroTributario, tieneFichaDeEmpresa } from "@/lib/rnc";
+import { enLlano, regimenEnLlano, tonoContribuyente } from "@/lib/padron";
+import { formatFecha } from "@/lib/format";
+import { enlace } from "@/lib/grafo";
 import { MarcaEstado } from "@/components/marca-estado";
 import { Card, CardTitle } from "@/components/ui/card";
-
-/** Los estados del padrón, traducidos a los oficios de `lib/estados`. */
-function tonoTributario(estado: string): Tono {
-  if (/^ACTIVO$/i.test(estado)) return "contexto";
-  if (/SUSPENDIDO|CESE/i.test(estado)) return "aviso";
-  return "anulado"; // dado de baja, anulado, rechazado
-}
-
-function enLlano(estado: string): string {
-  const e = estado.toLowerCase();
-  return e.charAt(0).toUpperCase() + e.slice(1);
-}
-
 
 /**
  * El proveedor en el padrón de la DGII: actividad declarada, estado y fecha
@@ -26,10 +15,16 @@ function enLlano(estado: string): string {
  * Se pinta en `/proveedores/[rpe]`. Si el proveedor no está en el cruce
  * (persona física, documento extranjero) o la instantánea falta, no pinta
  * nada: la ficha de registro de la DGCP sigue diciendo lo suyo.
+ *
+ * El estado y el régimen se dicen con el vocabulario de `lib/padron.ts`, el
+ * mismo de `/empresas`, y el RNC lleva a la ficha de la empresa cuando la
+ * hay (`tieneFichaDeEmpresa`: nunca a una que el padrón de empresas no
+ * publica).
  */
 export async function FichaRnc({ rpe }: { rpe: string }) {
   const r = await getRegistroTributario(rpe);
   if (!r) return null;
+  const conFicha = await tieneFichaDeEmpresa(r.rnc);
 
   return (
     <Card as="section" className="p-6">
@@ -40,12 +35,24 @@ export async function FichaRnc({ rpe }: { rpe: string }) {
       <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <dt className="rotulo text-ink-soft">RNC</dt>
-          <dd className="font-mono font-medium tabular-nums">{r.rnc}</dd>
+          <dd className="font-mono font-medium tabular-nums">
+            {conFicha ? (
+              <Link
+                href={enlace.empresa(r.rnc)}
+                title="Su ficha en el padrón de empresas de la DGII"
+                className="text-brand-700 underline decoration-brand-700/40 underline-offset-2 hover:decoration-brand-700"
+              >
+                {r.rnc}
+              </Link>
+            ) : (
+              r.rnc
+            )}
+          </dd>
         </div>
         <div>
           <dt className="rotulo text-ink-soft">Estado ante la DGII</dt>
           <dd className="mt-0.5">
-            <MarcaEstado tono={tonoTributario(r.estado)} title={`La DGII lo publica como «${r.estado}»`}>
+            <MarcaEstado tono={tonoContribuyente(r.estado)} title={`La DGII lo publica como «${r.estado}»`}>
               {enLlano(r.estado)}
             </MarcaEstado>
           </dd>
@@ -64,7 +71,7 @@ export async function FichaRnc({ rpe }: { rpe: string }) {
         )}
         <div>
           <dt className="rotulo text-ink-soft">Régimen de pago</dt>
-          <dd>{r.regimen === "RST" ? "Simplificado (RST)" : r.regimen === "NORMAL" ? "Ordinario" : r.regimen || SIN_DATO}</dd>
+          <dd>{regimenEnLlano(r.regimen)}</dd>
         </div>
       </dl>
 

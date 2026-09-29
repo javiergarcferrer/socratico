@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { rutaDirecta } from "@/lib/buscar";
+import { enlace } from "@/lib/grafo";
 
 /**
  * El atajo de `/buscar` («Ley 47-20», un RNC, un código de proceso, unas
@@ -9,12 +10,22 @@ import { rutaDirecta } from "@/lib/buscar";
  * `Location`. La página conserva su propio atajo como red por si esto no
  * corre. Sin estado, sin variables de entorno: lee la URL y un JSON del
  * repositorio.
+ *
+ * `/empresas` hace lo mismo con un RNC de nueve cifras: va a su ficha, que
+ * responde 404 y lo explica si ese número no es de ninguna persona jurídica
+ * del padrón. Aquí no se lee el padrón (el middleware no tiene `fs`); la
+ * página de búsqueda comprueba la existencia antes de su propia redirección.
  */
 export function middleware(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim().slice(0, 120);
+  if (req.nextUrl.pathname === "/empresas") {
+    const cifras = q.replace(/[\s.\-/]/g, "");
+    if (!/^\d{9}$/.test(cifras)) return NextResponse.next();
+    return NextResponse.redirect(new URL(enlace.empresa(cifras), req.url), 307);
+  }
   const destino = q ? rutaDirecta(q) : null;
   if (!destino) return NextResponse.next();
   return NextResponse.redirect(new URL(destino, req.url), 307);
 }
 
-export const config = { matcher: "/buscar" };
+export const config = { matcher: ["/buscar", "/empresas"] };

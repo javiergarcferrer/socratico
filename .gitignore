@@ -9,3 +9,6 @@ next-env.d.ts
 .claude/settings.local.json
 .claude/worktrees/
 __pycache__/
+
+# Descargas grandes de los scripts de instantáneas (reintentos sin volver a bajar)
+.cache/
