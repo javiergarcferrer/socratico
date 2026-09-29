@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { INSTITUCIONES, hrefInstitucion } from "@/lib/instituciones";
-import { CAPITULOS } from "@/lib/capitulos";
+import { getFiscal } from "@/lib/fiscal";
 import { SECCIONES } from "@/lib/secciones";
 import { INDICE } from "@/lib/indice";
 import { PROVINCIAS } from "@/lib/provincias";
@@ -54,11 +54,12 @@ async function rutasDeNormas(): Promise<string[]> {
  * Estado; las que le venden se alcanzan desde su ficha de proveedor.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [obrasInst, normas, directorio, funcionarios] = await Promise.all([
+  const [obrasInst, normas, directorio, funcionarios, fiscal] = await Promise.all([
     getObras(),
     rutasDeNormas(),
     getDirectorioLegisladores().catch(() => null),
     getFuncionarios(),
+    getFiscal(),
   ]);
   const obras = obrasInst?.proyectos ?? [];
   const vistas = SECCIONES.flatMap((s) => s.vistas.map((v) => v.href));
@@ -85,8 +86,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${SITIO}/congreso/legisladores/${l.id}`,
       changeFrequency: "weekly" as const,
     })),
-    ...CAPITULOS.map((c) => ({
-      url: `${SITIO}/finanzas/${c.codigo}`,
+    // Los capítulos que la instantánea del SIGEF sirve, no el catálogo de
+    // `lib/capitulos.ts`: ese trae once códigos que el Clasificador ya retiró
+    // (su página es un 404) y le faltan nueve nuevos.
+    ...(fiscal?.instituciones ?? []).map((c) => ({
+      url: `${SITIO}${enlace.capitulo(c.codigo)}`,
       changeFrequency: "monthly" as const,
     })),
     // Solo las personas con cargo obligado a declarar patrimonio (PEP): la
