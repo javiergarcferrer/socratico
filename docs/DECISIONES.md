@@ -122,12 +122,16 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crea el dueño en su panel, con tope de gasto.
 
 - **Medidas de la DGCP sobre personas físicas** (AUDITORIA §H.9): de las 2,317
-  medidas de la tabla de inhabilitados, unas 400 caen sobre personas físicas
+  medidas de la tabla de inhabilitados, 507 caen sobre 400 personas físicas
   identificadas por cédula. Se publican solo las de personas jurídicas; las otras
   se cuentan y no se muestran, como las declaraciones juradas (arriba): hacer
   buscable por nombre la sanción de un particular es un juicio de
   proporcionalidad de la Ley 172-13. Decidir: publicarlas (quitar un filtro de
-  `scripts/build-sanciones.py` y regenerar) o dejarlas fuera.
+  `scripts/build-sanciones.py` y regenerar) o dejarlas fuera. Caso vecino, ya
+  resuelto por la regla «solo entidades» y que el dueño puede revertir: de las 13
+  entidades dominicanas de la lista SDN de la OFAC, una lleva el nombre de una
+  persona («CESAR PERALTA DRUG TRAFFICKING ORGANIZATION»); se publica porque la
+  designación es de la organización.
 - **Guardar y seguir funcionarios, entidades financieras y empresas**: las fichas
   nuevas de la cuarta pasada comparten y enlazan, pero no ofrecen «Guardar» ni
   «Seguir», porque `espacios.guardados.tipo` lleva un `check` con seis tipos

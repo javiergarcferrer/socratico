@@ -1851,6 +1851,29 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   19). Es la única fuente de empresas legible entera: RNC, razón social,
   actividad, inicio de operaciones, estado y régimen; sin número de RM, socios ni
   domicilio.
+  **Integrado (H6.4, `scripts/build-empresas.py` → `public/data/empresas/`, 510
+  archivos, 16.3 MB; `lib/empresas.ts`, `lib/padron.ts`):** el CSV interior pesa
+  115,606,459 B, seis columnas, **791,384 contribuyentes** (501,243 de nueve
+  cifras, 290,140 de once, uno de ocho inválido). ⚠️ **Nueve cifras no es persona
+  jurídica**: el padrón no trae el tipo de persona. Los RNC que empiezan por 5
+  (1,794) son todos nombres de personas; entre los que empiezan por 1 y 4 hay
+  sucesiones (3,995, por la actividad «IMPUESTO SUCESORAL» o «SUCESION DE…»), un
+  lote de 5,041 inscripciones del 1 de enero de 2009 (RNC 1306…) con 4,316
+  personas con su colmado o su boutique, y 324 nombres hechos solo de nombres y
+  apellidos. Se excluyen con un clasificador por frecuencias de palabras del propio
+  padrón (nombres de cédula contra nombres con forma societaria), revisado a mano
+  por muestras y declarado en `/fuentes` como heurística: **490,814 personas
+  jurídicas**, 79,255 con RPE (1,555 RNC tienen dos o tres). ⚠️ Codificación
+  Windows-1252 con restos de cp850: 130 nombres traen «¤/¥» por ñ/Ñ (se reparan
+  entre letras), 67 traen «¿» donde la DGII perdió un carácter; la actividad viene
+  cortada a 128 caracteres; hay fechas vacías, «00/00/0000», del año 1000 o de los
+  2040, que se muestran como vienen. Estados: 244,631 activos, 170,466
+  suspendidos, 68,540 dados de baja, 6,266 en cese temporal, 636 anulados, 275
+  rechazados. La búsqueda por nombre usa un índice invertido por palabra que da
+  los mismos totales que el barrido completo (400 de 400 consultas al azar);
+  una ficha tarda 28–38 ms en caliente y 0.64 s en frío con `next start`. Las
+  marcas no son razones sociales: «banreservas» no encuentra nada, «banco de
+  reservas» sí.
 - ✅ **Zonas francas** (CNZFE): `/publicaciones/empresas-aprobadas/` enlaza un PDF
   por año 1999–2026 con texto (`Empresas-Aprobadas-2026.pdf`, 295,280 B: empresa,
   actividad, ubicación, empleos, inversión); sin RNC. ❌ Su REST de WordPress: 403.
@@ -1888,6 +1911,25 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   `scripts/build-fiscal.py` desde aquí. ❌ DIGECOG → 470. ❌ MAP: su única
   «estructura del Estado» es un PDF narrativo de 2018. ❌ Liga Municipal: sin
   lista de municipios con códigos (el código útil es el de DIGEPRES, 7001–7394).
+- **Integrado (H6.3, `scripts/build-instituciones.py`):** el Clasificador define el
+  universo de `/instituciones`: **894 fichas**, las 739 unidades de compra de la
+  DGCP y 155 capítulos sin unidad (id estable `900000 + capítulo`: 900101 el
+  Senado, 900301 el Poder Judicial, 905002 el Banco Central, 907024–907393 los 145
+  gobiernos locales que faltaban). pypdf lee el PDF en ~4 s; pdfminer, en ~50 s y
+  hay que rehacer las filas por altura (mismos 528 capítulos). El PDF trae
+  anomalías: cuatro unidades sin subcapítulo (5161, 5162, 5163, 7068), 7352 01 001
+  con código de tres cifras, 7180 y 7295 apuntan a un subcapítulo 02 que no se
+  declara, 7063 01 sin unidad; su anexo da el capítulo de 13 receptoras (2262,
+  2263 → 0202; 2266 → 0219; 2267 → 0222…). Dieciocho unidades se atan por alias
+  (tabla por código, tabla por unidad, anexo o nombre del gobierno local) y el
+  build los imprime; cuando la DGCP guarda un código que no es el de la entidad,
+  la ficha enseña el presupuesto del capítulo vigente o ninguno (la DGII enseñaba
+  el 0999, obligaciones del Tesoro). Las transferencias del cuadro de receptoras
+  se atan a 480 instituciones (ley 2026, suma exacta RD$443,963,711,250) y 477
+  (proyecto 2027, RD$551,782,380,204); el 7199 «AYUNTAMIENTOS» (RD$2,000 millones
+  en 2026, RD$5,000 millones en 2027) no se reparte. ⚠️
+  `/wp-json/wp/v2/elementor_library/{id}` → 401 y los medios traen `post: null`:
+  de dónde sale un archivo se lee en la página pública que lo enlaza.
 
 ### H.9 Sanciones e investigación legal
 
@@ -1904,11 +1946,39 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   Con `inhabilitados=false` la tabla entera (80 MB) da razón social y RNC: casa
   el 100 %. ⚠️ 400 son personas físicas (399 cédulas): decisión del dueño
   (docs/DECISIONES.md).
+  **Integrado (H6.5, `scripts/build-sanciones.py` → `public/data/sanciones.json`,
+  965 KB; `lib/sanciones.ts`):** 1,756 medidas sobre 1,332 empresas y entidades.
+  Fuera, solo contadas: 507 medidas sobre las 400 personas físicas, 6 filas de
+  prueba del propio sistema (RPE 77888 y 77889, «PROVEEDOR PRUEBA») y 48
+  repetidas que solo difieren en `FECHA`. En 9 motivos se omiten el nombre, el
+  documento o el domicilio de quien firma una solicitud. El tipo se lee del
+  motivo con reglas escritas sobre los 915 textos distintos (la primera que casa
+  gana), en quince tipos y tres familias: sanciones (inhabilitación permanente
+  160, temporal 98, sin plazo escrito 9, incumplimiento de contrato 43), de
+  oficio (prohibición por cargo público 822, proceso penal 120, condena 30,
+  posible vínculo con investigados 4, suspensión 7, cancelación 160, casi todas
+  de instituciones públicas inscritas como proveedoras) y a pedido u otras
+  (suspensión 108 y cancelación 149 a solicitud, corrección del registro 22,
+  levantamiento 17, otro 7). 315 traen fecha de rehabilitación, 51 de ellas
+  futura. Dos rasgos del dato: al cancelar un registro la DGCP pega «@C» al
+  documento («132406079@C2», 457 casos; las nueve primeras cifras siguen siendo el
+  RNC), y 307 RNC tienen más de un RPE, así que una medida sobre un registro viejo
+  se ve en la ficha del nuevo. La tabla entera trae el estado de cada registro
+  (Activo 89,108; Desactualizado 35,356; Cancelado 9,294; Inactivo 3,112;
+  Suspendido 865; Inhabilitado 174). ⚠️ `URL_CERTIFICACION_RPE` se enlaza, no se
+  pide: el robots de `comunidad.comprasdominicana.gob.do` responde 401, así que no
+  se verificó que la constancia se sirva. La ficha de proveedor ya no da 404 si el
+  RPE no tiene contratos: la abren el registro en vivo, el histórico o una medida
+  (827 de los 1,332 no tienen contratos).
 - ✅ **OFAC** (lista SDN del Tesoro de EE. UU., fuente extranjera y oficial):
   `https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV`
   → 302 a un S3 firmado → 200 `text/csv`, 5,716,625 B, 19,444 filas; `ADD.CSV`
   1,695,007 B. 27 entradas tocan la República Dominicana (14 personas, 13
-  entidades; 11 con RNC como «Tax ID»). ✅ Lista consolidada de la ONU: 0
+  entidades; 11 con RNC como «Tax ID»). Se publican las 13 entidades con enlace a
+  su entrada en `https://sanctionssearch.ofac.treas.gov/Details.aspx?id=<ent_num>`
+  (✅ 200 `text/html`; su robots solo veda `/error.aspx`); ninguno de los 11 RNC
+  está en el registro de proveedores de la DGCP, ni cancelado. `robots.txt` del
+  servicio de listas: 404. ✅ Lista consolidada de la ONU: 0
   menciones (control negativo). ❌ Banco Mundial: la tabla de inhabilitados sale
   de una API con `apikey` publicada en su JS: no se usa (decisión del dueño). ❌
   BID: 403 de Cloudflare hasta en robots.

@@ -284,7 +284,59 @@ during a visit.
   them). Cross-links: legislator ficha → «Sus otros cargos públicos»; decree
   ficha → «¿A quién nombra este decreto?»; older decrees link to the
   Consultoría PDF (`decretosEnInstantanea` in `lib/normativa.ts` says which
-  numbers the snapshot holds).
+  numbers the snapshot holds). Two blocks read it outside `/funcionarios`:
+  `components/fuentes-nuevas/quien-dirige.tsx` («¿Quién la dirige?» on the
+  institution ficha: `quienDirige` takes MAP's highest current post, else the
+  latest head-of-body decree; over 30 people it links to
+  `/funcionarios?inst=<id>`, the directory filtered by institution and
+  paginated) and `components/fuentes-nuevas/gobierno-provincial.tsx` («¿Quién
+  gobierna…?» on the province ficha: `gobiernoDeProvincia` finds the governor
+  in MAP's «Oficina de Gobernación Provincial de X» unit, else a decree signed
+  by the sitting President, plus the 2024 mayors and district directors; the
+  province text is matched through `provinciaDeTexto` and its aliases). JCE
+  writes «ALCALDE» for everyone, so the snapshot names the post («Alcaldía de
+  Nagua») and never infers anyone's gender.
+- **`lib/sanciones.ts`** — measures on suppliers (§H.9).
+  `scripts/build-sanciones.py` downloads the DGCP debarment table and the full
+  supplier table (~88 MB, ~15 s) plus OFAC's SDN and ADD CSVs, keeps legal
+  entities only, reads the measure type from the State's own motive text with
+  ordered hand-written rules (15 types in 3 families, translated to
+  `lib/estados.ts` meanings: requested by the supplier is context, a suspension
+  is a warning, a cancellation or debarment is annulled), redacts names, ID
+  numbers and addresses of signers inside motives, and refuses to write on
+  implausible counts. Loaded once per instance. Pages: `/proveedores/inhabilitados`
+  (filters by family, type and year in the URL; search by exact RNC or RPE,
+  name, resolution number or motive words; the OFAC entities below) and the
+  «¿Tiene medidas de la DGCP?» section of `/proveedores/[rpe]`, which no longer
+  requires contracts to render.
+- **`lib/empresas.ts`** (server-only) and **`lib/padron.ts`** (no `fs`: RNC
+  shape, DGII status tone and wording shared with `ficha-rnc.tsx`) — the DGII
+  roll of legal entities (§H.7). `scripts/build-empresas.py` reads the same ZIP
+  as `build-rnc.py` (rerun both after each monthly cut) and writes
+  `public/data/empresas/`: `filas/` (480 gzip blocks of 1,024 rows), `indice/`
+  (27 word shards, format «EMP1» in the script header: an inverted index that
+  reproduces the `lib/raiz.ts` criterion exactly), `rango.bin` (one ordering
+  byte per company), `actividades.json` and `meta.json`. Loading every name and
+  scanning cost 1.3 s and 262 MB per cold instance; the index answers «srl»
+  (300,704 matches) in 90–122 ms. `empresaPorRnc`, `buscarEmpresas` (500
+  reachable results, 25 per page), `padronEmpresas`; files memoised per
+  instance with a 96-block cache. Only `/empresas` and `/empresas/[rnc]` carry
+  the 16 MB (`outputFileTracingIncludes`); the supplier ficha and `/fuentes`
+  read only `meta.json` by literal path (`tieneFichaDeEmpresa` in `lib/rnc.ts`
+  never links a supplier to a company without ficha). The middleware sends a
+  nine-digit RNC in `/empresas?q=` straight to its ficha, and `lib/buscar.ts`
+  does the same from `/buscar`. The ficha crosses `lib/sanciones.ts` (DGCP
+  measures by RNC, the OFAC note). `/buscar` does not index companies.
+- **`lib/instituciones.ts`** now carries the whole public sector (§H.8):
+  `sector`, `clasificador`, `dgcp` and the two transfer fields on each record;
+  `SECTORES`, `sectorDe`, `contarPorSector`, `hrefDirectorio` for the sector
+  filter of `/instituciones` (50 per page); `institucionesDelCapitulo` returns
+  DGCP units only and `fichaDelCapitulo` the classifier ficha of a chapter
+  without them. A classifier-only entity renders `FichaDelClasificador` in
+  `app/instituciones/[id]/page.tsx`, which never queries the DGCP.
+  `lib/grafo-servidor.ts` keeps local governments out of free-text recognition
+  by sector as well as by type. `public/data/instituciones.json` (256 KB) is
+  bundled into the middleware through `lib/buscar.ts`.
 
 ## API routes — `app/api/*` (all `export const dynamic = "force-dynamic"`)
 Thin proxies that call a `lib/dgcp.ts` function inside try/catch and return
