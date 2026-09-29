@@ -9,7 +9,7 @@
  * Pública y Asistencia Social» enlaza; «Salud» no.
  */
 
-import { INSTITUCIONES } from "@/lib/instituciones";
+import { INSTITUCIONES, seReconocePorNombre } from "@/lib/instituciones";
 import { enlace, reconocerPorForma, sinSolapes, type Mencion } from "@/lib/grafo";
 
 /** Cada carácter del texto, en minúscula, sin tilde y con los signos como espacio: mismo largo. */
@@ -38,7 +38,10 @@ function patronesDeInstituciones(): Patron[] {
   if (patrones) return patrones;
   const salida: Patron[] = [];
   for (const i of INSTITUCIONES) {
-    if (i.tipo === "Hospital" || i.tipo === "Gobierno local") continue;
+    // El mismo criterio que `institucionesNombradasEn`: ni hospitales ni
+    // gobiernos locales, tampoco los que entran por el Clasificador
+    // Institucional sin unidad de compra (su tipo es el del clasificador).
+    if (!seReconocePorNombre(i)) continue;
     const palabras = planoPorCaracter(i.nombre.replace(/\([^)]*\)/g, " ")).split(/\s+/).filter(Boolean);
     if (palabras.join(" ").length < 18) continue;
     salida.push({

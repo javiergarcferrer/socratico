@@ -287,7 +287,8 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
   {
     etiqueta: "Instituciones",
     href: "/instituciones",
-    alcance: "Nombre o siglas de las 739 unidades de compra activas, cada una con su ficha de presupuesto, compras, nómina y decretos.",
+    alcance:
+      "Nombre o siglas de cada institución del Estado, con su ficha: las unidades de compra activas de la DGCP y las entidades del Clasificador Institucional de DIGEPRES que no tienen ninguna (el Congreso, el Poder Judicial, el Banco Central, la mayoría de las juntas de distrito). Se filtra por sector.",
   },
   {
     etiqueta: "Funcionarios",

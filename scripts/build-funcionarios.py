@@ -1184,7 +1184,13 @@ def main() -> None:
 
     # 3. Altas cortes y órganos
     print("Altas cortes y órganos constitucionales…")
-    organos, estado_organos = leer_organos()
+    # Con --sin-red, lo último que se leyó de las cortes; sin caché, se leen.
+    ruta_organos = cache / "organos.json"
+    if args.sin_red and ruta_organos.exists():
+        organos, estado_organos = json.loads(ruta_organos.read_text(encoding="utf-8"))
+    else:
+        organos, estado_organos = leer_organos()
+        ruta_organos.write_text(json.dumps([organos, estado_organos], ensure_ascii=False), encoding="utf-8")
     for o in organos:
         i = inst.por_nombre(o["institucion"]) or inst.de_cargo(o["cargo"])
         reg.cargo(o["nombre"], {

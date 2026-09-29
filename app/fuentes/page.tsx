@@ -12,6 +12,7 @@ import { formatFecha, formatMagnitud, SIN_DATO } from "@/lib/format";
 import { etiquetaCorte, getResumenFiscal } from "@/lib/fiscal";
 import { formatInt } from "@/lib/nomina";
 import { getResumenNomina } from "@/lib/nomina-server";
+import { FUENTES_DEL_CRUCE, INSTITUCIONES } from "@/lib/instituciones";
 import { IconArrowLeft } from "@/components/icons";
 import {
   ResumenBiblioteca,
@@ -48,6 +49,13 @@ export default async function FuentesPage() {
     ]);
   const normativaInstantanea =
     normativa.origen !== null && normativa.origen !== "vivo" ? normativa.origen : null;
+
+  // El universo de instituciones y de dónde sale (scripts/build-instituciones.py).
+  const cruce = FUENTES_DEL_CRUCE;
+  const cuadros = Object.values(cruce.transferencias).sort((a, b) => a.anio - b.anio);
+  const sinUnidad = INSTITUCIONES.filter((i) => !i.dgcp);
+  const sinCapituloVigente = INSTITUCIONES.filter((i) => i.dgcp && !i.clasificador).length;
+  const conNomina = INSTITUCIONES.filter((i) => i.nomina).length;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -201,6 +209,12 @@ export default async function FuentesPage() {
             y se sirven al instante; la fecha de corte va siempre a la vista.
             Cubre el Presupuesto General del Estado: no incluye ayuntamientos ni
             empresas públicas financieras.
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            El 29 de septiembre de 2026 la API respondió 403 de Cloudflare desde el
+            entorno donde se construye la plataforma, hasta en su robots.txt: ese día
+            la instantánea no se pudo renovar y se sirve la anterior, con su corte.
+            No se rodea: la vía es institucional.
           </p>
         </Fuente>
 
@@ -369,11 +383,15 @@ export default async function FuentesPage() {
 
         <Fuente nombre="Cruce de instituciones" estado="activa" etiqueta="Versionado">
           <p>
-            No es una fuente nueva sino el puente entre cuatro: el catálogo de
-            unidades de compra de la DGCP (739 activas) trae el capítulo
+            No es una fuente nueva sino el puente entre las demás: el catálogo de
+            unidades de compra de la DGCP ({formatInt(cruce.dgcp.unidades)} activas) trae el capítulo
             presupuestario de cada una, y con él se ata al SIGEF sin emparejar
-            nombres. La nómina se ata a mano donde la correspondencia es
-            inequívoca (82 de 86 instituciones: el Consejo del Café, el Poder Judicial, el Registro Inmobiliario y EGAEE no tienen unidad de compra en la DGCP) y los decretos por la etiqueta de
+            nombres; el Clasificador Institucional de DIGEPRES le da a cada una su
+            sector y suma las {formatInt(sinUnidad.length)} entidades que no tienen unidad de compra. La nómina se ata a mano donde la correspondencia es
+            inequívoca ({formatInt(conNomina)}
+            {nomina ? ` de ${formatInt(nomina.instituciones)}` : ""} instituciones: el Consejo del Café, el Registro
+            Inmobiliario y EGAEE no tienen ficha propia; el Poder Judicial se ata a la
+            suya, que viene del clasificador) y los decretos por la etiqueta de
             institución de la Consultoría Jurídica. Alimenta las{" "}
             <Link href="/instituciones" className="font-medium text-brand-700 hover:underline">
               fichas de institución
@@ -387,6 +405,55 @@ export default async function FuentesPage() {
             </code>
             . La etiqueta «Cámara de Cuentas» de la Consultoría se excluye del cruce
             porque marca nombramientos, no a la Cámara.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="DIGEPRES · Clasificador Institucional y transferencias" estado="activa" etiqueta="Instantánea local">
+          <p>
+            El{" "}
+            <a href={cruce.clasificador.url} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 hover:underline">
+              Clasificador Institucional
+            </a>{" "}
+            de la Dirección General de Presupuesto es la lista maestra de las
+            entidades del presupuesto, del Senado a cada junta de distrito municipal,
+            con su sector. Da a cada{" "}
+            <Link href="/instituciones" className="font-medium text-brand-700 hover:underline">
+              ficha de institución
+            </Link>{" "}
+            su sector y abre una para cada entidad que no tiene unidad de compra en
+            la DGCP: el Congreso, el Poder Judicial, el Banco Central y la mayoría de
+            las juntas de distrito. Del mismo portal se lee el cuadro «Clasificación
+            institucional según entidad receptora» de{" "}
+            {cuadros.map((c, n) => (
+              <span key={c.anio}>
+                {n > 0 ? " y del " : "la "}
+                <a href={c.url} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 hover:underline">
+                  {c.tipo === "ley" ? `Ley de Presupuesto ${c.anio}` : `proyecto de ${c.anio}`}
+                </a>
+              </span>
+            ))}
+            : lo que el Gobierno central presupuesta transferir a cada una.
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+            <Metrica etiqueta="Entidades" valor={formatInt(cruce.clasificador.capitulos)} />
+            <Metrica etiqueta="Actualizado al" valor={formatFecha(cruce.clasificador.actualizado)} />
+            <Metrica etiqueta="Sin unidad de compra" valor={formatInt(sinUnidad.length)} />
+          </dl>
+          <p className="mt-4 text-[13px] text-ink-soft sm:text-xs">
+            El clasificador es un PDF que DIGEPRES actualiza a principios de año y
+            que se lee al construir la plataforma con{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-instituciones.py</code>
+            ; se consultó el {formatFecha(cruce.clasificador.consultado)}. Cuando la
+            DGCP deja una unidad de compra en un capítulo que el clasificador ya
+            retiró (la extinta CDEEE, el antiguo Ministerio de Economía, las
+            superintendencias de Bancos y de Valores), una tabla del script la lleva
+            al vigente; {formatInt(sinCapituloVigente)} no tienen capítulo vigente
+            (fideicomisos, la Empresa Minera, el Consejo de Población) y toman el
+            sector de la familia de su código. La transferencia es lo presupuestado,
+            no lo ejecutado, y solo se atribuye cuando el capítulo es de una sola
+            institución: la del Servicio Nacional de Salud no se reparte entre sus
+            hospitales. El cuadro de 2026 se publica con la Ley de Presupuesto, pero
+            su título conserva «Proyecto de Ley de Presupuesto 2026».
           </p>
         </Fuente>
 
@@ -1038,9 +1105,12 @@ export default async function FuentesPage() {
             legibles. <strong>MOPC</strong>: su interfaz exige un token incrustado en
             su página, que no se usa. <strong>Buscador de sentencias de la Suprema
             Corte</strong>: solo responde a un formulario. <strong>Consulta de
-            declaraciones juradas de la Cámara de Cuentas</strong>: error 500. Ninguna
-            se rodea: la vía es institucional (Ley 200-04), y cada una está anotada
-            en la auditoría de fuentes.
+            declaraciones juradas de la Cámara de Cuentas</strong>: error 500.{" "}
+            <strong>API del SIGEF</strong>: 403 de Cloudflare el 29 de septiembre de
+            2026, hasta en su robots.txt, desde el entorno de la plataforma.{" "}
+            <strong>DIGECOG</strong> (Contabilidad Gubernamental): respondió 470 el
+            mismo día. Ninguna se rodea: la vía es institucional (Ley 200-04), y cada
+            una está anotada en la auditoría de fuentes.
           </p>
         </Fuente>
       </div>

@@ -2,11 +2,20 @@
  * La institución — el nodo que une las verticales.
  *
  * El mismo ministerio es una unidad de compra en la DGCP, un capítulo en el
- * SIGEF, un código en la nómina y una etiqueta en la Consultoría Jurídica.
- * `public/data/instituciones.json` (generado por `scripts/build-instituciones.py`)
- * es el cruce versionado entre los cuatro: un archivo, no una base de datos.
- * La entidad es la **unidad de compra** —la más fina con código estable— y su
- * presupuesto es el del capítulo al que la DGCP la adscribe.
+ * SIGEF y en el Clasificador Institucional de DIGEPRES, un código en la nómina
+ * y una etiqueta en la Consultoría Jurídica. `public/data/instituciones.json`
+ * (generado por `scripts/build-instituciones.py`) es el cruce versionado entre
+ * todos: un archivo, no una base de datos.
+ *
+ * El universo son dos catálogos del Estado. Cada **unidad de compra** de la
+ * DGCP —la unidad más fina con código estable— es una institución, y su
+ * presupuesto es el del capítulo al que la DGCP la adscribe. Cada capítulo del
+ * **Clasificador Institucional** que no tiene unidad de compra —el Congreso,
+ * el Poder Judicial, el Banco Central, la mayoría de las juntas de distrito—
+ * es una institución más, con id `900000 + capítulo` y `dgcp: false`: su ficha
+ * no consulta la DGCP, porque no hay nada suyo que consultar. El clasificador
+ * da a todas su sector (`SECTORES`). Mecánica verificada en docs/AUDITORIA.md
+ * (DIGEPRES, 2026-09-29) y en la cabecera del script.
  *
  * Este módulo solo lee el cruce y compone; cada dato sigue viniendo de su
  * capa (`lib/dgcp.ts`, `lib/fiscal.ts`, `lib/nomina-server.ts`,
@@ -19,24 +28,172 @@ import { dgcpFetch, normalize, type Contrato, type Proceso } from "@/lib/dgcp";
 import { enlace } from "@/lib/grafo";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
 
+/**
+ * El sector del Estado, tal como lo ordena el Clasificador Institucional:
+ * sector, subsector, área, subárea y sección, y en la Administración General
+ * la columna de poderes. `fideicomiso` es la única clave que no sale del
+ * clasificador —no los trae—: la DGCP los registra con la serie 62.
+ */
+export type Sector =
+  | "ejecutivo"
+  | "poderes"
+  | "descentralizada"
+  | "seguridad-social"
+  | "local"
+  | "empresa"
+  | "financiera"
+  | "fideicomiso";
+
+/** Lo que el Gobierno central presupuesta transferirle en un año. */
+export interface Transferencia {
+  anio: number;
+  /** En pesos. */
+  monto: number;
+  /** El cuadro de DIGEPRES del que sale: clave de `FUENTES_DEL_CRUCE.transferencias`. */
+  fuente: string;
+}
+
 export interface Institucion {
-  /** Código de unidad de compra de la DGCP. */
+  /** Código de unidad de compra de la DGCP; `900000 + capítulo` si no tiene. */
   id: number;
   nombre: string;
   acronimo: string;
-  /** «Institución», «Gobierno local», «Hospital»… (tipo de la DGCP). */
+  /** «Institución», «Gobierno local», «Hospital»… (tipo de la DGCP, o del clasificador si no tiene unidad de compra). */
   tipo: string;
-  /** Capítulo presupuestario (SIGEF) al que la adscribe la DGCP. */
+  /**
+   * Capítulo presupuestario con ejecución en la instantánea del SIGEF: el que
+   * declara la DGCP para su unidad de compra, o el del clasificador para las
+   * que no tienen. `null` si el SIGEF no lo trae (ayuntamientos, empresas…).
+   */
   capitulo: string | null;
   /** Código en `public/data/nomina.json`, si su nómina está en la foto. */
   nomina: string | null;
   /** Etiquetas de la Consultoría Jurídica que la nombran. */
   consultoria: string[];
+  /** Capítulo del Clasificador Institucional de DIGEPRES; `null` si el vigente no lo trae. */
+  clasificador: string | null;
+  sector: Sector;
+  /** ¿Tiene unidad de compra propia en el catálogo de la DGCP? */
+  dgcp: boolean;
+  /** Transferencia del Gobierno central en la Ley de Presupuesto vigente (solo si el capítulo es suyo y de nadie más). */
+  transferencia?: Transferencia;
+  /** La del proyecto de presupuesto del año siguiente, si ya se depositó. */
+  transferenciaProyecto?: Transferencia;
 }
 
-export const INSTITUCIONES: Institucion[] = (
-  datos as { instituciones: Institucion[] }
-).instituciones;
+/** Un cuadro «Clasificación institucional según entidad receptora» de DIGEPRES. */
+export interface CuadroTransferencias {
+  tipo: "ley" | "proyecto";
+  anio: number;
+  /** El título del cuadro tal cual (el de la ley 2026 conserva «Proyecto de Ley»). */
+  titulo: string;
+  /** La página de DIGEPRES que lo publica. */
+  pagina: string;
+  /** El XLSX. */
+  url: string;
+  /** Todo lo que el Gobierno central transfiere en el cuadro. */
+  total: number;
+  /** Lo que va a gobiernos locales, con la bolsa sin repartir. */
+  totalLocales: number;
+  /** La bolsa «AYUNTAMIENTOS» (7199), sin repartir por municipio. */
+  sinRepartir: number;
+}
+
+export interface FuentesDelCruce {
+  dgcp: { url: string; consultado: string; unidades: number };
+  clasificador: {
+    url: string;
+    titulo: string;
+    /** «Actualizado al» del documento (ISO). */
+    actualizado: string;
+    consultado: string;
+    capitulos: number;
+    locales: number;
+  };
+  transferencias: Record<string, CuadroTransferencias>;
+}
+
+const CRUCE = datos as unknown as { generado: string; fuentes: FuentesDelCruce; instituciones: Institucion[] };
+
+export const INSTITUCIONES: Institucion[] = CRUCE.instituciones;
+
+/** De dónde sale el universo: el catálogo de la DGCP, el clasificador y los cuadros de transferencias. */
+export const FUENTES_DEL_CRUCE: FuentesDelCruce = CRUCE.fuentes;
+
+/**
+ * Los sectores en el orden del clasificador. `nombre` es el del filtro y el de
+ * la ficha (colectivo); `que`, la línea que dice qué hay dentro.
+ */
+export const SECTORES: readonly { clave: Sector; nombre: string; que: string }[] = [
+  {
+    clave: "ejecutivo",
+    nombre: "Poder Ejecutivo",
+    que: "La Presidencia, los ministerios, la Procuraduría y lo que depende de ellos.",
+  },
+  {
+    // El nombre va en un filtro de altura fija y sin salto de línea: «Legislativo,
+    // Judicial y órganos constitucionales (9)» no cabía a 390 px. Va justo
+    // después de «Poder Ejecutivo», y por eso «otros».
+    clave: "poderes",
+    nombre: "Otros poderes y órganos constitucionales",
+    que: "El Senado, la Cámara de Diputados, el Poder Judicial, la JCE, la Cámara de Cuentas, el Tribunal Constitucional, el Defensor del Pueblo, el TSE y la Defensa Pública.",
+  },
+  {
+    clave: "descentralizada",
+    nombre: "Descentralizadas y autónomas",
+    que: "Organismos no financieros con patrimonio propio: la UASD, la DGII, Aduanas, el INDRHI, el Servicio Nacional de Salud y sus hospitales…",
+  },
+  {
+    clave: "seguridad-social",
+    nombre: "Seguridad social",
+    que: "El Consejo Nacional de Seguridad Social, la Tesorería, SENASA, las superintendencias de pensiones y de salud…",
+  },
+  {
+    clave: "local",
+    nombre: "Gobiernos locales",
+    que: "El Ayuntamiento del Distrito Nacional, los ayuntamientos de cada municipio y las juntas de distrito municipal.",
+  },
+  {
+    clave: "empresa",
+    nombre: "Empresas públicas",
+    que: "No financieras: acueductos, distribuidoras de electricidad, la Lotería Nacional, la OMSA…",
+  },
+  {
+    clave: "financiera",
+    nombre: "Instituciones financieras",
+    que: "El Banco Central, Banreservas, el Banco Agrícola y las superintendencias de bancos, de seguros y del mercado de valores.",
+  },
+  {
+    clave: "fideicomiso",
+    nombre: "Fideicomisos",
+    que: "No están en el Clasificador Institucional: la DGCP los registra con la serie 62.",
+  },
+];
+
+export function esSector(v: string | null | undefined): v is Sector {
+  return SECTORES.some((s) => s.clave === v);
+}
+
+export function sectorDe(clave: Sector): (typeof SECTORES)[number] {
+  return SECTORES.find((s) => s.clave === clave)!;
+}
+
+/** El directorio con lo que el lector puso: búsqueda, sector y página. */
+export function hrefDirectorio({ q, sector, pagina }: { q?: string; sector?: Sector | null; pagina?: number }): string {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  if (sector) p.set("sector", sector);
+  if (pagina && pagina > 1) p.set("pagina", String(pagina));
+  const s = p.toString();
+  return s ? `/instituciones?${s}` : "/instituciones";
+}
+
+/** Cuántas instituciones hay en cada sector (de la lista dada o del cruce entero). */
+export function contarPorSector(lista: readonly Institucion[] = INSTITUCIONES): Record<Sector, number> {
+  const cuenta = Object.fromEntries(SECTORES.map((s) => [s.clave, 0])) as Record<Sector, number>;
+  for (const i of lista) cuenta[i.sector] += 1;
+  return cuenta;
+}
 
 const POR_ID = new Map(INSTITUCIONES.map((i) => [i.id, i]));
 
@@ -63,9 +220,13 @@ export function institucionPorId(id: number | string): Institucion | null {
   return POR_ID.get(Number(id)) ?? null;
 }
 
-/** Las unidades de compra adscritas a un capítulo presupuestario. */
+/**
+ * Las unidades de compra adscritas a un capítulo presupuestario. Solo las de
+ * la DGCP: la institución del clasificador que es el capítulo entero (el
+ * Senado, el Poder Judicial) no es una unidad de compra, y quien llama lo dice.
+ */
 export function institucionesDelCapitulo(capitulo: string): Institucion[] {
-  return INSTITUCIONES.filter((i) => i.capitulo === capitulo);
+  return INSTITUCIONES.filter((i) => i.dgcp && i.capitulo === capitulo);
 }
 
 const VACIAS = new Set(["de", "del", "la", "las", "el", "los", "y", "e", "para", "a", "al", "en", "rep", "dom"]);
@@ -132,10 +293,20 @@ export function buscarInstituciones(q: string, limite = 30): Institucion[] {
   const a = agujas(q);
   const peso = (i: Institucion) =>
     (normalize(i.acronimo) === needle ? 0 : 10) +
-    (i.tipo === "Institución" ? 0 : i.tipo === "Gobierno local" ? 2 : 1);
+    (i.tipo === "Institución" && i.sector !== "local" ? 0 : i.sector === "local" ? 2 : 1);
   return INSTITUCIONES.filter((i) => contieneTodas(plano(`${i.nombre} ${i.acronimo}`), a))
     .sort((a, b) => peso(a) - peso(b) || a.nombre.localeCompare(b.nombre, "es"))
     .slice(0, limite);
+}
+
+/**
+ * ¿Se la puede reconocer por su nombre en un texto libre? Hospitales y
+ * gobiernos locales no: se repiten entre sí («El Limón» son tres juntas de
+ * distrito), y un enlace adivinado es peor que ninguno. El sector cubre al
+ * gobierno local que la DGCP rotula «Institución» y a los del clasificador.
+ */
+export function seReconocePorNombre(i: Institucion): boolean {
+  return i.tipo !== "Hospital" && i.tipo !== "Gobierno local" && i.sector !== "local";
 }
 
 /** Las siglas de quien ejecuta, para buscar por ellas donde la fuente solo trae el nombre. */
@@ -154,7 +325,7 @@ export function institucionesNombradasEn(texto: string, limite = 5): Institucion
   const plano = (v: string) => ` ${normalize(v).replace(/[^a-z0-9]+/g, " ").trim()} `;
   const heno = plano(texto);
   return INSTITUCIONES.filter((i) => {
-    if (i.tipo === "Hospital" || i.tipo === "Gobierno local") return false;
+    if (!seReconocePorNombre(i)) return false;
     const aguja = plano(i.nombre.replace(/\([^)]*\)/g, " "));
     return aguja.trim().length >= 18 && heno.includes(aguja);
   }).slice(0, limite);
