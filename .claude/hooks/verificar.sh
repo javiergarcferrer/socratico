@@ -63,7 +63,7 @@ if [ -z "$mov" ]; then ok "motion: curves and durations come from the tokens"; e
 
 # 2f. The graph (docs/PLAN-ACCESO.md §6 ter, G1): every entity address comes
 # from lib/grafo.ts (`enlace.*`), so a link cannot be built by hand and drift.
-grafo="$(grep -rnE '[`"]/(instituciones|proveedores|procesos|normativa|congreso|obras|provincias|finanzas)/(\$\{|[a-z0-9-]+/\$\{|"[[:space:]]*\+)' app components lib --include=*.ts --include=*.tsx 2>/dev/null \
+grafo="$(grep -rnE '[`"]/(instituciones|proveedores|procesos|normativa|congreso|obras|provincias|finanzas|funcionarios|banca|empresas)/(\$\{|[a-z0-9-]+/\$\{|"[[:space:]]*\+)' app components lib --include=*.ts --include=*.tsx 2>/dev/null \
          | grep -vE '^lib/grafo' | grep -vE ':[0-9]+:[[:space:]]*(//|/?\*)' | head -5)"
 if [ -z "$grafo" ]; then ok "graph: every entity href comes from lib/grafo.ts"; else mal "entity href built by hand — use enlace.* from lib/grafo.ts"; printf '%s\n' "$grafo" | sed 's/^/       /'; fi
 

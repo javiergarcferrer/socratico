@@ -28,7 +28,10 @@ export type TipoNodo =
   | "obra"
   | "provincia"
   | "capitulo"
-  | "cargo";
+  | "cargo"
+  | "funcionario"
+  | "entidad-financiera"
+  | "empresa";
 
 /** El tipo de norma, tal como lo nombra la Consultoría, y su tramo de URL. */
 export const RUTA_NORMA: Record<string, string> = {
@@ -104,6 +107,21 @@ export const enlace = {
   /** Un cargo no tiene ficha: es la nómina filtrada por él. */
   cargo(nombre: string): string {
     return `/nomina?cargo=${encodeURIComponent(nombre)}`;
+  },
+  /**
+   * Una persona con cargo público: `/funcionarios/luis-rodolfo-abinader-corona`.
+   * La clave es su nombre normalizado, nunca la cédula (docs/DECISIONES.md).
+   */
+  funcionario(slug: string): string {
+    return `/funcionarios/${encodeURIComponent(slug.trim())}`;
+  },
+  /** Una entidad supervisada (banco, AFP, aseguradora, cooperativa): `/banca/banreservas`. */
+  entidadFinanciera(slug: string): string {
+    return `/banca/${encodeURIComponent(slug.trim())}`;
+  },
+  /** Una persona jurídica del padrón de la DGII, por su RNC de nueve cifras: `/empresas/401010062`. */
+  empresa(rnc: string | number): string {
+    return `/empresas/${String(rnc).replace(/\D/g, "")}`;
   },
 } as const;
 
