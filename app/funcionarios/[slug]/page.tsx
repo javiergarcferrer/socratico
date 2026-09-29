@@ -311,9 +311,10 @@ function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Set<string>
           </time>
         )}
         {!c.fecha && c.periodo && <span className="font-mono text-xs tabular-nums text-ink-soft">{c.periodo}</span>}
+        {/* El tipo de cargo, no el estado de la persona: si hoy es PEP lo dice la tarjeta de arriba. */}
         {c.numeral311 != null && (
-          <Badge variant="contorno" title={`Ley 311-14, art. 2, num. ${c.numeral311}`}>
-            PEP
+          <Badge variant="contorno" title="Cargo obligado a declarar patrimonio (Ley 311-14, art. 2)">
+            {`Ley 311-14 · num. ${c.numeral311}`}
           </Badge>
         )}
       </div>
