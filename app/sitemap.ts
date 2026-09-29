@@ -6,6 +6,7 @@ import { INDICE } from "@/lib/indice";
 import { PROVINCIAS } from "@/lib/provincias";
 import { getObras } from "@/lib/obras";
 import { getDirectorioLegisladores } from "@/lib/congreso";
+import { getFinancieras } from "@/lib/financieras";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -44,15 +45,16 @@ async function rutasDeNormas(): Promise<string[]> {
 /**
  * El mapa del sitio: las vistas de cada vertical, las páginas transversales y
  * las fichas que se pueden enumerar —instituciones, provincias, obras,
- * capítulos del presupuesto, las normas de la instantánea y los legisladores
- * del período—. Procesos, iniciativas y proveedores son cientos de miles y
+ * capítulos del presupuesto, las normas de la instantánea, los legisladores
+ * del período y las entidades financieras—. Procesos, iniciativas y proveedores son cientos de miles y
  * cambian a diario: el buscador los encuentra por sus enlaces desde estas.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [obrasInst, normas, directorio] = await Promise.all([
+  const [obrasInst, normas, directorio, financieras] = await Promise.all([
     getObras(),
     rutasDeNormas(),
     getDirectorioLegisladores().catch(() => null),
+    getFinancieras(),
   ]);
   const obras = obrasInst?.proyectos ?? [];
   const vistas = SECCIONES.flatMap((s) => s.vistas.map((v) => v.href));
@@ -81,6 +83,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     ...CAPITULOS.map((c) => ({
       url: `${SITIO}/finanzas/${c.codigo}`,
+      changeFrequency: "monthly" as const,
+    })),
+    ...(financieras?.entidades ?? []).map((e) => ({
+      url: `${SITIO}${enlace.entidadFinanciera(e.slug)}`,
       changeFrequency: "monthly" as const,
     })),
   ];

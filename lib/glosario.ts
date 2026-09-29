@@ -264,6 +264,88 @@ export const GLOSARIO = {
     guia: GUIA_DEUDA,
   },
 
+  /* ----------------------------------------------- Bancos y financieras */
+  eif: {
+    termino: "Entidad de intermediación financiera",
+    llano:
+      "Toda entidad que recibe dinero del público (ahorros, depósitos) para prestarlo. Necesita la autorización de la Junta Monetaria y la supervisa la Superintendencia de Bancos.",
+  },
+  bancoMultiple: {
+    termino: "Banco múltiple",
+    llano:
+      "El banco que puede hacer casi todas las operaciones que permite la Ley Monetaria y Financiera (183-02): cuentas corrientes, de ahorro y a plazo, préstamos, tarjetas y divisas.",
+  },
+  asociacionAhorros: {
+    termino: "Asociación de ahorros y préstamos",
+    llano:
+      "Una entidad sin accionistas, de carácter mutualista: nació para financiar la vivienda y hoy recibe ahorros y presta. La supervisa la Superintendencia de Bancos.",
+  },
+  bancoAhorroCredito: {
+    termino: "Banco de ahorro y crédito",
+    llano:
+      "Recibe ahorros y depósitos a plazo y presta, pero no ofrece cuentas corrientes. Es una de las categorías de la Ley Monetaria y Financiera (183-02).",
+  },
+  corporacionCredito: {
+    termino: "Corporación de crédito",
+    llano:
+      "Presta dinero y recibe depósitos a plazo, sin cuentas de ahorro ni corrientes: la categoría de operaciones más limitada de la Ley Monetaria y Financiera (183-02).",
+  },
+  entidadPublica: {
+    termino: "Entidad pública de intermediación financiera",
+    llano:
+      "Un banco del Estado creado para un fin concreto: el crédito al campo en el Banco Agrícola, las exportaciones en el Bandex. Banreservas también es del Estado, pero la Superintendencia de Bancos lo cuenta como banco múltiple.",
+  },
+  cooperativa: {
+    termino: "Cooperativa de ahorro y crédito",
+    llano:
+      "Una asociación de personas que ahorran juntas y se prestan entre sí; es de sus socios. Las de servicios múltiples, como la de los maestros, suman otros servicios. Nace por decreto del Poder Ejecutivo y la fiscaliza el IDECOOP, no la Superintendencia de Bancos.",
+  },
+  afp: {
+    termino: "AFP",
+    llano:
+      "Administradora de fondos de pensiones: la empresa que invierte, para tu retiro, lo que tú y tu empleador aportan cada mes a tu cuenta de pensión. La supervisa la Superintendencia de Pensiones (SIPEN).",
+  },
+  aseguradora: {
+    termino: "Aseguradora",
+    llano:
+      "Compañía que cobra una prima a cambio de pagar si ocurre lo asegurado. Una reaseguradora asegura, a su vez, a las aseguradoras. Las supervisa la Superintendencia de Seguros.",
+  },
+  agenteCambio: {
+    termino: "Agente de cambio",
+    llano:
+      "Empresa autorizada por la Junta Monetaria a comprar y vender dólares y otras divisas. Si además paga las remesas que llegan del exterior, es agente de remesas y cambio.",
+  },
+  fiduciaria: {
+    termino: "Fiduciaria",
+    llano:
+      "Administra bienes o dinero que otros le confían en un fideicomiso, para el fin que se pactó al crearlo. Lo que administra no es suyo.",
+  },
+  buroCredito: {
+    termino: "Buró de crédito",
+    llano:
+      "Empresa que reúne el historial de pagos de personas y empresas y lo informa a quien va a prestar, para que mida el riesgo. La ley la llama sociedad de información crediticia.",
+  },
+  oficinaRepresentacion: {
+    termino: "Oficina de representación",
+    llano:
+      "La oficina de un banco extranjero que busca negocios para su casa matriz. No puede recibir depósitos ni prestar en el país.",
+  },
+  participacionMercado: {
+    termino: "Participación de mercado",
+    llano:
+      "La parte de los activos de todo el sistema de intermediación que tiene esta entidad, según la Superintendencia de Bancos.",
+  },
+  calificacionRiesgo: {
+    termino: "Calificación de riesgo",
+    llano:
+      "La nota que una empresa calificadora pone a la capacidad de la entidad de pagar lo que debe: cuantas más A, mejor, y la más alta es AAA.",
+  },
+  subagente: {
+    termino: "Subagente bancario",
+    llano:
+      "Un comercio, como un colmado o una farmacia, que un banco contrata para que la gente deposite, retire o pague a su nombre.",
+  },
+
   /* -------------------------------------------------------------- Nómina */
   masaSalarial: {
     termino: "Masa salarial",

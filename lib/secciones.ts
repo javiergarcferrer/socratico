@@ -304,6 +304,12 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
       "Un RNC, cédula o RPE busca en el registro completo; un nombre, entre todos los que contrataron desde 2015 y los que ganaron algo este último mes.",
   },
   {
+    etiqueta: "Bancos y financieras",
+    href: "/banca",
+    alcance:
+      "Nombre, razón social, siglas o RNC de los bancos, asociaciones, financieras, agentes de cambio, fiduciarias, AFP, aseguradoras y cooperativas de ahorro que registran sus supervisores, todas las palabras en cualquier orden y sin distinguir tildes (instantánea).",
+  },
+  {
     seccion: "congreso",
     etiqueta: "Diputados",
     href: "/congreso",

@@ -6,6 +6,7 @@ import { getTasa } from "@/lib/tasa";
 import { getResumenHistorico } from "@/lib/historico";
 import { getIndiceBiblioteca } from "@/lib/biblioteca";
 import { getCatalogo } from "@/lib/catalogo";
+import { SECTORES_EIF, getFinancieras, type Sector } from "@/lib/financieras";
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 
@@ -92,6 +93,40 @@ export async function ResumenCatalogo() {
     <>
       Catálogo del {formatFecha(d.generado)}: {formatInt(d.total)} conjuntos de{" "}
       {formatInt(d.organizaciones)} organizaciones.
+    </>
+  );
+}
+
+/** El registro de entidades financieras: lo que trae de la Superintendencia de Bancos. */
+export async function ResumenFinancierasSb() {
+  const d = await getFinancieras();
+  if (!d) return <>La instantánea no está disponible ahora mismo.</>;
+  const n = (s: Sector) => formatInt(d.resumen.porSector[s] ?? 0);
+  const eif = SECTORES_EIF.reduce((t, s) => t + (d.resumen.porSector[s] ?? 0), 0);
+  return (
+    <>
+      Instantánea del {formatFecha(d.generado)}: {formatInt(eif)} entidades de intermediación
+      financiera, {n("cambiaria")} agentes de cambio y de remesas, {n("fiduciaria")} fiduciarias,{" "}
+      {n("informacion-crediticia")} burós de crédito y {n("oficina-representacion")} oficinas de
+      representación
+      {d.cortes.sb
+        ? `, con fichas actualizadas entre el ${formatFecha(d.cortes.sb.desde)} y el ${formatFecha(d.cortes.sb.hasta)}`
+        : ""}
+      .
+    </>
+  );
+}
+
+/** Lo que trae de la SIPEN, la Superintendencia de Seguros y el IDECOOP. */
+export async function ResumenFinancierasOtras() {
+  const d = await getFinancieras();
+  if (!d) return <>La instantánea no está disponible ahora mismo.</>;
+  const n = (s: Sector) => formatInt(d.resumen.porSector[s] ?? 0);
+  return (
+    <>
+      Instantánea del {formatFecha(d.generado)}: {n("afp")} AFP, {n("aseguradora")} compañías de
+      seguros y reaseguros, y {formatInt(d.resumen.cooperativasIncluidas)} cooperativas de las{" "}
+      {formatInt(d.resumen.cooperativasIncorporadas)} incorporadas.
     </>
   );
 }

@@ -17,6 +17,8 @@ import {
   ResumenBiblioteca,
   ResumenCatalogo,
   ResumenCombustibles,
+  ResumenFinancierasOtras,
+  ResumenFinancierasSb,
   ResumenHistorico,
   ResumenObras,
   ResumenRnc,
@@ -850,6 +852,72 @@ export default async function FuentesPage() {
             dos años y termina en su propio mes, que se dice junto a la cifra. Esa
             misma interfaz expone información interna que no debería ser pública; no
             se usa, y se notifica a la Superintendencia.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Superintendencia de Bancos · las entidades que supervisa" estado="activa" etiqueta="Instantánea local">
+          <p>
+            El registro de{" "}
+            <Link href="/banca" className="font-medium text-brand-700 hover:underline">
+              bancos y financieras
+            </Link>{" "}
+            sale de las fichas públicas de la SB: las entidades de intermediación
+            financiera (bancos múltiples y de ahorro y crédito, corporaciones de crédito,
+            asociaciones y las dos públicas), los agentes de cambio y de remesas, las
+            fiduciarias, los burós de crédito y las oficinas de representación de bancos
+            extranjeros. De cada una se copian los activos, la participación, los
+            empleados, las oficinas, los cajeros, la calificación de riesgo, el consejo y
+            los principales funcionarios; sus estados financieros y memorias son PDF y se
+            enlazan sin leerse. <ResumenFinancierasSb /> Cada ficha tiene su propia fecha
+            de actualización y se muestra la de cada una. La SB publica cuántos
+            accionistas tiene una entidad, no quiénes. Teléfonos, correos y direcciones no
+            se copian.
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            El sitio está tras un cortafuegos que, a un segundo entre peticiones, respondió
+            tras unas setenta con un desafío de JavaScript. No se resuelve: el script espera
+            diez segundos entre peticiones y, si lo ve, para sin escribir nada. No se leen
+            los más de siete mil subagentes (comercios que atienden a nombre de un banco) ni
+            las «otras entidades» y firmas de auditores, que usan otra ficha. El registro
+            mensual de entidades autorizadas de la SB, un CSV desde 2018 sin RNC y con los
+            nombres escritos de tres maneras, solo sirve para decir desde qué mes figura una
+            razón social; no para saber quién salió, porque un cambio de nombre parece una
+            salida.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="SIPEN, Superintendencia de Seguros e IDECOOP · AFP, aseguradoras y cooperativas" estado="activa" etiqueta="Instantánea local">
+          <p>
+            También en{" "}
+            <Link href="/banca" className="font-medium text-brand-700 hover:underline">
+              bancos y financieras
+            </Link>
+            : las AFP autorizadas, de la página de la SIPEN (razón social, fecha de registro
+            y resolución); las compañías de seguros y reaseguros de la lista de la
+            Superintendencia de Seguros, de la que solo se copian el nombre y la web porque
+            el resto es texto libre con direcciones y teléfonos; y las cooperativas del
+            archivo del IDECOOP que su tipología dice de ahorro, de crédito o solo de
+            servicios múltiples. <ResumenFinancierasOtras /> Ninguna de las tres fuentes
+            trae el RNC.
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            El archivo del IDECOOP cubre las cooperativas incorporadas por decreto de 1953 a
+            junio de 2024, no se ha vuelto a publicar y no dice cuáles siguen activas ni sus
+            cifras. El número del decreto lleva a su ficha cuando viene escrito como «188-24»;
+            el que viene como un número suelto, sin el año, se muestra tal cual.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Mercado de valores e intermediarios de seguros" estado="bloqueada" etiqueta="Sin acceso">
+          <p>
+            <strong>Superintendencia del Mercado de Valores</strong>: su sitio responde con
+            un desafío de Cloudflare hasta en el robots.txt, así que no están los puestos de
+            bolsa, las administradoras de fondos de inversión ni los emisores.{" "}
+            <strong>Registro de intermediarios de la Superintendencia de Seguros</strong>{" "}
+            (corredores y agentes): 403 de Cloudflare. Ninguno se rodea. La vía es
+            institucional: pedir el registro por la Ley 200-04 de libre acceso a la
+            información pública, o que cada superintendencia lo publique en datos.gob.do
+            como ya hace la de Bancos con su registro mensual.
           </p>
         </Fuente>
 
