@@ -129,6 +129,66 @@ export const enlace = {
   },
 } as const;
 
+/* ------------------------------------------------- nodos del grafo RDF */
+
+/**
+ * Los nodos que el grafo semántico describe en RDF (`lib/grafo-rdf.ts`,
+ * `/api/grafo`): los que tienen ficha y se leen de una instantánea. El `id`
+ * es el de su dirección: el slug de la persona, el código de la institución,
+ * el slug de la entidad financiera, el RNC, el número «NNN-AA» del decreto o
+ * el slug de la provincia.
+ */
+export type TipoNodoRdf = "funcionario" | "institucion" | "entidad-financiera" | "empresa" | "decreto" | "provincia";
+
+export interface NodoRdf {
+  tipo: TipoNodoRdf;
+  id: string;
+}
+
+/**
+ * La dirección estable de un nodo: la de su ficha, sin el sufijo de nombre de
+ * la institución (`/instituciones/5`, que la ficha acepta), para que su IRI no
+ * cambie si cambia el nombre.
+ */
+export function rutaDeNodo(n: NodoRdf): string {
+  switch (n.tipo) {
+    case "funcionario":
+      return enlace.funcionario(n.id);
+    case "institucion":
+      return enlace.institucion(Number(n.id));
+    case "entidad-financiera":
+      return enlace.entidadFinanciera(n.id);
+    case "empresa":
+      return enlace.empresa(n.id);
+    case "decreto":
+      return enlace.norma("decreto", n.id) ?? `/normativa?q=${encodeURIComponent(n.id)}`;
+    case "provincia":
+      return enlace.provincia(n.id);
+  }
+}
+
+/** El nodo que describe una ruta de la plataforma, o `null`. Acepta la ruta con o sin `#id`. */
+export function nodoDeRuta(ruta: string): NodoRdf | null {
+  const r = ruta.split(/[?#]/)[0].replace(/\/+$/, "");
+  let m: RegExpExecArray | null;
+  const d = (s: string) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  };
+  if ((m = /^\/funcionarios\/([a-z0-9-]{3,120})$/.exec(r))) return { tipo: "funcionario", id: m[1] };
+  if ((m = /^\/instituciones\/(\d{1,7})(?:-[a-z0-9-]*)?$/.exec(r))) return { tipo: "institucion", id: m[1] };
+  if ((m = /^\/banca\/([a-z0-9-]{1,120})$/.exec(r))) return { tipo: "entidad-financiera", id: m[1] };
+  if ((m = /^\/empresas\/(\d{9})$/.exec(r))) return { tipo: "empresa", id: m[1] };
+  if ((m = /^\/normativa\/decreto\/(\d{1,4}-\d{2,4})$/.exec(d(r)))) {
+    return { tipo: "decreto", id: numeroCanonico("decreto", m[1]) };
+  }
+  if ((m = /^\/provincias\/([a-z0-9-]{3,60})$/.exec(r))) return { tipo: "provincia", id: m[1] };
+  return null;
+}
+
 /* -------------------------------------------------------- reconocimiento */
 
 /** Una mención de un nodo dentro de un texto: dónde está y adónde lleva. */
