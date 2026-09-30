@@ -1863,7 +1863,9 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   los dos sentidos. El CSV mensual de autorizadas dice desde qué mes figura la razón
   social de 44 entidades; la SB cuenta 7,454 subagentes (7,161 bancarios, 293
   cambiarios). La instantánea se rehízo con `--sin-red` desde las respuestas
-  guardadas antes del desafío, sin una sola petición: el script ya no aborta ante
+  guardadas antes del desafío, sin una sola petición (la de Asociación La Nacional
+  la guarda la caché de una relectura de las 23:13, durante los reintentos, con los
+  mismos datos que la lectura anterior al desafío): el script ya no aborta ante
   el desafío, deja de pedirle a la SB, escribe lo que leyó entero y apunta en
   `resumen.sbNoLeidas` lo que quedó fuera.
 
