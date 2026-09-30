@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { GeoMapa } from "@/lib/mapa";
 import { Leyenda } from "./leyenda";
@@ -22,7 +23,8 @@ import { formatearValor, type FormatoValor } from "./formato";
  *  - cada provincia es su enlace (regla 6: cada marca lleva a su nodo), con
  *    `title` para el puntero y `aria-label` con la cifra para el lector;
  *  - el Distrito Nacional (92 km², un punto a esta escala) lleva además un
- *    círculo que se puede tocar.
+ *    círculo que se ve y se pulsa con el puntero; en el teléfono no llega a
+ *    los 44 px de blanco, y el camino es la lista.
  *
  * Con `ubicar`, el mapa no pinta una cifra: dice **dónde está** la
  * provincia elegida (paso 6) entre las demás (paso 2), y sirve de índice
@@ -43,17 +45,20 @@ export interface ZonaMapa {
   href?: string;
 }
 
-/** Superficie bajo la cual una provincia se dibuja además como punto tocable. */
+/** Superficie bajo la cual una provincia se dibuja además como punto. */
 const KM2_PUNTO = 200;
+
+/** Como tramos, la secuencial solo vale del paso 3 al 6: cuatro como mucho. */
+const TRAMOS_MAX = 4;
 
 export function MapaProvincias({
   geo,
   zonas,
   actual,
   etiqueta,
-  unidad = "",
+  unidad = ["", ""],
   formato = "entero",
-  tramos: nTramos = 4,
+  tramos = TRAMOS_MAX,
   ubicar = false,
   className,
 }: {
@@ -63,18 +68,20 @@ export function MapaProvincias({
   actual?: string | null;
   /** Qué pinta el mapa, para el lector de pantalla: «Obras por provincia». */
   etiqueta: string;
-  /** Lo que se cuenta, en plural: «obras». Va en la etiqueta de cada provincia. */
-  unidad?: string;
+  /** Lo que se cuenta, en singular y plural: `["obra", "obras"]`. Va en la etiqueta de cada provincia. */
+  unidad?: readonly [string, string];
   formato?: FormatoValor;
   tramos?: number;
   /** Mapa de ubicación: sin cifra ni leyenda, la elegida en tinta de firma. */
   ubicar?: boolean;
   className?: string;
 }) {
+  const nTramos = Math.min(Math.max(Math.round(tramos), 1), TRAMOS_MAX);
   const porSlug = new Map(zonas.map((z) => [z.slug, z]));
   const positivos = zonas.map((z) => z.valor).filter((v) => v > 0).sort((a, b) => a - b);
 
-  // Cortes por cuantiles; un empate nunca se parte entre dos tramos.
+  // Cortes por cuantiles: cada corte es un valor real mayor que el mínimo, así
+  // que ningún tramo queda vacío y un empate nunca se parte entre dos.
   const cortes: number[] = [];
   for (let j = 1; j < nTramos; j++) {
     const c = positivos[Math.floor((j * positivos.length) / nTramos)];
@@ -84,14 +91,60 @@ export function MapaProvincias({
   const nUsados = cortes.length + 1;
   // Los tramos usados, siempre terminando en el paso 6: tres tramos son 4, 5 y 6.
   const paso = (t: number) => 5 - (nUsados - 1) + t;
-  const rango = Array.from({ length: nUsados }, (_, t) => {
-    const del = positivos.filter((v) => tramoDe(v) === t);
-    return { t, min: del[0], max: del.at(-1) };
-  });
+  const rango =
+    positivos.length === 0
+      ? []
+      : Array.from({ length: nUsados }, (_, t) => {
+          const del = positivos.filter((v) => tramoDe(v) === t);
+          return { t, min: del[0], max: del[del.length - 1] };
+        });
 
   const [x0, y0, ancho, alto] = geo.viewBox;
   const elegida = geo.provincias.find((p) => p.slug === actual);
   const ceros = zonas.some((z) => z.valor <= 0) || geo.provincias.some((p) => !porSlug.has(p.slug));
+
+  const rellenoDe = (slug: string) => {
+    const valor = porSlug.get(slug)?.valor ?? 0;
+    if (ubicar) return SECUENCIAL_RELLENO[slug === actual ? 5 : 1];
+    return valor > 0 ? SECUENCIAL_RELLENO[paso(tramoDe(valor))] : SECUENCIAL_RELLENO[0];
+  };
+  const textoDe = (slug: string, nombre: string) => {
+    if (ubicar) return nombre;
+    const valor = porSlug.get(slug)?.valor ?? 0;
+    const palabra = unidad[valor === 1 ? 0 : 1];
+    return `${nombre}: ${formatearValor(valor, formato)}${palabra ? ` ${palabra}` : ""}`;
+  };
+  /*
+    Al apuntar o enfocar, el filete crece a 5 px: las fronteras son idénticas
+    en las dos provincias que las comparten, y la que se pinta después tapa
+    con su papel de 1.5 px el centro del trazo; la mitad interior se ve igual.
+    En el coropleta, además, el relleno baja un paso de luz.
+  */
+  const respuesta = (slug: string) =>
+    cn(
+      "group-hover:stroke-ink group-focus-visible:stroke-ink group-hover:[stroke-width:5] group-focus-visible:[stroke-width:5]",
+      ubicar && slug !== actual && "group-hover:fill-grafico-sec-3 group-focus-visible:fill-grafico-sec-3",
+      !ubicar && "group-hover:opacity-85 group-focus-visible:opacity-85",
+    );
+  const enlazar = (slug: string, texto: string, hijos: ReactNode, repetido = false) => {
+    const href = porSlug.get(slug)?.href;
+    if (!href) return <g key={slug + (repetido ? "-punto" : "")}>{hijos}</g>;
+    return (
+      <Link
+        key={slug + (repetido ? "-punto" : "")}
+        href={href}
+        aria-label={repetido ? undefined : texto}
+        aria-hidden={repetido || undefined}
+        aria-current={!repetido && slug === actual ? "page" : undefined}
+        // El punto repite el enlace de su provincia: una sola parada de tabulador.
+        tabIndex={ubicar || repetido ? -1 : undefined}
+        className="group outline-none"
+      >
+        {hijos}
+      </Link>
+    );
+  };
+  const puntos = geo.provincias.filter((p) => p.km2 < KM2_PUNTO);
 
   return (
     <figure className={cn("space-y-3", className)}>
@@ -103,15 +156,10 @@ export function MapaProvincias({
         className="h-auto w-full"
       >
         {geo.provincias.map((p) => {
-          const z = porSlug.get(p.slug);
-          const valor = z?.valor ?? 0;
-          const relleno = ubicar
-            ? SECUENCIAL_RELLENO[p.slug === actual ? 5 : 1]
-            : valor > 0
-              ? SECUENCIAL_RELLENO[paso(tramoDe(valor))]
-              : SECUENCIAL_RELLENO[0];
-          const texto = ubicar ? p.nombre : `${p.nombre}: ${formatearValor(valor, formato)} ${unidad}`;
-          const forma = (
+          const texto = textoDe(p.slug, p.nombre);
+          return enlazar(
+            p.slug,
+            texto,
             <>
               <title>{texto}</title>
               <path
@@ -119,36 +167,41 @@ export function MapaProvincias({
                 fillRule="evenodd"
                 vectorEffect="non-scaling-stroke"
                 className={cn(
-                  relleno,
-                  "stroke-canvas [stroke-width:1.5] transition-[stroke] duration-(--dur-toque) ease-firma",
-                  z?.href && "group-hover:stroke-ink group-focus-visible:stroke-ink",
-                  z?.href && ubicar && p.slug !== actual && "group-hover:fill-grafico-sec-3 group-focus-visible:fill-grafico-sec-3",
+                  rellenoDe(p.slug),
+                  "stroke-canvas [stroke-width:1.5] transition-[stroke,stroke-width,fill,opacity] duration-(--dur-toque) ease-firma",
+                  porSlug.get(p.slug)?.href && respuesta(p.slug),
                 )}
               />
-              {p.km2 < KM2_PUNTO && (
-                <circle
-                  cx={p.centro[0]}
-                  cy={p.centro[1]}
-                  r={11}
-                  vectorEffect="non-scaling-stroke"
-                  className={cn(relleno, "stroke-ink [stroke-width:1.5]")}
-                />
-              )}
-            </>
+            </>,
           );
-          return z?.href ? (
-            <Link
-              key={p.slug}
-              href={z.href}
-              aria-label={texto}
-              aria-current={p.slug === actual ? "page" : undefined}
-              tabIndex={ubicar ? -1 : undefined}
-              className="group outline-none"
-            >
-              {forma}
-            </Link>
-          ) : (
-            <g key={p.slug}>{forma}</g>
+        })}
+        {/*
+          Los puntos van después de todas las provincias: dentro de su propia
+          provincia, la vecina que se pinta luego (Santo Domingo sobre el
+          Distrito Nacional) tapaba un cuarto del círculo y se quedaba con el
+          clic. El anillo transparente agranda el blanco del puntero.
+        */}
+        {puntos.map((p) => {
+          const texto = textoDe(p.slug, p.nombre);
+          return enlazar(
+            p.slug,
+            texto,
+            <>
+              <title>{texto}</title>
+              <circle cx={p.centro[0]} cy={p.centro[1]} r={24} className="fill-transparent" />
+              <circle
+                cx={p.centro[0]}
+                cy={p.centro[1]}
+                r={11}
+                vectorEffect="non-scaling-stroke"
+                className={cn(
+                  rellenoDe(p.slug),
+                  "stroke-ink [stroke-width:1.5] transition-[stroke-width,fill,opacity] duration-(--dur-toque) ease-firma",
+                  porSlug.get(p.slug)?.href && respuesta(p.slug),
+                )}
+              />
+            </>,
+            true,
           );
         })}
         {elegida && !ubicar && (
@@ -173,10 +226,11 @@ export function MapaProvincias({
         {!ubicar && (
           <Leyenda
             entradas={[
-              ...(ceros ? [{ clave: "cero", etiqueta: formatearValor(0, formato), clase: SECUENCIAL[0] }] : []),
+              ...(ceros ? [{ clave: "cero", etiqueta: null, cifra: formatearValor(0, formato), clase: SECUENCIAL[0] }] : []),
               ...rango.map(({ t, min, max }) => ({
                 clave: String(t),
-                etiqueta:
+                etiqueta: null,
+                cifra:
                   min === max
                     ? formatearValor(min ?? 0, formato)
                     : `${formatearValor(min ?? 0, formato)} a ${formatearValor(max ?? 0, formato)}`,

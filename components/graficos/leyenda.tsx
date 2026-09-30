@@ -16,6 +16,7 @@ import { SECUENCIAL } from "./paleta";
  */
 export interface EntradaLeyenda {
   clave: string;
+  /** `null` cuando la cifra lo dice todo (los tramos de un mapa). */
   etiqueta: ReactNode;
   /** Clase de fondo de la muestra (`bg-grafico-1`, `TONOS.cumplido.dot`). */
   clase: string;
@@ -48,7 +49,7 @@ export function Leyenda({
                 e.clase,
               )}
             />
-            <span>{e.etiqueta}</span>
+            {e.etiqueta != null && <span>{e.etiqueta}</span>}
             {e.cifra != null && (
               <span className={cn("font-mono font-semibold tabular-nums", tinta ? "text-canvas" : "text-ink")}>
                 {e.cifra}

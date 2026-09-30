@@ -36,6 +36,7 @@ import json
 import math
 import pathlib
 import sys
+import time
 import unicodedata
 import urllib.request
 import zipfile
@@ -50,6 +51,18 @@ ANCHO = 1000  # ancho del viewBox; el alto sale de la proporción del país
 TOLERANCIA = 1.2  # en unidades del viewBox (1 u ≈ 0.39 km): ~0.5 km
 AREA_MINIMA = 6.0  # islotes de menos de 6 u² (~0.9 km²) no se dibujan
 LAT_MEDIA = 18.8
+
+# Los slugs de lib/provincias.ts (PROVINCIAS). Si la ONE renombra una
+# provincia, el script falla en vez de mandar el mapa a una ficha que no existe.
+SLUGS_PLATAFORMA = {
+    "distrito-nacional", "azua", "bahoruco", "barahona", "dajabon", "duarte",
+    "el-seibo", "elias-pina", "espaillat", "hato-mayor", "hermanas-mirabal",
+    "independencia", "la-altagracia", "la-romana", "la-vega",
+    "maria-trinidad-sanchez", "monsenor-nouel", "monte-cristi", "monte-plata",
+    "pedernales", "peravia", "puerto-plata", "samana", "san-cristobal",
+    "san-jose-de-ocoa", "san-juan", "san-pedro-de-macoris", "sanchez-ramirez",
+    "santiago", "santiago-rodriguez", "santo-domingo", "valverde",
+}
 
 # Nombre de la ONE (sin «Provincia ») → slug de lib/provincias.ts.
 SLUGS = {
@@ -66,14 +79,28 @@ def slug(nombre: str) -> str:
     return "-".join("".join(c if c.isalnum() else " " for c in s).split())
 
 
+def pedir(url: str, tipos: tuple[str, ...], timeout: int) -> bytes:
+    """GET con el User-Agent identificable, un reintento y el content-type comprobado."""
+    for intento in (1, 2):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                tipo = r.headers.get("content-type", "")
+                if not any(t in tipo for t in tipos):
+                    raise RuntimeError(f"{url}: content-type inesperado «{tipo}»")
+                return r.read()
+        except Exception as e:  # noqa: BLE001 — un reintento y fuera
+            if intento == 2:
+                raise
+            print(f"  reintento {url}: {e}", file=sys.stderr)
+            time.sleep(5)
+    raise AssertionError
+
+
 def bajar_geojson() -> bytes:
-    req = urllib.request.Request(PAQUETE, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        recursos = json.load(r)["result"]["resources"]
+    recursos = json.loads(pedir(PAQUETE, ("json",), 60))["result"]["resources"]
     url = next(x["url"] for x in recursos if x["name"] == "dom_admin_boundaries.geojson.zip")
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=600) as r:
-        crudo = r.read()
+    crudo = pedir(url, ("zip", "octet-stream"), 600)
     with zipfile.ZipFile(io.BytesIO(crudo)) as z:
         return z.read("dom_admin2.geojson")
 
@@ -118,6 +145,11 @@ def main() -> None:
     datos = json.loads(crudo)
     feats = datos["features"]
     assert len(feats) == 32, f"se esperaban 32 demarcaciones, llegaron {len(feats)}"
+    llegados = {slug(f["properties"]["adm2_name"]) for f in feats}
+    assert llegados == SLUGS_PLATAFORMA, (
+        f"slugs que no casan con lib/provincias.ts: sobran {sorted(llegados - SLUGS_PLATAFORMA)}, "
+        f"faltan {sorted(SLUGS_PLATAFORMA - llegados)}"
+    )
 
     # Anillos en coordenadas originales (tuplas exactas para reconocer los compartidos).
     anillos = []  # (slug, índice de polígono, es hueco, [vértices])

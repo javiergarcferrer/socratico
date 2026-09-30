@@ -107,6 +107,7 @@ export default async function ObrasPage({ searchParams }: { searchParams: Promis
   // El mapa cuenta lo que dejan los otros filtros, no el de provincia: elegir
   // una no apaga las demás, y así se ve dónde más está lo que se busca.
   const enMapa = provinciasDe(filtrarObras(datos.proyectos, { ...filtro, provincia: undefined }));
+  const mapaFiltrado = Boolean(filtro.q || estado || institucion);
 
   return (
     <div className="space-y-5">
@@ -168,8 +169,8 @@ export default async function ObrasPage({ searchParams }: { searchParams: Promis
                 <div className="px-5 pb-3">
                   <MapaProvincias
                     geo={geo}
-                    etiqueta={filtrado ? "Obras que coinciden, por provincia" : "Obras por provincia"}
-                    unidad="obras"
+                    etiqueta={mapaFiltrado ? "Obras que coinciden con los filtros, por provincia" : "Obras por provincia"}
+                    unidad={["obra", "obras"]}
                     actual={provincia?.slug}
                     zonas={enMapa.map((p) => ({
                       slug: p.slug,
@@ -179,9 +180,9 @@ export default async function ObrasPage({ searchParams }: { searchParams: Promis
                     className="mx-auto max-w-xl"
                   />
                   <p className="mx-auto mt-1.5 max-w-xl text-xs leading-relaxed text-ink-soft">
-                    {filtro.q || estado || institucion
-                      ? "Cuántas de las obras que coinciden con la búsqueda toca cada provincia"
-                      : "Cuántas obras toca cada provincia"}
+                    {mapaFiltrado
+                      ? "Cuántas de las obras que coinciden con los filtros hay en cada provincia"
+                      : "Cuántas obras hay en cada provincia"}
                     , sin las de alcance nacional. Es un conteo, no un monto ni una tasa
                     por habitante: las provincias grandes y pobladas tienden a tener más.
                     Pulsa una provincia para ver sus obras.
