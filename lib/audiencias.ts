@@ -2,9 +2,7 @@
  * Rol Nacional de Audiencias del Poder Judicial: la historia de un caso en
  * todos los tribunales por los que pasó, buscada por su número único (NUC).
  *
- * Mecánica verificada en docs/AUDITORIA.md §H.13 (2026-09-30), con la consulta
- * aprobada por el dueño ese día (docs/DECISIONES.md, «Consultas POST sin
- * efecto: se amplía el precedente…»):
+ * Mecánica verificada en docs/AUDITORIA.md §H.13 (2026-09-30), con la consulta:
  *
  *  1. La página pública `rolnacionalaudiencias.poderjudicial.gob.do` es una SPA
  *     de React, sin CAPTCHA ni clave. Su API vive en

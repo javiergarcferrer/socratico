@@ -3,7 +3,7 @@
 patrimonio (Ley 311-14) que las propias instituciones publican en sus portales,
 atadas, cuando se puede sin dudas, a la ficha de quien declara.
 
-Decisión del dueño (2026-09-30, docs/DECISIONES.md): se enlazan. Hasta
+Se enlazan. Hasta
 entonces `scripts/build-documentos.py` las excluía del índice de documentos
 por título; siguen fuera de él para no contarlas dos veces: viven aquí, junto
 a la persona.

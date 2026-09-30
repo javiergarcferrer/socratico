@@ -44,8 +44,7 @@ Fuentes, en el orden en que se leen:
    (sin red).
 6. **Banco Central — la Junta Monetaria** (`/a/d/2557-miembros-jm`, AUDITORIA
    §H.13): la página es un cascarón que pide su contenido con el POST que hace
-   ella misma, `POST /Home/GetContentForRender` con `id=2557&languageName=es`
-   (aprobado por el dueño el 30-09-2026, docs/DECISIONES.md). Llega JSON dentro
+   ella misma, `POST /Home/GetContentForRender` con `id=2557&languageName=es`. Llega JSON dentro
    de `text/html`; los nombres y los cargos vienen en el HTML de
    `result.article.content`, y un miembro que ya salió queda **comentado** ahí:
    los comentarios se quitan antes de leer. Solo nombre y cargo.
@@ -62,7 +61,7 @@ todas las palabras de la firma están en su nombre.
 presentar declaración jurada de bienes», y esos los enumera la Ley 311-14 en
 su art. 2. `numeral_311()` asigna el numeral por el texto del cargo, con
 reglas conservadoras: si no casa con claridad, no se marca. Nunca se publica
-un parentesco (docs/DECISIONES.md, «Es familiar de no se publica»).
+un parentesco.
 
 Se niega a escribir si una fuente principal llega vacía o por debajo de lo
 plausible. Regenerar tras un día de decretos masivos o cada semana:

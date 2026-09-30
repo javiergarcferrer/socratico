@@ -30,7 +30,7 @@ claves, lectura en vivo con caché.
 > PASADA** (§G); corrige §4.3 y §B.1 (Cámara de Cuentas ya responde), §5.2
 > (Poder Judicial: cadena TLS incompleta, resoluble) y §5.3 (el TC sí se lee).
 >
-> **Cuarta pasada: 2026-09-29.** Pedido del dueño: todas las entidades públicas,
+> **Cuarta pasada: 2026-09-29.** todas las entidades públicas,
 > los bancos, el registro mercantil y las personas expuestas políticamente, «todo
 > lo que un abogado necesita para investigar». Seis frentes de reconocimiento y
 > cinco capas nuevas. Va al final, en **CUARTA PASADA** (§H); corrige §5.6 (la
@@ -1269,7 +1269,7 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
 - ⚠️ El título suele ser el nombre del archivo; `date` es la fecha de subida;
   `description` no aporta. Declaraciones juradas nominales (Ley 311-14)
   aparecen entre los PDF (115 títulos el 2026-09-24): **se excluyen por título**
-  hasta que el dueño decida (docs/DECISIONES.md); el índice queda en 18,726.
+  hasta que el dueño decida; el índice queda en 18,726.
 - ✅ Barrido completo del 2026-09-24: **18,841 documentos de 22 instituciones**
   (18,726 publicados tras excluir las declaraciones juradas)
   (OGTIC 7,276; DIGEPRES 3,013; Ambiente 1,379; MIREX 1,306; MEM 1,217; INDOTEL
@@ -1634,7 +1634,7 @@ Para pintar un mapa sin teselas ni clave (`lib/mapa.ts`, `scripts/build-mapa.py`
 
 # CUARTA PASADA — 2026-09-29
 
-Pedido del dueño: «todas las entidades públicas», los bancos, el registro
+«todas las entidades públicas», los bancos, el registro
 mercantil, las personas expuestas políticamente «como el Presidente», y todo lo
 que un abogado necesita para empezar una investigación. Seis frentes a la vez
 (entidades financieras, registro mercantil y empresas, PEP del Ejecutivo, PEP de
@@ -1666,8 +1666,7 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   consulta que hace la página. `{"page":1,"rows":500}` → 13 páginas: el
   directorio entero en 13 lecturas. ⚠️ La página pide de 10 en 10 (616
   lecturas); pedir 500 cambia solo el tamaño de página de la misma consulta y
-  carga menos al servidor, pero no es literalmente la que hace el formulario:
-  queda anotado en docs/DECISIONES.md.
+  carga menos al servidor, pero no es literalmente la que hace el formulario.
 - ✅ Cada fila: `funcionarioId`, `institucion`, `funcionario` (nombre completo),
   `cargoPrincipal`, `unidadNombreCompleto`, `decreto` (612 de 6,153), `fechaDecreto`
   (todas), `orden` (nivel jerárquico: 1 Presidente, 2 Vicepresidenta, 3 los 21
@@ -1823,8 +1822,7 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   Decreto 408-17 (`?download=3581…`) devuelve la portada (200 que no prueba
   nada).
 - El art. 46 extiende la debida diligencia a cónyuge, parientes y «asociados
-  cercanos»: es obligación de los bancos, y la plataforma no publica parentescos
-  (docs/DECISIONES.md).
+  cercanos»: es obligación de los bancos, y la plataforma no publica parentescos.
 
 ### H.6 ⭐ Banca — la Superintendencia de Bancos y las otras supervisoras
 
@@ -2010,8 +2008,7 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   prohibiciones, bajas a solicitud del propio proveedor, «vínculo con
   investigados»). `FECHA_HABILITACION` trae centinelas futuros (2027, 2040, 2055).
   Con `inhabilitados=false` la tabla entera (80 MB) da razón social y RNC: casa
-  el 100 %. ⚠️ 400 son personas físicas (399 cédulas): decisión del dueño
-  (docs/DECISIONES.md).
+  el 100 %. ⚠️ 400 son personas físicas (399 cédulas): decisión del dueño.
   **Integrado (H6.5, `scripts/build-sanciones.py` → `public/data/sanciones.json`,
   965 KB; `lib/sanciones.ts`):** 1,756 medidas sobre 1,332 empresas y entidades.
   Fuera, solo contadas: 507 medidas sobre las 400 personas físicas, 6 filas de
@@ -2046,7 +2043,7 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   está en el registro de proveedores de la DGCP, ni cancelado. `robots.txt` del
   servicio de listas: 404. ✅ Lista consolidada de la ONU: 0
   menciones (control negativo). ⚠️ Banco Mundial: la tabla de inhabilitados sale
-  de una API con `apikey` publicada en su JS; el dueño aprobó usarla el 30-09-2026
+  de una API con `apikey` publicada en su JS
   sin escribirla en el repositorio (§H.13). ❌
   BID: 403 de Cloudflare hasta en robots.
 - ✅ **ProCompetencia**: robots con `Crawl-Delay: 20`; sus resoluciones no están en
@@ -2073,8 +2070,7 @@ Los avisos de estos hallazgos (y los de la SB, la CAASD y el 311) se entregan al
 dueño aparte y **no se guardan en el árbol de este repositorio, que es público**:
 el qué y el dónde de cada uno se escriben aquí cuando la institución lo haya
 corregido. Las versiones anteriores de estas líneas, con el detalle, **siguen en
-el historial de git**; qué hacer con eso lo decide el dueño (docs/DECISIONES.md,
-pendientes).
+el historial de git**; qué hacer con eso lo decide el dueño.
 
 ### H.11 Pendientes que deja esta pasada
 
@@ -2135,11 +2131,11 @@ robots primero, solo GET, sin transcribir ningún PDF:
   0 por esa vía. Ambiente: robots 403 (Cloudflare), no se lee.
 - Veredicto para el dueño: **la declaración de Luis Abinader no está publicada en
   abierto** en ningún portal legible; la tiene la Cámara de Cuentas y se consulta a
-  mano en su consulta pública. Decisión de enlazar: docs/DECISIONES.md (30-09-2026).
+  mano en su consulta pública; se enlaza.
 
 ### H.13 Consultas POST aprobadas y el Banco Mundial (2026-09-30)
 
-Aprobado por el dueño el 30-09-2026 (docs/DECISIONES.md). Reconocimiento con el UA de
+Reconocimiento con el UA de
 la casa, como mucho tres POST por consulta, sin sesión ni cookies:
 
 - ✅ **Poder Judicial — Rol Nacional de Audiencias.** Página pública

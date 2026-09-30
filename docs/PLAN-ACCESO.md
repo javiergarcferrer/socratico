@@ -7,7 +7,7 @@ a su presupuesto, sus compras, su nómina y sus decretos, y de cada uno se vuelv
 Levantado el 2026-09-23 sobre el árbol en `c3b8834`, con tres recorridos del
 código (navegación, profundidad por vertical, fuentes pendientes). Cada punto
 cita dónde se comprobó. Se marca ✅ cuando se entrega y se mueve a la página
-que lo posea; lo que exija una decisión del dueño va a `docs/DECISIONES.md`.
+que lo posea.
 
 ## 1. Diagnóstico — dónde se atasca hoy un ciudadano
 
@@ -176,20 +176,10 @@ Siguiente, por valor ÷ esfuerzo: §G.9.
 
 ## 5. Horizonte 4 — lo que solo desbloquea el dueño
 
-Gestiones institucionales, ya listadas en `docs/DECISIONES.md` y
-`docs/AUDITORIA.md` §F: el permiso de Cloudflare de la Consultoría (§4.1), ONE,
+Gestiones institucionales, listadas en `docs/AUDITORIA.md` §F: el permiso de Cloudflare de la Consultoría (§4.1), ONE,
 Cámara de Cuentas (declaraciones juradas: el eslabón persona ↔ patrimonio),
 JCE, 911 y el cliente de Cuenta Única. Ninguna sesión las gestiona; cada una
 deja preparados los pasos.
-
-## 6. Decisiones que este plan abre (van a `docs/DECISIONES.md` al tocarlas)
-
-- **Notificaciones push** del seguimiento: exigen guardar suscripciones en un
-  servidor, lo que rompe la invariante fuera de `/democracia`. Hasta que el
-  dueño decida, el aviso es RSS y «qué cambió» al volver.
-- **Instantáneas al día sin sesión humana**: una rutina programada que
-  regenere normativa (semanal), deuda y fiscal (mensual) y entregue por el
-  gate. Consume sesiones en la nube; lo aprueba el dueño.
 
 ## 6 bis. Bibliotecas abiertas en vez de código propio (auditoría 2026-09-26)
 
@@ -350,7 +340,7 @@ Del buscador, la revisión del 2026-09-27 (`docs/ARQUITECTURA.md` §Búsqueda):
   destilado a Model2Vec que entienda frases, o si el uso muestra que el
   estático se queda corto.
 
-## 6 ter. Horizonte 5 — el grafo (pedido del dueño, 2026-09-26)
+## 6 ter. Horizonte 5 — el grafo
 
 La plataforma pasa de un conjunto de verticales a **un grafo**: todo lo que se
 ve es un nodo que se puede pulsar e investigar, cada ficha dice con qué está
@@ -456,14 +446,14 @@ en llano llega a la pantalla correcta entre los tres primeros resultados.
 
 Orden: G1 → G4 (índice de pantallas, barato y visible) → G2 → G3. Nada de
 esto guarda datos: el grafo se deriva en cada lectura de las mismas fuentes e
-instantáneas (`docs/DECISIONES.md`, «El buscador no va a una base de datos»).
+instantáneas.
 
-## 6 quater. Horizonte 6 — el Estado entero y sus personas (pedido del dueño, 2026-09-29)
+## 6 quater. Horizonte 6 — el Estado entero y sus personas
 
 El dueño: «todas las entidades públicas», los bancos como entidades, el registro
 mercantil, las personas expuestas políticamente «como el Presidente», y todo lo
 que un abogado necesita para empezar a investigar. Reconocimiento en
-`docs/AUDITORIA.md` §H; decisiones en `docs/DECISIONES.md` (29-09-2026).
+`docs/AUDITORIA.md` §H.
 
 | # | Entrega | Hecho cuando |
 |---|---|---|
@@ -478,11 +468,11 @@ que un abogado necesita para empezar a investigar. Reconocimiento en
 
 Siguiente, por valor ÷ esfuerzo: personas y entidades en `/buscar` (hecho con
 H6.1–H6.2), guardar y seguir personas, bancos y empresas (migración del `check`
-de `espacios.guardados`, decisión del dueño), las últimas sentencias de la SCJ y
+de `espacios.guardados`), las últimas sentencias de la SCJ y
 las resoluciones de ProCompetencia en vivo, y el OCR propio de los decretos
 anteriores a 2012.
 
-## 6 quinquies. Horizonte 7 — el territorio (pedido del dueño, 2026-09-30)
+## 6 quinquies. Horizonte 7 — el territorio
 
 El dueño: «un mapa de verdad», y más allá, una interfaz donde **todo nodo del
 grafo tenga un lugar** —el decreto en el Palacio Nacional, la compra en la
@@ -500,22 +490,11 @@ un punto en la capital de esa provincia. Un nodo sin lugar lo dice.
 | T1 ✅ | **El mapa de provincias** (`lib/mapa.ts`, `MapaProvincias`, AUDITORIA §G.16): coropleta de obras en `/obras`, índice en `/provincias`, ubicación en cada ficha de provincia | Cada provincia del mapa lleva a su filtro o a su ficha; la elegida se ve sobre cualquier tramo |
 | T2 | **Municipios**: `admin3` de la ONE en la misma instantánea (≈158 polígonos); obras por municipio si `IdMunicipio` de MapaInversiones casa con `adm3_pcode` (verificar primero) | `/obras` baja de provincia a municipio sin inventar |
 | T3 | **`lugar` en el grafo**: `lib/grafo.ts` gana `lugarDe(nodo)` con su precisión y su fuente. Ya hay lugar, sin fuente nueva: obra (municipio), legislador (provincia), gobernación y alcaldía (provincia/municipio), corte de luz de Edesur (provincia), proveedor del registro (provincia y municipio de su ficha), institución central (sede). Decretos → Presidencia → su sede | La ficha de cada tipo con lugar lo dice en «Conectado con» y en un mapa de ubicación |
-| T4 | **Puntos**: sedes de instituciones y domicilios de **personas jurídicas** (nunca de personas físicas: AUDITORIA §E, «publicar no es exponer»). La dirección sale del registro; la coordenada exige geocodificar | Decisión del dueño, abajo |
+| T4 | **Puntos**: sedes de instituciones y domicilios de **personas jurídicas** (nunca de personas físicas: AUDITORIA §E, «publicar no es exponer»). La dirección sale del registro; la coordenada exige geocodificar | Geocodificar y mapa base: sin definir |
 | T5 | **`/mapa`**: el explorador — capas (obras, proveedores, cortes, legisladores), filtro por fecha y por monto, clic → ficha | Cualquier capa llega a su ficha en un clic, y el mapa dice qué no puede ubicar |
 
-**Qué decide el dueño antes de T4** (no se hace sin él, va a `docs/DECISIONES.md`):
-1. *Geocodificar.* Nominatim (OpenStreetMap) en build, a 1 petición por
-   segundo y con atribución ODbL, no pide clave; Google o Mapbox, sí (y
-   cuestan). Una dirección dominicana geocodifica mal («Av. 27 de Febrero
-   esq. …»): hay que declarar la tasa de acierto.
-2. *Mapa base.* Para puntos hace falta calles. Sin romper la invariante: un
-   archivo PMTiles de la República Dominicana (Protomaps, datos de OSM,
-   decenas de MB) servido desde el propio dominio y pintado con MapLibre —sin
-   clave ni tercero en el navegador—. Con clave (Mapbox, MapTiler) no.
-
 **Por qué no una base de datos de grafos (Neo4j y similares).** El grafo de
-la plataforma se **deriva** en cada lectura de las fuentes y las instantáneas
-(`docs/DECISIONES.md`, «El buscador no va a una base de datos»); una base de
+la plataforma se **deriva** en cada lectura de las fuentes y las instantáneas; una base de
 grafos lo convertiría en una copia que hay que sincronizar, con un servidor,
 una credencial y una factura —justo lo que la invariante prohíbe en las
 superficies de inteligencia—. Y el tamaño no lo pide: decenas de miles de
@@ -526,24 +505,23 @@ comparte RNC con un funcionario?»)— se resuelve con un índice de adyacencia
 precalculado por `scripts/`. Se reabre solo si una consulta real necesita
 recorridos arbitrarios en vivo sobre millones de aristas.
 
-## 6 sexies. Horizonte 8 — la capa ontológica, para asistentes de IA (pedido del dueño, 2026-09-30)
+## 6 sexies. Horizonte 8 — la capa ontológica, para asistentes de IA
 
 El dueño: Socrático como **la capa ontológica de la República Dominicana**,
 conectada por MCP a Claude, ChatGPT y a quien investigue. La primera entrega
-está hecha: `/mcp` y `/conectar` (ARQUITECTURA, el servidor MCP;
-DECISIONES, sus reglas). Lo que sigue, en orden de lo que más le falta a una
+está hecha: `/mcp` y `/conectar` (ARQUITECTURA, el servidor MCP). Lo que sigue, en orden de lo que más le falta a una
 investigación:
 
 | # | Entrega | Hecho cuando |
 |---|---|---|
 | M1 ⚠️ | **El servidor**: `search`, `fetch`, `neighbors`, `path`, `signed_decrees`, `ontology`, sobre el índice y el grafo; forma de ChatGPT en `search`/`fetch`; revisiones 2025 y 2026-07-28. Hecho y probado con los clientes oficiales del SDK (1.x y 2.x) contra el despliegue; conectado desde Claude el 30-09-2026 (la sesión que hizo M2 y M5 lo usó como conector); falta anotar la primera conexión desde ChatGPT | Claude y ChatGPT lo conectan con la dirección y cada respuesta trae fuente y corte |
-| M2 ⚠️ | **Compras de un proveedor o de una institución**: `procurement` (todos los procesos de los últimos doce meses, filtrados y ordenados por monto o fecha, con total y suma) y `contracting_history` (lo contratado desde 2015 por proveedor, institución, el par y el país, de `lib/historico.ts`), hechas el 30-09-2026 sobre instantáneas, sin `lib/dgcp.ts` en vivo (DECISIONES, el servidor MCP). Falta lo que ninguna instantánea trae: **quién ganó cada proceso** y el par institución–proveedor fuera de las listas de mayores; la tabla de contratos no trae el código del proceso (AUDITORIA §G.1), así que pide un script que guarde las adjudicaciones por proceso desde la API. La pregunta del criterio, además, es la que la instantánea histórica no puede contestar por construcción: los contratos del MOPC comparten prefijo con la OPRET y no se le asignan; hoy la herramienta lo dice en vez de dar cero | «¿Qué le ha comprado el MOPC a esta empresa?» se contesta con contratos, montos y fechas, y dice cuántos leyó |
+| M2 ⚠️ | **Compras de un proveedor o de una institución**: `procurement` (todos los procesos de los últimos doce meses, filtrados y ordenados por monto o fecha, con total y suma) y `contracting_history` (lo contratado desde 2015 por proveedor, institución, el par y el país, de `lib/historico.ts`), hechas el 30-09-2026 sobre instantáneas, sin `lib/dgcp.ts` en vivo. Falta lo que ninguna instantánea trae: **quién ganó cada proceso** y el par institución–proveedor fuera de las listas de mayores; la tabla de contratos no trae el código del proceso (AUDITORIA §G.1), así que pide un script que guarde las adjudicaciones por proceso desde la API. La pregunta del criterio, además, es la que la instantánea histórica no puede contestar por construcción: los contratos del MOPC comparten prefijo con la OPRET y no se le asignan; hoy la herramienta lo dice en vez de dar cero | «¿Qué le ha comprado el MOPC a esta empresa?» se contesta con contratos, montos y fechas, y dice cuántos leyó |
 | M3 | **El texto**: el de una norma y el de un decreto (la Consultoría ya se lee; el PDF, por `lib/documentos.ts`), por páginas | El asistente cita el artículo, no solo el título |
 | M4 | **Cifras del panorama**: las de `/indicadores` y la deuda, cada una con su ancla (`lib/cifras.ts`) | Ninguna cifra sale sin su fecha y su fuente |
 | M5 ✅ | **Pruebas en el gate**: `scripts/eval-mcp.mjs`, 46 preguntas con su oráculo calculado de `public/data`, contra `next start` en `verificar.sh --completo` (ARQUITECTURA, el servidor MCP). La producción de antes de M2 pasaba 5 de las 24 primeras; las seis que siguen fijan lo que halló la revisión (homónimos, un RNC de dos RPE, la OPRET, las páginas, el año parcial), y dieciséis más el grafo con dinero, SPARQL y `retrieve` (M6 a M8) con lo que halló su revisión (el hilo que corta una consulta mal acotada, el enlace de siglas, nombres y homónimos) | Un cambio que rompa la forma de una herramienta no llega a `main` |
-| M6 ✅ | **El dinero en el grafo** (pedido del dueño, 30-09-2026: «un grafo de conocimiento y ontológico real»): `soc:Contratacion` en la ontología 1.1.0, las contrataciones de `lib/historico.ts` en la descripción de cada institución y empresa, atadas a la empresa por su RNC (`scripts/build-historico-rnc.py`), y el grupo «compras» en el explorador, `neighbors` y `path` (ARQUITECTURA, el grafo semántico) | Una empresa llega en dos saltos a quien dirige la institución que le contrató, y el monto de cada arista cuadra con `/historico` (la evaluación lo comprueba) |
+| M6 ✅ | **El dinero en el grafo**: `soc:Contratacion` en la ontología 1.1.0, las contrataciones de `lib/historico.ts` en la descripción de cada institución y empresa, atadas a la empresa por su RNC (`scripts/build-historico-rnc.py`), y el grupo «compras» en el explorador, `neighbors` y `path` (ARQUITECTURA, el grafo semántico) | Una empresa llega en dos saltos a quien dirige la institución que le contrató, y el monto de cada arista cuadra con `/historico` (la evaluación lo comprueba) |
 | M7 ✅ | **La recuperación para un asistente** (RAG sobre el grafo): `retrieve`, que junta buscador híbrido, entidades del grafo con sus relaciones y compras, y la consulta de compras, de contratación o el camino que la pregunta pide, con fuente y fecha en cada pieza | «¿Cuál es la compra más grande de 2026?», «¿cuánto le ha contratado el Estado a Viamar?» y «¿quién dirige el MINERD?» se contestan con una llamada |
-| M8 ✅ | **SPARQL**: a pedido, sobre la descripción de los nodos que se nombran y sus vecinos (`sparql`, N3.js y Comunica); el grafo entero sin personas naturales, para descargar y cargar en un motor propio (`public/data/grafo/grafo.nt.gz`, `scripts/build-grafo-volcado.mjs`), porque el dueño no quiere un servidor SPARQL (DECISIONES, «Sin servidor SPARQL») | Una consulta de conteo o de suma sobre una institución y sus vecinos cuadra con sus fichas, y el volcado se carga en un motor abierto sin errores y sin una persona |
+| M8 ✅ | **SPARQL**: a pedido, sobre la descripción de los nodos que se nombran y sus vecinos (`sparql`, N3.js y Comunica); el grafo entero sin personas naturales, para descargar y cargar en un motor propio (`public/data/grafo/grafo.nt.gz`, `scripts/build-grafo-volcado.mjs`), porque el dueño no quiere un servidor SPARQL | Una consulta de conteo o de suma sobre una institución y sus vecinos cuadra con sus fichas, y el volcado se carga en un motor abierto sin errores y sin una persona |
 | M9 | **El texto de las normas en la recuperación**: M3 hecho índice. Trocear por artículo el texto de leyes y decretos (Consultoría Jurídica), vectorizarlo con el mismo Model2Vec en `scripts/` y que `retrieve` cite el artículo | «¿Qué dice la Ley 47-25 sobre las compras de emergencia?» trae el artículo con su número y su enlace |
 
 El límite no se mueve: solo lectura, sin estado ni clave, y lo que la

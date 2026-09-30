@@ -42,7 +42,7 @@ export interface Seccion {
   nombre: string;
   /**
    * La vertical dicha como pregunta. Ya no se pinta en la cabecera —el dueño
-   * la cambió por el megamenú de `lib/menu.ts` (docs/DECISIONES.md)—; queda
+   * la cambió por el megamenú de `lib/menu.ts`—; queda
    * como palabra clave de la paleta, para que «qué compra» encuentre
    * Licitaciones.
    */

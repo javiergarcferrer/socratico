@@ -29,8 +29,7 @@ No se copia ningún archivo: el índice guarda título, fecha, tipo y la URL
 original, y la plataforma enlaza a ella. Las declaraciones juradas de
 patrimonio que algunas instituciones publican por mandato de la Ley 311-14
 **se excluyen por título** (`DECLARACION`) hasta que el dueño decida si un
-índice buscable por nombre de funcionario cabe en la Ley 172-13
-(docs/DECISIONES.md): el documento sigue en el sitio de la institución.
+índice buscable por nombre de funcionario cabe en la Ley 172-13: el documento sigue en el sitio de la institución.
 
 Uso:
     python3 scripts/build-documentos.py

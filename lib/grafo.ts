@@ -10,7 +10,7 @@
  * entidad armado fuera de este módulo.
  *
  * Nada aquí guarda datos ni los lee: el grafo se **deriva** de las mismas
- * fuentes e instantáneas en cada lectura (`docs/DECISIONES.md`). El módulo no
+ * fuentes e instantáneas en cada lectura. El módulo no
  * importa nada pesado, así que lo pueden usar los componentes de cliente; el
  * reconocimiento que necesita datos (nombres de instituciones) vive en
  * `lib/grafo-servidor.ts`.
@@ -110,7 +110,7 @@ export const enlace = {
   },
   /**
    * Una persona con cargo público: `/funcionarios/luis-rodolfo-abinader-corona`.
-   * La clave es su nombre normalizado, nunca la cédula (docs/DECISIONES.md).
+   * La clave es su nombre normalizado, nunca la cédula.
    */
   funcionario(slug: string): string {
     return `/funcionarios/${encodeURIComponent(slug.trim())}`;

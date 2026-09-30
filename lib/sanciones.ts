@@ -39,7 +39,7 @@ import { agujas, contieneTodas, plano } from "@/lib/raiz";
  *     quién no contrata el Banco en lo que financia, no una medida del Estado,
  *     y un mismo nombre no prueba que sea la misma empresa: se dice así. Su API
  *     exige la clave que publica su página; el build la lee de ahí y no la
- *     escribe (decisión del dueño, 2026-09-30).
+ *     escribe.
  *
  * Una instantánea tiene fecha de corte: que un proveedor no tenga medidas aquí
  * no certifica nada. Módulo de servidor (`node:fs`), memoizado por instancia.

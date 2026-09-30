@@ -21,7 +21,7 @@ y §G.1 para las tablas de la DGCP, §H.13 para el Banco Mundial):
    descartan al leer (§E.6: publicar no es exponer).
 5. **La lista de firmas e individuos inhabilitados del Banco Mundial**: la
    API que usa su página, con la clave que la página publica (se lee de la
-   página en cada corrida y no se escribe en ningún sitio; decisión del dueño
+   página en cada corrida y no se escribe en ningún sitio
    del 2026-09-30, docs/AUDITORIA.md §H.13). Se guardan las firmas ligadas al
    país y las que tienen exactamente el mismo nombre que un proveedor inscrito
    en la DGCP; los individuos solo se cuentan.
@@ -32,8 +32,7 @@ y §G.1 para las tablas de la DGCP, §H.13 para el Banco Mundial):
 
 Posturas:
 
-- **Las personas físicas, con su nombre y nunca con su cédula** (decisión del
-  dueño, 2026-09-30, docs/DECISIONES.md). Hasta entonces se contaban y no se
+- **Las personas físicas, con su nombre y nunca con su cédula**. Hasta entonces se contaban y no se
   publicaban. Una medida sobre una persona física inscrita con cédula se
   guarda con el nombre del registro y `fisica: true`; su documento no se
   escribe ni en la instantánea, y tampoco el enlace a la constancia del RPE,
@@ -419,8 +418,7 @@ def robots_permite_api(url: str) -> tuple[bool, str]:
 def leer_banco_mundial(local: pathlib.Path | None) -> tuple[list[dict], bytes, str | None]:
     """La lista de firmas e individuos inhabilitados del Banco Mundial
     (docs/AUDITORIA.md §H.13). Su API exige una clave que la propia página
-    publica en un `<script>`; el dueño aprobó usarla (docs/DECISIONES.md,
-    30-09-2026) con una condición: **no se escribe en ningún sitio**. Se lee
+    publica en un `<script>`; se usa con una condición: **no se escribe en ningún sitio**. Se lee
     de la página en cada corrida y vive solo en memoria. Devuelve las filas,
     la respuesta cruda (para `--guardar`; no lleva la clave) y la fecha de
     actualización que declara el Banco."""

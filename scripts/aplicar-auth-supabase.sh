@@ -3,7 +3,7 @@
 # Site URL de producción, la lista de redirecciones y las dos plantillas de
 # correo (Magic Link y Confirm signup) desde supabase/templates/.
 #
-# Es una **acción del dueño** (docs/DECISIONES.md): cambia la
+# Es una **acción del dueño**: cambia la
 # configuración del proyecto en vivo. El token no se guarda en ningún sitio,
 # se lee del entorno y muere con el proceso.
 #

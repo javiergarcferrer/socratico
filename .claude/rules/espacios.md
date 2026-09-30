@@ -16,7 +16,7 @@ paths:
 ---
 # The reader's account and spaces — the second exception
 
-docs/PLAN-ESPACIOS.md governs (owner decision 2026-09-28, docs/DECISIONES.md).
+docs/PLAN-ESPACIOS.md governs.
 Read §1 (contract) and §5 (applying) before changing anything here.
 
 ## Boundary

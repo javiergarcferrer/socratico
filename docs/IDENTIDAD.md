@@ -71,7 +71,7 @@ lo que **deroga**, y el punto del rótulo. En ningún otro sitio sin motivo.
   sección grande, a 600 y con −0,025 em de interletra (la base de
   `app/globals.css` lo pone en `h1`, `h2` y `.font-display`; no hace falta
   repetir peso). Un `h2` que es título de panel lleva `font-sans` y queda
-  fuera: ni Geist ni la interletra apretada. Desde el 2026-09-28 (decisión del dueño): la serif de antes
+  fuera: ni Geist ni la interletra apretada. Desde el 2026-09-28: la serif de antes
   se leía floja y anticuada.
 - **Public Sans** (`font-sans`) — *la explicación*. Cuerpo, interfaz,
   etiquetas, botones. La letra del estándar web de gobierno, puesta a servir
@@ -91,18 +91,17 @@ palabra «socrático» y la «s» del ícono. Nada más la usa.
 
 ## La marca — «socrático», el acento es el sello
 
-`components/marca.tsx`. Desde el 2026-09-24 (decisión del dueño) la marca es
+`components/marca.tsx`. Desde el 2026-09-24 la marca es
 una sola palabra en minúscula, **sin «.do»**: el nombre es Socrático.
 
 - `Logotipo` — «socrático» en Instrument Serif (`font-marca`); **el acento de la «á» es el
   sello**, un trazo inclinado en `marca-acento`. **La palabra vive solo sobre el
-  azul `marca`** (decisión del dueño, 2026-09-25): la cabecera, la placa azul
+  azul `marca`**: la cabecera, la placa azul
   del pie, la tarjeta para compartir. Nunca sobre blanco ni sobre papel; sobre
   papel la marca es la placa del ícono.
 - `SelloCompacto` — la «s» con el mismo acento en una placa (SVG): en el
   favicon (`app/icon.svg`) y el ícono de la app, placa azul `marca` con el
-  acento en `marca-acento`. **No va en la cabecera** (decisión del dueño,
-  2026-09-28): ahí la marca es la palabra sola, a 26–30 px, y en pantallas
+  acento en `marca-acento`. **No va en la cabecera**: ahí la marca es la palabra sola, a 26–30 px, y en pantallas
   anchas la acompaña «Pregúntale al Estado» en el registro mono.
 - `Sello` — la circular con «¿» al centro y el aro «SOCRÁTICO · PREGÚNTALE AL
   ESTADO · REPÚBLICA DOMINICANA». Es el sello de firma (pie de página, tarjeta
@@ -116,7 +115,7 @@ en la bandera ni el escudo: la herramienta es independiente y no oficial.
 
 ## Relieve — lo que se toca tiene canto
 
-Desde el 2026-09-25 (decisión del dueño) la profundidad existe, y **es
+Desde el 2026-09-25 la profundidad existe, y **es
 semántica**: dice qué se puede hacer con cada cosa. Hay cuatro estados y
 ninguno es decorativo.
 
@@ -127,7 +126,7 @@ ninguno es decorativo.
 | **Hundido** | Está puesto | Sin canto, sombra por dentro. | El filtro que es la página actual (`aria-current`), «Siguiendo» (`aria-pressed`), la opción elegida de un conmutador, la bandeja del conmutador. |
 | **Capa** | Se superpone | `shadow-pop`. | Menús, hojas, diálogos. |
 
-**La cabecera es la tapa del expediente** (decisión del dueño, 2026-09-28):
+**La cabecera es la tapa del expediente**:
 azul `marca` con la fibra en papel (`--grano-claro`), luz de 1 px arriba y
 canto duro de 2 px en `marca-canto`. Es la única superficie que lleva fibra
 sin pulsarse, porque es la marca y no contenido. Al desplazarse se asienta
@@ -323,7 +322,7 @@ Tokens en `app/globals.css` (`--color-grafico-*`); clases literales en
 
 1. **Pregunta, no acusa.** Los titulares son preguntas; los datos responden.
    La conclusión la saca el lector. La pregunta vive en los titulares de
-   página, no en la cabecera: desde el 2026-09-23 (decisión del dueño) la
+   página, no en la cabecera: desde el 2026-09-23 la
    cabecera es un megamenú de sustantivos —Dinero público, Leyes, El Estado—
    donde cada destino lleva debajo una línea que dice qué hay (`lib/menu.ts`).
 2. **Cita la fuente o no lo dice.** Cada cifra lleva origen y fecha. Lo que la

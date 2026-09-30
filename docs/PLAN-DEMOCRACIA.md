@@ -183,7 +183,7 @@ registro tiene que aceptar las tres mientras el Site URL del proyecto siga en
 |---|---|
 | `GET /auth/v1/verify?token=…&type=magiclink&redirect_to=https://brillo-soft.vercel.app/democracia/registro` | `303 → http://localhost:3000#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired` |
 | `POST /auth/v1/otp?redirect_to=https://brillo-soft.vercel.app/democracia/registro` (usuario inexistente, `create_user:false`) | `422 otp_disabled` — o sea, **pasó** la validación de redirección |
-| `GET /auth/v1/settings` | `email:true`, `disable_signup:false`, `mailer_autoconfirm:true` (✅ `false` desde el 2026-09-28, docs/DECISIONES.md) |
+| `GET /auth/v1/settings` | `email:true`, `disable_signup:false`, `mailer_autoconfirm:true` (✅ `false` desde el 2026-09-28) |
 
 Tres conclusiones, y las tres están en el código:
 
@@ -463,7 +463,7 @@ Pasos del dueño, en orden (ninguno lo hace una sesión):
    `https://socratico.vercel.app/democracia/cuenta-unica/callback` y
    `https://socratico.do/democracia/cuenta-unica/callback`.
 2. ✅ Aplicar la migración `20260902120000` al proyecto `Transac` — hecho el
-   2026-09-26 a pedido del dueño (`apply_migration`, contenido idéntico al
+   2026-09-26 (`apply_migration`, contenido idéntico al
    archivo). Antes: 3 votos, 1 votante, `hash_cedula` ejecutable por `anon`
    y `authenticated` —el oráculo del pepper estaba abierto por REST—, sin USAGE
    del rol de servicio. Después: los mismos 3 votos y 1 votante (`origen` =

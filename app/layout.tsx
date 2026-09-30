@@ -27,7 +27,7 @@ import { IconArrowRight } from "@/components/icons";
     · IBM Plex Mono    — el registro: montos, códigos, expedientes y fechas,
       todo lo que se copia y se verifica.
   Y una cuarta que no es oficio sino marca: Instrument Serif dibuja solo la
-  palabra «socrático» y la «s» del ícono (decisión del dueño, 2026-09-24).
+  palabra «socrático» y la «s» del ícono.
 */
 const publicSans = Public_Sans({
   subsets: ["latin"],
@@ -145,7 +145,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           */}
           <div className="mx-auto flex min-h-[64px] max-w-6xl items-center gap-2.5 px-4 py-2 sm:gap-4">
             {/*
-              La marca es la palabra, sola (decisión del dueño, 2026-09-28): sin
+              La marca es la palabra, sola: sin
               placa, «socrático» con su acento de sello. En pantallas anchas la
               acompaña lo que promete, en el registro de la casa.
             */}

@@ -18,7 +18,7 @@ es_archivo_ui() {
 
 # Files that legitimately touch Supabase / env vars: the two documented
 # exceptions — /democracia (docs/PLAN-DEMOCRACIA.md) and the reader's account
-# and spaces (docs/PLAN-ESPACIOS.md, owner decision 2026-09-28). A data surface
+# and spaces (docs/PLAN-ESPACIOS.md). A data surface
 # (a ficha, a listing) never imports Supabase: it renders a component from
 # components/espacios/, and that component is the only thing that talks to the
 # database. Everything else is stateless by contract.

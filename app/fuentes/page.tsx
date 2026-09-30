@@ -888,7 +888,7 @@ export default async function FuentesPage() {
             ya pasó) y algunas son lejanísimas, de 2044 o 2055, sin explicación. Las medidas
             sobre personas físicas se publican con el nombre con que se inscribieron, nunca con
             su cédula ni con la constancia del registro que la muestra, y sus filas no se ofrecen
-            a los buscadores (decisión del dueño, 30-09-2026). No se publican las filas de prueba
+            a los buscadores. No se publican las filas de prueba
             del propio sistema ni las repetidas, y en los motivos se omiten el nombre y el
             documento de quien firma una solicitud. Es una instantánea: una medida posterior a su fecha no sale. Regenerar con{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-sanciones.py</code>.
@@ -921,7 +921,7 @@ export default async function FuentesPage() {
             las que tienen exactamente el mismo nombre que un proveedor inscrito en la DGCP.
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
-            Su API exige una clave que la propia página del Banco publica: el dueño aprobó usarla
+            Su API exige una clave que la propia página del Banco publica: se usa
             el 30-09-2026 con una condición, que la clave no se escriba en ningún sitio. El script
             la lee de la página en cada corrida y la usa en memoria. Los individuos se cuentan y no
             se muestran. Un mismo nombre no prueba que sea la misma empresa: la plataforma dice
@@ -1002,7 +1002,7 @@ export default async function FuentesPage() {
             pública, que busca por nombre pero pide un CAPTCHA en cada búsqueda: la plataforma no
             la lee y la ficha de cada obligado la enlaza para que el lector busque. La Presidencia
             no publica en abierto las del Presidente ni la Vicepresidenta; su sección de
-            declaraciones no se actualiza desde 2021. Decisión del dueño del 30-09-2026.
+            declaraciones no se actualiza desde 2021.
           </p>
         </Fuente>
 

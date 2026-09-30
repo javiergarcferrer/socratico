@@ -102,7 +102,7 @@ grant execute on function espacios.guardar_narrativa(uuid, jsonb, integer) to au
 -- Lo mismo que antes, más el tablero, las fechas, el verbo de cada enlace y
 -- la narración. Sigue sin ids de usuario ni correos. «Es familiar de» no se
 -- publica nunca: un parentesco entre personas con nombre es un dato personal
--- (Ley 172-13) y queda en el caso privado (decisión del dueño, 28-09-2026).
+-- (Ley 172-13) y queda en el caso privado.
 create or replace function espacios.publicado(p_slug text)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(

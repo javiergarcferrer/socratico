@@ -20,8 +20,6 @@ Cada cosa tiene una página dueña — `docs/HARNESS.md` §4 dice cuál:
   domain table in `CLAUDE.md`.
 - A new invariant or a rule you had to learn the hard way → the matching
   `.claude/rules/*.md`, one line, with the file that proves it.
-- A decision the owner must make → `docs/DECISIONES.md`, dated, not a question
-  in chat.
 - Anything that changes how a session is shaped → `docs/HARNESS.md`.
 
 ## 2. Gate

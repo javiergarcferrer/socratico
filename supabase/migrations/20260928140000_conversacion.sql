@@ -1,6 +1,6 @@
 -- La conversación: hilos, comentarios, votos, denuncias y moderación sobre los
 -- registros de la plataforma y las investigaciones publicadas
--- (docs/PLAN-ESPACIOS.md §6; decisión del dueño 2026-09-28).
+-- (docs/PLAN-ESPACIOS.md §6).
 --
 -- Contrato:
 --  · Vive en el esquema `espacios`: es de lo que el lector pone, no del Estado.

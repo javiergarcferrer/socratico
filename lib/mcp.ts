@@ -2136,12 +2136,9 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
  * que se nombran y, si se quiere, de sus vecinos, más la ontología, cargadas
  * en un almacén N3.js en memoria que vive lo que dura la llamada, con el motor
  * de consultas Comunica (su versión para fuentes RDF/JS, sin red). Las dos son
- * de código abierto (MIT) y pasan el criterio de dependencias
- * (docs/DECISIONES.md, «Código abierto probado»); Oxigraph era más rápido,
- * pero su registro lo publica un solo mantenedor.
+ * de código abierto (MIT).
  *
- * No es un almacén del grafo entero: el dueño no quiere un servidor SPARQL
- * (docs/DECISIONES.md, «Sin servidor SPARQL»), y el grafo sin personas
+ * No es un almacén del grafo entero: el dueño no quiere un servidor SPARQL, y el grafo sin personas
  * naturales se descarga entero. Medido el 30-09-2026 sobre ese volcado
  * (816 mil triples), N3 con Comunica lo carga en ~10 s con ~1,2 GB: demasiado
  * para el arranque en frío de esta función, que ya lleva el índice de

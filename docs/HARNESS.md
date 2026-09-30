@@ -47,7 +47,7 @@ decisiones del dueño vivían dentro del archivo de arranque.
 | **T1 · automático, cada turno** | `CLAUDE.md` (inyectado entero); `.claude/settings.json` (los hooks corren antes del primer turno); la salida de `session-start.sh`; las **descripciones** del frontmatter de cada habilidad y agente (entran en la lista de herramientas). | Estas son las reglas. Su coste se paga en cada turno, así que la longitud aquí es el presupuesto más escaso del repositorio. Una descripción **es** comportamiento: decide cuándo se dispara una habilidad. |
 | **T1.5 · automático, al tocar una ruta** | `.claude/rules/*.md`, inyectados cuando la sesión edita rutas que coinciden. | Lo mejor de los dos: coste cero hasta que es relevante, y entonces llega sin que nadie se acuerde de pedirlo. Condensan la página que nombran en su cabecera y **nunca la sustituyen**. |
 | **T2 · al invocar un disparador** | Las páginas de `docs/` (enlazadas por nombre desde la tabla de `CLAUDE.md`); los cuerpos de las habilidades (`/skill`); los cuerpos de los agentes (al lanzarlos). | Una regla aquí se cumple solo si el disparador en T1 no es ambiguo. El puente T1 → T2 es el texto más importante del repositorio. |
-| **T3 · solo por accidente** | Nada, hoy. `docs/` no tiene planes ni auditorías fechadas: todas sus páginas son normativas y actuales. `docs/DECISIONES.md` es lo más cercano, y está fechado por decisión. | El día que entre un plan con fecha, va con una línea de estado arriba (implementado / superado / abierto) o se lee como una instrucción viva. |
+| **T3 · solo por accidente** | Nada, hoy. `docs/` no tiene planes ni auditorías fechadas: todas sus páginas son normativas y actuales. | El día que entre un plan con fecha, va con una línea de estado arriba (implementado / superado / abierto) o se lee como una instrucción viva. |
 | **T4 · máquina, no prosa** | `./.claude/hooks/verificar.sh` (el gate) y los cuatro hooks registrados. | El único nivel que no se puede ignorar. Una regla que importa aterriza aquí; la prosa de T1/T2 es la explicación de un pin de T4, no su sustituto. |
 
 ---
@@ -84,7 +84,6 @@ decisiones del dueño vivían dentro del archivo de arranque.
 | `docs/AUDITORIA.md` | «¿Y cualquier otra fuente?» | Estado ✅/⚠️/❌ por fuente, familias de acceso, bloqueos y su desbloqueo institucional. | mantener |
 | `docs/PLAN-DEMOCRACIA.md` | «¿Cómo funciona la excepción?» | Esquema, RLS, RPCs, medidas de seguridad, Cuenta Única. | mantener |
 | `docs/PLAN-ACCESO.md` | «¿Qué se construye después?» | Diagnóstico de acceso y plan en cuatro horizontes, con criterio de hecho. | **nuevo** |
-| `docs/DECISIONES.md` | «¿Qué decidió el dueño?» | Abiertas (solo suyas) y cerradas (para que nadie las reabra). | **nuevo** (vivía en T1 y solo crece) |
 | `docs/HARNESS.md` | «¿Qué moldea una sesión?» | Esta página. | **nuevo** |
 | `README.md` | — | Descripción pública y lista de funciones. | mantener |
 | `.claude/skills/verificar/SKILL.md` | `/verificar` | Corre el gate completo y qué hacer con cada tipo de rojo. | mantener |
@@ -142,7 +141,6 @@ El harness solo funciona si se mantiene pequeño en T1 y cierto en T2.
 | Un especialista al que delegar | `.claude/agents/<nombre>.md`, con `model` y `effort` | Sin `effort` hereda el de la sesión |
 | Un mecanismo que una sesión debe correr sin que se lo pidan | `.claude/hooks/` + `.claude/settings.json` | «Siempre haz X primero» en prosa es un deseo; un hook es una garantía |
 | Una acción que una sesión nunca debe tomar | un caso en `guard-bash.sh` o `guard-edit.sh` | «Nunca» en prosa no lo rechaza nadie |
-| Una decisión del dueño | `docs/DECISIONES.md`, fechada | La próxima sesión no debe re-preguntarla |
 
 Nunca en la raíz del repositorio, nunca solo en el chat, y nunca en dos sitios
 sin declarar cuál es el dueño y cuál la condensación.

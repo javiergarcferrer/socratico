@@ -99,7 +99,7 @@ Guía para trabajar en el código: `CLAUDE.md`, que enruta cada pregunta a su
 página. Arquitectura y primitivas: `docs/ARQUITECTURA.md`. Identidad visual:
 `docs/IDENTIDAD.md`. Reconocimiento de fuentes: `docs/RECON.md` (Congreso) y
 `docs/AUDITORIA.md` (resto del Estado). Plan de la vertical con base de datos:
-`docs/PLAN-DEMOCRACIA.md`. Decisiones abiertas y cerradas: `docs/DECISIONES.md`.
+`docs/PLAN-DEMOCRACIA.md`.
 Qué archivos moldean una sesión de Claude: `docs/HARNESS.md`.
 
 ## Desarrollo

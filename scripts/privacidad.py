@@ -1,4 +1,4 @@
-"""Lo que un script de instantáneas no escribe nunca (docs/DECISIONES.md).
+"""Lo que un script de instantáneas no escribe nunca.
 
 La cédula de una persona. Un título oficial puede traerla («Cédula de
 Identidad y Electoral Núm. 001-0000000-0»; una sentencia del TC, el «RNC núm.»

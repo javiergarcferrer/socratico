@@ -5,7 +5,7 @@
  * aprobación —certifica que se preguntó—: el aro lleva el registro y el centro,
  * la «¿», que en español anuncia que la pregunta apenas empieza.
  *
- * Desde el 2026-09-24 (decisión del dueño) la marca es una sola palabra,
+ * Desde el 2026-09-24 la marca es una sola palabra,
  * «socrático», sin «.do»: el acento de la «á» es el sello, la única marca roja.
  * El ícono es la «s» con ese mismo acento. La circular (`Sello`) queda como
  * sello de firma —pie de página, tarjeta social—, con «¿» al centro.
@@ -142,8 +142,7 @@ export function SelloCompacto({
 }
 
 /**
- * La palabra «socrático». Vive solo sobre el azul `marca` (decisión del dueño,
- * 2026-09-25): sobre papel la marca es la placa del ícono, nunca la palabra.
+ * La palabra «socrático». Vive solo sobre el azul `marca`: sobre papel la marca es la placa del ícono, nunca la palabra.
  * Por eso lleva siempre el acento claro y el color lo pone el fondo que la
  * contiene (`text-canvas` sobre `bg-marca`).
  */

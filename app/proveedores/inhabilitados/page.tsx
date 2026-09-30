@@ -322,8 +322,7 @@ function FilaProveedor({ p, medida, mas }: { p: ProveedorConMedidas; medida: Med
     <li className="relative border-b border-hairline last:border-0">
       {/*
         El nombre de un particular se lee aquí, pero no se ofrece en los
-        resultados de los buscadores (proporcionalidad, Ley 172-13;
-        docs/DECISIONES.md). Google atiende `data-nosnippet` en un `div`, no en un `li`.
+        resultados de los buscadores (proporcionalidad, Ley 172-13). Google atiende `data-nosnippet` en un `div`, no en un `li`.
       */}
       <div className="px-5 py-3.5" {...(p.fisica ? { "data-nosnippet": "" } : {})}>
         <Link

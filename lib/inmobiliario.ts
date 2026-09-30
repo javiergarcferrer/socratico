@@ -3,9 +3,7 @@
  * exacto. En qué órgano está un trámite (Registro de Títulos, Mensuras
  * Catastrales…), cuándo se pidió, su resultado y su estado.
  *
- * Mecánica verificada en docs/AUDITORIA.md §H.13 (2026-09-30), con la consulta
- * aprobada por el dueño ese día (docs/DECISIONES.md, «Consultas POST sin
- * efecto: se amplía el precedente…»):
+ * Mecánica verificada en docs/AUDITORIA.md §H.13 (2026-09-30), con la consulta:
  *
  *  1. La página `https://servicios.ri.gob.do/ConsultaDeExpedientes` (robots de
  *     0 bytes) hace `POST ConsultaDeExpedientes/GetExpedient` con un

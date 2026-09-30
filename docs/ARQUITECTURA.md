@@ -332,7 +332,7 @@ during a visit.
   `next.config.ts` declares it for `/funcionarios` and `/normativa` so it does
   not depend on that.
 - **`lib/declaraciones.ts`** — sworn asset declarations the institutions
-  publish themselves (§H.12, owner decision 2026-09-30).
+  publish themselves (§H.12).
   `scripts/build-declaraciones.py` searches each WordPress library of the
   document index (reusing `build-documentos.py`'s robots reader and `pedir`),
   MAPRE's and the Vicepresidencia's second installs under `/transparencia/` and
@@ -420,7 +420,7 @@ during a visit.
 
 ## Consultas por número — `lib/audiencias.ts`, `lib/inmobiliario.ts` (`docs/AUDITORIA.md` §H.13)
 Two live lookups by an exact number the reader types, the POST each public page
-makes (owner decision 2026-09-30). Same shape in both:
+makes. Same shape in both:
 - **Validation in the layer** (`validarNuc`, `validarExpediente`): letters,
   digits, `-`, `/`, `.`, 5–40 characters, at least one digit, sent as typed.
   The page only shows the reason next to the field (`CampoBusqueda`'s `error`,
@@ -878,8 +878,7 @@ sources impose:
   Cuentas» tag only decides an appointment last, because the source also puts
   it on emergency and errata decrees; «Otros asuntos» ~5 % of 2023–2026). The «¿De qué tratan…?» card counts the whole year and
   each subject links to `?materia=`; rows and the CSV (`materia_derivada`)
-  carry it. Rules, not a model: they run on the live read with no key
-  (docs/DECISIONES.md, Jev).
+  carry it. Rules, not a model: they run on the live read with no key.
 - `/provincias`, `/provincias/[slug]` (`lib/provincias.ts`) → 32 demarcations.
   The supplier register cannot be filtered by `provincia` (500 with any value,
   re-verified 2026-09-23), so suppliers per province = registry cards of the
@@ -904,8 +903,7 @@ sources impose:
   a featured entry per door. The viewport is anchored to the sticky header
   (`absolute inset-x-0 top-full`), so the panel is as wide as the page column.
   The trigger holding the current route gets a paper underline (`grupoActivo`).
-  The phone's «Más» sheet renders the same `MENU`. No questions in the header
-  (owner decision, DECISIONES): `pregunta` survives only as a palette keyword.
+  The phone's «Más» sheet renders the same `MENU`. No questions in the header: `pregunta` survives only as a palette keyword.
 - **The index** (`lib/indice.ts`, taxonomy in `lib/tareas.ts`): every
   destination once, derived from `MENU`, where each link declares its `tarea`
   (vigilar · buscar · comparar · leer · participar · entender). The palette
@@ -1066,7 +1064,7 @@ descarga entero, sin personas naturales (el volcado, abajo).
   `historico/instituciones.json` y `rnc.json` (versión del resultado 3).
 - **El volcado** (`scripts/build-grafo-volcado.mjs` →
   `public/data/grafo/grafo.nt.gz` y `meta.json`, servidos por la CDN en
-  `/data/grafo/`; DECISIONES, «Sin servidor SPARQL»). El grafo entero en
+  `/data/grafo/`). El grafo entero en
   N-Triples comprimido, para cargarlo en un motor SPARQL propio (Oxigraph,
   QLever, Apache Jena). Cada triple sale de la plataforma: el script pide a
   `next start` la descripción de cada nodo por `/api/grafo`, la misma que
@@ -1231,20 +1229,13 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   `SERVICE` y `LOAD` también (buscados fuera de los IRI, los literales y los
   comentarios). Cada respuesta dice su alcance (nodos, triples, si los
   topes recortaron): un COUNT vale para ese alcance, no para el grafo. **Por
-  qué no el grafo entero**: el dueño no quiere un servidor SPARQL
-  (DECISIONES, «Sin servidor SPARQL»); el grafo sin personas naturales se
+  qué no el grafo entero**: el dueño no quiere un servidor SPARQL; el grafo sin personas naturales se
   descarga (el volcado, arriba). Medido el 30-09-2026 sobre ese volcado (816
   mil triples): N3 con Comunica lo carga en ~10 s con ~1,2 GB y agrega en
   ~0,8 s; Oxigraph (WASM, sin transacción) en ~2 s con ~430 MB. Lo primero no
   cabe en el arranque en frío de `/mcp`, que ya lleva el índice. (Una primera
   medida con datos sintéticos y la carga transaccional de Oxigraph daba ~25 s:
-  era la carga, no el tamaño.) **Por qué N3 y Comunica y no Oxigraph**, que es más rápido: el
-  criterio de dependencias (DECISIONES, «Código abierto probado»). N3.js
-  (~870 mil descargas al mes, dos mantenedores) y Comunica (cinco
-  mantenedores, del IDLab de la Universidad de Gante; su núcleo,
-  `@comunica/core`, ~570 mil descargas al mes, y el paquete que se usa,
-  `@comunica/query-sparql-rdfjs-lite`, ~53 mil) lo pasan; el registro de
-  Oxigraph lo publica un solo mantenedor. Su costo: 468 paquetes nuevos en el
+  era la carga, no el tamaño.) N3 y Comunica suman 468 paquetes al
   lockfile (Comunica es modular), de los que la función lleva lo que se
   requiere, ~9 MB.
 - **El hilo de `sparql`** (`lib/sparql-hilo.cjs`). Comunica no se deja

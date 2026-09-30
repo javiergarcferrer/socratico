@@ -20,10 +20,9 @@ verified mechanics per source live there; this is what every adapter obeys.
   through `lib/xlsx.ts`. The panorama composes indicators with a fault-tolerant
   `Promise.all`; one source down never blanks the page.
 - **GET only**, except the exact postbacks a public form itself performs
-  (Senate `consultante`, Consultoría `Search`; since 2026-09-30, owner-approved
-  in docs/DECISIONES.md: the MAP directory, BCRD `GetContentForRender`, the
-  Poder Judicial hearing roll by exact case number, the Registro Inmobiliario
-  file by exact number). Never a login, admin, or subscription endpoint.
+  (Senate `consultante`, Consultoría `Search`, the MAP directory, BCRD
+  `GetContentForRender`, the Poder Judicial hearing roll by exact case number,
+  the Registro Inmobiliario file by exact number). Never a login, admin, or subscription endpoint.
   Never copy telemetry keys the portals leak (RECON §2.10).
 - **Never evade a WAF, challenge, 403, 470, or robots rule.** Do not rotate
   User-Agent or IP, do not spoof a browser. A blocked source is unblocked
@@ -68,7 +67,7 @@ verified mechanics per source live there; this is what every adapter obeys.
 3. Before a new source, exhaust the one already integrated (DGCP had four
    unused endpoints: ofertas, proveedores, catálogo, PACC).
 4. Never use a leaked credential, even to read public data: report it.
-   One owner-approved exception (2026-09-30, docs/DECISIONES.md): the key the
+   One exception: the key the
    World Bank's debarment page publishes for its own table, read from that page
    by `scripts/build-sanciones.py` at build time and never written anywhere.
 5. Publishing is not exposing: a public register's phones and emails are

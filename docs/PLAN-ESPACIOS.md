@@ -1,6 +1,6 @@
 # Plan — Cuentas y espacios del lector
 
-Decisión del dueño del 2026-09-28 (`docs/DECISIONES.md`, cerradas): la
+La
 plataforma tiene **cuentas reales** para que quien estudia un tema guarde registros,
 arme proyectos que enlazan registros distintos, los anote, los publique, los
 trabaje con otras personas y reciba alertas de lo que sigue. Es la segunda
@@ -76,8 +76,7 @@ sola, editor que mueve entradas, `href` con `/\`).
 - **`/cuenta`** — entrar o crear la cuenta con Google o con el código de seis
   dígitos que llega al correo (`lib/sesion.ts`, la misma lectura tolerante de
   enlaces y códigos que `/democracia/registro`). El botón de Google solo
-  aparece si `/auth/v1/settings` dice `external.google: true` (⚠️ hoy
-  `false`: activarlo es del dueño, docs/DECISIONES.md); GoTrue une la
+  aparece si `/auth/v1/settings` dice `external.google: true` (⚠️ hoy `false`); GoTrue une la
   identidad de Google a la cuenta que ya tenga ese correo verificado, y
   `mi_correo()` lo ve confirmado, así que las invitaciones siguen casando.
   Contraseña opcional: se entra con `signInWithPassword`, pero **solo se crea
@@ -100,7 +99,7 @@ sola, editor que mueve entradas, `href` con `/\`).
 - **`/p/[slug]`** — un proyecto publicado, para cualquiera, servido en el
   servidor por `espacios.publicado`: sus registros enlazan a las fichas vivas.
   `noindex`; el nombre de firma se declara no verificado. Denunciar o retirar
-  una página ajena es decisión abierta (`docs/DECISIONES.md`).
+  una página ajena es decisión abierta.
 - **«Guardar»** en cada ficha (`AccionesFicha`, `AccionesProceso`): en la
   bandeja o directo a un proyecto.
 - ✅ **Las sentencias no tienen ficha propia** (la fila lleva al Tribunal), así
@@ -121,7 +120,7 @@ pulsado durante la primera sincronización se perdía) y pasa con la actual.
 Lo que el lector sigue vive en su cuenta y «qué cambió desde tu última
 visita» se calcula igual que antes (`/api/seguimiento` compara la huella con
 el origen), en cualquier dispositivo en que entre. **Enviar** el aviso —correo
-o push— es decisión abierta del dueño (`docs/DECISIONES.md`): exige un
+o push— es decisión abierta del dueño: exige un
 trabajo programado que lea las fuentes, una credencial de servicio fuera de la
 app y un remitente de correo o claves de web-push.
 
@@ -233,7 +232,7 @@ existe) y `/espacio` dice que los proyectos se abren pronto, sin romper.
 
 ## 6. La conversación
 
-Decisión del dueño (2026-09-28, docs/DECISIONES.md): cada registro con ficha
+Cada registro con ficha
 propia y cada investigación publicada tiene una conversación, y `/comunidad`
 es su feed. Migración `supabase/migrations/20260928140000_conversacion.sql`,
 en el mismo esquema `espacios`: es de lo que pone el lector, no del Estado.
@@ -399,7 +398,7 @@ Lo que hay que saber antes de tocarlo:
 - **«Es familiar de» se queda en el caso privado** (`ENLACES_PRIVADOS`):
   `publicado` no lo devuelve y `/p` lo filtra otra vez. ✅ Probado en
   `espacios_rls.py`.
-- **En `/p` los datos van antes que la narración** (DECISIONES, 28-09-2026).
+- **En `/p` los datos van antes que la narración**.
 - **Mover una tarjeta no «actualiza»** la investigación: el disparador de
   `entradas.actualizado` mira título, nota y fecha, no `x`/`y`.
 - **El tablero no importa Supabase**: guardar es de quien lo monta. En `/p`
@@ -407,8 +406,7 @@ Lo que hay que saber antes de tocarlo:
   leen sin JavaScript.
 - **Exportar** es FollowTheMoney (`lib/ftm.ts`), que en la interfaz se llama
   «Descargar los datos del proyecto (JSON)» y baja como `<título>.json`: el
-  formato se queda (abierto, leído por otras herramientas), el nombre no
-  (DECISIONES, «Plataforma para todos»). Cada registro como la
+  formato se queda (abierto, leído por otras herramientas), el nombre no. Cada registro como la
   entidad de su tipo y cada enlace como `UnknownLink` con el verbo en `role`.
   Los esquemas se comprobaron contra el repositorio de FtM el 2026-09-28.
 - ✅ Visto en Chromium a 1280 y 390 px con datos de prueba: arrastrar,

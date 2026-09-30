@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Nunca la cédula (docs/DECISIONES.md, «La cédula de un título oficial»).
+"""Nunca la cédula.
 
 Ninguna instantánea de `public/data` —que se sirve tal cual— puede guardar la
 cédula de una persona, ni siquiera la que traiga un título oficial. Recorre

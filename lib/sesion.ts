@@ -208,7 +208,7 @@ export const correoValido = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test
  * código: GoTrue une la identidad de Google al usuario que ya tenga ese correo
  * verificado, así que quien votó o guardó con su correo no pierde nada.
  *
- * El proveedor se activa en el panel de Supabase (docs/DECISIONES.md); hasta
+ * El proveedor se activa en el panel de Supabase; hasta
  * entonces `/auth/v1/settings` dice `google: false` y el botón no se ofrece:
  * un botón que lleva a un error es un control sin efecto (IDENTIDAD §6).
  */
@@ -277,7 +277,7 @@ export function mensajeDeGoogle(codigo: string): string {
  * `signUp` con contraseña daba por verificado un correo que nadie probó, y
  * quien registrara primero el correo ajeno recibía sus invitaciones
  * (`espacios.mi_correo()` confía en `email_confirmed_at`). El
- * dueño lo apagó (docs/DECISIONES.md); esto no depende de que siga apagado. La
+ * dueño lo apagó; esto no depende de que siga apagado. La
  * contraseña solo se pone desde dentro de una sesión abierta con el código
  * (`ponerContrasena`), que sí prueba el correo. Olvidarla no pide un flujo
  * propio: se entra con el código y se pone otra.

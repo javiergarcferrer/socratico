@@ -3,7 +3,7 @@
  * Genera public/data/grafo/: el grafo de Socrático entero en N-Triples
  * (`grafo.nt.gz`) y su `meta.json`, para cargarlo en un motor SPARQL propio
  * (Oxigraph, QLever, Apache Jena, GraphDB…). El dueño decidió no servir un
- * almacén SPARQL del grafo entero («No server», docs/DECISIONES.md, 30-09-2026);
+ * almacén SPARQL del grafo entero;
  * esta es la otra salida: el grafo, para descargar.
  *
  * Cada triple sale de la plataforma misma. El script pide a un servidor en
@@ -11,8 +11,8 @@
  * `/api/grafo`, la misma que pintan el explorador y el servidor MCP, así que el
  * volcado no puede decir otra cosa que la plataforma.
  *
- * Qué entra y qué no. La regla es la de docs/DECISIONES.md («ninguna
- * herramienta lista personas en masa»): una persona se lee una a una, en su
+ * Qué entra y qué no. La regla es «ninguna
+ * herramienta lista personas en masa»: una persona se lee una a una, en su
  * ficha, en /api/grafo o por MCP, nunca en un archivo con todas.
  *  - Entran las instituciones, las entidades financieras, las provincias y las
  *    personas jurídicas que el grafo liga a algo (proveedoras del Estado con

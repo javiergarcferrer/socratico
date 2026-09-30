@@ -1,7 +1,7 @@
 -- Espacios del lector: cuenta, lo guardado, proyectos de investigación con sus
 -- enlaces y notas, colaboración, publicación y lo que sigue (docs/PLAN-ESPACIOS.md).
 --
--- Contrato (CLAUDE.md, la invariante; decisión del dueño 2026-09-28):
+-- Contrato (CLAUDE.md, la invariante):
 --  · ningún dato del Estado entra aquí: una entrada es una REFERENCIA (tipo,
 --    identificador, título, enlace, huella); la cifra se sigue leyendo del origen;
 --  · RLS en cada tabla; la app solo lleva la clave publicable;

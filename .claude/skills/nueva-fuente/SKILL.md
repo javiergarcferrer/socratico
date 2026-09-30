@@ -26,8 +26,7 @@ for Congress) with ✅/⚠️/❌ and the exact URLs, response shapes, and
 content-types you saw.
 
 Blocked (403/470/challenge) or credentialed (API key) → the outcome is a
-documented "sin vía hoy" row plus the institutional unblock path, and for
-credentials an entry in `docs/DECISIONES.md`. Do not build.
+documented "sin vía hoy" row plus the institutional unblock path. Do not build.
 
 ## S — spike
 One throwaway script (scratchpad, not the repo) that fetches one real record

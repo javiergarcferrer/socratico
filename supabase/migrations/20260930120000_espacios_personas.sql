@@ -1,5 +1,4 @@
--- Guardar y seguir personas con cargo público, entidades financieras y empresas
--- (docs/DECISIONES.md, aprobado por el dueño el 30-09-2026).
+-- Guardar y seguir personas con cargo público, entidades financieras y empresas.
 --
 -- Las fichas de la cuarta pasada (`/funcionarios/[slug]`, `/banca/[slug]`,
 -- `/empresas/[rnc]`) comparten y enlazan, pero no se podían guardar en un

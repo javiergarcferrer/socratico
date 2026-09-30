@@ -35,7 +35,7 @@ type Props = { searchParams: Promise<{ q?: string }> };
 
 /**
  * Con un número la página es la consulta de un caso ajeno: no se indexa ni se
- * siguen sus enlaces (límite del dueño, docs/DECISIONES.md), y su título no
+ * siguen sus enlaces, y su título no
  * lleva el número, que viajaría en cada vista previa de un enlace compartido.
  */
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {

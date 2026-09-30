@@ -28,7 +28,7 @@ import { agujas, contieneTodas, plano } from "@/lib/raiz";
  * (sin tildes ni mayúsculas): nunca la cédula, que el buscador de la
  * Consultoría trae y la instantánea descarta. Dos fuentes que escriben el
  * mismo nombre son la misma ficha; si lo escriben distinto, son dos, y la
- * ficha lo avisa. Nunca se publica un parentesco (docs/DECISIONES.md).
+ * ficha lo avisa. Nunca se publica un parentesco.
  *
  * **Persona expuesta políticamente.** La Ley 155-17 (art. 2, num. 19)
  * considera PEP a todo funcionario obligado a declarar patrimonio, y esos los

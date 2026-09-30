@@ -39,7 +39,7 @@ if printf '%s' "$cmd" | grep -qE '\bgit push\b'; then
   # `claude/*` son ramas de sesión: no despliegan nada. Existen para que el
   # dueño pueda MIRAR el trabajo antes de que exista —Vercel les levanta un
   # preview al llegar al remoto— y para revisarlo en un PR. Decisión suya, del
-  # 14-09-2026 (docs/DECISIONES.md). La estampa del gate, que es lo que protege
+  # 14-09-2026. La estampa del gate, que es lo que protege
   # producción, sigue exigiéndose más abajo para cualquier push.
   for r in $refs; do
     case "$r" in

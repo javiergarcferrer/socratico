@@ -27,7 +27,7 @@ import type { Persona } from "@/lib/funcionarios";
  * CAPTCHA).
  *
  * Se enlaza, no se copia ni se transcribe: el documento vive en el portal de
- * quien lo publica (decisión del dueño, 2026-09-30, docs/DECISIONES.md).
+ * quien lo publica.
  */
 export async function DeclaracionJurada({ persona }: { persona: Persona }) {
   const obligado = persona.pep.length > 0;

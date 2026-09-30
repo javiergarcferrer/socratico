@@ -85,7 +85,7 @@ const NOMBRADA_G = todas(NOMBRADA);
 /**
  * El texto sin cédulas. Un título oficial puede traer la de una persona (tres
  * en todas las instantáneas al 30-09-2026: dos decretos y una sentencia del
- * TC); la plataforma nunca la enseña ni la guarda (docs/DECISIONES.md), así
+ * TC); la plataforma nunca la enseña ni la guarda, así
  * que el número se cambia por «[omitida]», en mayúsculas si el texto lo está,
  * para que `desdeMayusculas` lo trate como al resto. Lo usan los adaptadores
  * al leer (también sobre lo que sale de una caché de datos, que sobrevive a

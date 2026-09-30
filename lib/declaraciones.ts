@@ -7,7 +7,7 @@ import { join } from "node:path";
  * cuando no hay duda. Instantánea `public/data/declaraciones.json`
  * (`scripts/build-declaraciones.py`; mecánica en docs/AUDITORIA.md §H.12).
  *
- * Decisión del dueño (2026-09-30, docs/DECISIONES.md): se **enlazan**. No se
+ * Se **enlazan**. No se
  * copia ningún PDF ni se lee su contenido: título, institución, fecha de
  * subida y la URL original. El registro central lo custodia la Cámara de
  * Cuentas en su Consulta Pública de DJP, que exige un CAPTCHA: la plataforma

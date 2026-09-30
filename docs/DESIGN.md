@@ -8,8 +8,7 @@ and per-company brands become this platform's reader, sources and single skin.
 Where a rule is not yet true here it says ⚠️ and what is missing (§11).
 
 **Who we design for.** Every citizen, on every side of the State. Socrático is
-a public utility for understanding the State, not a tool against it
-(DECISIONES, «Plataforma para todos», 28-09-2026).
+a public utility for understanding the State, not a tool against it.
 - The citizen who heard a number on the radio and wants to see where it comes
   from.
 - The legislator, the official or the officer who needs their own
@@ -22,7 +21,6 @@ exists to make that check cost less time, less attention and fewer mistakes.
 **How to read it.** Each rule is a sentence you can obey. Where the house
 already measured or pinned a rule, the pointer says where:
 - `docs/IDENTIDAD.md` (§): how things look and sound, and why.
-- `docs/DECISIONES.md`: what the owner decided and is not asked again.
 - `./.claude/hooks/verificar.sh` (the gate): what a machine holds.
 
 **Precedence.** This page says how things **behave**; `docs/IDENTIDAD.md` says
@@ -145,7 +143,7 @@ IDENTIDAD §Ergonomía cognitiva holds the detail; this is the charter.
   - a button that writes cannot fire twice — neither by double tap nor by
     ⌘/Ctrl+Enter (`components/teclas.ts`);
   - publishing a case is its own deliberate step, and a family tie never
-    publishes (DECISIONES, 28-09-2026).
+    publishes.
 - **Prefer undo to confirm.** When an action is reversible, do it and offer
   «Deshacer» for a few seconds (`AvisoDeshacer`, `components/espacios/deshacer.tsx`:
   10 s, paused while focus is inside, announced). Today: removing a saved
@@ -256,7 +254,7 @@ A page is read by machines before most people ever see it.
   - Quotes are `«»`.
   - A non-breaking space keeps `RD$` with its number.
 - **No em dash as a crutch** in reader-facing copy: a comma, a full stop or a
-  middle dot `·` (DECISIONES, 28-09-2026). Code comments and the State's own
+  middle dot `·`. Code comments and the State's own
   texts are exempt.
 - **Units are always stated.** A quantity says what it counts: plazas,
   procesos, millones de pesos.

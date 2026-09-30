@@ -316,7 +316,7 @@
   /*
     Los titulares llevan la letra de titular —son las preguntas—; los rótulos
     pequeños de sección se quedan en sans, y se marcan con la clase `rotulo`.
-    Geist a 600 y apretada (2026-09-28, decisión del dueño: la serif de antes
+    Geist a 600 y apretada (la serif de antes
     se leía floja y anticuada). El peso vive aquí, en la base, y no en la
     utilidad: `font-display` suelto hereda el mismo titular, y un `font-medium`
     explícito sigue ganando porque las utilidades van después de la base.
@@ -544,7 +544,7 @@
 }
 
 /*
-  La cabecera (decisión del dueño, 2026-09-28): la tapa del expediente. Azul
+  La cabecera: la tapa del expediente. Azul
   de la marca con la fibra del papel, luz de 1 px arriba y un canto duro de
   2 px abajo —el borde de una hoja gruesa, no una sombra de vidrio—. Es la
   única superficie que no se pulsa y lleva fibra: es la marca, no contenido.
