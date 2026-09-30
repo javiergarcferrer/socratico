@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { unstable_cache } from "next/cache";
 import { SITIO } from "@/lib/sitio";
@@ -611,6 +611,30 @@ export async function inventario(): Promise<ClaseContada[]> {
     },
   ];
   return filas.filter((c) => c.n > 0);
+}
+
+/** El volcado del grafo sin personas naturales (`scripts/build-grafo-volcado.mjs`): dónde se descarga, cuánto pesa y de cuándo es. */
+export interface Volcado {
+  url: string;
+  triples: number;
+  bytes: number;
+  generado: string;
+  excluye: string;
+}
+
+let volcadoMemo: Promise<Volcado | null> | null = null;
+
+export function volcadoDelGrafo(): Promise<Volcado | null> {
+  volcadoMemo ??= readFile(join(process.cwd(), "public", "data", "grafo", "meta.json"), "utf8")
+    .then((t) => {
+      const m = JSON.parse(t) as { triples: number; bytes: number; generado: string; excluye: string };
+      return { url: `${SITIO}/data/grafo/grafo.nt.gz`, triples: m.triples, bytes: m.bytes, generado: m.generado, excluye: m.excluye };
+    })
+    .catch(() => {
+      volcadoMemo = null;
+      return null;
+    });
+  return volcadoMemo;
 }
 
 /** Cuántos nodos están atados a Wikidata, por tipo. */

@@ -68,11 +68,12 @@ const nextConfig: NextConfig = {
     "/provincias": ["./public/data/wikidata.json"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
-  // ninguna función: su contenido ya está en el corpus.
+  // ninguna función: su contenido ya está en el corpus. El volcado del grafo
+  // tampoco: se sirve como archivo, de la CDN.
   // Las claves casan como subcadena: «/proveedores» también es
   // «/proveedores/[rpe]» y «/api/proveedores», que no usan el índice.
   outputFileTracingExcludes: {
-    "*": ["./public/data/{procesos,congreso,sentencias}.json"],
+    "*": ["./public/data/{procesos,congreso,sentencias}.json", "./public/data/grafo/grafo.nt.gz"],
     "/proveedores/*": ["./public/data/busqueda/**"],
     "/api/proveedores": ["./public/data/busqueda/**"],
   },

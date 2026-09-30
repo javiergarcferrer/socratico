@@ -43,19 +43,6 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   así que no cuenta pedidos: un límite por dirección sería una regla del
   cortafuegos de Vercel sobre `/mcp` (panel del proyecto, y según el plan,
   costo). Hoy no hace falta; decidir si se pone antes de anunciarlo.
-- **Un SPARQL del grafo entero** (30-09-2026). El dueño pidió «un grafo de
-  conocimiento y ontológico real» con tecnologías abiertas. Hoy SPARQL corre
-  a pedido, sobre la descripción de los nodos que se nombran y sus vecinos
-  (ARQUITECTURA, `sparql`). El grafo entero sin personas naturales
-  (instituciones, empresas proveedoras, contrataciones, procesos, decretos,
-  bancos, provincias) son del orden de un millón de triples, y medido no carga
-  en una función: ~13 s y 2 GB en N3 con Comunica, ~25 s y 1 GB en Oxigraph.
-  Tenerlo entero pide un almacén SPARQL servido aparte (Oxigraph o QLever en
-  un servidor, con su costo mensual), que es una base de datos fuera de la
-  invariante, o una réplica que la gente descargue y cargue en su propio
-  motor (un volcado en N-Triples, sin personas naturales: la regla de
-  «ninguna herramienta lista personas en masa» sigue). Decidir si se quiere
-  alguna de las dos.
 - **La licencia de reutilización del grafo** (30-09-2026). El VoID y las
   descripciones RDF no declaran licencia (`dct:license`), así que quien las
   reutiliza no sabe en qué términos. Los datos son del Estado; la selección,
@@ -160,10 +147,28 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
     llama a un modelo ni guarda su clave.
   - **SPARQL a pedido, no un almacén**: sobre los nodos que se nombran y sus
     vecinos, en memoria y solo durante la llamada. El grafo entero queda
-    abierto arriba («Un SPARQL del grafo entero»).
+    entero, abajo («Sin servidor SPARQL»).
   - **El motor, N3.js y Comunica**, no Oxigraph: pasan el criterio de
     dependencias («Código abierto probado»); el registro de Oxigraph lo
     publica un solo mantenedor.
+- **Sin servidor SPARQL: el grafo entero se descarga (30-09-2026).** Se le
+  planteó al dueño cómo consultar el grafo entero en SPARQL, que no cabe en
+  el arranque en frío de la función del MCP (el volcado sin personas, 816 mil
+  triples, carga en ~10 s con ~1,2 GB en N3 con Comunica): un almacén servido
+  aparte (Oxigraph o QLever en un servidor, con su costo, una base de datos
+  fuera de la invariante) o un volcado para descargar. Respondió «No server».
+  Queda así:
+  - **No se sirve un almacén SPARQL** del grafo entero. SPARQL sigue a pedido,
+    sobre los nodos que se nombran (`sparql` del servidor MCP).
+  - **El grafo se descarga** en N-Triples comprimido
+    (`public/data/grafo/grafo.nt.gz`, de `scripts/build-grafo-volcado.mjs`,
+    anunciado en el VoID con `void:dataDump`, en `/grafo` y en `ontology`),
+    para cargarlo en un motor propio.
+  - **Sin personas naturales**: ni las personas con cargo ni sus cargos, ni
+    los decretos (sus títulos nombran a quien designan), ni las declaraciones
+    juradas, ni un proveedor que no esté atado a una empresa. La regla
+    «ninguna herramienta lista personas en masa» vale para el volcado: una
+    persona se lee una a una, en su ficha.
 - **La cédula de un título oficial tampoco se enseña (30-09-2026).** La
   revisión del servidor MCP encontró que un asistente al que se le pegaba una
   cédula recibía el nombre de su dueña: dos títulos de decretos (Consultoría

@@ -22,6 +22,7 @@ import {
   enlacesWikidata,
   inventario,
   vecindario,
+  volcadoDelGrafo,
   type Candidato,
   type Candidatos,
   type Relacion,
@@ -103,13 +104,16 @@ const LISTADO_DE_CLASE: Record<string, string> = {
   "soc:Provincia": "/provincias",
   "soc:DeclaracionJurada": "/auditorias",
   "soc:MedidaDGCP": "/proveedores/inhabilitados",
+  "soc:Proveedor": "/historico",
+  "soc:Contratacion": "/historico",
 };
 
 async function Portada({ consulta }: { consulta: string }) {
-  const [clases, wikidata, candidatos] = await Promise.all([
+  const [clases, wikidata, candidatos, volcado] = await Promise.all([
     inventario(),
     enlacesWikidata(),
     consulta ? buscarNodos(consulta) : Promise.resolve(null),
+    volcadoDelGrafo(),
   ]);
   const ejemplo = `${SITIO}${enlace.funcionario("luis-rodolfo-abinader-corona")}`;
   return (
@@ -218,9 +222,21 @@ async function Portada({ consulta }: { consulta: string }) {
           <a href="/.well-known/void" className="text-brand-700 underline">
             VoID
           </a>
-          . No hay un punto SPARQL: no hay almacén de triples; cada descripción se arma al pedirla, de las mismas
-          instantáneas que pintan las fichas.
+          . Cada descripción se arma al pedirla, de las mismas instantáneas que pintan las fichas: no hay un
+          almacén de triples ni un punto SPARQL del grafo entero.
         </p>
+        {volcado && (
+          <p>
+            El grafo sin personas naturales se descarga entero, para consultarlo en SPARQL con un motor propio
+            (Oxigraph, QLever o Apache Jena, todos abiertos):{" "}
+            <a href={volcado.url} className="text-brand-700 underline">
+              grafo.nt.gz
+            </a>
+            , <span className="font-mono text-[13px] text-ink">{formatInt(volcado.triples)}</span> triples en N-Triples
+            comprimido, del {formatFecha(volcado.generado)}. Las personas con cargo, sus cargos y los decretos no entran:
+            se leen una a una, en su ficha.
+          </p>
+        )}
         <p>
           Un asistente de IA (Claude, ChatGPT o cualquier cliente del Model Context Protocol) lo recorre con las
           mismas reglas por el servidor MCP de la plataforma:{" "}

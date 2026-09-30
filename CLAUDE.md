@@ -93,7 +93,7 @@ npm run build    # build de producción — incluye el typecheck
 npx tsc --noEmit # solo typecheck
 
 # Instantáneas en public/data/: fiscal (SIGEF, ~5 min), nomina, deuda, normativa y decretos
-# (semanal), instituciones (tras normativa), leyes, procesos, sentencias, congreso, historico-rnc (tras historico y empresas), busqueda (al final). Una por script:
+# (semanal), instituciones (tras normativa), leyes, procesos, sentencias, congreso, historico-rnc (tras historico y empresas), busqueda y grafo-volcado (.mjs, al final, tras un build). Una por script:
 python3 scripts/build-<nombre>.py  # tras busqueda: node scripts/build-indice-busqueda.mjs
 ```
 

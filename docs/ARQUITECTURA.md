@@ -991,7 +991,8 @@ inteligencia): cada descripción se deriva al pedirla de las mismas
 instantáneas que pinta la ficha, y se cachea como cualquier página. SPARQL
 existe **a pedido**, sobre la descripción de los nodos que se nombran y sus
 vecinos (`sparql` del servidor MCP, abajo); el grafo entero no se carga en
-una función (medido: abajo).
+una función (medido: abajo), y el dueño no quiere un servidor SPARQL: se
+descarga entero, sin personas naturales (el volcado, abajo).
 
 - **Seis tipos de nodo** (`NodoRdf` en `lib/grafo.ts`): persona con cargo,
   institución, entidad financiera, persona jurídica, decreto con ficha y
@@ -1063,6 +1064,25 @@ una función (medido: abajo).
   dirige la institución que le contrató en dos saltos. El inventario cuenta
   `soc:Proveedor` y `soc:Contratacion`; la huella de `camino()` incluye
   `historico/instituciones.json` y `rnc.json` (versión del resultado 3).
+- **El volcado** (`scripts/build-grafo-volcado.mjs` →
+  `public/data/grafo/grafo.nt.gz` y `meta.json`, servidos por la CDN en
+  `/data/grafo/`; DECISIONES, «Sin servidor SPARQL»). El grafo entero en
+  N-Triples comprimido, para cargarlo en un motor SPARQL propio (Oxigraph,
+  QLever, Apache Jena). Cada triple sale de la plataforma: el script pide a
+  `next start` la descripción de cada nodo por `/api/grafo`, la misma que
+  pintan el explorador y el MCP, así que no puede derivar. Entran las
+  instituciones, las entidades financieras, las provincias y las personas
+  jurídicas que el grafo liga a algo (proveedoras con RNC, con medidas, en la
+  OFAC o supervisadas), con sus contrataciones, medidas, supervisión y enlaces
+  a Wikidata. **No entra ninguna persona natural**: un triple que toca una
+  persona con cargo, un cargo, un decreto (su título nombra a quien designa),
+  una declaración jurada, una ficha del Congreso o un proveedor que no está
+  atado a una empresa se descarta, y el script falla si queda uno que toque
+  `/funcionarios/`. El resultado se relee con N3.js antes de escribirse. Se
+  anuncia en el VoID (`void:subset` con `void:dataDump`, `void:triples` y su
+  fecha), en la portada de `/grafo` y en `ontology` del MCP
+  (`volcadoDelGrafo`, que lee `meta.json`). Se rehace al final de las
+  instantáneas, sobre un build; mientras tanto dice su propia fecha.
 - **Rutas.** `/grafo` (portada con el inventario; `?nodo=` la red de una
   ficha, `components/graficos/red-vecinos.tsx`, y su lista de aristas por
   grupo; `?q=` elige una ficha por nombre, número de decreto o RNC),
@@ -1211,12 +1231,14 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   `SERVICE` y `LOAD` también (buscados fuera de los IRI, los literales y los
   comentarios). Cada respuesta dice su alcance (nodos, triples, si los
   topes recortaron): un COUNT vale para ese alcance, no para el grafo. **Por
-  qué no el grafo entero**, medido el 30-09-2026 con un millón de triples
-  sintéticos (lo que pesaría el grafo sin personas): Oxigraph (WASM) carga en
-  ~25 s con ~1 GB; N3 con Comunica en ~13 s con ~2 GB, y una agregación tarda
-  11 s. Ninguno cabe en el arranque en frío de una función, y un almacén
-  servido aparte es una base de datos (DECISIONES, «Un SPARQL del grafo
-  entero»). **Por qué N3 y Comunica y no Oxigraph**, que era más rápido: el
+  qué no el grafo entero**: el dueño no quiere un servidor SPARQL
+  (DECISIONES, «Sin servidor SPARQL»); el grafo sin personas naturales se
+  descarga (el volcado, arriba). Medido el 30-09-2026 sobre ese volcado (816
+  mil triples): N3 con Comunica lo carga en ~10 s con ~1,2 GB y agrega en
+  ~0,8 s; Oxigraph (WASM, sin transacción) en ~2 s con ~430 MB. Lo primero no
+  cabe en el arranque en frío de `/mcp`, que ya lleva el índice. (Una primera
+  medida con datos sintéticos y la carga transaccional de Oxigraph daba ~25 s:
+  era la carga, no el tamaño.) **Por qué N3 y Comunica y no Oxigraph**, que es más rápido: el
   criterio de dependencias (DECISIONES, «Código abierto probado»). N3.js
   (~870 mil descargas al mes, dos mantenedores) y Comunica (cinco
   mantenedores, del IDLab de la Universidad de Gante; su núcleo,

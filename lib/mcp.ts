@@ -14,6 +14,7 @@ import {
   describir,
   inventario,
   iriDe,
+  volcadoDelGrafo,
   relacionesDesdeTriples,
   type GrupoRelacion,
   type Relacion,
@@ -2139,11 +2140,13 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
  * (docs/DECISIONES.md, «Código abierto probado»); Oxigraph era más rápido,
  * pero su registro lo publica un solo mantenedor.
  *
- * No es un almacén del grafo entero: medido el 30-09-2026, cargar un millón
- * de triples toma ~13 s y 2 GB en N3 con Comunica (y ~25 s y 1 GB en
- * Oxigraph); una función no carga eso en frío, y la invariante no deja poner
- * una base de datos detrás. Con los topes de abajo carga en milisegundos; el
- * motor se arma una vez por instancia (~0,8 s en frío).
+ * No es un almacén del grafo entero: el dueño no quiere un servidor SPARQL
+ * (docs/DECISIONES.md, «Sin servidor SPARQL»), y el grafo sin personas
+ * naturales se descarga entero. Medido el 30-09-2026 sobre ese volcado
+ * (816 mil triples), N3 con Comunica lo carga en ~10 s con ~1,2 GB: demasiado
+ * para el arranque en frío de esta función, que ya lleva el índice de
+ * búsqueda. Con los topes de abajo carga en milisegundos; el motor se arma una
+ * vez por instancia (~0,8 s en frío).
  *
  * Solo lectura: una actualización se rechaza antes de ejecutarse (Comunica
  * las ejecutaría sobre el almacén de la llamada), y `SERVICE` también
@@ -2372,11 +2375,21 @@ const Ontologia = z.object({
     }),
   ),
   esquemas: z.array(z.object({ id: z.string(), etiqueta: z.string(), conceptos: z.array(z.string()) })),
-  descargas: z.object({ turtle: z.string(), jsonld: z.string(), ntriples: z.string(), pagina: z.string() }),
+  descargas: z.object({
+    turtle: z.string(),
+    jsonld: z.string(),
+    ntriples: z.string(),
+    pagina: z.string(),
+    grafo: z
+      .object({ url: z.string(), triples: z.number(), generado: z.string(), excluye: z.string() })
+      .nullable()
+      .describe("El grafo entero sin personas naturales, en N-Triples comprimido, para cargarlo en un motor SPARQL propio."),
+  }),
   aviso: z.string(),
 });
 
-function ontologia(): z.infer<typeof Ontologia> {
+async function ontologia(): Promise<z.infer<typeof Ontologia>> {
+  const volcado = await volcadoDelGrafo();
   return {
     version: VERSION_ONTOLOGIA,
     publicada: PUBLICADA,
@@ -2402,6 +2415,7 @@ function ontologia(): z.infer<typeof Ontologia> {
       jsonld: `${SITIO}/ontologia.jsonld`,
       ntriples: `${SITIO}/ontologia.nt`,
       pagina: `${SITIO}/ontologia`,
+      grafo: volcado ? { url: volcado.url, triples: volcado.triples, generado: volcado.generado, excluye: volcado.excluye } : null,
     },
     aviso: AVISO,
   };
@@ -2576,7 +2590,7 @@ export function servidorMcp(): McpServer {
     "sparql",
     {
       title: tituloHerramienta("sparql"),
-      description: `Una consulta SPARQL 1.1 de lectura (SELECT, ASK, CONSTRUCT o DESCRIBE) sobre las descripciones RDF de los nodos que se nombran (hasta ${TOPE_SPARQL.semillas}) y, por omisión, de sus vecinos en el grafo (hasta ${TOPE_SPARQL.nodos} nodos), más la ontología: para contar, sumar, cruzar o filtrar lo que describen (los montos que una institución contrató, los cargos vigentes de sus personas, los decretos de un firmante que tocan una materia). Corre en un almacén N3.js con el motor Comunica (abiertos), en memoria y solo mientras dura la llamada: no es el grafo entero. Los prefijos soc:, rdf:, rdfs:, owl:, xsd:, skos:, dct:, foaf:, schema:, org:, rov:, eli: y wd: ya vienen declarados; ontology da las clases y relaciones.`,
+      description: `Una consulta SPARQL 1.1 de lectura (SELECT, ASK, CONSTRUCT o DESCRIBE) sobre las descripciones RDF de los nodos que se nombran (hasta ${TOPE_SPARQL.semillas}) y, por omisión, de sus vecinos en el grafo (hasta ${TOPE_SPARQL.nodos} nodos), más la ontología: para contar, sumar, cruzar o filtrar lo que describen (los montos que una institución contrató, los cargos vigentes de sus personas, los decretos de un firmante que tocan una materia). Corre en un almacén N3.js con el motor Comunica (abiertos), en memoria y solo mientras dura la llamada: no es el grafo entero. El grafo entero sin personas naturales se descarga en N-Triples (ontology da la dirección) para consultarlo en un motor propio. Los prefijos soc:, rdf:, rdfs:, owl:, xsd:, skos:, dct:, foaf:, schema:, org:, rov:, eli: y wd: ya vienen declarados; ontology da las clases y relaciones.`,
       inputSchema: z.object({
         consulta: z.string().min(1).max(5000).describe("La consulta SPARQL, por ejemplo: SELECT ?proveedor ?monto WHERE { ?c soc:contratante ?i ; soc:contratista ?p ; soc:montoContratado ?monto . ?p rdfs:label ?proveedor } ORDER BY DESC(?monto)"),
         nodos: z.array(Id).min(1).max(TOPE_SPARQL.semillas).describe("Los ids de los nodos del grafo sobre los que corre (los que da search, retrieve o fetch)."),
@@ -2617,7 +2631,7 @@ export function servidorMcp(): McpServer {
       outputSchema: Ontologia,
       annotations: SOLO_LECTURA,
     },
-    async () => resultado(ontologia()),
+    async () => resultado(await correr("ontology", ontologia)),
   );
 
   return s;

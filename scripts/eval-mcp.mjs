@@ -29,6 +29,7 @@
  * Sale con 1 si un caso falla.
  */
 import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +38,7 @@ const DATOS = path.join(RAIZ, "public", "data");
 const i = process.argv.indexOf("--url");
 const URL_MCP = i > 0 ? process.argv[i + 1] : "http://localhost:3000/mcp";
 const leer = (ruta) => JSON.parse(readFileSync(path.join(DATOS, ruta), "utf8"));
+const SITIO = /SITIO = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "sitio.ts"), "utf8"))[1];
 
 /* ---------------------------------------------------------------- cliente */
 
@@ -506,6 +508,29 @@ const CASOS = [
       const b = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: "SELECT * WHERE { SERVICE <https://query.wikidata.org/sparql> { ?s ?p ?o } }" });
       exigir(b.error?.includes("SERVICE"), `no rechazó SERVICE: ${b.error ?? "respondió"}`);
       return "rechazados";
+    },
+  },
+  {
+    pregunta: "El grafo entero se descarga, sin personas naturales, y ontology lo anuncia",
+    async correr() {
+      const meta = leer("grafo/meta.json");
+      const r = await fetch(URL_MCP.replace(/\/mcp$/, "/data/grafo/grafo.nt.gz"), { signal: AbortSignal.timeout(90_000) });
+      exigir(r.ok, `el volcado responde ${r.status}`);
+      const buf = Buffer.from(await r.arrayBuffer());
+      // Un servidor puede mandarlo ya descomprimido (Content-Encoding): se acepta de las dos formas.
+      const nt = (buf[0] === 0x1f && buf[1] === 0x8b ? gunzipSync(buf) : buf).toString("utf8");
+      const lineas = nt.split("\n").filter(Boolean);
+      exigir(lineas.length === meta.triples, `${lineas.length} triples; meta.json dice ${meta.triples}`);
+      exigir(!nt.includes(`${SITIO}/funcionarios/`), "toca a una persona con cargo");
+      exigir(!nt.includes("ontologia#DeclaracionJurada"), "trae declaraciones juradas");
+      exigir(!nt.includes(`${SITIO}/normativa/decreto/`), "trae decretos");
+      const [rpe, , , monto] = topMinerd[0];
+      const arista = `<${SITIO}/proveedores/${rpe}#contratacion-${MINERD.id}> <${SITIO}/ontologia#montoContratado> "${monto}"`;
+      if (rncDe[rpe]) exigir(nt.includes(arista), "no trae la mayor contratación del MINERD");
+      const { datos, error } = await llamar("ontology", {});
+      exigir(!error, error);
+      exigir(datos.descargas.grafo?.triples === meta.triples, "ontology no anuncia el volcado, o con otra cuenta");
+      return `${meta.triples.toLocaleString("en-US")} triples, ${(meta.bytes / 1e6).toFixed(1)} MB, del ${meta.generado}`;
     },
   },
   {

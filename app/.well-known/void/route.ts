@@ -1,6 +1,6 @@
 import { SITIO } from "@/lib/sitio";
 import { enlace } from "@/lib/grafo";
-import { enlacesWikidata, inventario } from "@/lib/grafo-rdf";
+import { enlacesWikidata, inventario, volcadoDelGrafo } from "@/lib/grafo-rdf";
 import { getFuncionarios } from "@/lib/funcionarios";
 import { VERSION } from "@/lib/ontologia";
 import { ONTOLOGIA, PREFIJOS, TIPO_MIME, aTurtle, entero, fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
@@ -15,7 +15,7 @@ export const dynamic = "force-static";
  * sitio donde una máquina empieza (`/.well-known/void`, RFC 8615).
  */
 export async function GET() {
-  const [clases, wd, f] = await Promise.all([inventario(), enlacesWikidata(), getFuncionarios()]);
+  const [clases, wd, f, volcado] = await Promise.all([inventario(), enlacesWikidata(), getFuncionarios(), volcadoDelGrafo()]);
   const ds = `${SITIO}/.well-known/void#grafo`;
   const editor: Termino = { tipo: "blanco", valor: "editor" };
   const ls = `${SITIO}/.well-known/void#wikidata`;
@@ -67,6 +67,20 @@ export async function GET() {
     x.push(t(ds, "void:vocabulary", iri(PREFIJOS[v])));
   }
   if (f?.generado) x.push(t(ds, "dct:modified", fecha(f.generado)));
+  // El grafo sin personas naturales, entero, para cargarlo en un motor propio.
+  if (volcado) {
+    const v = `${SITIO}/.well-known/void#volcado`;
+    x.push(
+      t(ds, "void:subset", iri(v)),
+      t(v, "rdf:type", iri("void:Dataset")),
+      t(v, "dct:title", lit("El grafo sin personas naturales, para descargar", "es")),
+      t(v, "dct:description", lit(volcado.excluye, "es")),
+      t(v, "void:dataDump", iri(volcado.url)),
+      t(v, "void:feature", iri("http://www.w3.org/ns/formats/N-Triples")),
+      t(v, "void:triples", entero(volcado.triples)),
+      t(v, "dct:modified", fecha(volcado.generado)),
+    );
+  }
   if (wd.generado) x.push(t(ls, "dct:modified", fecha(wd.generado)));
   clases.forEach((c, i) => {
     const b: Termino = { tipo: "blanco", valor: `clase${i}` };
