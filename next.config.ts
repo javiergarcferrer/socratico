@@ -64,10 +64,11 @@ const nextConfig: NextConfig = {
       "./public/data/empresas/**",
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
     ],
-    // SQL sobre las tablas del grafo (`lib/grafo-sql.ts`): los Parquet y la
+    // SQL sobre las tablas del grafo (`lib/grafo-sql.ts`): el proceso hijo que
+    // corre el motor (se carga de disco, sin empaquetar), los Parquet y la
     // biblioteca de DuckDB, que `duckdb.node` enlaza por su cuenta y el
     // trazado no ve.
-    "/api/sql": ["./public/tablas/*.parquet", "./node_modules/@duckdb/node-bindings-linux-x64/**"],
+    "/api/sql": ["./lib/sql-hijo.cjs", "./public/tablas/*.parquet", "./node_modules/@duckdb/node-bindings-linux-x64/**"],
     "/instituciones": ["./public/data/wikidata.json"],
     "/banca": ["./public/data/wikidata.json"],
     "/provincias": ["./public/data/wikidata.json"],

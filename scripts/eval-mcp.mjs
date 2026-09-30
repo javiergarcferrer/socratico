@@ -533,6 +533,40 @@ const CASOS = [
     },
   },
   {
+    pregunta: "SQL: una cadena que se multiplica no tumba el motor: se mata el proceso a tiempo y el siguiente responde",
+    async correr() {
+      const s = `'${"x".repeat(400)}'`;
+      const t0 = performance.now();
+      // 400⁴ caracteres: veinticinco mil millones, si nadie lo para.
+      const { error } = await llamar("query", { sql: `SELECT length(replace(replace(replace(${s}, 'x', ${s}), 'x', ${s}), 'x', ${s}))` });
+      const seg = Math.round((performance.now() - t0) / 1000);
+      exigir(error?.includes("se detuvo"), `no se detuvo: ${error ?? "respondió"}`);
+      exigir(seg <= 15, `tardó ${seg} s`);
+      const b = await llamar("query", { sql: "SELECT length(bitstring('1', 2000000000)::VARCHAR)" });
+      exigir(b.error, "aceptó bitstring");
+      const despues = await llamar("query", { sql: "SELECT count(*) FROM medidas" });
+      exigir(despues.datos?.filas?.[0]?.[0] > 0, `el motor no volvió: ${despues.error ?? JSON.stringify(despues.datos)}`);
+      return `detenida en ${seg} s; el motor volvió`;
+    },
+  },
+  {
+    pregunta: "SQL: una lista enorme se recorta, y una fila de 300 columnas se recorta o se para",
+    async correr() {
+      const l = await llamar("query", { sql: "SELECT list(titulo) FROM procesos" });
+      exigir(!l.error, l.error);
+      const celda = l.datos.filas[0][0];
+      exigir(l.datos.truncada && typeof celda === "string" && celda.length <= 2_001, `una celda de ${JSON.stringify(celda).length} caracteres`);
+      const cols = Array.from({ length: 300 }, (_, k) => `s c${k}`).join(", ");
+      // 300 copias de una cadena de 6 MB: o sale recortada, o el vigía de memoria la para; nunca entera.
+      const w = await llamar("query", { sql: `WITH t AS (SELECT string_agg(titulo, '') s FROM procesos) SELECT ${cols} FROM t` });
+      const largo = w.datos ? JSON.stringify(w.datos.filas).length : 0;
+      exigir(w.error?.includes("se detuvo") || (w.datos?.truncada && largo <= 62_000), `${w.error ?? `${largo} caracteres en una fila`}`);
+      const despues = await llamar("query", { sql: "SELECT count(*) FROM provincias" });
+      exigir(despues.datos?.filas?.[0]?.[0] === 32, `el motor no volvió: ${despues.error ?? JSON.stringify(despues.datos)}`);
+      return `celda a ${celda.length}; la fila ancha, ${w.error ? "detenida" : `a ${largo.toLocaleString("en-US")}`}`;
+    },
+  },
+  {
     pregunta: "Un argumento que no existe es un error, no una respuesta sin filtro",
     async correr() {
       const { datos, error } = await llamar("contracting_history", { institucion: `/instituciones/${MINERD.id}` });

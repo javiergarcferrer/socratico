@@ -2531,7 +2531,8 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
       title: tituloHerramienta("ontology"),
       description:
         "Las clases, relaciones y vocabularios controlados del grafo de Socrático.do (OWL y RDFS, alineados con schema.org, W3C ORG, ELI, FOAF y Wikidata): qué es cada tipo de nodo y qué quiere decir cada relación; y dónde descargar el grafo (N-Triples) y sus tablas (Parquet).",
-      inputSchema: z.strictObject({}),
+      // Sin argumentos, y sin exigir que no lleguen: hay clientes que le ponen uno de relleno a una herramienta vacía.
+      inputSchema: z.object({}),
       outputSchema: Ontologia,
       annotations: SOLO_LECTURA,
     },

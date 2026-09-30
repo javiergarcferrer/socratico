@@ -3,7 +3,7 @@ import { ErrorDeConsulta, consultarSql } from "@/lib/grafo-sql";
 import { TABLAS_GENERADAS } from "@/lib/grafo-tablas";
 
 export const dynamic = "force-dynamic";
-// La primera consulta de una instancia carga las tablas (~0,2 s); cada una se corta a los 10 s.
+// La primera consulta de una instancia arranca el motor y carga las tablas (~0,3 s); cada una se corta a los 10 s.
 export const maxDuration = 30;
 
 /**

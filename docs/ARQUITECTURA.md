@@ -1240,44 +1240,56 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
     ganó; **un año anterior a la instantánea de procesos**, también.
   Atar por nombre es recuperar, no afirmar identidad: cada entidad dice `por`
   qué se ató.
-- **`query`, SQL sobre las tablas** (`lib/grafo-sql.ts`, `/api/sql`). DuckDB
-  embebido (`@duckdb/node-api`, fundación DuckDB, MIT, fijado a una versión
-  exacta: en 2025 publicaron una versión maliciosa en npm y la retiraron en
-  horas) carga las tablas en memoria una vez por instancia (~0,15 s, ~175 MB)
-  y después se cierra: `enable_external_access = false` (ni archivos, ni red,
-  ni extensiones: probado contra `read_csv` de un archivo del sistema,
-  `COPY … TO`, `ATTACH`, `INSTALL`/`LOAD`, una URL y `glob`) y
-  `lock_configuration = true` (ni `SET`). **Eso no basta**: la revisión halló
-  que un SELECT puede llamar funciones de tabla que cambian la instancia que
-  todos comparten —`enable_logging` dejaba leer con `duckdb_logs()` la
-  consulta de los demás, y con la bitácora en archivo tumbaba el proceso en la
-  consulta siguiente—, correr SQL escondido en una cadena (`query('…')`), o
-  armar una cadena que el techo de memoria no para (`repeat('x', 2e9)` llegó a
-  4 GB). Así que la consulta se lee antes en su árbol (`json_serialize_sql`,
-  el analizador del motor): una sentencia SELECT; de las funciones de tabla,
-  solo `range`, `generate_series`, `unnest`, `duckdb_tables` y
-  `duckdb_columns`; ninguna de las que arman cadenas o listas del tamaño que
-  se pida (`repeat`, `lpad`, `rpad`, `format`, `printf`, `bar`, `list_resize`,
-  `array_resize`, y `range` o `generate_series` como listas). Al correr: a lo
-  sumo dos consultas a la vez por instancia (la piscina de libuv tiene cuatro
-  hilos y una interrupción que llega antes de empezar se perdía), las demás
-  esperan hasta 10 s y si no, un 503 «ocupado»; 10 s por consulta contados
-  desde su turno, interrumpiendo cada 250 ms hasta que pare; un hilo, 512 MB
-  para sus operadores; 200 filas leídas en flujo y ninguna celda de más de
-  2 000 caracteres. Medido el 30-09-2026: seis consultas desbocadas a la vez,
-  dos cortadas a los 10,2 s y cuatro «ocupado» a los 10,2 s; la siguiente
-  responde en 18 ms. La evaluación prueba cada una de esas vías. El motor vive
-  en **su propia función** porque su biblioteca pesa ~70 MB y `/mcp` ya lleva
-  ~177: la herramienta llama a `/api/sql` del mismo despliegue que atiende
-  (`conOrigen` en `app/mcp/route.ts`, solo los dominios del proyecto), por GET
-  —que la CDN guarda— o por POST si la consulta es larga. La descripción de
-  `query` trae el esquema entero de `meta.json`. Reemplaza a `sparql`, que
-  corría SPARQL solo sobre 150 nodos: el grafo entero no cabía en N3 con
-  Comunica (~9 s y 1,8 GB), Oxigraph tiene un solo mantenedor y Comunica no
-  llega al uso amplio que se le pide a una dependencia (~20 mil descargas por
-  semana).
-- **Argumentos estrictos**: cada herramienta rechaza un argumento que no
-  existe. Sin eso, el esquema lo descartaba en silencio y
+- **`query`, SQL sobre las tablas** (`lib/grafo-sql.ts`, `lib/sql-hijo.cjs`,
+  `/api/sql`). DuckDB embebido (`@duckdb/node-api`, fundación DuckDB, MIT,
+  fijado a una versión exacta: en 2025 publicaron una versión maliciosa en npm
+  y la retiraron en horas) corre en un **proceso hijo** de la función, con las
+  tablas en memoria (~0,3 s al arrancar, ~175 MB), cerrado al mundo:
+  `enable_external_access = false` (ni archivos, ni red, ni extensiones:
+  probado contra `read_csv` de un archivo del sistema, `COPY … TO`, `ATTACH`,
+  `INSTALL`/`LOAD`, una URL y `glob`) y `lock_configuration = true` (ni
+  `SET`). **Por qué un hijo**: dos revisiones rompieron el motor desde un
+  SELECT. Una función de tabla cambiaba la instancia que todos comparten
+  (`enable_logging` dejaba leer con `duckdb_logs()` la consulta de los demás y,
+  con la bitácora en archivo, tumbaba el proceso), `query('…')` corría SQL
+  escondido, y una cadena que se multiplica (`repeat`, un `replace` dentro de
+  otro) llegó a 9 GB y 104 s: una función escalar de DuckDB no se deja
+  interrumpir y una expresión constante se calcula al preparar, antes de
+  cualquier plazo. Así que hay dos capas:
+  - **El hijo lee la consulta en su árbol** (`json_serialize_sql`, el
+    analizador del motor): una sentencia SELECT; de las funciones de tabla,
+    solo `range`, `generate_series`, `unnest`, `duckdb_tables` y
+    `duckdb_columns`; ninguna de las que arman una cadena o una lista del
+    tamaño que se pida con un número (`repeat`, `lpad`, `rpad`, `format`,
+    `printf`, `bar`, `bitstring`, `list_resize`, `array_resize`, y `range` o
+    `generate_series` como listas); ninguna cadena literal de más de 500
+    caracteres. No es la defensa: hay otras formas de multiplicar.
+  - **El padre mata al hijo** si una consulta pasa de 10 s (desde su turno,
+    preparar incluido) o si el hijo pasa de 900 MB residentes (mirado cada
+    100 ms en `/proc`), y arranca otro en la consulta siguiente; con él caen
+    las que corrían a la vez, y se les dice. Un hijo que queda por encima de
+    600 MB tras una consulta se cambia sin nadie esperando, para que el vigía
+    no le cobre a la siguiente la memoria de la anterior. Sin las variables de
+    entorno de la función (`env` vacío).
+  Al correr: a lo sumo dos consultas a la vez por instancia, las demás esperan
+  hasta 10 s y si no, un 503 «ocupado»; 200 filas leídas en flujo; ninguna
+  celda de más de 2 000 caracteres, sea cadena, lista o estructura; ninguna
+  respuesta de más de 60 mil (una fila muy ancha pierde celdas por la
+  derecha). La evaluación prueba cada vía: la cadena de 400⁴ caracteres se
+  para en ~1 s y el motor vuelve; seis consultas desbocadas a la vez no
+  dejan de ser atendidas las siguientes. Primera llamada: ~0,4 s. El motor
+  vive en **su propia función** porque su biblioteca pesa ~70 MB y `/mcp` ya
+  lleva ~177: la herramienta llama a `/api/sql` del mismo despliegue que
+  atiende (`conOrigen` en `app/mcp/route.ts`, solo los dominios del
+  proyecto), por GET —que la CDN guarda— o por POST si la consulta es larga.
+  La descripción de `query` trae el esquema entero de `meta.json`. Reemplaza
+  a `sparql`, que corría SPARQL solo sobre 150 nodos: el grafo entero no cabía
+  en N3 con Comunica (~9 s y 1,8 GB), Oxigraph tiene un solo mantenedor y
+  Comunica no llega al uso amplio que se le pide a una dependencia (~20 mil
+  descargas por semana).
+- **Argumentos estrictos**: cada herramienta, menos `ontology` (que no pide
+  ninguno, y hay clientes que le ponen uno de relleno), rechaza un argumento
+  que no existe. Sin eso, el esquema lo descartaba en silencio y
   `contracting_history {institucion: …}` —el nombre de antes— contestaba por
   el país entero; la evaluación lo prueba, y revisa que ninguna respuesta
   nombre un argumento o una herramienta que ya no existen.
@@ -1339,7 +1351,7 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
 - **La evaluación** (`scripts/eval-mcp.mjs`, en `verificar.sh --completo`
-  contra `next start`): 51 preguntas de quien investiga —la compra más
+  contra `next start`): 53 preguntas de quien investiga —la compra más
   grande del año, las licitaciones de mobiliario abiertas, lo contratado a un
   proveedor, quién dirige una institución—, cada una con su oráculo calculado
   aparte de `public/data`, más las reglas de toda respuesta (sin cédula, con
