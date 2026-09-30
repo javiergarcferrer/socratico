@@ -218,6 +218,7 @@ validó solo en claro, contra `canvas` (#F7F3EA) y `surface` (#FDFBF5).
 | ¿Cómo se reparte un todo? (estados, votos) | `BarraApilada` | estados de `lib/estados.ts` o la divergente |
 | ¿Cuándo pasa en el año? (temporada) | `MatrizMensual` | secuencial |
 | La misma medida partida por una faceta | `Multiples` + `maximoComun` | una serie por panel |
+| ¿Dónde? (cuánto por provincia; dónde está una provincia) | `MapaProvincias` (con `ubicar`, sin cifra: la elegida entre las demás) | secuencial en tramos 3–6 por cuantiles, rango de cada tramo escrito; el paso 1 es «cero» |
 | Una proporción contra un límite (ejecución, avance, puntuación) | **no es un gráfico**: `Progress`, el medidor | el oficio del dato |
 | Un solo número | **no es un gráfico**: `Cifra` con su ancla | — |
 

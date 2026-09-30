@@ -60,6 +60,16 @@ export const SECUENCIAL: readonly string[] = [
   "bg-grafico-sec-6",
 ];
 
+/** Los mismos seis pasos como relleno de SVG (el mapa). */
+export const SECUENCIAL_RELLENO: readonly string[] = [
+  "fill-grafico-sec-1",
+  "fill-grafico-sec-2",
+  "fill-grafico-sec-3",
+  "fill-grafico-sec-4",
+  "fill-grafico-sec-5",
+  "fill-grafico-sec-6",
+];
+
 export const DIVERGENTE = {
   firma: "bg-grafico-div-firma",
   firmaTenue: "bg-grafico-div-firma-tenue",

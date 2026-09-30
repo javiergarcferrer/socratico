@@ -482,6 +482,50 @@ de `espacios.guardados`, decisión del dueño), las últimas sentencias de la SC
 las resoluciones de ProCompetencia en vivo, y el OCR propio de los decretos
 anteriores a 2012.
 
+## 6 quinquies. Horizonte 7 — el territorio (pedido del dueño, 2026-09-30)
+
+El dueño: «un mapa de verdad», y más allá, una interfaz donde **todo nodo del
+grafo tenga un lugar** —el decreto en el Palacio Nacional, la compra en la
+dirección del proveedor, la obra en su municipio— o, en su defecto, una
+provincia. El mapa es otra cara del mismo grafo (§6 ter), no una vertical.
+
+**La regla de precisión.** Cada nodo declara su lugar **y con qué precisión lo
+sabe**: `punto` (coordenada publicada por la fuente) > `municipio` >
+`provincia` > `nacional` > `sin lugar`. Nunca se pinta más fino de lo que la
+fuente dice: un proveedor con solo provincia en el registro no se convierte en
+un punto en la capital de esa provincia. Un nodo sin lugar lo dice.
+
+| # | Entrega | Hecho cuando |
+|---|---|---|
+| T1 ✅ | **El mapa de provincias** (`lib/mapa.ts`, `MapaProvincias`, AUDITORIA §G.16): coropleta de obras en `/obras`, índice en `/provincias`, ubicación en cada ficha de provincia | Cada provincia del mapa lleva a su filtro o a su ficha; la elegida se ve sobre cualquier tramo |
+| T2 | **Municipios**: `admin3` de la ONE en la misma instantánea (≈158 polígonos); obras por municipio si `IdMunicipio` de MapaInversiones casa con `adm3_pcode` (verificar primero) | `/obras` baja de provincia a municipio sin inventar |
+| T3 | **`lugar` en el grafo**: `lib/grafo.ts` gana `lugarDe(nodo)` con su precisión y su fuente. Ya hay lugar, sin fuente nueva: obra (municipio), legislador (provincia), gobernación y alcaldía (provincia/municipio), corte de luz de Edesur (provincia), proveedor del registro (provincia y municipio de su ficha), institución central (sede). Decretos → Presidencia → su sede | La ficha de cada tipo con lugar lo dice en «Conectado con» y en un mapa de ubicación |
+| T4 | **Puntos**: sedes de instituciones y domicilios de **personas jurídicas** (nunca de personas físicas: AUDITORIA §E, «publicar no es exponer»). La dirección sale del registro; la coordenada exige geocodificar | Decisión del dueño, abajo |
+| T5 | **`/mapa`**: el explorador — capas (obras, proveedores, cortes, legisladores), filtro por fecha y por monto, clic → ficha | Cualquier capa llega a su ficha en un clic, y el mapa dice qué no puede ubicar |
+
+**Qué decide el dueño antes de T4** (no se hace sin él, va a `docs/DECISIONES.md`):
+1. *Geocodificar.* Nominatim (OpenStreetMap) en build, a 1 petición por
+   segundo y con atribución ODbL, no pide clave; Google o Mapbox, sí (y
+   cuestan). Una dirección dominicana geocodifica mal («Av. 27 de Febrero
+   esq. …»): hay que declarar la tasa de acierto.
+2. *Mapa base.* Para puntos hace falta calles. Sin romper la invariante: un
+   archivo PMTiles de la República Dominicana (Protomaps, datos de OSM,
+   decenas de MB) servido desde el propio dominio y pintado con MapLibre —sin
+   clave ni tercero en el navegador—. Con clave (Mapbox, MapTiler) no.
+
+**Por qué no una base de datos de grafos (Neo4j y similares).** El grafo de
+la plataforma se **deriva** en cada lectura de las fuentes y las instantáneas
+(`docs/DECISIONES.md`, «El buscador no va a una base de datos»); una base de
+grafos lo convertiría en una copia que hay que sincronizar, con un servidor,
+una credencial y una factura —justo lo que la invariante prohíbe en las
+superficies de inteligencia—. Y el tamaño no lo pide: decenas de miles de
+nodos y unos cientos de miles de aristas caben en índices JSON hechos en build
+(como `public/data/busqueda/`) y se recorren en milisegundos. Lo que un motor
+de grafos añadiría —caminos de varios saltos («¿qué proveedor de esta obra
+comparte RNC con un funcionario?»)— se resuelve con un índice de adyacencia
+precalculado por `scripts/`. Se reabre solo si una consulta real necesita
+recorridos arbitrarios en vivo sobre millones de aristas.
+
 ## 7. Guardarraíles para quien ejecute
 
 - Nada de esto introduce DB ni variables de entorno: los cruces son archivos

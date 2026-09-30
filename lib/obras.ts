@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
 import { siglasDe } from "@/lib/instituciones";
+import { provinciaDeTexto } from "@/lib/provincias";
 import type { Tono } from "./estados";
 
 /**
@@ -190,7 +191,15 @@ export function tonoDeObra(estado: string): Tono {
 
 export const ESTADOS_OBRA = ["En ejecución", "Paralizado", "En reevaluación", "Por reprogramar"] as const;
 
+/**
+ * El slug de la provincia como lo usa el resto del grafo (`lib/provincias.ts`):
+ * MapaInversiones escribe «Baoruco» y la ficha es `/provincias/bahoruco`. Sin
+ * esto, la ficha de Bahoruco contaba cero obras y su enlace a `/obras` no
+ * filtraba. Lo que la tabla no reconoce cae al slug del nombre.
+ */
 export function slugProvincia(nombre: string): string {
+  const conocida = provinciaDeTexto(nombre);
+  if (conocida) return conocida.slug;
   return nombre
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")

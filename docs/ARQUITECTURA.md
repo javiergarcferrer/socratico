@@ -147,6 +147,16 @@ Every UI that shows them states the source's cut date.
   exposes one `avance` and the UI calls it «avance declarado».
   Self-contained server components for other pages live in
   `components/fuentes-nuevas/` (`ObraDelProceso`, `ObrasDeInstitucion`, `FilaObra`).
+- **`lib/mapa.ts`** — the country's 32 province boundaries from the ONE
+  (`docs/AUDITORIA.md` §G.16). `scripts/build-mapa.py` projects the official
+  COD-AB polygons (equirectangular at 18.8°) and simplifies them
+  topology-aware — shared vertices between provinces are exact in the source,
+  so each shared run between junctions is simplified once and reused reversed:
+  no slivers — into `mapa.json` (~40 KB, 3,265 vertices, slugs of
+  `lib/provincias.ts`). `components/graficos/mapa-provincias.tsx` paints it
+  server-side as SVG: no tiles, no key, no map library, each province a link.
+  `lib/obras.ts` `slugProvincia` now resolves through `provinciaDeTexto`, so
+  MapaInversiones' «Baoruco» is `bahoruco` like the rest of the graph.
 - **`lib/rnc.ts`** — DGII taxpayer register joined to the DGCP supplier register
   (`docs/AUDITORIA.md` §A.2, §A.12). `scripts/build-rnc.py` downloads the full
   supplier table (`/api-dgcp/v1/tablas/proveedores?Type=csv`, reading only RPE

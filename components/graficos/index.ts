@@ -10,5 +10,6 @@ export { MatrizMensual, type FilaMatriz } from "./matriz-mensual";
 export { Multiples, maximoComun } from "./multiples";
 export { Leyenda, EscalaSecuencial, type EntradaLeyenda } from "./leyenda";
 export { VerComoTabla, type ColumnaTabla } from "./ver-como-tabla";
-export { CATEGORICA, SECUENCIAL, DIVERGENTE, SERIE, CONTEXTO, OTROS, ORDEN_TONOS } from "./paleta";
+export { MapaProvincias, type ZonaMapa } from "./mapa-provincias";
+export { CATEGORICA, SECUENCIAL, SECUENCIAL_RELLENO, DIVERGENTE, SERIE, CONTEXTO, OTROS, ORDEN_TONOS } from "./paleta";
 export { formatearValor, type FormatoValor } from "./formato";

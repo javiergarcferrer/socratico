@@ -22,6 +22,8 @@ import Plegable from "@/components/plegable";
 import { Card } from "@/components/ui/card";
 import { FilaObra } from "@/components/fuentes-nuevas/fila-obra";
 import { recortar } from "@/lib/raiz";
+import { getMapa } from "@/lib/mapa";
+import { MapaProvincias } from "@/components/graficos";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/obras" },
@@ -46,7 +48,7 @@ type Params = { q?: string; estado?: string; provincia?: string; uc?: string; pa
  */
 export default async function ObrasPage({ searchParams }: { searchParams: Promise<Params> }) {
   const sp = await searchParams;
-  const datos = await getObras();
+  const [datos, geo] = await Promise.all([getObras(), getMapa()]);
   if (!datos) {
     return (
       <EstadoVacio
@@ -102,6 +104,10 @@ export default async function ObrasPage({ searchParams }: { searchParams: Promis
 
   const filtrado = Boolean(filtro.q || estado || provincia || institucion);
 
+  // El mapa cuenta lo que dejan los otros filtros, no el de provincia: elegir
+  // una no apaga las demás, y así se ve dónde más está lo que se busca.
+  const enMapa = provinciasDe(filtrarObras(datos.proyectos, { ...filtro, provincia: undefined }));
+
   return (
     <div className="space-y-5">
       <Portada
@@ -145,18 +151,44 @@ export default async function ObrasPage({ searchParams }: { searchParams: Promis
       <Card>
         <Plegable
           resumen={
-            <p className="px-5 pt-4 pb-3 text-sm text-ink">
-              {provincia ? (
-                <>
-                  Obras en <span className="font-semibold">{provincia.nombre}</span>.{" "}
-                  <Link href={href({ provincia: undefined, pagina: undefined })} className="text-brand-700 hover:underline">
-                    Ver todas las provincias
-                  </Link>
-                </>
-              ) : (
-                "Todas las provincias. Una obra que abarca varias aparece en cada una; las de alcance nacional, solo sin filtro."
+            <>
+              <p className="px-5 pt-4 pb-3 text-sm text-ink">
+                {provincia ? (
+                  <>
+                    Obras en <span className="font-semibold">{provincia.nombre}</span>.{" "}
+                    <Link href={href({ provincia: undefined, pagina: undefined })} className="text-brand-700 hover:underline">
+                      Ver todas las provincias
+                    </Link>
+                  </>
+                ) : (
+                  "Todas las provincias. Una obra que abarca varias aparece en cada una; las de alcance nacional, solo sin filtro."
+                )}
+              </p>
+              {geo && (
+                <div className="px-5 pb-3">
+                  <MapaProvincias
+                    geo={geo}
+                    etiqueta={filtrado ? "Obras que coinciden, por provincia" : "Obras por provincia"}
+                    unidad="obras"
+                    actual={provincia?.slug}
+                    zonas={enMapa.map((p) => ({
+                      slug: p.slug,
+                      valor: p.n,
+                      href: href({ provincia: p.slug, pagina: undefined }),
+                    }))}
+                    className="mx-auto max-w-xl"
+                  />
+                  <p className="mx-auto mt-1.5 max-w-xl text-xs leading-relaxed text-ink-soft">
+                    {filtro.q || estado || institucion
+                      ? "Cuántas de las obras que coinciden con la búsqueda toca cada provincia"
+                      : "Cuántas obras toca cada provincia"}
+                    , sin las de alcance nacional. Es un conteo, no un monto ni una tasa
+                    por habitante: las provincias grandes y pobladas tienden a tener más.
+                    Pulsa una provincia para ver sus obras.
+                  </p>
+                </div>
               )}
-            </p>
+            </>
           }
           etiqueta={`Elegir entre las ${provincias.length} provincias`}
         >

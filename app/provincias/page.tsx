@@ -13,6 +13,8 @@ import { BarrasHorizontales } from "@/components/graficos";
 import { Cargando, EsqueletoFilas } from "@/components/esqueleto";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { enlace } from "@/lib/grafo";
+import { MapaProvincias } from "@/components/graficos";
+import { getMapa } from "@/lib/mapa";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/provincias" },
@@ -31,7 +33,8 @@ export const dynamic = "force-dynamic";
  * recientes del Estado. La lista de provincias llega al instante; el reparto
  * cae en su hueco.
  */
-export default function ProvinciasPage() {
+export default async function ProvinciasPage() {
+  const geo = await getMapa();
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <header>
@@ -47,6 +50,21 @@ export default function ProvinciasPage() {
 
       <Card as="section" className="p-5 sm:p-6">
         <CardTitle>Provincias</CardTitle>
+        {geo && (
+          <>
+            <MapaProvincias
+              geo={geo}
+              ubicar
+              etiqueta="Las 32 demarcaciones; cada una lleva a su ficha"
+              zonas={geo.provincias.map((z) => ({ slug: z.slug, valor: 0, href: enlace.provincia(z.slug) }))}
+              className="mx-auto mt-3 max-w-2xl"
+            />
+            <p className="mt-2 text-xs text-ink-soft">
+              El Distrito Nacional, demasiado pequeño a esta escala, es el círculo
+              junto a la costa sur.
+            </p>
+          </>
+        )}
         {/*
           Dos columnas ya en el teléfono: los nombres son cortos y en una sola
           la lista medía dos pantallas de enlaces de una palabra.

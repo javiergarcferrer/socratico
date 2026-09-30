@@ -13,6 +13,7 @@ import { etiquetaCorte, getResumenFiscal } from "@/lib/fiscal";
 import { formatInt } from "@/lib/nomina";
 import { getResumenNomina } from "@/lib/nomina-server";
 import { FUENTES_DEL_CRUCE, INSTITUCIONES } from "@/lib/instituciones";
+import { FUENTE_MAPA } from "@/lib/mapa";
 import { IconArrowLeft } from "@/components/icons";
 import {
   ResumenBiblioteca,
@@ -592,6 +593,36 @@ export default async function FuentesPage() {
             MapaInversiones: se muestran los dos, cada uno con su origen.
             Regenerar con{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-obras.py</code>.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="ONE · límites provinciales (el mapa)" estado="activa" etiqueta="Instantánea local">
+          <p>
+            Los mapas de{" "}
+            <Link href="/obras" className="font-medium text-brand-700 hover:underline">
+              obras
+            </Link>{" "}
+            y de{" "}
+            <Link href="/provincias" className="font-medium text-brand-700 hover:underline">
+              provincias
+            </Link>{" "}
+            se dibujan sobre los límites oficiales de la Oficina Nacional de
+            Estadística, que la ONU publica en su{" "}
+            <a href={FUENTE_MAPA} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 hover:underline">
+              Humanitarian Data Exchange
+            </a>{" "}
+            con licencia CC BY-IGO: las 31 provincias y el Distrito Nacional,
+            vigentes desde el 29 de junio de 2021. Se simplifican al construir a
+            unos 40 KB y se pintan en el servidor: el mapa no llama a ningún
+            servicio de mapas ni carga nada de terceros en tu navegador.
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            Límites: a la escala de una pantalla una frontera se desplaza hasta
+            medio kilómetro y los islotes de menos de un kilómetro cuadrado no se
+            dibujan. El Distrito Nacional, de 92 km², se marca además con un
+            círculo. Los municipios y distritos municipales vienen en el mismo
+            paquete y todavía no se usan. Regenerar con{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-mapa.py</code>.
           </p>
         </Fuente>
 

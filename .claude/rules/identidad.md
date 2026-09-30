@@ -77,7 +77,7 @@ definition on tap), `components/esqueleto.tsx` (the silhouette a page shows whil
 a source answers: every `loading.tsx` and `Suspense` fallback composes it,
 same heights and grids as the content so nothing jumps), `components/graficos/*`
 (every chart — docs/IDENTIDAD.md §Gráficos: `BarrasHorizontales`/`FilaBarra`/
-`MarcaBarra` for a ranking, `SerieTemporal` columns for a flow and line for a
+`MarcaBarra` for a ranking, `MapaProvincias` for where (province choropleth or locator), `SerieTemporal` columns for a flow and line for a
 stock or rate, one axis only, `BarraApilada`, `MatrizMensual`, `Multiples`,
 `Leyenda`, `VerComoTabla`; colours only from the validated `--color-grafico-*`
 palettes, state from `lib/estados.ts`; every datum takes `href`; `Progress` is a

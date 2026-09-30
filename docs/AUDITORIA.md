@@ -1589,6 +1589,34 @@ User-Agent identificable; ninguna en una visita.
 - El boletín del Poder Judicial (`lib/justicia.ts`) son estadísticas, no
   sentencias: no hay nada que indexar ahí.
 
+### G.16 Límites provinciales de la ONE — el mapa (2026-09-30)
+
+Para pintar un mapa sin teselas ni clave (`lib/mapa.ts`, `scripts/build-mapa.py`).
+
+- ✅ La ONE publica sus límites administrativos oficiales como COD-AB en el
+  HDX de la ONU: `GET https://data.humdata.org/api/3/action/package_show?id=cod-ab-dom`
+  → 200 JSON, `dataset_source` «Oficina Nacional de Estadística», licencia
+  **CC BY-IGO** (se atribuye junto a cada mapa), modificado 2026-01-26.
+  Recursos: GDB, SHP, **GeoJSON (ZIP de 54 MB)** y un XLSX de códigos.
+- ✅ El ZIP trae `admin0` a `admin4`. Ojo con la numeración: **`admin1` son
+  las 10 regiones de desarrollo** y **`admin2` las 32 provincias** (31 y el
+  Distrito Nacional, `DO0801`), `valid_on` 2021-06-29, con `area_sqkm` y
+  `center_lat`/`center_lon`. `admin3` son los municipios y `admin4` los
+  distritos municipales: sin usar todavía.
+- ✅ Las fronteras comparten vértices exactos (221,647 vértices; 74,695 en
+  dos provincias, 41 en tres): se simplifica por tramos entre nudos sin
+  dejar rendijas. Resultado: 3,265 vértices, ~40 KB.
+- ⚠️ La ONE escribe «Baoruco»; la plataforma, `bahoruco` (el SIL). El script
+  lo traduce. MapaInversiones también escribe «Baoruco»: hasta el 2026-09-30
+  la ficha de Bahoruco contaba **0 obras** y su enlace a `/obras` no filtraba
+  (81 obras en realidad). Corregido en `slugProvincia`.
+- ⚠️ Sin verificar todavía: que los `IdMunicipio` de MapaInversiones
+  (`100101`, `081201`) casen con los `adm3_pcode` de la ONE. Es lo que haría
+  falta para bajar el mapa de obras a municipio.
+- Alternativa descartada: geoBoundaries `DOM-ADM1` (dominio público, Natural
+  Earth, 60 vértices por provincia de media). Más tosca y no es fuente del
+  Estado.
+
 ### G.9 Pendientes que deja esta pasada
 
 1. Estadísticas judiciales (índice + XLSX mensual) y sentencias del TSE.

@@ -26,6 +26,8 @@ import { Cargando, EsqueletoFilas } from "@/components/esqueleto";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { enlace } from "@/lib/grafo";
 import { GobiernoProvincial } from "@/components/fuentes-nuevas/gobierno-provincial";
+import { MapaProvincias } from "@/components/graficos";
+import { getMapa } from "@/lib/mapa";
 
 /*
   Dinámica: la agrupación cara ya se cachea un día en `lib/provincias.ts` y un
@@ -65,7 +67,7 @@ export default async function ProvinciaPage({ params }: Props) {
     .filter((i): i is NonNullable<typeof i> => i !== null)
     .map((i) => ({ id: i.id, nombre: i.nombre, href: hrefInstitucion(i) }));
 
-  const obras = await getObras();
+  const [obras, geo] = await Promise.all([getObras(), getMapa()]);
   const nObras = obras ? filtrarObras(obras.proyectos, { provincia: p.slug }).length : 0;
   const cortes = await getCortes().catch(() => null);
   const agujaProvincia = agujas(p.nombre);
@@ -77,17 +79,29 @@ export default async function ProvinciaPage({ params }: Props) {
     <div className="mx-auto max-w-4xl space-y-5">
       <Ruta raiz={{ href: "/provincias", label: "Provincias" }} actual={p.nombre} />
 
-      <Card as="section" className="p-5 sm:p-6">
-        <div className="rotulo text-ink-soft">
-          {p.slug === "distrito-nacional" ? "Distrito Nacional" : "Provincia"} · cabecera: {p.cabecera}
+      <Card as="section" className="grid gap-4 p-5 sm:grid-cols-[1fr_15rem] sm:items-center sm:p-6">
+        <div>
+          <div className="rotulo text-ink-soft">
+            {p.slug === "distrito-nacional" ? "Distrito Nacional" : "Provincia"} · cabecera: {p.cabecera}
+          </div>
+          <h1 className="mt-1 font-display text-2xl leading-tight sm:text-3xl">
+            ¿Qué hace el Estado en {p.nombre}?
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+            Quién la gobierna, quién de aquí le vende al Estado, qué ayuntamientos
+            compran y quién representa a {p.nombre} en el Congreso.
+          </p>
         </div>
-        <h1 className="mt-1 font-display text-2xl leading-tight sm:text-3xl">
-          ¿Qué hace el Estado en {p.nombre}?
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          Quién la gobierna, quién de aquí le vende al Estado, qué ayuntamientos
-          compran y quién representa a {p.nombre} en el Congreso.
-        </p>
+        {geo && (
+          <MapaProvincias
+            geo={geo}
+            ubicar
+            actual={p.slug}
+            etiqueta={`Dónde está ${p.nombre}; cada provincia lleva a su ficha`}
+            zonas={geo.provincias.map((z) => ({ slug: z.slug, valor: 0, href: enlace.provincia(z.slug) }))}
+            className="max-w-xs"
+          />
+        )}
       </Card>
 
       <ConectadoCon
