@@ -1060,22 +1060,24 @@ export default async function FuentesPage() {
             <Link href="/banca" className="font-medium text-brand-700 hover:underline">
               bancos y financieras
             </Link>{" "}
-            sale de las fichas públicas de la SB: las entidades de intermediación
+            sale de las fichas públicas de la SB de las entidades de intermediación
             financiera (bancos múltiples y de ahorro y crédito, corporaciones de crédito,
-            asociaciones y las dos públicas), los agentes de cambio y de remesas, las
-            fiduciarias, los burós de crédito y las oficinas de representación de bancos
-            extranjeros. De cada una se copian los activos, la participación, los
-            empleados, las oficinas, los cajeros, la calificación de riesgo, el consejo y
-            los principales funcionarios; sus estados financieros y memorias son PDF y se
-            enlazan sin leerse. <ResumenFinancierasSb /> Cada ficha tiene su propia fecha
-            de actualización y se muestra la de cada una. La SB publica cuántos
-            accionistas tiene una entidad, no quiénes. Teléfonos, correos y direcciones no
-            se copian.
+            asociaciones y las dos públicas). De cada una se copian los activos, la
+            participación, los empleados, las oficinas, los cajeros, la calificación de
+            riesgo, el consejo y los principales funcionarios; sus estados financieros y
+            memorias son PDF y se enlazan sin leerse. <ResumenFinancierasSb /> Cada ficha
+            tiene su propia fecha de actualización y se muestra la de cada una. La SB
+            publica cuántos accionistas tiene una entidad, no quiénes. Teléfonos, correos y
+            direcciones no se copian.
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
-            El sitio está tras un cortafuegos que, a un segundo entre peticiones, respondió
-            tras unas setenta con un desafío de JavaScript. No se resuelve: el script espera
-            diez segundos entre peticiones y, si lo ve, para sin escribir nada. No se leen
+            El sitio está tras un cortafuegos (Sucuri) que, a un segundo entre peticiones,
+            respondió tras unas setenta con un desafío de JavaScript. No se resuelve: el
+            script espera diez segundos entre peticiones y, si lo ve, para sin escribir nada.
+            Así quedaron fuera los agentes de cambio y de remesas (42), las fiduciarias (5),
+            los burós de crédito (4) y las oficinas de representación (5): el 29 de
+            septiembre de 2026 sus fichas devolvieron el desafío, y la vía para leerlas es
+            pedirle a la SB que admita el User-Agent de la plataforma. No se leen
             los más de siete mil subagentes (comercios que atienden a nombre de un banco) ni
             las «otras entidades» y firmas de auditores, que usan otra ficha. El registro
             mensual de entidades autorizadas de la SB, un CSV desde 2018 sin RNC y con los

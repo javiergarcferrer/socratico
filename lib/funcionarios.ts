@@ -630,6 +630,29 @@ export function personasDelDecreto(f: Funcionarios, numero: string): { persona: 
   return f.porDecreto.get(numero) ?? [];
 }
 
+/**
+ * La persona que se llama exactamente así (sin tildes ni mayúsculas), si hay
+ * una sola y el nombre tiene al menos tres palabras. Es la regla de la
+ * plataforma, «una persona es su nombre», aplicada a un nombre de otra fuente
+ * (el consejo de un banco): con dos palabras o dos personas iguales, nada.
+ */
+export function personaPorNombre(f: Funcionarios, nombre: string): Persona | null {
+  const k = plano(nombre).trim();
+  if (k.split(" ").length < 3) return null;
+  let indice = POR_NOMBRE.get(f);
+  if (!indice) {
+    indice = new Map();
+    for (const p of f.personas) {
+      for (const n of new Set([p.nombre, ...p.alias].map((x) => plano(x).trim()))) {
+        indice.set(n, indice.has(n) ? null : p);
+      }
+    }
+    POR_NOMBRE.set(f, indice);
+  }
+  return indice.get(k) ?? null;
+}
+const POR_NOMBRE = new WeakMap<Funcionarios, Map<string, Persona | null>>();
+
 /** Nombres con todas las palabras de este (otra grafía posible de la misma persona o un homónimo). */
 export function parecidos(f: Funcionarios, p: Persona, limite = 5): Persona[] {
   const palabras = plano(p.nombre).trim().split(" ").filter((w) => w.length > 2);

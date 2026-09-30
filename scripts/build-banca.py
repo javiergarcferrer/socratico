@@ -11,8 +11,10 @@ entidad por entidad, varias veces al mes):
     python3 scripts/build-banca.py            # en vivo, ~20 minutos
     python3 scripts/build-banca.py --cache D  # guarda/reusa las respuestas en D
 
-Si la SB responde con su desafío, el script para sin escribir; con `--cache`
-la corrida siguiente, más tarde, solo pide lo que faltó.
+Si la SB responde con su desafío, el script para sin escribir y **no se
+insiste**: la instantánea anterior sigue en pie y la vía es pedirle a la SB que
+admita este User-Agent (Ley 200-04). Con `--cache` una corrida de otro día solo
+pide lo que faltó; nunca un bucle que reintente hasta que el desafío ceda.
 
 Mecánica verificada el 2026-09-29 con este User-Agent (docs/AUDITORIA.md §5.6,
 §5.7, §G.5 y §G.13; el reconocimiento de esta pasada va en el informe):

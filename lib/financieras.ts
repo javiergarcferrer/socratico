@@ -16,11 +16,14 @@ import type { ClaveGlosario } from "@/lib/glosario";
  *
  * Mecánica verificada el 2026-09-29 (docs/AUDITORIA.md §5.6, §5.7, §G.5 y
  * §G.13, y el reconocimiento de esa pasada, que va en la cabecera de
- * `scripts/build-banca.py`). El script lee, con robots primero y un segundo
- * entre peticiones, y escribe `public/data/banca.json`:
+ * `scripts/build-banca.py`). El script lee, con robots primero y diez
+ * segundos entre peticiones a la SB, y escribe `public/data/banca.json`:
  *  · Superintendencia de Bancos (`sb.gob.do/supervisados/`): el listado y la
  *    ficha de cada entidad de intermediación financiera y cambiaria, fiduciaria,
- *    sociedad de información crediticia y oficina de representación. Activos,
+ *    sociedad de información crediticia y oficina de representación. La
+ *    instantánea del 29-09-2026 trae solo las de intermediación financiera: al
+ *    leer las demás, el cortafuegos de la SB respondió con su desafío y el
+ *    script paró sin escribir (docs/AUDITORIA.md §H.6). Activos,
  *    participación, empleados, oficinas, cajeros, calificación, consejo y
  *    principales funcionarios, y los PDF de sus estados financieros y memorias
  *    (se enlazan, no se leen). La SB publica **cuántos** accionistas hay, no
@@ -403,19 +406,35 @@ const INSTITUCION_POR_NOMBRE = (() => {
   return m;
 })();
 
+/*
+  Bancos del Estado que el cruce escribe de otra forma, uno por uno y
+  verificados: el Clasificador llama a Banreservas «Banco de Reservas de la
+  Republica Dominicana» (capítulo 5004) y a BANDEX «Banco Nacional de las
+  Exportaciones (BANDEX)» (5003), las mismas siglas que la SB.
+*/
+const INSTITUCION_POR_SLUG: Record<string, number> = { banreservas: 905004, bandex: 905003 };
+
 /**
  * La institución del Estado que **es** esta entidad —el Banco Agrícola—, solo
  * si su razón social o su nombre coinciden exactos (sin tildes ni signos) con
- * el nombre de una unidad de compra del cruce. Un puente adivinado es peor que
- * ninguno.
+ * el nombre de una institución del cruce, o si la tabla de arriba la ata. Un
+ * puente adivinado es peor que ninguno.
  */
 export function institucionDe(e: EntidadFinanciera): Institucion | null {
+  const fija = INSTITUCION_POR_SLUG[e.slug];
+  if (fija) return INSTITUCIONES.find((i) => i.id === fija) ?? null;
   for (const n of [e.razonSocial, e.nombre]) {
     if (!n) continue;
     const i = INSTITUCION_POR_NOMBRE.get(normal(n));
     if (i) return i;
   }
   return null;
+}
+
+/** La entidad financiera que es esta institución del Estado (el camino de vuelta de `institucionDe`). */
+export async function entidadDeInstitucion(id: number): Promise<EntidadFinanciera | null> {
+  const d = await getFinancieras();
+  return d?.entidades.find((e) => e.sector !== "cooperativa" && institucionDe(e)?.id === id) ?? null;
 }
 
 /** El número del decreto de incorporación si tiene ficha propia en `/normativa` («188-24»). */

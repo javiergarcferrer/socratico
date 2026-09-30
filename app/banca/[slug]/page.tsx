@@ -23,6 +23,7 @@ import {
   type Persona,
 } from "@/lib/financieras";
 import { hrefInstitucion } from "@/lib/instituciones";
+import { getFuncionarios, personaPorNombre, type Persona as PersonaPublica } from "@/lib/funcionarios";
 import { enlace } from "@/lib/grafo";
 import { formatFecha, formatPesos, tituloLegible } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
@@ -79,7 +80,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function EntidadFinancieraPage({ params }: Props) {
   const { slug } = await params;
-  const [e, d] = await Promise.all([cargar(slug), getFinancieras()]);
+  const [e, d, funcionarios] = await Promise.all([cargar(slug), getFinancieras(), getFuncionarios()]);
   if (!d) {
     return (
       <div className="mx-auto max-w-4xl space-y-5">
@@ -226,7 +227,10 @@ export default async function EntidadFinancieraPage({ params }: Props) {
         ]}
       />
 
-      <QuienDirige e={e} />
+      <QuienDirige
+        e={e}
+        conCargo={(nombre) => (funcionarios ? personaPorNombre(funcionarios, nombre) : null)}
+      />
 
       <QueInforma e={e} />
 
@@ -512,7 +516,7 @@ function RegistroCooperativa({ e, d }: { e: EntidadFinanciera; d: Financieras })
 
 /* --------------------------------------------------------- quién la dirige */
 
-function QuienDirige({ e }: { e: EntidadFinanciera }) {
+function QuienDirige({ e, conCargo }: { e: EntidadFinanciera; conCargo: (nombre: string) => PersonaPublica | null }) {
   const listas = [
     { titulo: "Consejo de administración", personas: e.consejo, abrir: "miembros del consejo" },
     { titulo: "Principales funcionarios", personas: e.funcionarios, abrir: "funcionarios" },
@@ -527,24 +531,46 @@ function QuienDirige({ e }: { e: EntidadFinanciera }) {
       </CardHeader>
       <div className="grid grid-cols-1 divide-y divide-hairline lg:grid-cols-2 lg:divide-x lg:divide-y-0">
         {listas.map((l) => (
-          <ListaPersonas key={l.titulo} {...l} />
+          <ListaPersonas key={l.titulo} {...l} conCargo={conCargo} />
         ))}
       </div>
       <p className="border-t border-hairline px-5 py-3 text-xs leading-relaxed text-ink-soft">
         Nombres y cargos tal como los publica la Superintendencia de Bancos en la ficha de la
-        entidad, sin completar ni corregir. Aquí no enlazan a nada.
+        entidad, sin completar ni corregir. Un nombre de tres palabras o más que coincide letra
+        por letra con el de una sola persona con cargo público lleva a su ficha: es la regla de la
+        plataforma, «una persona es su nombre»; la SB no dice que sean la misma persona.
       </p>
     </Card>
   );
 }
 
-function ListaPersonas({ titulo, personas, abrir }: { titulo: string; personas: Persona[]; abrir: string }) {
-  const fila = (p: Persona, i: number) => (
-    <li key={`${p.nombre}-${i}`} className="px-5 py-2.5">
-      <span className="block text-sm text-ink">{p.nombre}</span>
-      {p.cargo && <span className="block text-xs text-ink-soft">{tituloLegible(p.cargo)}</span>}
-    </li>
-  );
+function ListaPersonas({
+  titulo,
+  personas,
+  abrir,
+  conCargo,
+}: {
+  titulo: string;
+  personas: Persona[];
+  abrir: string;
+  conCargo: (nombre: string) => PersonaPublica | null;
+}) {
+  const fila = (p: Persona, i: number) => {
+    const publica = conCargo(p.nombre);
+    return (
+      <li key={`${p.nombre}-${i}`} className={publica ? "relative px-5 py-2.5" : "px-5 py-2.5"}>
+        {publica ? (
+          <Link href={enlace.funcionario(publica.id)} className="block text-sm text-ink estira hover:text-brand-700">
+            {p.nombre}
+          </Link>
+        ) : (
+          <span className="block text-sm text-ink">{p.nombre}</span>
+        )}
+        {p.cargo && <span className="block text-xs text-ink-soft">{tituloLegible(p.cargo)}</span>}
+        {publica && <span className="block text-xs text-ink-soft">Tiene ficha de cargo público</span>}
+      </li>
+    );
+  };
   const vista = personas.slice(0, A_LA_VISTA);
   const resto = personas.slice(A_LA_VISTA);
   return (

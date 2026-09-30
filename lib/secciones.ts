@@ -282,7 +282,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     etiqueta: "Toda la plataforma",
     href: "/buscar",
     alcance:
-      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores, personas con cargo público y proveedores con contratos desde 2015, y ofrece seguir en cada vertical.",
+      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores, personas con cargo público, bancos y financieras, y proveedores con contratos desde 2015, y ofrece seguir en cada vertical.",
   },
   {
     etiqueta: "Instituciones",
@@ -320,7 +320,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     etiqueta: "Bancos y financieras",
     href: "/banca",
     alcance:
-      "Nombre, razón social, siglas o RNC de los bancos, asociaciones, financieras, agentes de cambio, fiduciarias, AFP, aseguradoras y cooperativas de ahorro que registran sus supervisores, todas las palabras en cualquier orden y sin distinguir tildes (instantánea).",
+      "Nombre, razón social, siglas o RNC de los bancos, asociaciones y corporaciones de crédito, AFP, aseguradoras y cooperativas de ahorro que registran sus supervisores, todas las palabras en cualquier orden y sin distinguir tildes (instantánea).",
   },
   {
     seccion: "congreso",

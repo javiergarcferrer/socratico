@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/banca" },
   title: "Bancos y financieras",
   description:
-    "Los bancos, asociaciones, financieras, agentes de cambio, AFP, aseguradoras y cooperativas de ahorro que el Estado autoriza: cuánto tiene cada una, quién la dirige y qué informa, según quien la supervisa.",
+    "Los bancos, asociaciones y corporaciones de crédito, las AFP, las aseguradoras y las cooperativas de ahorro que el Estado autoriza: cuánto tiene cada una, quién la dirige y qué informa, según quien la supervisa.",
 };
 
 export const revalidate = 86400;
@@ -133,8 +133,10 @@ export default async function BancaPage({ searchParams }: Props) {
       {`${s.corto} (${formatInt(cuenta.get(s.clave) ?? 0)})`}
     </FiltroEnlace>
   );
-  const visibles = SECTORES.filter((s) => A_LA_VISTA.includes(s.clave) || s.clave === sector);
-  const resto = SECTORES.filter((s) => !visibles.includes(s));
+  // Solo los sectores que la instantánea trae: un chip «(0)» prometería un registro que no se leyó.
+  const conEntidades = SECTORES.filter((s) => (cuenta.get(s.clave) ?? 0) > 0 || s.clave === sector);
+  const visibles = conEntidades.filter((s) => A_LA_VISTA.includes(s.clave) || s.clave === sector);
+  const resto = conEntidades.filter((s) => !visibles.includes(s));
 
   const conActivos = filtradas.some((e) => e.activosMillones != null);
   const orden =
@@ -150,12 +152,14 @@ export default async function BancaPage({ searchParams }: Props) {
       <header>
         <h1 className="font-display text-3xl text-ink sm:text-4xl">¿Quién guarda el dinero del país?</h1>
         <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft sm:text-sm">
-          Los bancos, asociaciones, financieras, agentes de cambio, AFP, aseguradoras y
-          cooperativas de ahorro que el Estado autoriza, cada una con su
-          ficha: cuánto tiene, quién la dirige y qué informa, tal como lo publica quien
-          la supervisa. No están el mercado de valores ni los corredores de seguros,
-          porque sus registros están bloqueados, y las cooperativas llegan hasta{" "}
-          {corteCoop ?? "el último archivo del IDECOOP"}.
+          Los bancos, asociaciones y corporaciones de crédito, las AFP, las aseguradoras y
+          las cooperativas de ahorro que el Estado autoriza, cada una con su ficha: cuánto
+          tiene, quién la dirige y qué informa, tal como lo publica quien la supervisa. No
+          están el mercado de valores ni los corredores de seguros, porque sus registros
+          están bloqueados; tampoco los agentes de cambio, las fiduciarias, los burós de
+          crédito ni las oficinas de representación, porque el sitio de la Superintendencia
+          de Bancos respondió con un desafío de su cortafuegos al leerlos. Las cooperativas
+          llegan hasta {corteCoop ?? "el último archivo del IDECOOP"}.
         </p>
       </header>
 
@@ -206,7 +210,7 @@ export default async function BancaPage({ searchParams }: Props) {
 
       <NavFiltros etiqueta="Sector">
         <FiltrosPlegados
-          total={SECTORES.length}
+          total={conEntidades.length}
           visibles={
             <>
               <FiltroEnlace href={url({ sector: null })} activo={!sector}>

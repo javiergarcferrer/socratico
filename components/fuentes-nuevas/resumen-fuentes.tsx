@@ -162,14 +162,22 @@ export async function ResumenCatalogo() {
 export async function ResumenFinancierasSb() {
   const d = await getFinancieras();
   if (!d) return <>La instantánea no está disponible ahora mismo.</>;
-  const n = (s: Sector) => formatInt(d.resumen.porSector[s] ?? 0);
   const eif = SECTORES_EIF.reduce((t, s) => t + (d.resumen.porSector[s] ?? 0), 0);
+  // Las demás categorías de la SB, solo si la instantánea las trae.
+  const otras = (
+    [
+      ["cambiaria", "agentes de cambio y de remesas"],
+      ["fiduciaria", "fiduciarias"],
+      ["informacion-crediticia", "burós de crédito"],
+      ["oficina-representacion", "oficinas de representación"],
+    ] as [Sector, string][]
+  )
+    .filter(([s]) => (d.resumen.porSector[s] ?? 0) > 0)
+    .map(([s, nombre]) => `${formatInt(d.resumen.porSector[s] ?? 0)} ${nombre}`);
   return (
     <>
       Instantánea del {formatFecha(d.generado)}: {formatInt(eif)} entidades de intermediación
-      financiera, {n("cambiaria")} agentes de cambio y de remesas, {n("fiduciaria")} fiduciarias,{" "}
-      {n("informacion-crediticia")} burós de crédito y {n("oficina-representacion")} oficinas de
-      representación
+      financiera{otras.length ? `, ${otras.join(", ")}` : ""}
       {d.cortes.sb
         ? `, con fichas actualizadas entre el ${formatFecha(d.cortes.sb.desde)} y el ${formatFecha(d.cortes.sb.hasta)}`
         : ""}

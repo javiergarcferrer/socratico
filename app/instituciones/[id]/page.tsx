@@ -51,6 +51,7 @@ import { filtrarInformes, getAuditorias, informesDe } from "@/lib/auditorias";
 import Conversacion from "@/components/espacios/conversacion";
 import { QuienDirige } from "@/components/fuentes-nuevas/quien-dirige";
 import { getFuncionarios, personasDeInstitucion } from "@/lib/funcionarios";
+import { entidadDeInstitucion } from "@/lib/financieras";
 
 /** Normas a la vista en «Lo que decreta el Ejecutivo»; el resto, plegado. */
 const NORMAS_A_LA_VISTA = 2;
@@ -118,6 +119,7 @@ export default async function InstitucionPage({ params }: Props) {
     getAuditorias(),
     getFuncionarios(),
   ]);
+  const entidad = await entidadDeInstitucion(i.id);
   const conHistoria = Boolean(historia?.historia.serie.some((f) => f[1] > 0)) || Boolean(sinAsignar);
   const hermanas = i.capitulo ? institucionesDelCapitulo(i.capitulo).filter((h) => h.id !== i.id) : [];
   const nObras = obras?.obras.length ?? 0;
@@ -228,6 +230,12 @@ export default async function InstitucionPage({ params }: Props) {
             etiqueta: "Su lugar en el ranking de gestión",
             href: `/gestion?${new URLSearchParams({ tabla: sismap.tabla, q: sismap.fila.nombre })}`,
             fuente: "SISMAP del MAP",
+          },
+          entidad && {
+            etiqueta: "Su ficha de entidad financiera",
+            href: enlace.entidadFinanciera(entidad.slug),
+            nombre: entidad.nombre,
+            fuente: "Superintendencia de Bancos",
           },
         ]}
       />
@@ -360,6 +368,7 @@ async function FichaDelClasificador({ i }: { i: Institucion }) {
     getAuditorias(),
     getFuncionarios(),
   ]);
+  const entidad = await entidadDeInstitucion(i.id);
   const conPersonas = funcionarios ? personasDeInstitucion(funcionarios, i.id).length > 0 : false;
   const sector = sectorDe(i.sector);
   const clasificador = FUENTES_DEL_CRUCE.clasificador;
@@ -453,6 +462,12 @@ async function FichaDelClasificador({ i }: { i: Institucion }) {
             etiqueta: "Su lugar en el ranking de gestión",
             href: `/gestion?${new URLSearchParams({ tabla: sismap.tabla, q: sismap.fila.nombre })}`,
             fuente: "SISMAP del MAP",
+          },
+          entidad && {
+            etiqueta: "Su ficha de entidad financiera",
+            href: enlace.entidadFinanciera(entidad.slug),
+            nombre: entidad.nombre,
+            fuente: "Superintendencia de Bancos",
           },
         ]}
       />
