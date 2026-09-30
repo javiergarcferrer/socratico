@@ -56,6 +56,7 @@ export type TipoResultado =
   | "institucion"
   | "legislador"
   | "funcionario"
+  | "financiera"
   | "proveedor"
   | "proceso"
   | "norma"
@@ -71,6 +72,7 @@ export const TIPOS_RESULTADO: { clave: TipoResultado; etiqueta: string; plural: 
   { clave: "institucion", etiqueta: "Institución", plural: "Instituciones" },
   { clave: "legislador", etiqueta: "Legislador", plural: "Legisladores" },
   { clave: "funcionario", etiqueta: "Funcionario", plural: "Funcionarios" },
+  { clave: "financiera", etiqueta: "Entidad financiera", plural: "Bancos y financieras" },
   { clave: "proveedor", etiqueta: "Proveedor", plural: "Proveedores" },
   { clave: "proceso", etiqueta: "Proceso de compra", plural: "Procesos de compra" },
   { clave: "norma", etiqueta: "Norma", plural: "Normativa" },

@@ -52,6 +52,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 # Las fuentes que traen su propio lector de entradas (`entradas(datos)`).
 import busqueda_congreso  # noqa: E402
 import busqueda_funcionarios  # noqa: E402
+import busqueda_financieras  # noqa: E402
 import busqueda_leyes  # noqa: E402
 import busqueda_procesos  # noqa: E402
 import busqueda_sentencias  # noqa: E402
@@ -409,6 +410,8 @@ def main() -> None:
     docs += de_modulo([e for e in congreso if e["t"] == "legislador"])
     personas, fechas["funcionario"] = busqueda_funcionarios.entradas(DATOS)
     docs += de_modulo(personas)
+    financieras, fechas["financiera"] = busqueda_financieras.entradas(DATOS)
+    docs += de_modulo(financieras)
     lista, fechas["proveedor"] = proveedores()
     docs += lista
 
