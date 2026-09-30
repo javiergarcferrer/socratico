@@ -95,8 +95,8 @@ export default async function BuscarPage({
       */}
       {q && llevaCedula(q) && (
         <EstadoVacio titulo="A una persona no se la busca por su número">
-          Lo tecleado lleva una cédula. La plataforma no la enseña ni busca por ella, aunque un título oficial la
-          traiga: busca por el nombre, la institución o el tema.
+          Lo tecleado lleva una cédula. Este buscador no busca por ella, y la plataforma no la enseña aunque un título
+          oficial la traiga: busca por el nombre, la institución o el tema.
         </EstadoVacio>
       )}
 

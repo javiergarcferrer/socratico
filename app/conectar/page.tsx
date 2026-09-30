@@ -32,7 +32,6 @@ function Fuera({ href, children }: { href: string; children: React.ReactNode }) 
   );
 }
 
-
 /** La línea que agrega el servidor en Claude Code. */
 const ORDEN_CLAUDE_CODE = `claude mcp add --transport http socratico ${DIRECCION_MCP}`;
 

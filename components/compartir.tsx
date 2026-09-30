@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { TipoSeguido } from "@/lib/seguimiento";
 import { IconCheck, IconShare } from "./icons";
 import { Button } from "@/components/ui/button";
@@ -58,11 +58,17 @@ export async function compartirEnlace(tipo: TipoCompartido, titulo: string): Pro
 /** Copiar al portapapeles y decir «Copiado» dos segundos: lo comparten los dos botones de copiar. */
 function useCopiar(): [boolean, (texto: string) => Promise<void>] {
   const [copiado, setCopiado] = useState(false);
+  const reloj = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Un «Copiado» pendiente no sobrevive al botón.
+  useEffect(() => () => {
+    if (reloj.current) clearTimeout(reloj.current);
+  }, []);
   const copiar = async (texto: string) => {
     try {
       await navigator.clipboard.writeText(texto);
       setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
+      if (reloj.current) clearTimeout(reloj.current);
+      reloj.current = setTimeout(() => setCopiado(false), 2000);
     } catch {
       /* clipboard no disponible */
     }

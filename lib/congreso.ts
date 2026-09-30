@@ -21,6 +21,7 @@ import { z } from "zod";
 import { pedirJsonOLanzar } from "@/lib/pedir";
 import { enlace } from "@/lib/grafo";
 import { agujas, contieneTodas, palabrasTecleadas, plano, variantesAcento } from "@/lib/raiz";
+import { llevaCedula, sinCedula } from "@/lib/padron";
 
 const BASE = "https://www.diputadosrd.gob.do/sil/api";
 
@@ -189,6 +190,8 @@ export async function listIniciativas(
   keyword = "",
   revalidate = 300,
 ): Promise<SilPage<SilIniciativa>> {
+  // El SIL busca por subcadena: a una persona no se la busca por su número.
+  if (llevaCedula(keyword)) return emptyPage();
   const q = `iniciativa/getIniciativas?page=${page}&keyword=${encodeURIComponent(keyword)}`;
   return (await silFetchSafe<SilPage<SilIniciativa>>(q, revalidate)) ?? emptyPage();
 }
@@ -480,9 +483,13 @@ export function documentoUrl(base: string | null, documentoId: number): string |
 
 /* ------------------------------------------------------ normalización */
 
-/** Colapsa espacios repetidos y recorta. El SIL trae `"Mélido  Mercedes"`. */
+/**
+ * Colapsa espacios repetidos y recorta. El SIL trae `"Mélido  Mercedes"`. Y
+ * quita la cédula que traiga un texto oficial (`sinCedula`): por aquí pasan
+ * las descripciones del Congreso y los títulos que `desdeMayusculas` pinta.
+ */
 export function limpiarTexto(valor: string | null | undefined): string {
-  return (valor ?? "").replace(/\s+/g, " ").trim();
+  return sinCedula((valor ?? "").replace(/\s+/g, " ").trim());
 }
 
 /** Palabras que no se capitalizan en medio de un título en español. */
