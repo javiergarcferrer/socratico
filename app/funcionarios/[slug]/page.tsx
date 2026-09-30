@@ -3,16 +3,18 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { Cifra, TiraDeCifras } from "@/components/papel";
 import { ConectadoCon } from "@/components/conectado-con";
+import { DeclaracionJurada } from "@/components/fuentes-nuevas/declaracion-jurada";
 import Plegable from "@/components/plegable";
 import { Ruta } from "@/components/ruta";
 import { Termino } from "@/components/termino";
 import { formatFecha, hace } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
-import { decretosEnInstantanea } from "@/lib/normativa";
+import { decretoPorNumero, hrefDecreto } from "@/lib/decretos";
 import { provinciaDeTexto } from "@/lib/provincias";
 import {
   ETIQUETA_MOVIMIENTO,
@@ -31,7 +33,6 @@ type Props = { params: Promise<{ slug: string }> };
 
 const cargar = cache((slug: string) => personaPorId(decodeURIComponent(slug)));
 
-const CONSULTORIA_PDF = "https://www.consultoria.gov.do/api/document/";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -60,7 +61,10 @@ export default async function FuncionarioPage({ params }: Props) {
   const persona = await cargar(slug);
   if (!persona) notFound();
   const datos = (await getFuncionarios())!;
-  const decretos = await decretosEnInstantanea();
+  // Adónde lleva cada decreto de sus cargos: su ficha si el registro la resuelve, si no su PDF.
+  const numeros = unicas(persona.cargos.map((c) => c.decreto?.numero).filter((n): n is string => Boolean(n)));
+  const resueltos = await Promise.all(numeros.map(async (n) => [n, await decretoPorNumero(n)] as const));
+  const decretos = new Map(resueltos.filter(([, d]) => d?.ficha).map(([n]) => [n, true]));
 
   const principal = cargoPrincipal(persona);
   const hoy = principal ? esActual(principal) : false;
@@ -142,9 +146,8 @@ export default async function FuncionarioPage({ params }: Props) {
             </ul>
             <p className="mt-2 text-xs leading-relaxed text-ink-soft">
               Es una categoría legal que obliga a bancos y notarios a mirar sus operaciones con más cuidado, no
-              una acusación. La plataforma asigna el numeral por el nombre del cargo; la{" "}
-              <Termino clave="declaracionJurada">declaración jurada</Termino> misma la guarda la Cámara de
-              Cuentas y no se muestra aquí.
+              una acusación. La plataforma asigna el numeral por el nombre del cargo; dónde consultar su{" "}
+              <Termino clave="declaracionJurada">declaración jurada</Termino> está justo debajo.
             </p>
           </>
         ) : (
@@ -157,6 +160,8 @@ export default async function FuncionarioPage({ params }: Props) {
         )}
       </Card>
 
+      <DeclaracionJurada persona={persona} />
+
       {persona.firma && (
         <Card as="section" className="mt-5">
           <CardHeader>
@@ -167,10 +172,18 @@ export default async function FuncionarioPage({ params }: Props) {
               etiqueta="Decretos con su firma"
               valor={persona.firma.decretos.toLocaleString("es-DO")}
               ancla={{ alcance: "registro", periodo: "todo lo que publica la Consultoría Jurídica" }}
+              href={enlace.decretosFirmados(persona.id)}
             />
             <Cifra etiqueta="El primero" valor={formatFecha(persona.firma.desde)} />
             <Cifra etiqueta="El más reciente" valor={formatFecha(persona.firma.hasta)} />
           </TiraDeCifras>
+          <div className="border-t border-hairline px-5 py-3">
+            <Button asChild variant="secondary">
+              <Link href={enlace.decretosFirmados(persona.id)}>
+                {`Ver los ${persona.firma.decretos.toLocaleString("es-DO")} decretos, por año y por materia`}
+              </Link>
+            </Button>
+          </div>
           <p className="border-t border-hairline px-5 py-3 text-xs leading-relaxed text-ink-soft">
             La Consultoría Jurídica anota en cada decreto quién lo firma, como «{persona.firma.como}». El rango
             descarta una fecha suelta, a más de un año de cualquier otro decreto del mismo firmante: es un error
@@ -283,7 +296,7 @@ export default async function FuncionarioPage({ params }: Props) {
   );
 }
 
-function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Set<string> }) {
+function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Map<string, boolean> }) {
   const inst = c.institucionId != null ? institucionPorId(c.institucionId) : null;
   const tono = c.movimiento === "cesa" || c.movimiento === "sustituido" || c.movimiento === "renuncia" || c.movimiento === "anterior"
     ? "neutro"
@@ -291,12 +304,8 @@ function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Set<string>
       ? "valido"
       : "firma";
   const decreto = c.decreto;
-  const hrefDecreto = decreto
-    ? decretos.has(decreto.numero)
-      ? enlace.norma("decreto", decreto.numero)
-      : decreto.docId
-        ? `${CONSULTORIA_PDF}${decreto.docId}`
-        : null
+  const hrefDelDecreto = decreto
+    ? hrefDecreto({ numero: decreto.numero, ficha: decretos.has(decreto.numero), docId: decreto.docId })
     : null;
   return (
     <li className="border-b border-hairline px-4 py-3.5 last:border-0 sm:px-5">
@@ -340,8 +349,8 @@ function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Set<string>
         )}
         {c.sustituidoPor && `En su lugar: ${c.sustituidoPor} · `}
         {decreto ? (
-          hrefDecreto ? (
-            <Link href={hrefDecreto} className="text-brand-700 hover:underline">
+          hrefDelDecreto ? (
+            <Link href={hrefDelDecreto} className="text-brand-700 hover:underline">
               Decreto {decreto.numero}
             </Link>
           ) : (

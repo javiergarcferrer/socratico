@@ -88,32 +88,6 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   Vercel, so its snapshot is what production shows and it ages weekly. A
   scheduled cloud session could regenerate and deliver them through the gate;
   it costs sessions, so it is the owner's call.
-- **Sworn asset declarations in the document index** (AUDITORIA §G.2): 115
-  PDFs titled «Declaración jurada de patrimonio <name>» are published by the
-  institutions themselves under Ley 311-14, but a platform-wide index makes
-  them searchable by an official's name, which is a Ley 172-13 proportionality
-  call. Until decided, `scripts/build-documentos.py` excludes them by title
-  (`DECLARACION`); including them is deleting that one condition and
-  regenerating.
-- **Institutional requests**: Consultoría Jurídica's Cloudflare allowance for
-  `Socratico-Inteligencia/1.0` on its read-only APIs (AUDITORIA §4.1), ONE whitelist, Cámara de Cuentas and 911 under
-  Ley 200-04, JCE electoral archive, BCRD file index, report of the exposed
-  311 token and the Cuenta Única client request to OGTIC (AUDITORIA §A.9,
-  §A.11, §F). Added by the third pass (AUDITORIA §G.9): responsible-disclosure
-  notes to the Superintendencia de Bancos (SIMBAD's public API exposes chart
-  SQL and staff users) and CAASD (default Tomcat), and Ley 200-04 requests to
-  SNS/MAP/MIDEREC (closed WordPress REST), SIE/SIMV/Agricultura/INFOTEP (WAF),
-  the SCJ (GET on its rulings search) and the Poder Judicial (full TLS chain).
-  Added by the fourth pass (AUDITORIA §H.11): Ley 200-04 requests to the
-  CCPSD, FEDOCÁMARAS and MICM (a periodic extract of the registro mercantil:
-  name, RNC, RM number, chamber, status, dates), ONAPI (access to `bsapi26`),
-  SIMV and SIS (entity and intermediary registries), CASFL (the ASFL registry),
-  Cámara de Cuentas and PGR (both 470 again), DIGECOG (470) and Hacienda (the
-  SIGEF API answers 403 to this egress); and two responsible-disclosure notes:
-  the CCPSD (a CRM user and password in the public JS of
-  app.registromercantil.do) and the CNZFE (PHP warnings exposing server paths in
-  its robots.txt).
-
 - **Clave del AI Gateway para las instantáneas** (ver «Clasificadores de IA»
   abajo): solo si se quiere Jev en un script de `scripts/`, nunca en Vercel.
   Candidato: familias de cargo sobre los ~3.250 títulos de la nómina
@@ -121,44 +95,55 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   crear claves del Gateway ni tokens OIDC (403, verificado 24-09-2026): la
   crea el dueño en su panel, con tope de gasto.
 
-- **Medidas de la DGCP sobre personas físicas** (AUDITORIA §H.9): de las 2,317
-  medidas de la tabla de inhabilitados, 507 caen sobre 400 personas físicas
-  identificadas por cédula. Se publican solo las de personas jurídicas; las otras
-  se cuentan y no se muestran, como las declaraciones juradas (arriba): hacer
-  buscable por nombre la sanción de un particular es un juicio de
-  proporcionalidad de la Ley 172-13. Decidir: publicarlas (quitar un filtro de
-  `scripts/build-sanciones.py` y regenerar) o dejarlas fuera. Caso vecino, ya
-  resuelto por la regla «solo entidades» y que el dueño puede revertir: de las 13
-  entidades dominicanas de la lista SDN de la OFAC, una lleva el nombre de una
-  persona («CESAR PERALTA DRUG TRAFFICKING ORGANIZATION»); se publica porque la
-  designación es de la organización.
-- **Guardar y seguir funcionarios, entidades financieras y empresas**: las fichas
-  nuevas de la cuarta pasada comparten y enlazan, pero no ofrecen «Guardar» ni
-  «Seguir», porque `espacios.guardados.tipo` lleva un `check` con seis tipos
-  (`supabase/migrations/20260928120000_espacios.sql`, línea 117). Hace falta una
-  migración sobre el Supabase vivo que amplíe el `check` con `'funcionario',
-  'entidad-financiera', 'empresa'`, y luego `TipoCompartido`/`TIPOS_SEGUIDO`. Pasos:
-  (1) nueva migración `alter table espacios.guardados drop constraint …; add
-  constraint … check (tipo in (…los seis…, 'funcionario', 'entidad-financiera',
-  'empresa'))`; (2) aplicarla con aprobación; (3) sumar los tipos en
-  `components/compartir.tsx` y `lib/seguimiento.ts` y pasar `AccionesFicha` en las
-  tres fichas.
-- **Consultas POST sin efecto que no son el buscador de una página** (AUDITORIA
-  §H.3, §H.9): el rol de audiencias del Poder Judicial (`POST
-  /api/Audiencias/ObtenerRolAudiencias/`), los expedientes del Registro
-  Inmobiliario y el contenido de la Junta Monetaria del BCRD (`POST
-  /Home/GetContentForRender`). No escriben nada, pero no son el formulario de
-  búsqueda que la regla admite (Senado, Consultoría, el Directorio del MAP).
-  Decidir si se amplía el precedente. Caso vecino, ya en uso: el Directorio del
-  MAP se lee con `{"page":n,"rows":500}` (13 lecturas) y no de 10 en 10 como su
-  página (616 lecturas); es la misma consulta con otro tamaño de página
-  (AUDITORIA §H.1). Si el dueño exige la consulta literal, se cambia `rows` en
-  `scripts/build-funcionarios.py` y el build tarda unos diez minutos más.
-- **Lista de inhabilitados del Banco Mundial**: su API exige un `apikey` que la
-  propia página publica en su JavaScript. Aunque sea pública, meterla contradice
-  «sin claves» en una superficie. Decidir si una clave de página cuenta como clave.
-
 ## Cerradas, para que nadie las reabra
+
+- **Lo que el dueño aprobó el 30-09-2026 («all approved»).** Le llegó la lista
+  de lo que esperaba por él y respondió «deploy all you can implement
+  immediately» y «all approved». Queda así, y no se reabre:
+  - **Declaraciones juradas de patrimonio: se enlazan.** Él mismo preguntó
+    «¿dónde están las declaraciones de Luis Abinader?». Las que publican las
+    instituciones en sus portales viven en su propio índice
+    (`scripts/build-declaraciones.py` → `public/data/declaraciones.json`), no
+    en el de documentos, que las sigue excluyendo para no contarlas dos
+    veces. No se copia ni se transcribe el PDF: título, institución, fecha de
+    subida y URL original. Se atan a la ficha de una persona solo sin dudas
+    (todas las palabras del nombre en el suyo y, o un cargo en la institución
+    que publica, o un nombre único de tres o más palabras). La ficha de todo
+    obligado enlaza la Consulta Pública de DJP de la Cámara de Cuentas, que es
+    el registro completo y que la plataforma no lee (CAPTCHA; AUDITORIA §H.12).
+    La del Presidente no está publicada en abierto en ningún portal legible.
+  - **Medidas de la DGCP sobre personas físicas: se publican** con el nombre
+    con que se inscribieron (400 personas, 507 medidas al 30-09-2026), nunca
+    con la cédula ni con la constancia del RPE que la muestra. La fila del
+    listado lleva `data-nosnippet` y la ficha de proveedor de una persona
+    física sigue con `noindex`.
+  - **El Directorio del MAP se lee de 500 en 500** (13 lecturas): es la misma
+    consulta de su página con otro tamaño de página.
+  - **Consultas POST sin efecto: se amplía el precedente** al rol de
+    audiencias del Poder Judicial, a los expedientes del Registro Inmobiliario
+    y al contenido de la Junta Monetaria del BCRD (mecánica en AUDITORIA §H.13).
+    Límites que se fijan al construir: el rol se consulta **solo por número
+    único de caso (NUC) exacto** que escribe el lector, nunca por nombre de
+    parte, cédula o representante ni el rol entero, no se indexa y **no se
+    muestran los nombres de las partes**, solo su papel (recurrente,
+    imputado…); el expediente del RI, por su número exacto; de la Junta
+    Monetaria, nombre y cargo, sin biografías, fotos ni familiares.
+  - **Lista de inhabilitados del Banco Mundial: se usa la clave que publica su
+    propia página**, con una condición de la casa: la clave **no se escribe en
+    el repositorio**. El script de build la lee de la página en cada corrida
+    (AUDITORIA §H.13) y la usa en memoria.
+  - **Guardar y seguir funcionarios, entidades financieras y empresas**:
+    aprobada la migración sobre el Supabase vivo que amplía el `check` de
+    `espacios.guardados.tipo`.
+  - **Gestiones institucionales: se envían.** Las solicitudes de la Ley 200-04
+    (CCPSD, FEDOCÁMARAS y MICM por el registro mercantil; ONAPI; la SB, que su
+    cortafuegos admita el User-Agent; SIMV; SIS; CASFL; Cámara de Cuentas;
+    PGR; DIGECOG; Hacienda por la API del SIGEF; y las anteriores: Consultoría
+    Jurídica, ONE, 911, JCE, BCRD, SNS, MAP, MIDEREC, SIE, Agricultura,
+    INFOTEP, SCJ, Poder Judicial, OGTIC) y los avisos de divulgación
+    responsable (CCPSD, CNZFE; SB y CAASD de la tercera pasada; el token del
+    311). Una sesión no puede enviarlas: van redactadas en `docs/gestiones/`,
+    listas para que el dueño las firme y las mande.
 
 - **Personas con cargo público y la marca PEP (29-09-2026).** El dueño pidió
   «todas las entidades públicas», los bancos, el registro mercantil y poder
@@ -186,7 +171,7 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
     o la de quien dejó un cargo hace más de tres años, se lee en la plataforma y
     lleva `noindex`. Tampoco se indexa la ficha de proveedor de una persona
     física, y su cédula nunca se enseña aunque el registro de la DGCP la publique.
-  - Las declaraciones juradas mismas siguen fuera (arriba, abierta).
+  - Las declaraciones juradas se enlazan desde el 30-09-2026 (abajo).
 - **El registro mercantil no es público (29-09-2026)**: la consulta de las
   cámaras solo valida un certificado que ya se tiene (AUDITORIA §H.7). En su lugar
   va el padrón completo de personas jurídicas de la DGII (`/empresas`), y la vía

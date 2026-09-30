@@ -165,8 +165,8 @@ export default async function MedidasPage({ searchParams }: Props) {
         <PortadaCifras>
           <PortadaCifra etiqueta="Medidas publicadas" valor={formatInt(dgcp.eventos)} destacar />
           <PortadaCifra etiqueta="Empresas y entidades" valor={formatInt(dgcp.juridicas)} />
+          <PortadaCifra etiqueta="Personas físicas" valor={formatInt(dgcp.personasFisicas)} />
           <PortadaCifra etiqueta="Medidas que son sanciones" valor={formatInt(sanciones)} />
-          <PortadaCifra etiqueta="Sobre personas físicas, sin publicar" valor={formatInt(dgcp.eventosPersonasFisicas)} />
         </PortadaCifras>
       </Portada>
 
@@ -174,7 +174,7 @@ export default async function MedidasPage({ searchParams }: Props) {
         <BuscadorUrl
           etiqueta="Buscar entre los proveedores con medidas"
           placeholder="Nombre, RNC, RPE o resolución…"
-          ayuda={`Busca entre los ${formatInt(dgcp.juridicas)} proveedores con medidas de esta tabla: por RNC o RPE exactos, por nombre, por número de resolución o por palabras del motivo, sin distinguir tildes. No es el registro entero: a cualquier otro proveedor se le busca en Proveedores.`}
+          ayuda={`Busca entre los ${formatInt(datos.proveedores.length)} proveedores con medidas de esta tabla, empresas y personas físicas: por RNC o RPE exactos, por nombre, por número de resolución o por palabras del motivo, sin distinguir tildes. No es el registro entero: a cualquier otro proveedor se le busca en Proveedores.`}
         />
       </Suspense>
 
@@ -287,11 +287,12 @@ export default async function MedidasPage({ searchParams }: Props) {
         Fuente: tabla «Proveedores inhabilitados» de los datos abiertos de la DGCP, descargada el{" "}
         {formatFecha(datos.generado)}, cruzada con el Registro de Proveedores del Estado para el
         nombre, el RNC y el estado de cada registro. El tipo de cada medida es nuestra lectura del
-        texto de la DGCP con reglas fijas; lo que no encaja dice «Otro motivo». No se publican{" "}
-        {nMedidas(dgcp.eventosPersonasFisicas)} sobre {formatInt(dgcp.personasFisicas)} personas
-        físicas, {formatInt(dgcp.pruebas)} filas de prueba del propio sistema ni{" "}
-        {formatInt(dgcp.duplicadas)} filas repetidas; en los motivos se omiten el nombre y el
-        documento de quien firma una solicitud. Una medida posterior a la fecha de la tabla no sale
+        texto de la DGCP con reglas fijas; lo que no encaja dice «Otro motivo». De las{" "}
+        {formatInt(dgcp.personasFisicas)} personas físicas ({nMedidas(dgcp.eventosPersonasFisicas)}) se
+        publica el nombre con que se inscribieron, nunca su cédula ni la constancia del registro que la
+        muestra, y sus filas no se ofrecen a los buscadores. No se publican {formatInt(dgcp.pruebas)}{" "}
+        filas de prueba del propio sistema ni {formatInt(dgcp.duplicadas)} filas repetidas; en los
+        motivos se omiten el nombre y el documento de quien firma una solicitud. Una medida posterior a la fecha de la tabla no sale
         aquí.{" "}
         <a href="/data/sanciones.json" download className="font-medium text-brand-700 hover:underline">
           Descargar los datos (JSON)
@@ -312,7 +313,12 @@ function FilaProveedor({ p, medida, mas }: { p: ProveedorConMedidas; medida: Med
   const tipo = TIPOS_MEDIDA[medida.tipo];
   return (
     <li className="relative border-b border-hairline last:border-0">
-      <div className="px-5 py-3.5">
+      {/*
+        El nombre de un particular se lee aquí, pero no se ofrece en los
+        resultados de los buscadores (proporcionalidad, Ley 172-13;
+        docs/DECISIONES.md). Google atiende `data-nosnippet` en un `div`, no en un `li`.
+      */}
+      <div className="px-5 py-3.5" {...(p.fisica ? { "data-nosnippet": "" } : {})}>
         <Link
           href={enlace.proveedor(p.rpe)}
           className="text-[15px] font-medium leading-snug text-ink [overflow-wrap:anywhere] estira hover:text-brand-700"
@@ -327,6 +333,7 @@ function FilaProveedor({ p, medida, mas }: { p: ProveedorConMedidas; medida: Med
         </div>
         <p className="mt-1 text-xs leading-relaxed text-ink-soft">
           <span className="font-mono tabular-nums">RPE {p.rpe}</span>
+          {p.fisica && " · persona física"}
           {p.rnc && (
             <>
               {" · "}

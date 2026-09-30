@@ -282,9 +282,9 @@ during a visit.
   president, every post with its source, similar names). Only PEP fichas are
   offered to external search engines (`noindex` otherwise; sitemap lists only
   them). Cross-links: legislator ficha → «Sus otros cargos públicos»; decree
-  ficha → «¿A quién nombra este decreto?»; older decrees link to the
-  Consultoría PDF (`decretosEnInstantanea` in `lib/normativa.ts` says which
-  numbers the snapshot holds). Two blocks read it outside `/funcionarios`:
+  ficha → «¿A quién nombra este decreto?» and «Lo firma»; a post's decree links
+  to its ficha whenever the decree register resolves the number, otherwise to
+  the Consultoría PDF. Two blocks read it outside `/funcionarios`:
   `components/fuentes-nuevas/quien-dirige.tsx` («¿Quién la dirige?» on the
   institution ficha: `quienDirige` takes MAP's highest current post, else the
   latest head-of-body decree; over 30 people it links to
@@ -296,10 +296,43 @@ during a visit.
   province text is matched through `provinciaDeTexto` and its aliases). JCE
   writes «ALCALDE» for everyone, so the snapshot names the post («Alcaldía de
   Nagua») and never infers anyone's gender.
+- **`lib/decretos.ts`** — the complete decree register (§H.2, 2026-09-30).
+  `scripts/build-decretos.py` shares the one Consultoría download with
+  `build-funcionarios.py` (`scripts/consultoria_decretos.py`: the fetch, the
+  signer ranges and the cache) and writes `public/data/decretos/`: one file
+  per year (`[numero, fecha, titulo, docId, etiqueta, firmante, aviso]`),
+  `sin-fecha.json` and `indice.json` (signers with their signing spans and
+  years, the institution-label table). A «NNN-AA» number lives in its number's
+  year file, so a decree ficha is one file read: `resolverNorma` falls back to
+  it when the Consultoría challenges Vercel, and `decretoPorNumero` decides
+  whether a number has a ficha (the first non-erratum row). Rows dated outside
+  their signer's spans (`fuera`) or against their number's year (`fecha`) are
+  flagged, never corrected. Pages: `/funcionarios/[slug]/decretos` (every
+  decree a signer signed: per-year columns, filters by subject (the rules of
+  `lib/materias-decreto.ts`, shared with `/normativa`), decade/year and text,
+  40 per page, indexed: they are acts of State) and the «Lo firma» edge on the
+  decree ficha (omitted when the row is flagged `fuera`). The directory is
+  opened by a computed name, so `next.config.ts` traces it explicitly for
+  `/funcionarios` and `/normativa`.
+- **`lib/declaraciones.ts`** — sworn asset declarations the institutions
+  publish themselves (§H.12, owner decision 2026-09-30).
+  `scripts/build-declaraciones.py` searches each WordPress library of the
+  document index (reusing `build-documentos.py`'s robots reader and `pedir`),
+  MAPRE's and the Vicepresidencia's second installs under `/transparencia/` and
+  the Presidencia's HTML list; it keeps title, upload date and original URL
+  (the PDF is never copied or read), reads the declarant's name from the title
+  and ties it to a person only when every word is in their name and they hold
+  a post in the publishing institution, or the name is unique with three or
+  more words. `components/fuentes-nuevas/declaracion-jurada.tsx`: on a person's
+  ficha, their declarations plus, for anyone obliged, the Cámara de Cuentas
+  public query (CAPTCHA: linked, not read); on an institution's ficha, the
+  declarations it publishes.
 - **`lib/sanciones.ts`** — measures on suppliers (§H.9).
   `scripts/build-sanciones.py` downloads the DGCP debarment table and the full
-  supplier table (~88 MB, ~15 s) plus OFAC's SDN and ADD CSVs, keeps legal
-  entities only, reads the measure type from the State's own motive text with
+  supplier table (~88 MB, ~15 s) plus OFAC's SDN and ADD CSVs, publishes legal
+  entities and, since 2026-09-30, natural persons by the name they registered
+  with (never the cédula nor the RPE certificate that shows it; their listing
+  rows carry `data-nosnippet`), reads the measure type from the State's own motive text with
   ordered hand-written rules (15 types in 3 families, translated to
   `lib/estados.ts` meanings: requested by the supplier is context, a suspension
   is a warning, a cancellation or debarment is annulled), redacts names, ID

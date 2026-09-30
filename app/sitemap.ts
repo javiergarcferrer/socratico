@@ -104,6 +104,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${SITIO}${enlace.funcionario(p.id)}`,
         changeFrequency: "monthly" as const,
       })),
+    // Los decretos que firmó cada Presidente: actos de Estado, se indexan todos.
+    ...(funcionarios?.personas ?? [])
+      .filter((p) => p.firma)
+      .map((p) => ({
+        url: `${SITIO}${enlace.decretosFirmados(p.id)}`,
+        changeFrequency: "weekly" as const,
+      })),
     ...(financieras?.entidades ?? []).map((e) => ({
       url: `${SITIO}${enlace.entidadFinanciera(e.slug)}`,
       changeFrequency: "monthly" as const,

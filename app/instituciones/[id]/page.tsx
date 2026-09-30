@@ -50,6 +50,7 @@ import { ConectadoCon } from "@/components/conectado-con";
 import { filtrarInformes, getAuditorias, informesDe } from "@/lib/auditorias";
 import Conversacion from "@/components/espacios/conversacion";
 import { QuienDirige } from "@/components/fuentes-nuevas/quien-dirige";
+import { DeclaracionesPublicadas } from "@/components/fuentes-nuevas/declaracion-jurada";
 import { getFuncionarios, personasDeInstitucion } from "@/lib/funcionarios";
 import { entidadDeInstitucion } from "@/lib/financieras";
 
@@ -241,8 +242,9 @@ export default async function InstitucionPage({ params }: Props) {
       />
 
       {conPersonas && (
-        <div id="dirige">
+        <div id="dirige" className="space-y-5">
           <QuienDirige uc={i.id} />
+          <DeclaracionesPublicadas id={i.id} />
         </div>
       )}
 
@@ -473,8 +475,9 @@ async function FichaDelClasificador({ i }: { i: Institucion }) {
       />
 
       {conPersonas && (
-        <div id="dirige">
+        <div id="dirige" className="space-y-5">
           <QuienDirige uc={i.id} />
+          <DeclaracionesPublicadas id={i.id} />
         </div>
       )}
 

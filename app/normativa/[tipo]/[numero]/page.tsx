@@ -19,7 +19,8 @@ import { Button } from "@/components/ui/button";
 import { enlace, numeroCanonico } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
-import { ETIQUETA_MOVIMIENTO, getFuncionarios, personasDelDecreto } from "@/lib/funcionarios";
+import { ETIQUETA_MOVIMIENTO, getFuncionarios, personaPorFirma, personasDelDecreto } from "@/lib/funcionarios";
+import { decretoPorNumero } from "@/lib/decretos";
 
 export const revalidate = 86400;
 
@@ -78,6 +79,11 @@ export default async function NormaPage({ params }: Props) {
   const etiqueta = norma.institucion?.trim();
   const etiquetadas =
     etiqueta && !esDesignacion(norma) ? INSTITUCIONES.filter((i) => i.consultoria.includes(etiqueta)) : [];
+  // Quién lo firma, según el registro completo de decretos. Una fila fechada
+  // fuera de los períodos de su firmante es un error de captura: no se afirma.
+  const registro = tipo === "Decreto" ? await decretoPorNumero(norma.numero) : null;
+  const firmante =
+    registro?.firmante && registro.aviso !== "fuera" ? await personaPorFirma(registro.firmante) : null;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -104,17 +110,38 @@ export default async function NormaPage({ params }: Props) {
             lectura en vivo.
           </p>
         )}
+        {registro?.aviso && (
+          <p className="mt-1.5 text-xs leading-relaxed text-alerta-700">
+            {registro.aviso === "fecha"
+              ? `La fecha que da la Consultoría no casa con el año del número ${norma.numero}: es un error de captura probable del origen.`
+              : "El registro de la Consultoría le pone una fecha fuera de los períodos de firma de su firmante: es un error de captura probable del origen."}
+          </p>
+        )}
       </header>
       <AccionesFicha className="mt-3" tipo="norma" id={`${slug}/${numero}`} titulo={`${tipo} ${norma.numero}: ${desdeMayusculas(norma.titulo)}`} href={enlace.norma(slug, numero) ?? "/normativa"} />
 
       <ConectadoCon
         className="mt-5"
-        aristas={etiquetadas.slice(0, 3).map((i) => ({
-          etiqueta: "Institución a la que se refiere",
-          href: `${hrefInstitucion(i)}#decretos`,
-          nombre: desdeMayusculas(i.nombre),
-          fuente: "Etiqueta de la Consultoría Jurídica",
-        }))}
+        aristas={[
+          firmante && {
+            etiqueta: "Lo firma",
+            href: enlace.funcionario(firmante.id),
+            nombre: firmante.nombre,
+            fuente: "Registro de decretos de la Consultoría Jurídica",
+          },
+          firmante && {
+            etiqueta: "Los demás decretos con su firma",
+            href: enlace.decretosFirmados(firmante.id),
+            nombre: `${firmante.firma?.decretos.toLocaleString("es-DO") ?? ""} decretos`,
+            fuente: "Registro de decretos de la Consultoría Jurídica",
+          },
+          ...etiquetadas.slice(0, 3).map((i) => ({
+            etiqueta: "Institución a la que se refiere",
+            href: `${hrefInstitucion(i)}#decretos`,
+            nombre: desdeMayusculas(i.nombre),
+            fuente: "Etiqueta de la Consultoría Jurídica",
+          })),
+        ]}
       />
 
       {explicacion && (

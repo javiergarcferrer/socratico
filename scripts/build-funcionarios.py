@@ -83,6 +83,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# El registro de decretos se lee igual aquí y en scripts/build-decretos.py.
+from consultoria_decretos import (CONSULTORIA, fecha_de_cache, fecha_iso,  # noqa: E402
+                                  firmas_presidenciales, leer_decretos, limpio)
+
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 SALIDA = RAIZ / "public" / "data" / "funcionarios.json"
 INSTITUCIONES = RAIZ / "public" / "data" / "instituciones.json"
@@ -93,7 +98,6 @@ UA = "Socratico-Inteligencia/1.0 (funcionarios y cargos públicos; herramienta i
 
 MAP_URL = "https://observicios.gob.do/back/api/portal/funcionarios"
 MAP_PUBLICO = "https://observicios.gob.do/officials"
-CONSULTORIA = "https://www.consultoria.gov.do"
 JCE_ELECTOS = ("https://elecciones2024.jce.gob.do/DesktopModules/EasyDNNNews/DocumentDownload.ashx"
                "?portalid=0&moduleid=469&articleid=10&documentid=14")
 JCE_ELECTOS_PAGINA = ("https://elecciones2024.jce.gob.do/sala-de-prensa/"
@@ -205,11 +209,6 @@ def slug(nombre: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", clave(nombre)).strip("-")[:90]
 
 
-def limpio(s: str) -> str:
-    s = unicodedata.normalize("NFC", s or "")
-    return re.sub(r"\s+", " ", s.replace("​", "").replace("\xa0", " ")).strip(" ,.;:")
-
-
 def capital(palabra: str) -> str:
     """«d’aza» → «D’Aza», «pérez-tejada» → «Pérez-Tejada», «(el» → «(El»."""
     def primera(p: str) -> str:
@@ -263,19 +262,6 @@ def cargo_legible(c: str) -> str:
     if letras and sum(1 for x in letras if x.isupper()) / len(letras) > 0.8:
         c = en_titulo(c)
     return c[:1].upper() + c[1:]
-
-
-def fecha_iso(s: str | None) -> str | None:
-    if not s:
-        return None
-    s = s.strip()
-    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", s)
-    if m:
-        return m.group(0)
-    m = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})", s)
-    if m:
-        return f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}"
-    return None
 
 
 # ---------------------------------------------------------- nombres válidos
@@ -809,25 +795,6 @@ def leer_map(cache: pathlib.Path, sin_red: bool) -> tuple[list[dict], int]:
     return filas, total
 
 
-def leer_decretos(cache: pathlib.Path, sin_red: bool) -> list[dict]:
-    ruta = cache / "decretos.json"
-    if sin_red or (ruta.exists() and time.time() - ruta.stat().st_mtime < 86400):
-        return json.loads(ruta.read_text(encoding="utf-8"))
-    cuerpo = json.dumps({
-        "DocumentTypeCode": 3, "DocumentNumber": "", "FullText": "", "Name": "", "LastName": "",
-        "Identification": "", "Charge": "", "Institution": 0, "President": 0, "Consultor": 0,
-        "Career": 0, "Guild": 0, "PensionType": 0, "PublicationYear": "",
-    }).encode()
-    crudo, _ = pedir(f"{CONSULTORIA}/api/consultas/search", datos=cuerpo, tipo="json", espera=300,
-                     cabeceras={"Content-Type": "application/json", "Accept": "application/json"})
-    # Solo lo que se usa: la cédula, el monto de una pensión y los campos de
-    # persona del buscador no se escriben ni en la caché.
-    filas = [{k: f.get(k) for k in ("DocId", "Numero", "Titulo", "FechaPromulgacion", "Presidente", "Institucion")}
-             for f in json.loads(crudo)]
-    ruta.write_text(json.dumps(filas, ensure_ascii=False), encoding="utf-8")
-    return filas
-
-
 class _Plazo(BaseException):
     """Hereda de BaseException a propósito: pdfminer atrapa `Exception` por
     dentro y se tragaría el plazo (un escaneo lo tuvo once minutos)."""
@@ -1085,33 +1052,6 @@ class Registro:
         return p
 
 
-def firmas_presidenciales(decretos: list[dict]) -> dict[str, dict]:
-    """Cuántos decretos firmó cada quien y entre qué fechas. Un puñado de
-    fechas lejos del resto es un error de captura (hay decretos de «Luis
-    Abinader» fechados en 1900) y no cuenta para el rango; sí para el total."""
-    fechas: dict[str, list[str]] = {}
-    for d in decretos:
-        f = limpio(d.get("Presidente") or "")
-        fecha = fecha_iso(d.get("FechaPromulgacion"))
-        if f and fecha:
-            fechas.setdefault(f, []).append(fecha)
-    salida: dict[str, dict] = {}
-    for f, lista in fechas.items():
-        lista.sort()
-        dias = [datetime.date.fromisoformat(x) for x in lista]
-        # Tramos de firmas sin un hueco de más de un año. Un tramo diminuto es un
-        # error de captura (dos decretos de «Luis Abinader» fechados en 1900); un
-        # período anterior del mismo presidente es un tramo grande y cuenta.
-        tramos: list[list[str]] = [[lista[0]]]
-        for k in range(1, len(lista)):
-            if (dias[k] - dias[k - 1]).days > 365:
-                tramos.append([])
-            tramos[-1].append(lista[k])
-        buenos = [t for t in tramos if len(t) >= max(5, len(lista) // 100)] or tramos
-        salida[f] = {"n": len(lista), "desde": buenos[0][0], "hasta": buenos[-1][-1]}
-    return salida
-
-
 NO_PERSONAS_FIRMANTES = re.compile(r"TRIUNVIRATO|JUNTA|CONGRESO|CONSEJO|GOBIERNO", re.I)
 
 
@@ -1123,7 +1063,8 @@ def main() -> None:
     args = ap.parse_args()
     cache = pathlib.Path(args.cache)
     cache.mkdir(parents=True, exist_ok=True)
-    hoy = datetime.date.today().isoformat()
+    # Sin red, la fecha es la de la lectura que está en la caché, no la de hoy.
+    hoy = (args.sin_red and fecha_de_cache(cache, "map.json", "decretos.json")) or datetime.date.today().isoformat()
 
     inst = Instituciones(INSTITUCIONES)
     reg = Registro()
@@ -1168,7 +1109,7 @@ def main() -> None:
 
     # 2. Decretos
     print("Consultoría — todos los decretos…")
-    decretos = leer_decretos(cache, args.sin_red)
+    decretos = leer_decretos(cache, args.sin_red, pedir)
     if len(decretos) < 75000:
         sys.exit(f"Consultoría: {len(decretos)} decretos: no se escribe")
     por_num = {}
@@ -1248,7 +1189,8 @@ def main() -> None:
             destino = presidente_map
         else:
             destino = reg.persona(nombre)
-        destino["firma"] = {"como": en_titulo(firma), "decretos": s["n"], "desde": s["desde"], "hasta": s["hasta"]}
+        destino["firma"] = {"como": en_titulo(firma), "clave": firma, "decretos": s["n"],
+                            "desde": s["desde"], "hasta": s["hasta"]}
 
     # 3. Altas cortes y órganos
     print("Altas cortes y órganos constitucionales…")

@@ -56,7 +56,8 @@ export async function ResumenSanciones() {
       Tabla descargada el {formatFecha(m.generado)}
       {d.corte ? `, con registros hasta el ${formatFecha(d.corte)}` : ""}: {formatInt(d.filas)} filas
       sobre {formatInt(d.rpe)} registros de proveedor. Se publican {formatInt(d.eventos)} medidas
-      sobre {formatInt(d.juridicas)} empresas y entidades.
+      sobre {formatInt(d.juridicas)} empresas y entidades y {formatInt(d.personasFisicas)} personas
+      físicas (estas, sin cédula).
     </>
   );
 }

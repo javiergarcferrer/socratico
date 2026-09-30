@@ -374,6 +374,18 @@ export default async function FuentesPage() {
             distintas, abren su PDF en el sitio de la Consultoría.
           </p>
           <p className="mt-3">
+            Igual con los decretos: el <strong>registro completo</strong> (unos 78,800 desde
+            1844, con quién firma cada uno, en una sola consulta,{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-decretos.py</code>
+            , un archivo por año) da ficha a cualquier decreto numerado con su año («641-26»)
+            aunque el origen no conteste, y la lista de los decretos que firmó cada Presidente,
+            por año y por materia. Del origen se declaran dos cosas: hay filas fechadas fuera de
+            los períodos de su firmante o con una fecha que no casa con el año de su número
+            (errores de captura: se marcan, no se corrigen), y la fe de errata de un decreto es
+            otra fila con el mismo número. Los decretos anteriores a los años ochenta llevan un
+            número sin año que se repite: esos abren su PDF.
+          </p>
+          <p className="mt-3">
             Sus PDF traen capa de texto (no son escaneos) y cada norma tiene su
             ficha, que es también la vía al articulado de las piezas del
             Congreso ya promulgadas. El visor siempre ofrece abrir el PDF en el
@@ -828,10 +840,11 @@ export default async function FuentesPage() {
             correcciones del registro y bajas de instituciones públicas que estaban inscritas
             como proveedoras. La fecha de habilitación a veces es futura (un plazo, no algo que
             ya pasó) y algunas son lejanísimas, de 2044 o 2055, sin explicación. Las medidas
-            sobre personas físicas no se publican, ni su nombre ni su cédula, solo cuántas son:
-            decisión pendiente del dueño. Tampoco las filas de prueba del propio sistema ni las
-            repetidas, y en los motivos se omiten el nombre y el documento de quien firma una
-            solicitud. Es una instantánea: una medida posterior a su fecha no sale. Regenerar con{" "}
+            sobre personas físicas se publican con el nombre con que se inscribieron, nunca con
+            su cédula ni con la constancia del registro que la muestra, y sus filas no se ofrecen
+            a los buscadores (decisión del dueño, 30-09-2026). No se publican las filas de prueba
+            del propio sistema ni las repetidas, y en los motivos se omiten el nombre y el
+            documento de quien firma una solicitud. Es una instantánea: una medida posterior a su fecha no sale. Regenerar con{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-sanciones.py</code>.
           </p>
         </Fuente>
@@ -900,6 +913,28 @@ export default async function FuentesPage() {
             buscadores externos. La Cámara de Cuentas y la Procuraduría rechazan hoy
             la lectura (HTTP 470) y el Banco Central sirve su Junta Monetaria por una vía que no
             devuelve el contenido: sus titulares no están salvo por un decreto o por el MAP.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Declaraciones juradas de patrimonio" estado="activa" etiqueta="Instantánea local">
+          <p>
+            Las que las propias instituciones publican en sus portales de transparencia (Ley
+            311-14): las bibliotecas WordPress del índice de documentos, las segundas
+            instalaciones de MAPRE y de la Vicepresidencia bajo <code className="rounded bg-canvas px-1 py-0.5 font-mono">/transparencia/</code>{" "}
+            y la página de la Presidencia (
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-declaraciones.py</code>
+            ). Se enlazan, no se copian ni se transcriben: título, institución, fecha de subida y
+            el PDF en su origen. Cada una se ata a la ficha de una persona solo sin dudas: todas las
+            palabras del nombre del título en el suyo y un cargo en la institución que la publica,
+            o un nombre único de tres o más palabras. Las demás se listan en la ficha de su
+            institución.
+          </p>
+          <p className="mt-3">
+            El registro completo lo tiene la <strong>Cámara de Cuentas</strong> en su consulta
+            pública, que busca por nombre pero pide un CAPTCHA en cada búsqueda: la plataforma no
+            la lee y la ficha de cada obligado la enlaza para que el lector busque. La Presidencia
+            no publica en abierto las del Presidente ni la Vicepresidenta; su sección de
+            declaraciones no se actualiza desde 2021. Decisión del dueño del 30-09-2026.
           </p>
         </Fuente>
 
