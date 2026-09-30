@@ -1118,8 +1118,9 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   Wikidata, la OFAC) va solo con su `url`, y la lista de decretos firmados,
   con la pista de `signed_decrees`.
 - **Reglas que no se relajan aquí**: la respuesta de cada herramienta dice su
-  fuente y su fecha de corte (`search`, en cada resultado; `fetch`,
-  `neighbors` y `path`, la del nodo y las de todas las instantáneas del grafo)
+  fuente y su fecha de corte (`search`, en cada resultado; `fetch` y
+  `neighbors`, la del nodo y las de todas las instantáneas del grafo; `path`,
+  las del grafo)
   y que la plataforma es independiente y no oficial; PEP se explica como
   categoría legal; **ninguna cadena sale con forma de cédula**: los adaptadores
   la quitan al leer (`sinCedula`, `lib/padron.ts`) y el servidor pasa la

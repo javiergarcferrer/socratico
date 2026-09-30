@@ -20,8 +20,9 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   historia exige `--force`, que ninguna sesión usa. Lo mismo pasa con tres
   cédulas que traían títulos oficiales (dos decretos y una sentencia del TC):
   desde el 30-09-2026 ninguna instantánea las guarda, pero las versiones
-  anteriores siguen en el historial (abajo, «La cédula de un título
-  oficial»). Decidir:
+  anteriores siguen en el historial y en los despliegues viejos de Vercel,
+  que sirven sus propios `public/data` (se pueden borrar en el panel del
+  proyecto; abajo, «La cédula de un título oficial»). Decidir:
   1. hacer privado el repositorio hasta que se corrijan;
   2. reescribir la historia y pedirle a GitHub que purgue lo que guardó; o
   3. aceptarlo y mandar los avisos cuanto antes.
@@ -146,15 +147,26 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
     misma función y el índice por palabra se rehízo.
   - **No se enseña**: los adaptadores la quitan al leer (`sinCedula` de
     `lib/padron.ts` en `lib/busqueda.ts`, `lib/decretos.ts`,
-    `lib/normativa.ts`, `lib/tc.ts` y `lib/tse.ts`, que leen en vivo), y el
-    servidor MCP pasa cada respuesta por el mismo filtro.
+    `lib/normativa.ts`, `lib/tc.ts` y `lib/tse.ts`, que leen en vivo, y en
+    `limpiarTexto` de `lib/congreso.ts`, por donde pasan las descripciones
+    del SIL y los títulos que pinta `desdeMayusculas`), y el servidor MCP pasa
+    cada respuesta por el mismo filtro. Lo que sale de una caché de datos
+    (`unstable_cache`, que sobrevive a un despliegue: una norma 24 h, un año
+    cerrado del TC o del TSE siete días) se limpia al salir, no solo al
+    entrar.
   - **No se busca por ella**: `llevaCedula` rechaza la consulta en
-    `buscarEnTodo`, en `/buscar` (que explica por qué), en la paleta y en el
-    servidor MCP. Una cédula sola sigue yendo a los proveedores del Estado,
-    como antes (`rutaDirecta`): el registro de la DGCP la resuelve y la ficha
-    no la enseña.
-  - Once cifras juntas no cuentan como cédula en un texto: así se escriben
+    `buscarEnTodo`, en `/buscar` (que explica por qué), en la paleta, en el
+    buscador del Congreso (el SIL busca por subcadena) y en el servidor MCP.
+    Una cédula sola sigue yendo a los proveedores del Estado, como antes
+    (`rutaDirecta`): el registro de la DGCP la resuelve y la ficha no la
+    enseña.
+  - **Las formas**: con guiones en cualquier parte (también dentro del nombre
+    de un archivo), con rayas, o tras la palabra «cédula» con cualquier
+    separador. Once cifras juntas sin la palabra no cuentan: así se escriben
     números de sentencia, parcelas y matrículas.
+  - **El gate lo vigila**: `.claude/hooks/cedulas.py` recorre las
+    instantáneas en `verificar.sh --completo`; una cédula que vuelva con un
+    script nuevo o una fuente nueva deja el gate en rojo.
 - **El servidor MCP: Socrático como capa ontológica (30-09-2026).** El dueño:
   Socrático será «la capa ontológica de la República Dominicana», conectada
   por MCP, para que cualquiera que use Claude o ChatGPT, o que esté

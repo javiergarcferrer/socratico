@@ -111,6 +111,17 @@ else
   mal "harness drift"; printf '%s\n' "$arn" | sed 's/^/       /'
 fi
 
+# 5c. Nunca la cédula (docs/DECISIONES.md): ninguna instantánea de public/data,
+#     que se sirve tal cual, la guarda, ni la que traiga un título oficial. Lee
+#     ~200 MB (unos 13 s): solo en el completo.
+if [ "$modo" = "--completo" ] && command -v python3 >/dev/null 2>&1; then
+  if ced="$(python3 "$(dirname "$0")/cedulas.py" "$ROOT" 2>&1)" && [ -z "$ced" ]; then
+    ok "privacy: no cédula in public/data"
+  else
+    mal "a cédula reached a snapshot — scripts/privacidad.py"; printf '%s\n' "$ced" | head -5 | sed 's/^/       /'
+  fi
+fi
+
 # 6. Build (completo only).
 LOG="${TMPDIR:-/tmp}/socratico-build.log"
 if [ "$modo" = "--completo" ]; then

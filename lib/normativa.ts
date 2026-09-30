@@ -660,7 +660,10 @@ export async function resolverNorma(
 ): Promise<Documento | null> {
   if (!numero) return null;
   try {
-    return await normaCached(tipo, numero);
+    const doc = await normaCached(tipo, numero);
+    // La caché de datos sobrevive a un despliegue: lo guardado antes de que
+    // los títulos perdieran la cédula se limpia al salir, no solo al entrar.
+    return doc ? { ...doc, titulo: sinCedula(doc.titulo) } : null;
   } catch (err) {
     console.error(`[normativa] cita ${tipo} ${numero}: ${String(err)}`);
   }

@@ -195,7 +195,10 @@ export async function listarSentencias(anio: number): Promise<SentenciasTC | nul
   const actual = anioActualTC();
   if (!Number.isInteger(anio) || anio < PRIMER_ANIO_TC || anio > actual) return null;
   try {
-    return await (anio === actual ? anioEnCurso : anioCerrado)(anio);
+    const r = await (anio === actual ? anioEnCurso : anioCerrado)(anio);
+    // La caché de datos sobrevive a un despliegue (un año cerrado, siete días):
+    // lo guardado antes de quitar la cédula se limpia al salir.
+    return { ...r, sentencias: r.sentencias.map((s) => ({ ...s, relativo: sinCedula(s.relativo) })) };
   } catch (err) {
     console.error(`[tc] ${anio}: ${String(err)}`);
     return null;

@@ -113,7 +113,7 @@ function resultado<T extends Record<string, unknown>>(objeto: T) {
 function sinBuscarPorCedula(...textos: (string | undefined)[]): void {
   if (textos.some((t) => t && llevaCedula(t))) {
     throw new Aviso(
-      "Lo pedido lleva una cédula. Socrático no la enseña ni busca por ella, aunque un título oficial la traiga: busca por el nombre, la institución o el tema.",
+      "Lo pedido lleva una cédula. Este servidor no busca por ella, y Socrático no la enseña aunque un título oficial la traiga: busca por el nombre, la institución o el tema.",
     );
   }
 }

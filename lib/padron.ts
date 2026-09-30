@@ -59,36 +59,55 @@ export function pareceCedula(texto: string): boolean {
   return /^\d{11}$/.test(soloCifras(texto));
 }
 
-/**
- * Una cédula dentro de un texto, como la escriben los decretos y las
- * sentencias: «Núm. 001-0000000-0», o el «RNC núm.» de una persona con ese formato.
- * Once cifras juntas no cuentan: así se escriben también números de
- * sentencia, parcelas y matrículas.
+/*
+ * Una cédula dentro de un texto: las mismas formas que `scripts/privacidad.py`
+ * quita al construir y que `.claude/hooks/cedulas.py` vigila en las
+ * instantáneas.
+ *  - Con guiones, en cualquier parte, también dentro del nombre de un archivo
+ *    («DJ-001-0000000-0.pdf»); no el final de un número más largo.
+ *  - Con rayas u otros guiones tipográficos.
+ *  - Tras la palabra «cédula» (o «céd.»), con espacios, puntos o sin
+ *    separadores: «cédula núm. 00100000000».
+ * Once cifras juntas sin la palabra no cuentan: así se escriben también
+ * números de sentencia, parcelas y matrículas.
  */
-const CEDULA_EN_TEXTO = /(?<![\d-])\d{3}-\d{7}-\d(?![\d-])/g;
+const GUIONES = /(?<!\d)(?<!\d-)\d{3}-\d{7}-\d(?![\d-])/;
+const RAYAS = /(?<!\d)\d{3}[\u2010\u2013]\d{7}[\u2010\u2013]\d(?!\d)/;
+const NOMBRADA = /(\bc[eé]d(?:ula)?\b\.?[^\d\t\n]{0,40}?)(\d{3}[ .\u2010\u2013-]?\d{7}[ .\u2010\u2013-]?\d)(?!\d)/i;
+/** Todo lo tecleado es una cédula, con o sin separadores. */
+const SOLA = /^\s*\d{3}[ .\u2010\u2013-]?\d{7}[ .\u2010\u2013-]?\d\s*$/;
+
+const todas = (r: RegExp) => new RegExp(r.source, `${r.flags}g`);
+const GUIONES_G = todas(GUIONES);
+const RAYAS_G = todas(RAYAS);
+const NOMBRADA_G = todas(NOMBRADA);
 
 /**
  * El texto sin cédulas. Un título oficial puede traer la de una persona (tres
  * en todas las instantáneas al 30-09-2026: dos decretos y una sentencia del
  * TC); la plataforma nunca la enseña ni la guarda (docs/DECISIONES.md), así
  * que el número se cambia por «[omitida]», en mayúsculas si el texto lo está,
- * para que `desdeMayusculas` lo trate como al resto. Lo usan los
- * adaptadores al leer, los scripts al construir y el servidor MCP al
- * responder.
+ * para que `desdeMayusculas` lo trate como al resto. Lo usan los adaptadores
+ * al leer (también sobre lo que sale de una caché de datos, que sobrevive a
+ * un despliegue), `limpiarTexto` y el servidor MCP al responder.
  */
 export function sinCedula(texto: string): string {
-  if (!/\d{3}-\d{7}-\d/.test(texto)) return texto;
+  if (!/\d{7}/.test(texto)) return texto;
   const marca = texto === texto.toLocaleUpperCase("es") ? "[OMITIDA]" : "[omitida]";
-  return texto.replace(CEDULA_EN_TEXTO, marca);
+  return texto
+    .replace(NOMBRADA_G, (_, antes: string) => `${antes}${marca}`)
+    .replace(GUIONES_G, marca)
+    .replace(RAYAS_G, marca);
 }
 
 /**
- * ¿Lleva lo tecleado una cédula? Con guiones, en cualquier parte; sin ellos,
- * solo si es todo lo tecleado (la regla de `/empresas`). A una persona no se
- * la busca por su número, en ningún buscador de la plataforma.
+ * ¿Lleva lo tecleado una cédula? En cualquiera de las formas de arriba, o si
+ * todo lo tecleado lo es. Los buscadores de texto de la plataforma y el
+ * servidor MCP no buscan por ella; una cédula sola en `/buscar` sigue yendo a
+ * los proveedores del Estado (`rutaDirecta`), cuyo registro la resuelve.
  */
 export function llevaCedula(texto: string): boolean {
-  return /(?<![\d-])\d{3}-\d{7}-\d(?![\d-])/.test(texto) || pareceCedula(texto);
+  return GUIONES.test(texto) || RAYAS.test(texto) || NOMBRADA.test(texto) || SOLA.test(texto);
 }
 
 /**

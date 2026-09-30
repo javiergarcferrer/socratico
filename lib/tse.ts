@@ -242,7 +242,10 @@ export async function listarSentenciasTSE(anio: number): Promise<SentenciasTSE |
   const actual = anioActualTSE();
   if (!Number.isInteger(anio) || anio < PRIMER_ANIO_TSE || anio > actual) return null;
   try {
-    return await (anio === actual ? anioEnCurso : anioCerrado)(anio);
+    const r = await (anio === actual ? anioEnCurso : anioCerrado)(anio);
+    // La caché de datos sobrevive a un despliegue: lo guardado antes de quitar
+    // la cédula se limpia al salir.
+    return { ...r, sentencias: r.sentencias.map((s) => ({ ...s, relativo: sinCedula(s.relativo) })) };
   } catch (err) {
     console.error(`[tse] ${anio}: ${String(err)}`);
     return null;
