@@ -2063,6 +2063,8 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
    que el Clasificador retiró y le faltan nueve: el sitemap ya lista los de
    `fiscal.json`; regenerar el catálogo depende de la API del SIGEF (403 aquí).
 8. Institucional (Ley 200-04 y divulgación responsable): CCPSD/FEDOCÁMARAS/MICM
-   (extracto del registro mercantil), ONAPI (acceso a `bsapi26`), SIMV, SIS
-   (intermediarios), CASFL (registro de ASFL), Cámara de Cuentas y PGR (470),
+   (extracto del registro mercantil), ONAPI (acceso a `bsapi26`), SB (que su
+   cortafuegos admita el User-Agent: cambiarias, fiduciarias, burós y oficinas de
+   representación, §H.6), SIMV, SIS (intermediarios), CASFL (registro de ASFL),
+   Cámara de Cuentas y PGR (470),
    DIGECOG (470), Hacienda (API del SIGEF, 403), BID; y los dos avisos de §H.10.
