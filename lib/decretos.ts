@@ -51,6 +51,19 @@ type FilaCruda = [
  */
 export type AvisoDecreto = "fuera" | "fecha";
 
+/** Cada aviso en llano: lo dicen igual la lista de decretos firmados y el servidor MCP (`lib/mcp.ts`). */
+export const AVISO_DECRETO: Record<AvisoDecreto, { etiqueta: string; llano: string }> = {
+  fuera: {
+    etiqueta: "Fecha fuera de su período",
+    llano:
+      "El registro lo atribuye a esta firma, pero su fecha cae fuera de sus períodos de firma: es un error de captura probable del origen.",
+  },
+  fecha: {
+    etiqueta: "Fecha dudosa",
+    llano: "La fecha que da el origen no casa con el año de su número.",
+  },
+};
+
 export interface Firmante {
   /** La firma tal como la escribe la Consultoría: «LUIS ABINADER». */
   clave: string;

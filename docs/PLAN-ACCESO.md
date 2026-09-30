@@ -526,6 +526,25 @@ comparte RNC con un funcionario?»)— se resuelve con un índice de adyacencia
 precalculado por `scripts/`. Se reabre solo si una consulta real necesita
 recorridos arbitrarios en vivo sobre millones de aristas.
 
+## 6 sexies. Horizonte 8 — la capa ontológica, para asistentes de IA (pedido del dueño, 2026-09-30)
+
+El dueño: Socrático como **la capa ontológica de la República Dominicana**,
+conectada por MCP a Claude, ChatGPT y a quien investigue. La primera entrega
+está hecha: `/mcp` y `/conectar` (ARQUITECTURA, el servidor MCP;
+DECISIONES, sus reglas). Lo que sigue, en orden de lo que más le falta a una
+investigación:
+
+| # | Entrega | Hecho cuando |
+|---|---|---|
+| M1 ✅ | **El servidor**: `search`, `fetch`, `neighbors`, `path`, `signed_decrees`, `ontology`, sobre el índice y el grafo; forma de ChatGPT en `search`/`fetch`; revisiones 2025 y 2026-07-28 | Claude y ChatGPT lo conectan con la dirección y cada respuesta trae fuente y corte |
+| M2 | **Compras de un proveedor o de una institución**: una herramienta sobre `lib/dgcp.ts` y el histórico (`lib/historico.ts`), con el tope y el `truncated` que ya declaran sus lecturas | «¿Qué le ha comprado el MOPC a esta empresa?» se contesta con contratos, montos y fechas, y dice cuántos leyó |
+| M3 | **El texto**: el de una norma y el de un decreto (la Consultoría ya se lee; el PDF, por `lib/documentos.ts`), por páginas | El asistente cita el artículo, no solo el título |
+| M4 | **Cifras del panorama**: las de `/indicadores` y la deuda, cada una con su ancla (`lib/cifras.ts`) | Ninguna cifra sale sin su fecha y su fuente |
+| M5 | **Pruebas en el gate**: un cliente MCP que llame cada herramienta contra `next start` en `verificar.sh --completo` | Un cambio que rompa la forma de una herramienta no llega a `main` |
+
+El límite no se mueve: solo lectura, sin estado ni clave, y lo que la
+plataforma no publica tampoco lo da el servidor.
+
 ## 7. Guardarraíles para quien ejecute
 
 - Nada de esto introduce DB ni variables de entorno: los cruces son archivos

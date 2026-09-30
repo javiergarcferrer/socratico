@@ -23,11 +23,11 @@ import { agujas, contieneTodas, plano } from "@/lib/raiz";
 import { MATERIAS } from "@/lib/materias-decreto";
 import { personaPorId } from "@/lib/funcionarios";
 import {
+  AVISO_DECRETO as AVISO,
   decretosDeFirmante,
   firmante as leerFirmante,
   hrefDecreto,
   indiceDecretos,
-  type AvisoDecreto,
   type Decreto,
 } from "@/lib/decretos";
 
@@ -40,18 +40,6 @@ const ANIOS_SUELTOS = 12;
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ q?: string; materia?: string; anio?: string; decada?: string; p?: string }>;
-};
-
-const AVISO: Record<AvisoDecreto, { etiqueta: string; llano: string }> = {
-  fuera: {
-    etiqueta: "Fecha fuera de su período",
-    llano:
-      "El registro lo atribuye a esta firma, pero su fecha cae fuera de sus períodos de firma: es un error de captura probable del origen.",
-  },
-  fecha: {
-    etiqueta: "Fecha dudosa",
-    llano: "La fecha que da el origen no casa con el año de su número.",
-  },
 };
 
 const cargar = cache((slug: string) => personaPorId(decodeURIComponent(slug)));

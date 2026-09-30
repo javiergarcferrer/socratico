@@ -781,6 +781,30 @@ export async function buscarEnTodo(
   }
 }
 
+/**
+ * El resultado del corpus que lleva a esta dirección —la ficha de la
+ * plataforma, el archivo de fuera o la biblioteca que junta sus copias, tal
+ * como lo da `href`—, con la fecha de la instantánea de su tipo; `null` si
+ * ninguno lleva ahí. Lo usa el servidor MCP (`lib/mcp.ts`) para leer un
+ * resultado que no es un nodo del grafo. Un recorrido lineal: una lectura por
+ * dirección exacta, no una búsqueda. Si el índice no carga, lanza: «no
+ * pudimos mirar» no es «no está».
+ */
+export async function resultadoPorHref(href: string): Promise<{ resultado: Resultado; corte: string | null } | null> {
+  const m = await motor();
+  const { corpus } = m;
+  for (const d of corpus.docs) {
+    const propio =
+      d.t === "proveedor" && d.r ? enlace.proveedor(d.r) : d.t === "proceso" && d.r ? enlace.proceso(d.r) : (d.h ?? null);
+    const copias = d.t === "documento" && d.h && href.startsWith("/documentos?") && hrefCopias(d) === href;
+    if (propio === href || copias) {
+      const resultado = aResultado(corpus, d, "palabra");
+      return { resultado: copias ? { ...resultado, href } : resultado, corte: corpus.instantaneas[d.t] ?? null };
+    }
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------ pantallas */
 
 /** Una pantalla de la plataforma que responde a la consulta (G4). */
