@@ -178,6 +178,7 @@ export const MENU: GrupoMenu[] = [
           { href: "/seguimiento", label: "Mi seguimiento", nota: "Lo que sigues y qué cambió", tarea: "participar" },
           { href: "/fuentes", label: "Estado de las fuentes", nota: "Qué leemos, con qué límites y qué está bloqueado", tarea: "entender" },
           { href: "/ontologia", label: "Ontología", nota: "Las palabras con que se describe el grafo, para máquinas y personas", tarea: "entender" },
+          { href: "/conectar", label: "Conectar tu asistente de IA", nota: "Claude, ChatGPT o cualquier cliente MCP leen Socrático, con fuente y fecha", tarea: "entender" },
           { href: "/seguridad", label: "Seguridad y cumplimiento", nota: "Cómo tratamos los datos", tarea: "entender" },
         ],
       },

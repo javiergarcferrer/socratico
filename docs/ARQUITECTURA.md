@@ -1078,6 +1078,61 @@ instantáneas que pinta la ficha, y se cachea como cualquier página.
   por cada navegador. Lo único que puede pasar es que una caché intermedia
   ajena le sirva el HTML a un cliente RDF, que es inofensivo.
 
+## El servidor MCP — `lib/mcp.ts`, `app/mcp/route.ts`, `/conectar`
+La puerta de la plataforma para asistentes de IA (Claude, ChatGPT, Claude
+Code, Cursor o cualquier cliente del Model Context Protocol): `/mcp`. No es
+otra fuente ni otra copia: cada herramienta llama a las capas que pintan las
+fichas, así que responde lo mismo que la página, con las mismas reglas.
+
+- **Transporte**: HTTP «streamable» **sin sesión**, con el SDK oficial
+  `@modelcontextprotocol/server` 2.x (`createMcpHandler`, sin claves ni
+  dependencias con estado). Sirve la revisión **2026-07-28** del protocolo
+  (sobre por pedido, `server/discover`) y, para los clientes de 2025
+  (`initialize`: los de Claude y ChatGPT hoy), un servidor nuevo por pedido;
+  un GET de esos clientes recibe 405, que el protocolo prevé. Quien abre `/mcp`
+  en un navegador (pide `text/html`) recibe un 303 a `/conectar`. CORS
+  abierto, como `/api/grafo`: no hay cookies ni credenciales que proteger.
+  `maxDuration` 60 (`path` abre hasta 300 fichas en frío).
+- **Herramientas** (`servidorMcp()`, un servidor por pedido; todas con
+  `readOnlyHint` y `openWorldHint: false`, en este orden):
+  `search` (`buscarEnTodo` de `lib/busqueda.ts`, más lo que se nombra exacto
+  —decreto por número, empresa por RNC—, las provincias y cinco empresas del
+  padrón por nombre, `buscarEmpresas`; hasta 30), `fetch` (un nodo del grafo:
+  `describir` y `relacionesDesdeTriples` de `lib/grafo-rdf.ts`, sus datos en
+  llano, las medidas de la DGCP de sus inscripciones, sus relaciones por grupo
+  —50, el resto por `neighbors`— y su fuente con fecha de corte; otro
+  resultado del índice: su resumen, por `resultadoPorHref`), `neighbors` (las
+  relaciones de un nodo por grupo y página), `path` (`camino()`, cacheado),
+  `signed_decrees` (`decretosDeFirmante` con los filtros de la lista de la
+  ficha) y `ontology` (`lib/ontologia.ts`).
+- **La forma de ChatGPT**: `search` devuelve `results` con `id`, `title`,
+  `url` y `text`; `fetch`, `id`, `title`, `text`, `url` y `metadata`. Todas
+  las herramientas devuelven el objeto como `structuredContent` (con su
+  `outputSchema` en zod) y el mismo objeto en JSON como texto.
+- **El `id`** es la ruta de la ficha (la de `rutaDeNodo` si es un nodo, para
+  que no cambie con el nombre) o la dirección del archivo de fuera; `resolver`
+  acepta además la dirección entera, el IRI con `#id`, un RNC de nueve cifras
+  o «Decreto 497-25».
+- **Reglas que no se relajan aquí**: cada respuesta dice su fuente, su fecha
+  de corte y que la plataforma es independiente y no oficial; PEP se explica
+  como categoría legal; la cédula no está en ningún dato que se lee; las
+  instrucciones del servidor le piden al modelo no unir homónimos ni leer una
+  relación como parentesco o conducta. **Fuera, a propósito**: el rol de
+  audiencias y el Registro Inmobiliario (solo por número exacto que teclea un
+  lector), la cuenta y los espacios, `/democracia` y las consultas en vivo.
+- **Fallos**: un `Aviso` sale con su mensaje en llano (el SDK lo vuelve un
+  resultado con `isError`); cualquier otro se registra y sale genérico, sin
+  rutas ni pilas. El registro del servidor solo escribe el mensaje del
+  error, **nunca la consulta** de quien pregunta.
+- **`lib/mcp-herramientas.ts`**: la dirección y la tabla de herramientas
+  (título y línea en llano), sin dependencias; de ahí salen los títulos que
+  registra el servidor y la lista de `/conectar`, así que no se desalinean.
+- **Trazado**: la clave `/mcp` lleva el índice de búsqueda y las instantáneas
+  del grafo (~135 MB); cabe en el límite de una función.
+- **Verificado** el 30-09-2026 con los clientes oficiales: el SDK 1.x
+  (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
+  2026-07-28, cada herramienta con sus casos de error.
+
 ## Primitivas compartidas — el sistema, en un sitio
 La identidad se diluyó dos veces por la misma causa (`docs/IDENTIDAD.md` §8):
 donde existe una primitiva la adopción es alta; donde no existe, la idea se

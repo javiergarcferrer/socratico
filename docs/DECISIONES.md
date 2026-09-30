@@ -26,7 +26,18 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   de `lib/sitio.ts`, hoy `https://socratico.vercel.app`. Si la plataforma se
   muda a un dominio propio, cada IRI publicado cambia. Decidir el dominio
   antes de que alguien los enlace, o dejar un `owl:sameAs` y redirecciones
-  permanentes del viejo al nuevo el día que se mude.
+  permanentes del viejo al nuevo el día que se mude. Lo mismo vale para la
+  dirección del servidor MCP (`/mcp`), que la gente pega en su asistente: una
+  mudanza sin redirección rompe cada conector.
+- **El servidor MCP en los directorios de conectores** (30-09-2026). Hoy se
+  conecta pegando la dirección (`/conectar`). Figurar en el directorio de
+  conectores de Claude o en el de aplicaciones de ChatGPT es una solicitud a
+  Anthropic u OpenAI a nombre de la plataforma, con sus condiciones: la hace
+  el dueño, si la quiere.
+- **Un límite de uso para `/mcp`** (30-09-2026). El servidor no tiene estado,
+  así que no cuenta pedidos: un límite por dirección sería una regla del
+  cortafuegos de Vercel sobre `/mcp` (panel del proyecto, y según el plan,
+  costo). Hoy no hace falta; decidir si se pone antes de anunciarlo.
 - **La licencia de reutilización del grafo** (30-09-2026). El VoID y las
   descripciones RDF no declaran licencia (`dct:license`), así que quien las
   reutiliza no sabe en qué términos. Los datos son del Estado; la selección,
@@ -119,6 +130,27 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Cerradas, para que nadie las reabra
 
+- **El servidor MCP: Socrático como capa ontológica (30-09-2026).** El dueño:
+  Socrático será «la capa ontológica de la República Dominicana», conectada
+  por MCP, para que cualquiera que use Claude o ChatGPT, o que esté
+  investigando, se alimente de sus datos. Se hizo `/mcp` (ARQUITECTURA, el
+  servidor MCP) con estas reglas, decididas en la sesión:
+  - **Solo lectura, sin cuenta, sin clave, sin estado.** Es la invariante: no
+    entra una base de datos ni un secreto, y ninguna herramienta escribe ni
+    sale a una fuente en vivo.
+  - **Es lectura a pedido, no un índice.** Un asistente que pregunta por una
+    persona hace lo que hace un lector en `/buscar`, con las mismas reglas: sin
+    cédula, sin parentescos ni biografías, PEP solo mientras dura. La regla de
+    proporcionalidad de la ficha (solo la de quien es PEP hoy se ofrece a los
+    buscadores) sigue igual: el servidor no publica un sitemap ni un volcado,
+    `search` devuelve a lo sumo 30 resultados y ninguna herramienta lista
+    personas en masa.
+  - **Fuera**: el rol de audiencias y el Registro Inmobiliario (su límite es
+    un número exacto que teclea un lector, y un agente podría recorrerlos),
+    la cuenta, los espacios y `/democracia`.
+  - **Las herramientas `search` y `fetch` tienen la forma que ChatGPT exige**
+    a un conector de investigación; los nombres de las herramientas van en
+    inglés por eso, y sus títulos y descripciones en español.
 - **Lo que el dueño aprobó el 30-09-2026 («all approved»).** Le llegó la lista
   de lo que esperaba por él y respondió «deploy all you can implement
   immediately» y «all approved». Queda así, y no se reabre:

@@ -45,6 +45,14 @@ const nextConfig: NextConfig = {
       "./public/data/empresas/**",
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
     ],
+    // El servidor MCP (`lib/mcp.ts`) busca en el índice y describe nodos del
+    // grafo: lleva lo de `/buscar` y lo de `/grafo`.
+    "/mcp": [
+      "./public/data/busqueda/**",
+      "./public/data/decretos/**",
+      "./public/data/empresas/**",
+      "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
+    ],
     "/instituciones": ["./public/data/wikidata.json"],
     "/banca": ["./public/data/wikidata.json"],
     "/provincias": ["./public/data/wikidata.json"],
