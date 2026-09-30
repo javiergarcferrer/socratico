@@ -17,10 +17,9 @@ export type NombreHerramienta =
   | "fetch"
   | "procurement"
   | "contracting_history"
-  | "neighbors"
+  | "query"
   | "path"
   | "signed_decrees"
-  | "sparql"
   | "ontology";
 
 export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: string; llano: string }[] = [
@@ -39,7 +38,7 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
   {
     nombre: "fetch",
     titulo: "Leer un registro",
-    llano: "Una ficha entera: sus datos, sus relaciones y su fuente con la fecha de corte.",
+    llano: "Una ficha entera: sus datos, sus relaciones y su fuente con la fecha de corte; o todas las relaciones de un grupo, por páginas.",
   },
   {
     nombre: "procurement",
@@ -53,9 +52,9 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
     llano: "Lo que el Estado le ha contratado a un proveedor, lo que ha contratado una institución, o el país entero, año por año y con sus mayores contrapartes.",
   },
   {
-    nombre: "neighbors",
-    titulo: "Con quién se liga",
-    llano: "Todas las relaciones de un nodo del grafo, por grupo y por páginas.",
+    nombre: "query",
+    titulo: "Consulta SQL",
+    llano: "Una consulta SQL de lectura sobre el grafo entero sin personas naturales y los procesos de compra, para contar, cruzar y ordenar lo que las demás no ordenan, en DuckDB (abierto).",
   },
   {
     nombre: "path",
@@ -68,14 +67,9 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
     llano: "El registro de la Consultoría Jurídica por firmante, filtrado por año, materia y palabras.",
   },
   {
-    nombre: "sparql",
-    titulo: "Consulta SPARQL",
-    llano: "Una consulta SPARQL de lectura sobre la descripción RDF de los nodos que se nombran y sus vecinos, en motores abiertos (N3.js y Comunica).",
-  },
-  {
     nombre: "ontology",
     titulo: "La ontología",
-    llano: "Qué es cada clase de nodo y qué quiere decir cada relación.",
+    llano: "Qué es cada clase de nodo y qué quiere decir cada relación, y dónde descargar el grafo y sus tablas.",
   },
 ];
 

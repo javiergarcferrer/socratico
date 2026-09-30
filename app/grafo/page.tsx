@@ -223,17 +223,22 @@ async function Portada({ consulta }: { consulta: string }) {
             VoID
           </a>
           . Cada descripción se arma al pedirla, de las mismas instantáneas que pintan las fichas: no hay un
-          almacén de triples ni un punto SPARQL del grafo entero.
+          almacén de triples ni un servidor que mantener.
         </p>
         {volcado && (
           <p>
-            El grafo sin personas naturales se descarga entero, para consultarlo en SPARQL con un motor propio
-            (Oxigraph, QLever o Apache Jena, todos abiertos):{" "}
+            El grafo sin personas naturales se descarga entero, para consultarlo con un motor propio:{" "}
             <a href={volcado.url} className="text-brand-700 underline">
               grafo.nt.gz
             </a>
             , <span className="font-mono text-[13px] text-ink">{formatInt(volcado.triples)}</span> triples en N-Triples
-            comprimido, del {formatFecha(volcado.generado)}. Las personas con cargo, sus cargos y los decretos no entran:
+            comprimido, del {formatFecha(volcado.generado)}, para SPARQL (Oxigraph, QLever o Apache Jena, todos
+            abiertos); y las mismas entidades, con lo contratado y los procesos de compra, en{" "}
+            <a href="/tablas/meta.json" className="text-brand-700 underline">
+              tablas Parquet
+            </a>{" "}
+            para SQL (DuckDB, pandas o Polars), que el servidor MCP consulta con su herramienta query. Las personas
+            con cargo, sus cargos y los decretos no entran:
             se leen una a una, en su ficha.
           </p>
         )}

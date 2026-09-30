@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { servidorMcp } from "@/lib/mcp";
+import { conOrigen, servidorMcp } from "@/lib/mcp";
+import { SITIO } from "@/lib/sitio";
 
 /**
  * El servidor MCP de Socrático.do (`lib/mcp.ts`): la dirección que se pega en
@@ -17,7 +18,7 @@ import { servidorMcp } from "@/lib/mcp";
  */
 
 export const dynamic = "force-dynamic";
-// `path` puede abrir hasta 300 fichas en frío.
+// `path` puede abrir hasta 300 fichas en frío; `query` espera a `/api/sql` hasta 25 s.
 export const maxDuration = 60;
 
 const manejador = createMcpHandler(() => servidorMcp(), {
@@ -33,8 +34,22 @@ const CORS: Record<string, string> = {
   "Access-Control-Max-Age": "86400",
 };
 
+/**
+ * El despliegue que atiende: `query` llama a `/api/sql` en él, para que una
+ * vista previa consulte sus propias tablas. Solo los de este proyecto o el
+ * propio equipo; cualquier otro, la dirección de producción.
+ */
+function origenDe(req: Request): string {
+  const u = new URL(req.url);
+  const propio =
+    u.origin === SITIO ||
+    ((u.hostname === "localhost" || u.hostname === "127.0.0.1") && u.protocol === "http:") ||
+    (u.protocol === "https:" && u.hostname.startsWith("socratico") && u.hostname.endsWith(".vercel.app"));
+  return propio ? u.origin : SITIO;
+}
+
 async function atender(req: Request): Promise<Response> {
-  const res = await manejador.fetch(req);
+  const res = await conOrigen(origenDe(req), () => manejador.fetch(req));
   const salida = new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers });
   for (const [k, v] of Object.entries(CORS)) salida.headers.set(k, v);
   salida.headers.set("Cache-Control", "no-store");

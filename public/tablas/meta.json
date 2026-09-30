@@ -1,0 +1,323 @@
+{
+  "generado": "2026-09-30",
+  "formato": "Apache Parquet (zstd)",
+  "tablas": {
+    "instituciones": {
+      "descripcion": "Las instituciones del Estado (clasificador de DIGEPRES), con lo que contrataron desde 2015 según la DGCP.",
+      "fuente": "DIGEPRES; DGCP, tabla de contratos",
+      "corte": "2026-09-22",
+      "filas": 894,
+      "columnas": [
+        {
+          "nombre": "id",
+          "tipo": "INTEGER",
+          "descripcion": "Identificador de la institución; es también su código de unidad de compra en la DGCP."
+        },
+        {
+          "nombre": "nombre",
+          "tipo": "VARCHAR",
+          "descripcion": "Nombre oficial."
+        },
+        {
+          "nombre": "siglas",
+          "tipo": "VARCHAR",
+          "descripcion": "Siglas, si las tiene (MINERD, MOPC)."
+        },
+        {
+          "nombre": "sector",
+          "tipo": "VARCHAR",
+          "descripcion": "ejecutivo, descentralizada, local (ayuntamientos y juntas de distrito), empresa, financiera, poderes, seguridad-social, fideicomiso."
+        },
+        {
+          "nombre": "capitulo",
+          "tipo": "VARCHAR",
+          "descripcion": "Capítulo del presupuesto (DIGEPRES)."
+        },
+        {
+          "nombre": "contratos",
+          "tipo": "INTEGER",
+          "descripcion": "Contratos registrados desde 2015. NULL si no compra por la DGCP."
+        },
+        {
+          "nombre": "monto_contratado",
+          "tipo": "BIGINT",
+          "descripcion": "Pesos contratados desde 2015 (contratado, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más)."
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
+        }
+      ]
+    },
+    "empresas": {
+      "descripcion": "Personas jurídicas del padrón de la DGII que el grafo liga a algo: proveedoras del Estado, con medidas de la DGCP, en la lista de la OFAC o supervisadas. Ninguna persona física.",
+      "fuente": "DGII, padrón de contribuyentes (RNC)",
+      "corte": "2026-09-19",
+      "filas": 23668,
+      "columnas": [
+        {
+          "nombre": "rnc",
+          "tipo": "VARCHAR",
+          "descripcion": "RNC de nueve cifras."
+        },
+        {
+          "nombre": "nombre",
+          "tipo": "VARCHAR",
+          "descripcion": "Razón social."
+        },
+        {
+          "nombre": "estado",
+          "tipo": "VARCHAR",
+          "descripcion": "Estado en el padrón: ACTIVO, SUSPENDIDO, CESE TEMPORAL, DADO DE BAJA, ANULADO."
+        },
+        {
+          "nombre": "inicio_operaciones",
+          "tipo": "DATE",
+          "descripcion": "Fecha de inicio de operaciones declarada."
+        },
+        {
+          "nombre": "actividad",
+          "tipo": "VARCHAR",
+          "descripcion": "Actividad económica declarada."
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
+        }
+      ]
+    },
+    "proveedores": {
+      "descripcion": "Proveedores del Estado inscritos en la DGCP y atados a una empresa por su RNC, con lo que contrataron desde 2015. No incluye a los proveedores personas físicas.",
+      "fuente": "DGCP, registro de proveedores y tabla de contratos",
+      "corte": "2026-09-22",
+      "filas": 24460,
+      "columnas": [
+        {
+          "nombre": "rpe",
+          "tipo": "VARCHAR",
+          "descripcion": "Registro de Proveedores del Estado."
+        },
+        {
+          "nombre": "nombre",
+          "tipo": "VARCHAR",
+          "descripcion": "Nombre como lo registra la DGCP."
+        },
+        {
+          "nombre": "rnc",
+          "tipo": "VARCHAR",
+          "descripcion": "RNC de la empresa (empresas.rnc)."
+        },
+        {
+          "nombre": "contratos",
+          "tipo": "INTEGER",
+          "descripcion": "Contratos desde 2015 (total, con todos sus clientes)."
+        },
+        {
+          "nombre": "monto_contratado",
+          "tipo": "BIGINT",
+          "descripcion": "Pesos contratados desde 2015 (total; contratado, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más)."
+        },
+        {
+          "nombre": "primer_contrato",
+          "tipo": "DATE",
+          "descripcion": "Fecha del primer contrato registrado."
+        },
+        {
+          "nombre": "ultimo_contrato",
+          "tipo": "DATE",
+          "descripcion": "Fecha del último contrato registrado."
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
+        }
+      ]
+    },
+    "contrataciones": {
+      "descripcion": "Pares institución → proveedor con lo contratado entre ellos desde 2015. Son solo los pares mayores (los 12 mayores proveedores de cada institución y los 8 mayores clientes de cada empresa), no todos: para el total de una institución o de un proveedor usa instituciones.monto_contratado o proveedores.monto_contratado, nunca la suma de esta tabla.",
+      "fuente": "DGCP, tabla de contratos",
+      "corte": "2026-09-22",
+      "filas": 71466,
+      "columnas": [
+        {
+          "nombre": "institucion_id",
+          "tipo": "INTEGER",
+          "descripcion": "La institución que contrata (instituciones.id)."
+        },
+        {
+          "nombre": "proveedor_rpe",
+          "tipo": "VARCHAR",
+          "descripcion": "El proveedor contratado (proveedores.rpe)."
+        },
+        {
+          "nombre": "contratos",
+          "tipo": "INTEGER",
+          "descripcion": "Contratos entre los dos desde 2015."
+        },
+        {
+          "nombre": "monto",
+          "tipo": "BIGINT",
+          "descripcion": "Pesos contratados entre los dos desde 2015."
+        }
+      ]
+    },
+    "medidas": {
+      "descripcion": "Medidas de la DGCP sobre proveedores atados a una empresa: inhabilitaciones, suspensiones, penalidades.",
+      "fuente": "DGCP, proveedores con medidas",
+      "corte": "2026-09-30",
+      "filas": 1732,
+      "columnas": [
+        {
+          "nombre": "proveedor_rpe",
+          "tipo": "VARCHAR",
+          "descripcion": "El proveedor (proveedores.rpe)."
+        },
+        {
+          "nombre": "tipo",
+          "tipo": "VARCHAR",
+          "descripcion": "prohibicion, inhabilitacion-permanente, inhabilitacion-temporal, cancelacion, penal, suspension, incumplimiento, condena, levantamiento…"
+        },
+        {
+          "nombre": "fecha",
+          "tipo": "DATE",
+          "descripcion": "Fecha de la medida."
+        },
+        {
+          "nombre": "titulo",
+          "tipo": "VARCHAR",
+          "descripcion": "Título del acto."
+        },
+        {
+          "nombre": "descripcion",
+          "tipo": "VARCHAR",
+          "descripcion": "Lo que dispone."
+        }
+      ]
+    },
+    "financieras": {
+      "descripcion": "Entidades financieras supervisadas: bancos, asociaciones, cooperativas, AFP, aseguradoras.",
+      "fuente": "Superintendencias de Bancos, Pensiones y Seguros; IDECOOP",
+      "corte": "2026-09-29T23:36:22+00:00",
+      "filas": 1300,
+      "columnas": [
+        {
+          "nombre": "slug",
+          "tipo": "VARCHAR",
+          "descripcion": "Identificador en Socrático."
+        },
+        {
+          "nombre": "nombre",
+          "tipo": "VARCHAR",
+          "descripcion": "Nombre comercial."
+        },
+        {
+          "nombre": "razon_social",
+          "tipo": "VARCHAR",
+          "descripcion": "Razón social."
+        },
+        {
+          "nombre": "supervisor_id",
+          "tipo": "INTEGER",
+          "descripcion": "La institución que la supervisa (instituciones.id)."
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
+        }
+      ]
+    },
+    "provincias": {
+      "descripcion": "Las provincias y el Distrito Nacional.",
+      "fuente": "ONE",
+      "corte": null,
+      "filas": 32,
+      "columnas": [
+        {
+          "nombre": "slug",
+          "tipo": "VARCHAR",
+          "descripcion": "Identificador en Socrático."
+        },
+        {
+          "nombre": "nombre",
+          "tipo": "VARCHAR",
+          "descripcion": "Nombre."
+        }
+      ]
+    },
+    "equivalencias": {
+      "descripcion": "Un mismo ente en dos registros: una institución que es también una entidad financiera, o su entrada en Wikidata.",
+      "fuente": "Socrático; Wikidata",
+      "corte": "2026-09-30",
+      "filas": 160,
+      "columnas": [
+        {
+          "nombre": "nodo",
+          "tipo": "VARCHAR",
+          "descripcion": "La ruta del registro en Socrático (/instituciones/1, /banca/banreservas)."
+        },
+        {
+          "nombre": "equivale_a",
+          "tipo": "VARCHAR",
+          "descripcion": "La otra ruta en Socrático, o la dirección de Wikidata."
+        }
+      ]
+    },
+    "procesos": {
+      "descripcion": "Todos los procesos de compra publicados en la DGCP del 2025-09-25 al 2026-09-25, con su valor estimado (no adjudicado: el ganador y el monto final no están en esta tabla).",
+      "fuente": "DGCP, tabla de procesos",
+      "corte": "2026-09-25",
+      "filas": 77790,
+      "columnas": [
+        {
+          "nombre": "codigo",
+          "tipo": "VARCHAR",
+          "descripcion": "Código del proceso."
+        },
+        {
+          "nombre": "titulo",
+          "tipo": "VARCHAR",
+          "descripcion": "Carátula, como la publica la unidad de compra."
+        },
+        {
+          "nombre": "unidad_compra",
+          "tipo": "VARCHAR",
+          "descripcion": "Unidad de compra que lo publica."
+        },
+        {
+          "nombre": "modalidad",
+          "tipo": "VARCHAR",
+          "descripcion": "Modalidad, como la dice la DGCP: Compras por Debajo del Umbral, Contratación Menor, Procesos de Excepción, Comparación de Precios, Licitación Pública Nacional, Subasta Inversa, Licitación Pública Abreviada, Sorteo de Obras, Licitación Pública Internacional, Licitación Restringida."
+        },
+        {
+          "nombre": "estado",
+          "tipo": "VARCHAR",
+          "descripcion": "Estado el día del corte, como lo dice la DGCP: Proceso publicado (abierto a ofertas), Proceso con etapa cerrada, Sobres estan abriendose, Sobres abiertos o aperturados, Proceso adjudicado y celebrado, Proceso desierto, Cancelado, Suspendido."
+        },
+        {
+          "nombre": "objeto",
+          "tipo": "VARCHAR",
+          "descripcion": "Bienes, Obras o Servicios."
+        },
+        {
+          "nombre": "fecha",
+          "tipo": "DATE",
+          "descripcion": "Fecha de publicación."
+        },
+        {
+          "nombre": "valor_estimado",
+          "tipo": "BIGINT",
+          "descripcion": "Valor estimado en pesos; NULL si no lo trae."
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
+        }
+      ]
+    }
+  }
+}

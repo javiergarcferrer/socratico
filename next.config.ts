@@ -19,10 +19,9 @@ import type { NextConfig } from "next";
 */
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // Comunica y N3 (el motor SPARQL de `sparql` en `lib/mcp.ts`) corren en un
-  // hilo aparte, `lib/sparql-hilo.cjs`, que se carga de disco tal cual: no
-  // pasan por el empaquetado.
-  serverExternalPackages: ["@comunica/query-sparql-rdfjs-lite", "n3"],
+  // DuckDB (`lib/grafo-sql.ts`, solo en `/api/sql`) es un binario nativo: se
+  // carga de node_modules tal cual, sin pasar por el empaquetado.
+  serverExternalPackages: ["@duckdb/node-api", "@duckdb/node-bindings"],
   outputFileTracingIncludes: {
     "/buscar": ["./public/data/busqueda/**"],
     "/api/buscar": ["./public/data/busqueda/**"],
@@ -51,29 +50,49 @@ const nextConfig: NextConfig = {
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
     ],
     // El servidor MCP (`lib/mcp.ts`) busca en el índice y describe nodos del
-    // grafo: lleva lo de `/buscar` y lo de `/grafo`, y la historia de las
+    // grafo: lleva lo de `/buscar` y lo de `/grafo`, la historia de las
     // compras desde 2015 (`lib/historico.ts`, que abre un archivo por el
-    // último dígito del RPE) para `contracting_history`.
+    // último dígito del RPE) y las dos tablas que ordena
+    // (`lib/tablas-compras.ts`: los procesos y el cruce de proveedores con
+    // el RNC). No lleva DuckDB: `query` llama a `/api/sql`.
     "/mcp": [
-      // El hilo de `sparql` y lo que requiere (no lo ve el trazado: se carga por ruta).
-      "./lib/sparql-hilo.cjs",
+      "./public/data/procesos.json",
+      "./public/data/rnc/**",
       "./public/data/busqueda/**",
       "./public/data/historico/**",
       "./public/data/decretos/**",
       "./public/data/empresas/**",
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
     ],
+    // SQL sobre las tablas del grafo (`lib/grafo-sql.ts`): los Parquet y la
+    // biblioteca de DuckDB, que `duckdb.node` enlaza por su cuenta y el
+    // trazado no ve.
+    "/api/sql": ["./public/tablas/*.parquet", "./node_modules/@duckdb/node-bindings-linux-x64/**"],
     "/instituciones": ["./public/data/wikidata.json"],
     "/banca": ["./public/data/wikidata.json"],
     "/provincias": ["./public/data/wikidata.json"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
-  // ninguna función: su contenido ya está en el corpus. El volcado del grafo
-  // tampoco: se sirve como archivo, de la CDN.
+  // ninguna función: su contenido ya está en el corpus (los procesos, además,
+  // en `/mcp`, que los incluye arriba). El volcado del grafo tampoco: se sirve
+  // como archivo, de la CDN.
   // Las claves casan como subcadena: «/proveedores» también es
   // «/proveedores/[rpe]» y «/api/proveedores», que no usan el índice.
   outputFileTracingExcludes: {
-    "*": ["./public/data/{procesos,congreso,sentencias}.json", "./public/data/grafo/grafo.nt.gz"],
+    "*": ["./public/data/{congreso,sentencias}.json", "./public/data/grafo/grafo.nt.gz"],
+    // Vercel corre sobre glibc: la versión musl de DuckDB (~74 MB) sobra.
+    "/api/sql": ["./node_modules/@duckdb/node-bindings-linux-x64-musl/**"],
+    // Las fichas del grafo leen instantáneas por nombre variable y el trazado
+    // les mete `public/data` entero; los procesos (~11 MB) solo los lee `/mcp`.
+    // Las claves casan como subcadena: «/grafo» es también «/api/grafo».
+    "/grafo": ["./public/data/procesos.json"],
+    "/.well-known": ["./public/data/procesos.json"],
+    "/empresas": ["./public/data/procesos.json"],
+    "/banca": ["./public/data/procesos.json"],
+    "/normativa": ["./public/data/procesos.json"],
+    "/funcionarios": ["./public/data/procesos.json"],
+    "/instituciones": ["./public/data/procesos.json"],
+    "/provincias": ["./public/data/procesos.json"],
     "/proveedores/*": ["./public/data/busqueda/**"],
     "/api/proveedores": ["./public/data/busqueda/**"],
   },
@@ -124,7 +143,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/data/:path*",
+        source: "/:dir(data|tablas)/:path*",
         headers: [
           {
             key: "Cache-Control",

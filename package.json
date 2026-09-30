@@ -8,7 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@comunica/query-sparql-rdfjs-lite": "5.4.1",
+    "@duckdb/node-api": "1.5.5-r.5",
     "@huggingface/tokenizers": "^0.2.0",
     "@modelcontextprotocol/server": "^2.2.0",
     "@orama/stemmers": "^3.1.18",
@@ -42,7 +42,6 @@
     "entities": "^8.1.0",
     "fast-xml-parser": "^5.11.1",
     "fflate": "^0.8.3",
-    "n3": "2.7.12",
     "next": "^15.3.3",
     "nuqs": "^2.10.1",
     "pdfjs-dist": "^6.3.289",
@@ -59,6 +58,7 @@
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "n3": "2.7.12",
     "tailwindcss": "^4.1.8",
     "typescript": "^5.8.3"
   }

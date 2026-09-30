@@ -986,11 +986,11 @@ La plataforma ya era un grafo de fichas enlazadas; esta capa lo dice en RDF,
 para máquinas y para el explorador (`/grafo`). **No hay almacén de triples del
 grafo entero** (la invariante: sin base de datos en las superficies de
 inteligencia): cada descripción se deriva al pedirla de las mismas
-instantáneas que pinta la ficha, y se cachea como cualquier página. SPARQL
-existe **a pedido**, sobre la descripción de los nodos que se nombran y sus
-vecinos (`sparql` del servidor MCP, abajo); el grafo entero no se carga en
-una función (medido: abajo), y el dueño no quiere un servidor SPARQL: se
-descarga entero, sin personas naturales (el volcado, abajo).
+instantáneas que pinta la ficha, y se cachea como cualquier página. El grafo
+entero sin personas naturales se consulta en **SQL** sobre sus tablas
+(`query` del servidor MCP y `/api/sql`, con DuckDB embebido: las tablas,
+abajo) y se descarga entero, en N-Triples y en Parquet (el volcado y las
+tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
 
 - **Seis tipos de nodo** (`NodoRdf` en `lib/grafo.ts`): persona con cargo,
   institución, entidad financiera, persona jurídica, decreto con ficha y
@@ -1058,7 +1058,7 @@ descarga entero, sin personas naturales (el volcado, abajo).
   se ata por una cédula. `relacionesDesdeTriples` las lee como el grupo
   **«Compras públicas desde 2015»** (`compras`: «Contrató a» desde la
   institución, «Le contrató» desde la empresa), así que el explorador,
-  `neighbors` y `camino()` las recorren: una empresa llega a la persona que
+  `fetch` con `group` y `camino()` las recorren: una empresa llega a la persona que
   dirige la institución que le contrató en dos saltos. El inventario cuenta
   `soc:Proveedor` y `soc:Contratacion`; la huella de `camino()` incluye
   `historico/instituciones.json` y `rnc.json` (versión del resultado 3).
@@ -1120,6 +1120,22 @@ descarga entero, sin personas naturales (el volcado, abajo).
   constructores de triples del nodo solo (sin vecinos) a un módulo que no
   importe `lib/empresas`, `lib/sanciones` ni `lib/decretos`, y que la página
   le pase la entidad que ya cargó.
+- **Las tablas** (`scripts/build-grafo-tablas.mjs` → `public/tablas/`: nueve
+  Parquet con zstd, ~4 MB, y su `meta.json`; servidas por la CDN en
+  `/tablas/`). El mismo grafo del volcado, sin personas naturales, en tablas
+  con tipos: `instituciones` (con lo contratado desde 2015), `proveedores`
+  (solo los atados a una empresa por su RNC, con sus totales), `empresas`,
+  `contrataciones` (**solo los pares mayores**: 12 proveedores por
+  institución y 8 clientes por empresa; los totales van en las dos primeras),
+  `medidas`, `financieras`, `provincias` y `equivalencias`; más `procesos`
+  (los de los últimos doce meses, de `procesos.json`). Se arman del volcado,
+  de `historico/` y de `procesos.json`; cada texto pasa por las formas de
+  `sinCedula` y el script no escribe nada si queda una cédula. `meta.json`
+  guarda cada columna con su descripción: de ahí la lee la herramienta
+  `query`. Van fuera de `public/data` porque las funciones del grafo leen
+  instantáneas por nombre variable y el trazado les mete `public/data`
+  entero. Cotejadas el 30-09-2026 con su fuente: el MINERD, RD$102,150,965,011
+  en 7,379 contratos; Viamar, RD$19,490,218,172.
 - **Sin `Vary: Accept`, a propósito**: la negociación la resuelve el
   enrutador con un 303 antes de cualquier caché, y un 303 no se guarda por
   omisión; marcar el HTML con `Vary: Accept` partiría la caché de cada ficha
@@ -1143,36 +1159,43 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   `maxDuration` 60 (`path` abre hasta 300 fichas en frío).
 - **Herramientas** (`servidorMcp()`, un servidor por pedido; todas con
   `readOnlyHint` y `openWorldHint: false`, en este orden):
+  los argumentos van en inglés, como los nombres (y el `query` e `id` que
+  ChatGPT exige); lo que devuelven, en castellano.
   `search` (`buscarEnTodo` de `lib/busqueda.ts`, más lo que se nombra exacto
   —decreto por número, empresa por RNC—, las provincias y cinco empresas del
-  padrón por nombre, `buscarEmpresas`; hasta 30; con `tipo` o `pagina`, solo
+  padrón por nombre, `buscarEmpresas`; hasta 30; con `type` o `page`, solo
   el índice, un tipo y su página), `fetch` (un nodo del grafo:
   `describir` y `relacionesDesdeTriples` de `lib/grafo-rdf.ts`, sus datos en
   llano, las medidas de la DGCP de sus inscripciones, sus relaciones por grupo
   —hasta 15 de cada grupo, para que los cargos de un ministerio no tapen sus
-  compras; el resto, por `neighbors` con su grupo— y su fuente con fecha de corte; una
+  compras; el resto, con `group` y `page`, que devuelven un grupo entero de 50
+  en 50 con la misma forma de documento— y su fuente con fecha de corte; una
   institución trae además sus compras —lo contratado desde 2015 y lo
   publicado en el último año— y una empresa inscrita como proveedora, lo que
   se le ha contratado; otro resultado del índice: su resumen, por
   `resultadoPorHref`, que cuenta las copias de un documento juntado, y un
   proceso o un proveedor, sus campos por separado y lo contratado),
-  `retrieve` (la recuperación para un asistente, abajo), `sparql` (abajo),
-  `procurement` (todos los procesos del índice, `procesosDelIndice`,
+  `retrieve` (la recuperación para un asistente, abajo),
+  `procurement` (todos los procesos de `procesos.json`, `todosLosProcesos`,
   filtrados por año o fechas, institución, estado, modalidad, objeto, monto y
   palabras de la carátula —alternativas con « | »— y ordenados por monto o
   fecha, con total, suma, desglose por estado y las diez instituciones que más
   suman, en páginas de 25), `contracting_history` (`lib/historico.ts`: un
-  proveedor —por id, RPE, RNC o nombre, con `proveedoresDelIndice`—, una
+  proveedor —por id, RPE, RNC o nombre, con `todosLosProveedores`—, una
   institución, el par de los dos si figura en sus listas de mayores, o el
-  país con los cien mayores proveedores), `neighbors` (las relaciones de un
-  nodo por grupo y página), `path` (`camino()`, cacheado),
+  país con los cien mayores proveedores), `query` (SQL sobre las tablas,
+  abajo), `path` (`camino()`, cacheado),
   `signed_decrees` (`decretosDeFirmante` con los filtros de la lista de la
   ficha) y `ontology` (`lib/ontologia.ts`).
-- **Las compras, de dos instantáneas y sin la API en vivo**: `procurement`
-  lee los procesos de los últimos doce meses que ya guarda el corpus del
-  buscador (`scripts/busqueda_procesos.py` junta modalidad y etapa en `d` y
-  «modalidad objeto» en `x`; `procesosDelIndice` los vuelve a separar), y
-  `contracting_history`, los agregados de `public/data/historico/`. La
+- **Las compras, de sus propias tablas y sin la API en vivo**
+  (`lib/tablas-compras.ts`): `procurement` lee los procesos de los últimos
+  doce meses de `procesos.json`, con sus campos por separado, y
+  `contracting_history`, los agregados de `public/data/historico/` y el cruce
+  RPE → RNC de `rnc/`. Antes los derivaba del corpus del buscador, y cada
+  primera llamada cargaba sus 47 MB para ordenar 78 mil filas: medido en
+  frío, `procurement` pasó de ~2,2 s a ~0,3 s y la ficha de una institución
+  de ~2,4 s a ~0,7 s. La carátula en forma plana (`planoTitulo`) se calcula
+  la primera vez que se filtra por palabras, no al cargar (~0,3 s menos). La
   institución de un proceso se ata por el nombre de su unidad de compra, que
   el cruce (`instituciones.json`) escribe igual: las 667 unidades de la
   instantánea del 25-09-2026 casan todas. Lo que no dan, y lo dicen en cada
@@ -1217,42 +1240,25 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
     ganó; **un año anterior a la instantánea de procesos**, también.
   Atar por nombre es recuperar, no afirmar identidad: cada entidad dice `por`
   qué se ató.
-- **`sparql`, a pedido**. SPARQL 1.1 de lectura sobre las descripciones RDF
-  de hasta 10 nodos nombrados y, por omisión, sus vecinos (hasta 150 nodos y
-  100 mil triples), más la ontología, en un almacén **N3.js** en memoria con el
-  motor **Comunica** (`@comunica/query-sparql-rdfjs-lite`, sin actores de red),
-  que viven lo que dura la llamada; el motor se arma una vez por instancia
-  (~0,8 s en frío) y una consulta bien acotada tarda milisegundos (una mal
-  acotada, abajo, se corta a los 10 s). Los prefijos de
-  `lib/rdf.ts` vienen declarados. Una actualización se rechaza **antes** de
-  ejecutarse (Comunica las ejecutaría sobre el almacén de la llamada) y
-  `SERVICE` y `LOAD` también (buscados fuera de los IRI, los literales y los
-  comentarios). Cada respuesta dice su alcance (nodos, triples, si los
-  topes recortaron): un COUNT vale para ese alcance, no para el grafo. **Por
-  qué no el grafo entero**: el dueño no quiere un servidor SPARQL; el grafo sin personas naturales se
-  descarga (el volcado, arriba). Medido el 30-09-2026 sobre ese volcado (816
-  mil triples): N3 con Comunica lo carga en ~10 s con ~1,2 GB y agrega en
-  ~0,8 s; Oxigraph (WASM, sin transacción) en ~2 s con ~430 MB. Lo primero no
-  cabe en el arranque en frío de `/mcp`, que ya lleva el índice. (Una primera
-  medida con datos sintéticos y la carga transaccional de Oxigraph daba ~25 s:
-  era la carga, no el tamaño.) N3 y Comunica suman 468 paquetes al
-  lockfile (Comunica es modular), de los que la función lleva lo que se
-  requiere, ~9 MB.
-- **El hilo de `sparql`** (`lib/sparql-hilo.cjs`). Comunica no se deja
-  cortar desde dentro, y una consulta mal acotada (dos patrones sin variable
-  en común, con ORDER BY o COUNT) crece con el cuadrado de los triples: en la
-  revisión, una sola llegó a 7 GB y dejó el servidor sin responder. Por eso
-  corre en un `worker_threads` con techo de memoria (256 MB de heap) y plazo
-  (10 s): si los pasa, se mata el hilo y se responde un aviso en llano; el
-  servidor sigue atendiendo y la próxima consulta arma un hilo nuevo. Uno por
-  instancia, reutilizado, una consulta a la vez. El hilo se carga de disco sin
-  empaquetar (va en el trazado de `/mcp` por `outputFileTracingIncludes`), y
-  sus dos paquetes se resuelven en el hilo del servidor con
-  `__non_webpack_require__.resolve`, que el empaquetado deja como
-  `require.resolve` y el trazado sigue con todas sus dependencias; el hilo
-  requiere esas mismas rutas (`workerData`). Se probaron, y no sirven, un
-  `new Worker(new URL(…))` (el empaquetado hace del hilo un trozo que el
-  trazado no lleva) y un `createRequire` (el trazado no lo sigue).
+- **`query`, SQL sobre las tablas** (`lib/grafo-sql.ts`, `/api/sql`). DuckDB
+  embebido (`@duckdb/node-api`, fundación DuckDB, MIT, fijado a una versión
+  exacta: en 2025 publicaron una versión maliciosa en npm y la retiraron en
+  horas) carga las tablas en memoria una vez por instancia (~0,15 s, ~175 MB)
+  y después se cierra: `enable_external_access = false` y
+  `lock_configuration = true`. Probado contra `getenv`, `read_csv` de un
+  archivo del sistema, `COPY … TO`, `ATTACH`, `INSTALL`/`LOAD`, una URL
+  remota, `glob` y `SET`: los rechaza todos. Una sola sentencia y solo
+  `SELECT` (lo dice el motor al preparar, no una expresión regular); un hilo,
+  512 MB, 10 s por consulta (se interrumpe y el motor sigue) y a lo sumo 200
+  filas, leídas en flujo. El motor vive en **su propia función** porque su
+  biblioteca pesa ~70 MB y `/mcp` ya lleva ~177: la herramienta llama por
+  HTTP a `/api/sql` del mismo despliegue que atiende (`conOrigen` en
+  `app/mcp/route.ts`, solo los dominios del proyecto), y el GET se cachea en
+  la CDN. La descripción de `query` trae el esquema entero de `meta.json`.
+  Reemplaza a `sparql`, que corría SPARQL solo sobre 150 nodos: el grafo
+  entero no cabía en N3 con Comunica (~9 s y 1,8 GB), Oxigraph tiene un solo
+  mantenedor y Comunica no llega al uso amplio que se le pide a una
+  dependencia (~20 mil descargas por semana).
 - **La forma de ChatGPT**: `search` devuelve `results` con `id`, `title`,
   `url` y `text`; `fetch`, `id`, `title`, `text`, `url` y `metadata`. Todas
   las herramientas devuelven el objeto como `structuredContent` (con su
@@ -1265,8 +1271,9 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   Wikidata, la OFAC) va solo con su `url`, y la lista de decretos firmados,
   con la pista de `signed_decrees`.
 - **Reglas que no se relajan aquí**: la respuesta de cada herramienta dice su
-  fuente y su fecha de corte (`search`, en cada resultado; `fetch` y
-  `neighbors`, la del nodo y las de todas las instantáneas del grafo; `path`,
+  fuente y su fecha de corte (`search`, en cada resultado; `fetch`, la
+  del nodo y las de todas las instantáneas del grafo; `query`, la fuente y el
+  corte de cada tabla que nombra; `path`,
   las del grafo; `procurement`, la tabla de procesos con su última
   publicación y lo que cubre; `contracting_history`, la última adjudicación
   del registro, con el año del corte marcado `parcial`)
@@ -1290,20 +1297,27 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
 - **`lib/mcp-herramientas.ts`**: la dirección y la tabla de herramientas
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
-- **Trazado**: la clave `/mcp` lleva el índice de búsqueda, las instantáneas
-  del grafo y `historico/` (unos 7 MB; `lib/historico.ts` abre el archivo de
-  un proveedor por el último dígito de su RPE); Comunica y N3 van como
-  paquetes externos (`serverExternalPackages`: se requieren de
-  `node_modules`, y el trazado lleva solo lo que requieren, ~9 MB). La función
-  pesa ~175 MB (174.9 medidos sobre su `route.js.nft.json` el 30-09-2026),
-  del orden de `/grafo/camino` (las
-  importaciones de `lib/grafo-rdf.ts` arrastran otras instantáneas): cabe en
-  el límite, con la misma deuda del arranque en frío.
+- **Trazado** (medido sobre cada `route.js.nft.json` el 30-09-2026): `/mcp`
+  pesa ~177 MB —el índice de búsqueda, las instantáneas del grafo,
+  `historico/`, `rnc/` y `procesos.json`, que se incluye aquí y se excluye de
+  las fichas del grafo, que lo arrastraban sin leerlo—; `/api/sql`, ~77 MB
+  —DuckDB, sin la versión musl, que Vercel no usa, y las tablas—. El límite
+  de Vercel es 250 MB por función. Una exclusión le gana a una inclusión
+  (`collect-build-traces` de Next las aplica después), y las claves casan como
+  subcadena.
+- **Primera llamada de cada herramienta** (`next start` recién arrancado, el
+  disco en caché, 30-09-2026): `ontology` 0,07 s, `query` 0,23, `procurement`
+  0,28, `signed_decrees` 0,30, `contracting_history` 0,39, `fetch` con
+  `group` 0,50, `path` 0,58, `fetch` de una institución 0,69, `search` 0,92,
+  **`retrieve` ~1,6 s** (carga el índice y el grafo; la mitad es recolección
+  de basura y descodificar el corpus de 47 MB: bajarlo exige un corpus por
+  columnas). Después, 20–130 ms. Con el disco frío, el índice sube a varios
+  segundos.
 - **Verificado** el 30-09-2026 con los clientes oficiales: el SDK 1.x
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
 - **La evaluación** (`scripts/eval-mcp.mjs`, en `verificar.sh --completo`
-  contra `next start`): 46 preguntas de quien investiga —la compra más
+  contra `next start`): 49 preguntas de quien investiga —la compra más
   grande del año, las licitaciones de mobiliario abiertas, lo contratado a un
   proveedor, quién dirige una institución—, cada una con su oráculo calculado
   aparte de `public/data`, más las reglas de toda respuesta (sin cédula, con

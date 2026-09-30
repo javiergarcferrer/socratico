@@ -111,12 +111,13 @@ else
   mal "harness drift"; printf '%s\n' "$arn" | sed 's/^/       /'
 fi
 
-# 5c. Nunca la cédula: ninguna instantánea de public/data,
+# 5c. Nunca la cédula: ninguna instantánea de public/data ni tabla de public/tablas,
 #     que se sirve tal cual, la guarda, ni la que traiga un título oficial. Lee
 #     ~200 MB (unos 13 s): solo en el completo.
 if [ "$modo" = "--completo" ] && command -v python3 >/dev/null 2>&1; then
-  if ced="$(python3 "$(dirname "$0")/cedulas.py" "$ROOT" 2>&1)" && [ -z "$ced" ]; then
-    ok "privacy: no cédula in public/data"
+  # Las tablas Parquet de public/tablas son binarias: las lee DuckDB.
+  if ced="$(python3 "$(dirname "$0")/cedulas.py" "$ROOT" 2>&1; node "$(dirname "$0")/cedulas-tablas.mjs" "$ROOT" 2>&1)" && [ -z "$ced" ]; then
+    ok "privacy: no cédula in public/data or public/tablas"
   else
     mal "a cédula reached a snapshot — scripts/privacidad.py"; printf '%s\n' "$ced" | head -5 | sed 's/^/       /'
   fi

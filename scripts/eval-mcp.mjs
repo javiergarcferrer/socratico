@@ -163,12 +163,16 @@ const CASOS = [
       exigir(ini.result?.instructions?.includes("procurement"), "las instrucciones no nombran procurement");
       const { result } = await rpc("tools/list");
       const nombres = result.tools.map((t) => t.name);
-      for (const n of ["retrieve", "search", "fetch", "procurement", "contracting_history", "neighbors", "path", "signed_decrees", "sparql", "ontology"]) {
+      for (const n of ["retrieve", "search", "fetch", "procurement", "contracting_history", "query", "path", "signed_decrees", "ontology"]) {
         exigir(nombres.includes(n), `falta la herramienta ${n}`);
       }
+      // Los argumentos van en inglés, como los nombres de las herramientas (y el `query` e `id` que ChatGPT exige).
+      const CASTELLANO = /^(pregunta|tipo|pagina|anio|texto|institucion|proveedor|persona|desde|hasta|consulta|nodos|vecinos|grupo|orden|estado|modalidad|objeto|materia|limite|montoMinimo|montoMaximo)$/;
       for (const t of result.tools) {
         exigir(t.outputSchema, `${t.name} sin outputSchema`);
         exigir(t.annotations?.readOnlyHint === true, `${t.name} no se declara de solo lectura`);
+        const enCastellano = Object.keys(t.inputSchema?.properties ?? {}).filter((k) => CASTELLANO.test(k));
+        exigir(enCastellano.length === 0, `${t.name} pide ${enCastellano.join(", ")} en castellano`);
       }
       return `${nombres.length} herramientas, servidor ${ini.result.serverInfo.version}`;
     },
@@ -176,7 +180,7 @@ const CASOS = [
   {
     pregunta: "¿Cuál es la compra pública más grande de 2026?",
     async correr() {
-      const { datos, error } = await llamar("procurement", { anio: 2026 });
+      const { datos, error } = await llamar("procurement", { year: 2026 });
       exigir(!error, error);
       const top = de2026[0];
       exigir(datos.procesos[0].codigo === top.codigo, `la primera es ${datos.procesos[0].codigo}; debía ser ${top.codigo} (${pesos(top.valor)})`);
@@ -191,7 +195,7 @@ const CASOS = [
   {
     pregunta: "¿Cuáles son las cinco mayores compras adjudicadas de 2026?",
     async correr() {
-      const { datos, error } = await llamar("procurement", { anio: 2026, estado: ["adjudicado"] });
+      const { datos, error } = await llamar("procurement", { year: 2026, status: ["adjudicado"] });
       exigir(!error, error);
       const esperadas = de2026.filter((p) => p.estado === "Proceso adjudicado y celebrado").slice(0, 5).map((p) => p.codigo);
       const dadas = datos.procesos.slice(0, 5).map((p) => p.codigo);
@@ -203,7 +207,7 @@ const CASOS = [
   {
     pregunta: "¿Qué licitaciones de mobiliario o muebles están abiertas ahora? (Alcover)",
     async correr() {
-      const { datos, error } = await llamar("procurement", { texto: "mobiliario | muebles", estado: ["abierto"] });
+      const { datos, error } = await llamar("procurement", { text: "mobiliario | muebles", status: ["abierto"] });
       exigir(!error, error);
       const esperados = procesos.filter(
         (p) => p.estado === "Proceso publicado" && / (mobiliari|muebl)/.test(plano(p.caratula)),
@@ -218,7 +222,7 @@ const CASOS = [
   {
     pregunta: "¿Qué ha publicado el MINERD en 2026, lo más reciente primero?",
     async correr() {
-      const { datos, error } = await llamar("procurement", { institucion: "MINERD", anio: 2026, orden: "fecha" });
+      const { datos, error } = await llamar("procurement", { institution: "MINERD", year: 2026, sort: "fecha" });
       exigir(!error, error);
       const esperados = procesos.filter((p) => p.fecha.startsWith("2026") && plano(p.unidad) === plano(MINERD.nombre));
       exigir(datos.total === esperados.length, `total ${datos.total}; debía ser ${esperados.length}`);
@@ -230,7 +234,7 @@ const CASOS = [
   {
     pregunta: "La segunda página sigue a la primera, sin repetir",
     async correr() {
-      const [a, b] = await Promise.all([llamar("procurement", { anio: 2026 }), llamar("procurement", { anio: 2026, pagina: 2 })]);
+      const [a, b] = await Promise.all([llamar("procurement", { year: 2026 }), llamar("procurement", { year: 2026, page: 2 })]);
       exigir(!a.error && !b.error, a.error ?? b.error);
       const primera = new Set(a.datos.procesos.map((p) => p.codigo));
       exigir(b.datos.procesos.every((p) => !primera.has(p.codigo)), "la página 2 repite procesos de la 1");
@@ -241,7 +245,7 @@ const CASOS = [
   {
     pregunta: "Una página más allá de la última viene vacía, no repite",
     async correr() {
-      const { datos, error } = await llamar("procurement", { institucion: "MINERD", anio: 2026, pagina: 999 });
+      const { datos, error } = await llamar("procurement", { institution: "MINERD", year: 2026, page: 999 });
       exigir(!error, error);
       exigir(datos.procesos.length === 0, `la página 999 de ${datos.paginas} trae ${datos.procesos.length} procesos`);
       return `${datos.paginas} páginas`;
@@ -250,7 +254,7 @@ const CASOS = [
   {
     pregunta: "¿Qué se compró en 2020? (fuera de la instantánea: lo tiene que decir)",
     async correr() {
-      const { datos, error } = await llamar("procurement", { anio: 2020 });
+      const { datos, error } = await llamar("procurement", { year: 2020 });
       exigir(!error, error);
       exigir(datos.total === 0, `trae ${datos.total} procesos de 2020`);
       exigir(datos.notas.some((n) => n.includes("cubre lo publicado")), "no dice qué cubre la instantánea");
@@ -260,9 +264,9 @@ const CASOS = [
   {
     pregunta: "Un pedido imposible se rechaza con un aviso (año 1900, institución que no existe)",
     async correr() {
-      const a = await llamar("procurement", { anio: 1900 });
+      const a = await llamar("procurement", { year: 1900 });
       exigir(a.error, "aceptó el año 1900");
-      const b = await llamar("procurement", { institucion: "zzqqxx" });
+      const b = await llamar("procurement", { institution: "zzqqxx" });
       exigir(b.error?.includes("Ninguna institución"), `no avisó: ${b.error ?? "respondió"}`);
       return "rechazados";
     },
@@ -270,7 +274,7 @@ const CASOS = [
   {
     pregunta: `¿Cuánto le ha contratado el Estado a ${mayorProveedor.nombre}, su mayor proveedor?`,
     async correr() {
-      const { datos, error } = await llamar("contracting_history", { proveedor: mayorProveedor.nombre });
+      const { datos, error } = await llamar("contracting_history", { supplier: mayorProveedor.nombre });
       exigir(!error, error);
       const p = datos.proveedor;
       exigir(p.rpe === mayorProveedor.rpe, `resolvió el RPE ${p.rpe}; debía ser ${mayorProveedor.rpe}`);
@@ -284,7 +288,7 @@ const CASOS = [
     pregunta: "El mismo proveedor, por su RNC",
     async correr() {
       exigir(rncMayor, "el oráculo no encontró su RNC en el corpus");
-      const { datos, error } = await llamar("contracting_history", { proveedor: rncMayor });
+      const { datos, error } = await llamar("contracting_history", { supplier: rncMayor });
       exigir(!error, error);
       exigir(datos.proveedor.rpe === mayorProveedor.rpe, `resolvió el RPE ${datos.proveedor.rpe}`);
       return `RNC ${rncMayor} → RPE ${datos.proveedor.rpe}`;
@@ -295,8 +299,8 @@ const CASOS = [
     async correr() {
       const [uc, contratos, monto] = filaProveedor.c[0];
       const { datos, error } = await llamar("contracting_history", {
-        proveedor: `/proveedores/${mayorProveedor.rpe}`,
-        institucion: `/instituciones/${uc}`,
+        supplier: `/proveedores/${mayorProveedor.rpe}`,
+        institution: `/instituciones/${uc}`,
       });
       exigir(!error, error);
       exigir(datos.alcance === "par" && datos.par.encontrado, "no encontró el par");
@@ -307,7 +311,7 @@ const CASOS = [
   {
     pregunta: "¿Cuánto ha contratado el MINERD desde 2015?",
     async correr() {
-      const { datos, error } = await llamar("contracting_history", { institucion: `/instituciones/${MINERD.id}` });
+      const { datos, error } = await llamar("contracting_history", { institution: `/instituciones/${MINERD.id}` });
       exigir(!error, error);
       const serie = historicoInstituciones[String(MINERD.id)].serie;
       exigir(datos.institucion.monto === suma(serie, 2), `monto ${datos.institucion.monto}; debía ser ${suma(serie, 2)}`);
@@ -318,7 +322,7 @@ const CASOS = [
   {
     pregunta: "¿Y el MOPC? (su prefijo es compartido: lo tiene que decir, no dar cero)",
     async correr() {
-      const { datos, error } = await llamar("contracting_history", { institucion: "MOPC" });
+      const { datos, error } = await llamar("contracting_history", { institution: "MOPC" });
       exigir(!error, error);
       exigir(datos.institucion.sinAsignar, "no declara el prefijo sin asignar");
       return "declarado";
@@ -339,7 +343,7 @@ const CASOS = [
     pregunta: "Dos proveedores con el mismo nombre: no elige uno por su cuenta",
     async correr() {
       exigir(homonimo, "el oráculo no encontró homónimos");
-      const { error } = await llamar("contracting_history", { proveedor: homonimo[0].ti });
+      const { error } = await llamar("contracting_history", { supplier: homonimo[0].ti });
       exigir(error?.includes("registros distintos"), `no avisó de los homónimos de «${homonimo[0].ti}»: ${error ?? "respondió con uno"}`);
       return `«${homonimo[0].ti}»: ${homonimo.length} registros`;
     },
@@ -348,7 +352,7 @@ const CASOS = [
     pregunta: "Un RNC con dos registros de proveedor los nombra a los dos",
     async correr() {
       if (!rncDoble) return "ninguno en la instantánea";
-      const { error } = await llamar("contracting_history", { proveedor: rncDoble });
+      const { error } = await llamar("contracting_history", { supplier: rncDoble });
       exigir(error?.includes("registros de proveedor"), `no avisó: ${error ?? "respondió con uno"}`);
       return `RNC ${rncDoble}`;
     },
@@ -357,7 +361,7 @@ const CASOS = [
     pregunta: "Una institución que comparte prefijo pero tiene su serie (la OPRET) sí la da",
     async correr() {
       if (!compartidaConSerie) return "ninguna en la instantánea";
-      const { datos, error } = await llamar("contracting_history", { institucion: `/instituciones/${compartidaConSerie.id}` });
+      const { datos, error } = await llamar("contracting_history", { institution: `/instituciones/${compartidaConSerie.id}` });
       exigir(!error, error);
       const serie = historicoInstituciones[String(compartidaConSerie.id)].serie;
       exigir(datos.institucion.sinAsignar === null, "la marca como sin asignar");
@@ -368,7 +372,7 @@ const CASOS = [
   {
     pregunta: "El año del corte se marca parcial y la subida de 2015–2018 se explica",
     async correr() {
-      const { datos, error } = await llamar("contracting_history", { institucion: `/instituciones/${MINERD.id}` });
+      const { datos, error } = await llamar("contracting_history", { institution: `/instituciones/${MINERD.id}` });
       exigir(!error, error);
       const anioCorte = Number(resumen.corte.slice(0, 4));
       exigir(datos.institucion.serie.every((a) => a.parcial === (a.anio === anioCorte)), "parcial no marca solo el año del corte");
@@ -379,7 +383,7 @@ const CASOS = [
   {
     pregunta: "Un nombre de muchos proveedores pide el id",
     async correr() {
-      const { error } = await llamar("contracting_history", { proveedor: "Constructora" });
+      const { error } = await llamar("contracting_history", { supplier: "Constructora" });
       exigir(error?.includes("proveedores que se llaman así"), `no pidió elegir: ${error ?? "respondió"}`);
       return "pidió el id";
     },
@@ -422,7 +426,7 @@ const CASOS = [
   {
     pregunta: "Buscar solo procesos: «puente basculante»",
     async correr() {
-      const { datos, error } = await llamar("search", { query: "puente basculante", tipo: "proceso" });
+      const { datos, error } = await llamar("search", { query: "puente basculante", type: "proceso" });
       exigir(!error, error);
       exigir(datos.results.length > 0, "no encontró nada");
       exigir(datos.results.every((r) => r.id.startsWith("/procesos/")), "trae resultados que no son procesos");
@@ -434,9 +438,9 @@ const CASOS = [
     async correr() {
       for (const [args, porPagina] of [
         [{ query: "mobiliario" }, 20],
-        [{ query: "mobiliario", tipo: "proceso" }, 30],
+        [{ query: "mobiliario", type: "proceso" }, 30],
       ]) {
-        const [a, b] = await Promise.all([llamar("search", args), llamar("search", { ...args, pagina: 2 })]);
+        const [a, b] = await Promise.all([llamar("search", args), llamar("search", { ...args, page: 2 })]);
         exigir(!a.error && !b.error, a.error ?? b.error);
         exigir(a.datos.paginas === b.datos.paginas, `${JSON.stringify(args)}: ${a.datos.paginas} páginas en la 1 y ${b.datos.paginas} en la 2`);
         exigir(a.datos.paginas === Math.max(1, Math.ceil(a.datos.total / porPagina)), `${JSON.stringify(args)}: ${a.datos.paginas} páginas para ${a.datos.total}`);
@@ -447,14 +451,15 @@ const CASOS = [
     },
   },
   {
-    pregunta: "El grafo: ¿a quién le ha contratado más el MINERD? (grupo compras)",
+    pregunta: "El grafo: ¿a quién le ha contratado más el MINERD? (fetch con group compras)",
     async correr() {
-      const { datos, error } = await llamar("neighbors", { id: `/instituciones/${MINERD.id}`, grupo: "compras" });
+      const { datos, error } = await llamar("fetch", { id: `/instituciones/${MINERD.id}`, group: "compras" });
       exigir(!error, error);
       const [rpe, nombre, , monto] = topMinerd[0];
-      const primera = datos.relaciones[0];
+      const primera = datos.metadata.relaciones[0];
       const destino = rncDe[rpe] ? `/empresas/${rncDe[rpe]}` : `/proveedores/${rpe}`;
-      exigir(datos.total === topMinerd.length, `${datos.total} contrataciones; debían ser ${topMinerd.length}`);
+      exigir(datos.metadata.total === topMinerd.length, `${datos.metadata.total} contrataciones; debían ser ${topMinerd.length}`);
+      exigir(datos.text.includes(nombre), "el texto no nombra al mayor proveedor");
       exigir(primera?.id === destino, `la primera va a ${primera?.id}; debía ir a ${destino} (${nombre})`);
       exigir(primera.monto === monto, `el monto es ${primera.monto}; debía ser ${monto}`);
       return `${nombre}: ${pesos(monto)} → ${destino}`;
@@ -466,7 +471,7 @@ const CASOS = [
       const rnc = rncDe[mayorProveedor.rpe];
       exigir(rnc, "el oráculo no tiene su RNC");
       const uc = filaProveedor.c[0][0];
-      const { datos, error } = await llamar("path", { desde: `/empresas/${rnc}`, hasta: `/instituciones/${uc}` });
+      const { datos, error } = await llamar("path", { from: `/empresas/${rnc}`, to: `/instituciones/${uc}` });
       exigir(!error, error);
       exigir(datos.encontrado && datos.saltos === 1, `${datos.encontrado ? `${datos.saltos} saltos` : datos.explicacion}`);
       return datos.pasos.map((x) => x.nombre).join(" → ");
@@ -485,29 +490,55 @@ const CASOS = [
     },
   },
   {
-    pregunta: "SPARQL: la suma de lo que el MINERD contrató a sus mayores proveedores",
+    pregunta: "SQL: ¿cuánto contrató el MINERD desde 2015, y a quién más?",
     async correr() {
-      const { datos, error } = await llamar("sparql", {
-        nodos: [`/instituciones/${MINERD.id}`],
-        vecinos: false,
-        consulta: `SELECT (SUM(?m) AS ?total) (COUNT(?c) AS ?n) WHERE { ?c soc:contratante <https://socratico.vercel.app/instituciones/${MINERD.id}#id> ; soc:montoContratado ?m }`,
+      const { datos, error } = await llamar("query", {
+        sql: `SELECT i.monto_contratado, i.contratos, c.proveedor_rpe, c.monto FROM instituciones i JOIN contrataciones c ON c.institucion_id = i.id WHERE i.id = ${MINERD.id} ORDER BY c.monto DESC LIMIT 1`,
       });
       exigir(!error, error);
-      const esperado = topMinerd.reduce((s, f) => s + f[3], 0);
-      const fila = datos.filas[0];
-      exigir(Number(fila?.total?.valor) === esperado, `suma ${fila?.total?.valor}; debía ser ${esperado}`);
-      exigir(Number(fila?.n?.valor) === topMinerd.length, `cuenta ${fila?.n?.valor}; debía ser ${topMinerd.length}`);
-      return `${pesos(esperado)} en ${topMinerd.length} contrataciones`;
+      const [total, contratos, rpe, monto] = datos.filas[0] ?? [];
+      const oraculo = resumen.instituciones.find((x) => x.uc === MINERD.id);
+      exigir(total === oraculo.monto && contratos === oraculo.contratos, `dice ${total} en ${contratos}; debía ser ${oraculo.monto} en ${oraculo.contratos}`);
+      const mayor = topMinerd.find(([r]) => rncDe[r]);
+      exigir(rpe === mayor[0] && monto === mayor[3], `el mayor es ${rpe} con ${monto}; debía ser ${mayor[0]} con ${mayor[3]}`);
+      exigir(datos.tablas.some((t) => t.tabla === "contrataciones" && t.corte), "no dice la fuente y el corte de las tablas");
+      return `${pesos(total)}; el mayor, ${mayor[1]} (${pesos(monto)})`;
     },
   },
   {
-    pregunta: "SPARQL: una actualización o un SERVICE se rechazan",
+    pregunta: "SQL: los procesos de 2026, el mayor y su suma, contra procesos.json",
     async correr() {
-      const a = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: "INSERT DATA { <urn:a> <urn:b> <urn:c> }" });
-      exigir(a.error, "aceptó un INSERT");
-      const b = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: "SELECT * WHERE { SERVICE <https://query.wikidata.org/sparql> { ?s ?p ?o } }" });
-      exigir(b.error?.includes("SERVICE"), `no rechazó SERVICE: ${b.error ?? "respondió"}`);
-      return "rechazados";
+      const { datos, error } = await llamar("query", {
+        sql: "SELECT count(*) n, sum(valor_estimado) suma, arg_max(codigo, valor_estimado) mayor FROM procesos WHERE year(fecha) = 2026",
+      });
+      exigir(!error, error);
+      const [n, sumaSql, mayor] = datos.filas[0];
+      exigir(n === de2026.length, `${n} procesos; debían ser ${de2026.length}`);
+      exigir(sumaSql === de2026.reduce((t, p) => t + (p.valor ?? 0), 0), `suma ${sumaSql}`);
+      exigir(mayor === de2026[0].codigo, `el mayor es ${mayor}; debía ser ${de2026[0].codigo}`);
+      return `${n.toLocaleString("en-US")} procesos; el mayor, ${mayor}`;
+    },
+  },
+  {
+    pregunta: "SQL: las tablas no guardan personas naturales",
+    async correr() {
+      const t = await llamar("query", { sql: "SELECT table_name FROM information_schema.tables ORDER BY 1" });
+      exigir(!t.error, t.error);
+      const tablas = t.datos.filas.map((f) => f[0]).join(",");
+      exigir(tablas === "contrataciones,empresas,equivalencias,financieras,instituciones,medidas,procesos,proveedores,provincias", `tablas: ${tablas}`);
+      const p = await llamar("query", { sql: "SELECT count(*) FROM proveedores WHERE rnc IS NULL OR NOT regexp_matches(rnc, '^[0-9]{9}$')" });
+      exigir(!p.error && p.datos.filas[0][0] === 0, `${p.datos?.filas?.[0]?.[0] ?? p.error} proveedores sin empresa`);
+      return "9 tablas; cada proveedor, atado a una empresa";
+    },
+  },
+  {
+    pregunta: "SQL: una escritura, un archivo, la red o dos consultas se rechazan",
+    async correr() {
+      for (const sql of ["DROP TABLE procesos", "COPY procesos TO '/tmp/x.csv'", "SELECT * FROM read_csv('/etc/passwd')", "SELECT * FROM 'https://example.com/x.parquet'", "SELECT 1; SELECT 2", "SET threads = 8"]) {
+        const { error } = await llamar("query", { sql });
+        exigir(error, `aceptó ${sql}`);
+      }
+      return "rechazadas las seis";
     },
   },
   {
@@ -536,7 +567,7 @@ const CASOS = [
   {
     pregunta: "retrieve: «¿Cuál es la compra pública más grande de 2026?» en una llamada",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuál es la compra pública más grande de 2026?" });
+      const { datos, error } = await llamar("retrieve", { query: "¿Cuál es la compra pública más grande de 2026?" });
       exigir(!error, error);
       exigir(datos.compras?.total === de2026.length, `corrió procurement con ${datos.compras?.total ?? "nada"}; debían ser ${de2026.length}`);
       exigir(datos.evidencias[0]?.id === `/procesos/${encodeURIComponent(de2026[0].codigo)}`, `la primera evidencia es ${datos.evidencias[0]?.id}`);
@@ -546,7 +577,7 @@ const CASOS = [
   {
     pregunta: `retrieve: «¿Cuánto le ha contratado el Estado a ${mayorProveedor.nombre}?»`,
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: `¿Cuánto le ha contratado el Estado a ${mayorProveedor.nombre}?` });
+      const { datos, error } = await llamar("retrieve", { query: `¿Cuánto le ha contratado el Estado a ${mayorProveedor.nombre}?` });
       exigir(!error, error);
       const ev = datos.evidencias.find((e) => e.clase === "Lo contratado desde 2015");
       exigir(ev, "no trajo lo contratado");
@@ -557,7 +588,7 @@ const CASOS = [
   {
     pregunta: "retrieve: «¿Quién dirige el MINERD?» ata la institución por sus siglas",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "¿Quién dirige el MINERD?" });
+      const { datos, error } = await llamar("retrieve", { query: "¿Quién dirige el MINERD?" });
       exigir(!error, error);
       const e = datos.entidades[0];
       exigir(e?.id === `/instituciones/${MINERD.id}`, `la primera entidad es ${e?.id}`);
@@ -566,22 +597,22 @@ const CASOS = [
     },
   },
   {
-    pregunta: "SPARQL: un producto cruzado se corta a tiempo y el servidor sigue",
+    pregunta: "SQL: un producto cruzado se corta a tiempo y el motor sigue",
     async correr() {
       const t0 = performance.now();
-      const { error } = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: "SELECT ?a ?f WHERE { ?a ?b ?c . ?d ?e ?f } ORDER BY ?c ?f LIMIT 1" });
+      const { error } = await llamar("query", { sql: "SELECT count(*) FROM procesos a, procesos b, procesos c WHERE a.titulo || b.titulo = c.titulo" });
       const s = Math.round((performance.now() - t0) / 1000);
-      exigir(error?.includes("se cortó"), `no se cortó: ${error ?? "respondió"}`);
+      exigir(error?.includes("se detuvo"), `no se cortó: ${error ?? "respondió"}`);
       exigir(s <= 15, `tardó ${s} s`);
-      const b = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], vecinos: false, consulta: "ASK { ?x a soc:Contratacion }" });
-      exigir(b.datos?.booleano === true, `la siguiente consulta falló: ${b.error ?? JSON.stringify(b.datos)}`);
+      const b = await llamar("query", { sql: "SELECT count(*) FROM contrataciones" });
+      exigir(b.datos?.filas?.[0]?.[0] > 0, `la siguiente consulta falló: ${b.error ?? JSON.stringify(b.datos)}`);
       return `cortada en ${s} s; la siguiente responde`;
     },
   },
   {
     pregunta: "retrieve: «Muéstrame lo contratado por el INAPA» no ata a otra empresa por la sigla",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "Muéstrame lo contratado por el INAPA" });
+      const { datos, error } = await llamar("retrieve", { query: "Muéstrame lo contratado por el INAPA" });
       exigir(!error, error);
       exigir(datos.entidades[0]?.id === `/instituciones/${INAPA.id}`, `la primera entidad es ${datos.entidades[0]?.id}`);
       const ev = datos.evidencias.find((e) => e.clase === "Lo contratado desde 2015");
@@ -592,7 +623,7 @@ const CASOS = [
   {
     pregunta: "retrieve: «Proveedores que más le venden al MINERD» no ata un proveedor por la palabra que abre",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "Proveedores que más le venden al MINERD" });
+      const { datos, error } = await llamar("retrieve", { query: "Proveedores que más le venden al MINERD" });
       exigir(!error, error);
       exigir(!datos.entidades.some((e) => e.id.startsWith("/empresas/") && e.por.includes("nombra al proveedor")), "ató un proveedor");
       exigir(datos.entidades[0]?.id === `/instituciones/${MINERD.id}`, `la primera entidad es ${datos.entidades[0]?.id}`);
@@ -603,7 +634,7 @@ const CASOS = [
     pregunta: "retrieve: un nombre de dos proveedores no se resuelve por su cuenta",
     async correr() {
       exigir(homonimo, "el oráculo no encontró homónimos");
-      const { datos, error } = await llamar("retrieve", { pregunta: `¿Cuánto le ha contratado el Estado a ${homonimo[0].ti}?` });
+      const { datos, error } = await llamar("retrieve", { query: `¿Cuánto le ha contratado el Estado a ${homonimo[0].ti}?` });
       exigir(!error, error);
       exigir(datos.notas.some((n) => n.includes("registros de proveedor distintos")), "no avisó de los homónimos");
       exigir(!datos.evidencias.some((e) => e.clase === "Lo contratado desde 2015" && e.id?.startsWith("/proveedores/")), "eligió a uno");
@@ -613,9 +644,9 @@ const CASOS = [
   {
     pregunta: "retrieve: «las compras más grandes del Ministerio de Educación Superior» no filtra por el MINERD",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuáles son las compras más grandes del Ministerio de Educación Superior?" });
+      const { datos, error } = await llamar("retrieve", { query: "¿Cuáles son las compras más grandes del Ministerio de Educación Superior?" });
       exigir(!error, error);
-      const filtro = datos.compras?.filtros?.institucion ?? null;
+      const filtro = datos.compras?.filtros?.institution ?? null;
       exigir(filtro !== `/instituciones/${MINERD.id}`, "filtró por el MINERD");
       exigir(!filtro || filtro === `/instituciones/${MESCYT.id}`, `filtró por ${filtro}`);
       exigir(filtro || datos.notas.some((n) => n.includes("no se corrió procurement")), "corrió sin filtro y sin decirlo");
@@ -625,7 +656,7 @@ const CASOS = [
   {
     pregunta: "retrieve: «la compra más grande de 2019» (antes de la instantánea) lleva a la historia",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuál fue la compra más grande de 2019?" });
+      const { datos, error } = await llamar("retrieve", { query: "¿Cuál fue la compra más grande de 2019?" });
       exigir(!error, error);
       exigir(datos.compras === null, "corrió procurement para 2019");
       exigir(datos.notas.some((n) => n.includes("2019 no está")), "no dice que 2019 no está");
@@ -636,17 +667,17 @@ const CASOS = [
   {
     pregunta: "retrieve: «materiales de trabajo» en minúsculas no es la sigla de una institución",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "compras de materiales de trabajo abiertas" });
+      const { datos, error } = await llamar("retrieve", { query: "compras de materiales de trabajo abiertas" });
       exigir(!error, error);
       exigir(!datos.entidades.some((e) => e.por.includes("siglas")), `ató por siglas: ${datos.entidades.map((e) => e.titulo).join(", ")}`);
-      exigir(!datos.compras?.filtros?.institucion, `filtró por ${datos.compras?.filtros?.institucion}`);
+      exigir(!datos.compras?.filtros?.institution, `filtró por ${datos.compras?.filtros?.institution}`);
       return `${datos.compras?.total ?? 0} abiertas`;
     },
   },
   {
     pregunta: "retrieve: «¿Cuánto debe el país?» no ata entidades por la palabra «país»",
     async correr() {
-      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuánto debe el país?" });
+      const { datos, error } = await llamar("retrieve", { query: "¿Cuánto debe el país?" });
       exigir(!error, error);
       exigir(datos.entidades.length === 0, `ató ${datos.entidades.map((x) => x.titulo).join(", ")}`);
       exigir(datos.pantallas.some((x) => x.url.endsWith("/deuda")), "no lleva a /deuda");
@@ -656,9 +687,9 @@ const CASOS = [
   {
     pregunta: "¿Quién dirige el Ministerio de Educación?",
     async correr() {
-      const { datos, error } = await llamar("neighbors", { id: `/instituciones/${MINERD.id}`, grupo: "cargos" });
+      const { datos, error } = await llamar("fetch", { id: `/instituciones/${MINERD.id}`, group: "cargos" });
       exigir(!error, error);
-      const dirige = datos.relaciones.find((r) => r.verbo === "La dirige");
+      const dirige = datos.metadata.relaciones.find((r) => r.verbo === "La dirige");
       exigir(dirige?.id?.startsWith("/funcionarios/"), "no dice quién la dirige");
       return dirige.nombre;
     },
@@ -675,7 +706,7 @@ const CASOS = [
   {
     pregunta: "Los decretos que firmó Luis Abinader en 2025",
     async correr() {
-      const { datos, error } = await llamar("signed_decrees", { persona: "/funcionarios/luis-rodolfo-abinader-corona", anio: 2025 });
+      const { datos, error } = await llamar("signed_decrees", { person: "/funcionarios/luis-rodolfo-abinader-corona", year: 2025 });
       exigir(!error, error);
       exigir(datos.total > 0, "ninguno");
       exigir(datos.decretos.every((d) => !d.fecha || d.fecha.startsWith("2025")), "trae decretos de otro año");
@@ -685,7 +716,7 @@ const CASOS = [
   {
     pregunta: "¿Cómo se liga Luis Abinader con el Ministerio de Educación?",
     async correr() {
-      const { datos, error } = await llamar("path", { desde: "/funcionarios/luis-rodolfo-abinader-corona", hasta: `/instituciones/${MINERD.id}` });
+      const { datos, error } = await llamar("path", { from: "/funcionarios/luis-rodolfo-abinader-corona", to: `/instituciones/${MINERD.id}` });
       exigir(!error, error);
       exigir(datos.encontrado, datos.explicacion);
       return `${datos.saltos} saltos`;
@@ -697,11 +728,11 @@ const CASOS = [
       const cedula = "001-1234567-8";
       for (const [n, args] of [
         ["search", { query: cedula }],
-        ["procurement", { texto: cedula }],
-        ["contracting_history", { proveedor: cedula }],
-        ["contracting_history", { proveedor: "00112345678" }],
-        ["retrieve", { pregunta: `¿De quién es la cédula ${cedula}?` }],
-        ["sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: `SELECT * WHERE { ?s ?p "${cedula}" }` }],
+        ["procurement", { text: cedula }],
+        ["contracting_history", { supplier: cedula }],
+        ["contracting_history", { supplier: "00112345678" }],
+        ["retrieve", { query: `¿De quién es la cédula ${cedula}?` }],
+        ["query", { sql: `SELECT * FROM empresas WHERE rnc = '${cedula}'` }],
       ]) {
         const { error } = await llamar(n, args);
         exigir(error, `${n} aceptó ${JSON.stringify(args)}`);
