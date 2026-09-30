@@ -327,6 +327,22 @@ during a visit.
   nine-digit RNC in `/empresas?q=` straight to its ficha, and `lib/buscar.ts`
   does the same from `/buscar`. The ficha crosses `lib/sanciones.ts` (DGCP
   measures by RNC, the OFAC note). `/buscar` does not index companies.
+- **`lib/financieras.ts`** — regulated financial entities (§H.6).
+  `scripts/build-banca.py` reads the SB's `/supervisados/` listings and each
+  entity's ficha (ten seconds between requests; on a Sucuri challenge it stops
+  without writing and never retries in a loop), the SB's monthly CSV of
+  authorised entities, SIPEN's AFP page, the SIS insurers page (name and web
+  only) and IDECOOP's XLSX (read with `zipfile`), and writes
+  `public/data/banca.json`: no phones, e-mails or addresses. `getFinancieras`,
+  `entidadPorSlug`, `entidadPorRnc`, `filtrarEntidades`/`ordenarEntidades`,
+  `resumenSistema`, `institucionDe` (exact name, or the verified slug table for
+  Banreservas and BANDEX) and its way back, `entidadDeInstitucion`, which the
+  institution ficha uses for its «Su ficha de entidad financiera» edge. Pages:
+  `/banca` (sector chips only for sectors the snapshot holds, province filter for
+  cooperatives) and `/banca/[slug]`, whose board and officer names link to
+  `/funcionarios` through `personaPorNombre` (exact normalised name, three words
+  or more, a single person). In `/buscar` as type «financiera»
+  (`scripts/busqueda_financieras.py`, no vector).
 - **`lib/instituciones.ts`** now carries the whole public sector (§H.8):
   `sector`, `clasificador`, `dgcp` and the two transfer fields on each record;
   `SECTORES`, `sectorDe`, `contarPorSector`, `hrefDirectorio` for the sector

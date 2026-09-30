@@ -1815,8 +1815,8 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   financieros solo en PDF con URL por hash. Teléfonos y correos: no se muestran.
 - ✅ Otras categorías de `/supervisados/`: cambiarias, fiduciarias, sociedades de
   información crediticia, oficinas de representación, otras entidades, auditores
-  externos, subagentes, sanciones (detalle de su lectura en la sección de
-  implementación, abajo).
+  externos, subagentes, sanciones. Sus listados se leen con la misma plantilla;
+  las fichas de las cuatro primeras quedaron tras el desafío de Sucuri (abajo).
 - ✅ datos.gob.do → `https://sb.gob.do/media/4g4nrdxa/listado-de-entidades-autorizadas-a-operar-2018-2026.csv`
   (200 `text/csv`, BOM, 11,183 filas, `ENTIDAD,TIPO DE ENTIDAD,MES,AÑO`, sin RNC):
   el registro mes a mes desde 2018. `…/estad%C3%ADsticas-de-sanciones-impuestas-2017-2026.csv`
@@ -1834,6 +1834,31 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
 - ❌ SIMV: desafío de Cloudflare hasta en robots (sin cambios). ⚠️ BCRD: el único
   listado de entidades en su CDN es `entidades_fondo.pdf` (43 aportantes al fondo
   de contingencia, jun-2025); el XLSX hermano da 404.
+- ⚠️ **Sucuri en la SB.** A un segundo entre peticiones, el cortafuegos respondió
+  tras unas 70 con su desafío de JavaScript (HTTP 307 sin `Location`, «You are
+  being redirected…», `sucuri_cloudproxy_js`). `scripts/build-banca.py` espera
+  diez segundos entre peticiones y, si ve el desafío, para sin escribir. La
+  instantánea del 29-09-2026 (22:55) salió completa para las 47 entidades de
+  intermediación financiera; la corrida que sumaba cambiarias (42), fiduciarias
+  (5), burós (4) y oficinas de representación (5) topó con el desafío en las
+  fichas cambiarias. **Tropiezo de higiene, declarado:** el constructor reintentó
+  dos veces más, con veinte minutos de pausa y una petición por minuto, y el
+  desafío siguió. Reintentar a la espera de que ceda es insistir sobre un bloqueo:
+  la regla es parar al primer desafío y pedir a la SB que admita el User-Agent
+  (Ley 200-04). El script lo dice ahora en su cabecera.
+- **Integrado (H6.2, `scripts/build-banca.py` → `public/data/banca.json`, 806 KB;
+  `lib/financieras.ts`; `/banca`, `/banca/[slug]`):** 1,300 fichas: las 47 de la SB
+  (45 con RNC, activos, participación, empleados, oficinas, cajeros, subagentes,
+  número de accionistas, calificación, consejo, principales funcionarios y PDF de
+  estados financieros y memorias enlazados sin leerse), 7 AFP (SIPEN), 35
+  compañías de seguros (SIS, solo nombre y web) y 1,211 cooperativas de ahorro,
+  crédito o solo servicios múltiples (IDECOOP, de las 2,304 incorporadas). Ni
+  teléfonos, ni correos, ni direcciones. Los nombres del consejo se muestran como
+  los publica la SB; uno de tres palabras o más que coincide exacto con una sola
+  persona de `/funcionarios` lleva a su ficha (en Banreservas, 7 de 14: los
+  miembros que nombra un decreto). Banreservas, el Banco Agrícola y BANDEX se atan
+  a su ficha de institución en los dos sentidos. El CSV mensual de autorizadas solo
+  dice desde qué mes figura una razón social.
 
 ### H.7 El registro mercantil y las empresas
 
