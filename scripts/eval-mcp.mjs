@@ -114,6 +114,27 @@ const rncMayor = corpus.docs.find((d) => d.t === "proveedor" && d.r === mayorPro
 const instituciones = leer("instituciones.json").instituciones;
 const MINERD = instituciones.find((x) => x.acronimo === "MINERD");
 
+// Homónimos: dos registros de proveedor con el mismo nombre, sin la forma
+// jurídica. Pueden ser dos personas o dos empresas; la herramienta no elige.
+const FORMAS = new Set(["srl", "sa", "sas", "eirl", "cxa", "spa", "ltda", "inc", "s", "a", "c", "x", "por"]);
+const claveNombre = (x) => plano(x).trim().split(" ").filter((w) => !FORMAS.has(w)).join(" ");
+const proveedoresCorpus = corpus.docs.filter((d) => d.t === "proveedor" && d.r);
+const porNombre = new Map();
+for (const d of proveedoresCorpus) {
+  const k = claveNombre(d.ti);
+  porNombre.set(k, [...(porNombre.get(k) ?? []), d]);
+}
+const homonimo = [...porNombre.values()].filter((v) => v.length > 1).sort((a, b) => a[0].ti.localeCompare(b[0].ti))[0] ?? null;
+const porRnc = new Map();
+for (const d of proveedoresCorpus) if (d.c) porRnc.set(d.c, [...(porRnc.get(d.c) ?? []), d]);
+const rncDoble = [...porRnc.entries()].find(([, v]) => v.length > 1)?.[0] ?? null;
+// Una unidad que comparte prefijo (la OPRET con el MOPC) pero tiene su serie.
+const compartidaConSerie =
+  resumen.sinAsignar
+    .flatMap((x) => x.unidades)
+    .map((u) => instituciones.find((x) => plano(x.nombre) === plano(u)))
+    .find((x) => x && historicoInstituciones[String(x.id)]?.serie.some((f) => f[1] > 0)) ?? null;
+
 /* ------------------------------------------------------------------ casos */
 
 class Fallo extends Error {}
@@ -210,6 +231,15 @@ const CASOS = [
     },
   },
   {
+    pregunta: "Una página más allá de la última viene vacía, no repite",
+    async correr() {
+      const { datos, error } = await llamar("procurement", { institucion: "MINERD", anio: 2026, pagina: 999 });
+      exigir(!error, error);
+      exigir(datos.procesos.length === 0, `la página 999 de ${datos.paginas} trae ${datos.procesos.length} procesos`);
+      return `${datos.paginas} páginas`;
+    },
+  },
+  {
     pregunta: "¿Qué se compró en 2020? (fuera de la instantánea: lo tiene que decir)",
     async correr() {
       const { datos, error } = await llamar("procurement", { anio: 2020 });
@@ -298,6 +328,47 @@ const CASOS = [
     },
   },
   {
+    pregunta: "Dos proveedores con el mismo nombre: no elige uno por su cuenta",
+    async correr() {
+      exigir(homonimo, "el oráculo no encontró homónimos");
+      const { error } = await llamar("contracting_history", { proveedor: homonimo[0].ti });
+      exigir(error?.includes("registros distintos"), `no avisó de los homónimos de «${homonimo[0].ti}»: ${error ?? "respondió con uno"}`);
+      return `«${homonimo[0].ti}»: ${homonimo.length} registros`;
+    },
+  },
+  {
+    pregunta: "Un RNC con dos registros de proveedor los nombra a los dos",
+    async correr() {
+      if (!rncDoble) return "ninguno en la instantánea";
+      const { error } = await llamar("contracting_history", { proveedor: rncDoble });
+      exigir(error?.includes("registros de proveedor"), `no avisó: ${error ?? "respondió con uno"}`);
+      return `RNC ${rncDoble}`;
+    },
+  },
+  {
+    pregunta: "Una institución que comparte prefijo pero tiene su serie (la OPRET) sí la da",
+    async correr() {
+      if (!compartidaConSerie) return "ninguna en la instantánea";
+      const { datos, error } = await llamar("contracting_history", { institucion: `/instituciones/${compartidaConSerie.id}` });
+      exigir(!error, error);
+      const serie = historicoInstituciones[String(compartidaConSerie.id)].serie;
+      exigir(datos.institucion.sinAsignar === null, "la marca como sin asignar");
+      exigir(datos.institucion.monto === suma(serie, 2), `monto ${datos.institucion.monto}; debía ser ${suma(serie, 2)}`);
+      return `${compartidaConSerie.acronimo || compartidaConSerie.nombre}: ${pesos(datos.institucion.monto)}`;
+    },
+  },
+  {
+    pregunta: "El año del corte se marca parcial y la subida de 2015–2018 se explica",
+    async correr() {
+      const { datos, error } = await llamar("contracting_history", { institucion: `/instituciones/${MINERD.id}` });
+      exigir(!error, error);
+      const anioCorte = Number(resumen.corte.slice(0, 4));
+      exigir(datos.institucion.serie.every((a) => a.parcial === (a.anio === anioCorte)), "parcial no marca solo el año del corte");
+      exigir(datos.notas.some((n) => n.includes("cobertura, no gasto nuevo")), "no explica la subida de los primeros años");
+      return `${anioCorte} parcial`;
+    },
+  },
+  {
     pregunta: "Un nombre de muchos proveedores pide el id",
     async correr() {
       const { error } = await llamar("contracting_history", { proveedor: "Constructora" });
@@ -348,6 +419,23 @@ const CASOS = [
       exigir(datos.results.length > 0, "no encontró nada");
       exigir(datos.results.every((r) => r.id.startsWith("/procesos/")), "trae resultados que no son procesos");
       return `${datos.total} procesos`;
+    },
+  },
+  {
+    pregunta: "Las páginas de search siguen una a otra, con y sin tipo",
+    async correr() {
+      for (const [args, porPagina] of [
+        [{ query: "mobiliario" }, 20],
+        [{ query: "mobiliario", tipo: "proceso" }, 30],
+      ]) {
+        const [a, b] = await Promise.all([llamar("search", args), llamar("search", { ...args, pagina: 2 })]);
+        exigir(!a.error && !b.error, a.error ?? b.error);
+        exigir(a.datos.paginas === b.datos.paginas, `${JSON.stringify(args)}: ${a.datos.paginas} páginas en la 1 y ${b.datos.paginas} en la 2`);
+        exigir(a.datos.paginas === Math.max(1, Math.ceil(a.datos.total / porPagina)), `${JSON.stringify(args)}: ${a.datos.paginas} páginas para ${a.datos.total}`);
+        const primera = new Set(a.datos.results.map((r) => r.id));
+        exigir(b.datos.results.every((r) => !primera.has(r.id)), `${JSON.stringify(args)}: la página 2 repite resultados`);
+      }
+      return "ok";
     },
   },
   {

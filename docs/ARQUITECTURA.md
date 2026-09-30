@@ -1145,13 +1145,20 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
 - **Reglas que no se relajan aquí**: la respuesta de cada herramienta dice su
   fuente y su fecha de corte (`search`, en cada resultado; `fetch` y
   `neighbors`, la del nodo y las de todas las instantáneas del grafo; `path`,
-  las del grafo)
+  las del grafo; `procurement`, la tabla de procesos con su última
+  publicación y lo que cubre; `contracting_history`, la última adjudicación
+  del registro, con el año del corte marcado `parcial`)
   y que la plataforma es independiente y no oficial; PEP se explica como
   categoría legal; **ninguna cadena sale con forma de cédula**: los adaptadores
   la quitan al leer (`sinCedula`, `lib/padron.ts`) y el servidor pasa la
-  respuesta entera por el mismo filtro, y `search` y `signed_decrees` no buscan
-  por una (`llevaCedula`); las instrucciones del servidor le piden al modelo
-  no unir homónimos ni leer una relación como parentesco o conducta. **Fuera, a propósito**: el rol de
+  respuesta entera por el mismo filtro, y `search`, `signed_decrees`,
+  `procurement` y `contracting_history` no buscan por una (`llevaCedula`; la
+  última tampoco por once cifras juntas, que pueden ser una); las
+  instrucciones del servidor le piden al modelo no unir homónimos ni leer una
+  relación como parentesco o conducta, y `contracting_history` no los une
+  tampoco: un nombre de dos registros de proveedor (21 en la instantánea,
+  personas y empresas) o un RNC de dos RPE devuelve la lista para pedir por
+  id, nunca el de más contratos. **Fuera, a propósito**: el rol de
   audiencias y el Registro Inmobiliario (solo por número exacto que teclea un
   lector), la cuenta y los espacios, `/democracia` y las consultas en vivo.
 - **Fallos**: un `Aviso` sale con su mensaje en llano (el SDK lo vuelve un
@@ -1163,19 +1170,21 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
 - **Trazado**: la clave `/mcp` lleva el índice de búsqueda, las instantáneas
   del grafo y `historico/` (unos 7 MB; `lib/historico.ts` abre el archivo de
-  un proveedor por el último dígito de su RPE). La función pesa ~166 MB, lo mismo que `/grafo/camino` (las
+  un proveedor por el último dígito de su RPE). La función pesa ~166 MB
+  (165.8 medidos sobre su `route.js.nft.json` el 30-09-2026, ya con
+  `historico/`), lo mismo que `/grafo/camino` (las
   importaciones de `lib/grafo-rdf.ts` arrastran otras instantáneas): cabe en
   el límite, con la misma deuda del arranque en frío.
 - **Verificado** el 30-09-2026 con los clientes oficiales: el SDK 1.x
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
 - **La evaluación** (`scripts/eval-mcp.mjs`, en `verificar.sh --completo`
-  contra `next start`): 24 preguntas de quien investiga —la compra más
+  contra `next start`): 30 preguntas de quien investiga —la compra más
   grande del año, las licitaciones de mobiliario abiertas, lo contratado a un
   proveedor, quién dirige una institución—, cada una con su oráculo calculado
   aparte de `public/data`, más las reglas de toda respuesta (sin cédula, con
   su aviso y su corte). El 30-09-2026, antes de `procurement` y
-  `contracting_history`, la producción pasaba 5 de 24: a la pregunta «¿cuál es
+  `contracting_history`, la producción pasaba 5 de las 24 primeras: a la pregunta «¿cuál es
   la compra más grande de 2026?» un asistente respondía con la séptima,
   porque `search` ordena por parecido. Contra otro despliegue:
   `node scripts/eval-mcp.mjs --url https://…/mcp` (en una sesión web, con

@@ -140,6 +140,8 @@ if [ "$construido" = 1 ]; then
   puerto="$(node -e 'const s=require("net").createServer().listen(0,()=>{console.log(s.address().port);s.close()})')"
   node node_modules/next/dist/bin/next start -p "$puerto" >"$SLOG" 2>&1 &
   srv=$!
+  # Interrupted (a timeout, ^C), the server must not outlive the gate.
+  trap 'kill "$srv" 2>/dev/null' EXIT
   listo=0
   for _ in $(seq 1 60); do
     curl -s -o /dev/null "http://localhost:$puerto/robots.txt" && { listo=1; break; }
@@ -152,7 +154,7 @@ if [ "$construido" = 1 ]; then
     if [ "$listo" = 1 ]; then printf '%s\n' "$eval_mcp" | grep -E 'FAIL|casos' | head -15 | sed 's/^/       /'
     else echo "       next start did not answer in 60 s:"; tail -5 "$SLOG" | sed 's/^/       /'; fi
   fi
-  kill "$srv" 2>/dev/null; wait "$srv" 2>/dev/null
+  kill "$srv" 2>/dev/null; wait "$srv" 2>/dev/null; trap - EXIT
 fi
 
 # 7. The stamp. `main` deploys to production on every push, so the gate has to
