@@ -33,16 +33,19 @@ export async function EnElGrafo({ nodo, className }: { nodo: NodoRdf; className?
           Su red dibuja esas aristas y busca el camino hacia otra ficha.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* `nofollow`: la vista de un nodo repite la ficha y robots.txt no la deja rastrear. */}
           <Button asChild variant="secondary">
-            <Link href={enlace.grafo(ruta)}>Ver con quién se liga</Link>
+            <Link href={enlace.grafo(ruta)} rel="nofollow">
+              Ver con quién se liga
+            </Link>
           </Button>
           <p className="text-xs text-ink-soft">
             Para máquinas:{" "}
-            <a href={enlace.rdf(ruta, "ttl")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
+            <a href={enlace.rdf(ruta, "ttl")} rel="nofollow" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
               Turtle
             </a>
             {" · "}
-            <a href={enlace.rdf(ruta, "jsonld")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
+            <a href={enlace.rdf(ruta, "jsonld")} rel="nofollow" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
               JSON-LD
             </a>
             {" · "}

@@ -957,11 +957,10 @@ Bellas Artes, en ±2 %; Mujer publica 487 plazas frente a 1,037 del MAP.
 - ✅ El catálogo de documentos estadísticos del 311 (por año y carpeta)
   **responde sin autenticación**. Valor moderado: son PDF, no series. Su
   dirección no se escribe aquí mientras siga abierto el hallazgo de abajo.
-- ⚠️ **Hallazgo de seguridad**: el portal de estadísticas del 311 expone en el
-  navegador algo que no debe. No se usa. Se notifica a la OGTIC por el canal de
-  divulgación responsable que el propio Estado publica, con un aviso que se
-  entrega al dueño aparte y **no vive en este repositorio, que es público**: el
-  detalle (qué y dónde) se escribe aquí cuando esté corregido.
+- ⚠️ **Hallazgo de seguridad** en el portal del 311. No se usa. Se notifica a la
+  OGTIC por el canal de divulgación responsable que el propio Estado publica, con
+  un aviso que se entrega al dueño aparte (§H.10): el qué y el dónde se escriben
+  aquí cuando esté corregido.
 
 ### A.10 Verificados de menor calado (estado de campo)
 
@@ -1342,9 +1341,8 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
   Central 2004–2026 (dice millones, vienen pesos).
 - ✅/⚠️ Superintendencia de Bancos: SIMBAD (`simbad.sb.gob.do`) es un Apache
   Superset público: `/api/v1/chart/1467/data/?format=json` da la morosidad
-  (1.79 % a julio), 24 meses por gráfico. ⚠️ **Hallazgo de seguridad:** su API
-  pública expone más de lo que el tablero muestra; se notifica a la SB con un
-  aviso aparte (fuera de este repositorio público) y no se usa.
+  (1.79 % a julio), 24 meses por gráfico. ⚠️ **Hallazgo de seguridad**, que se
+  notifica aparte a la SB (§H.10); no se usa.
 - ✅ Crédito Público: `/Content/subastas/consolidados/2026/02Consolidado.xlsx`.
 - ❌ SIMV y ONE: desafío de Cloudflare hasta en robots. ⚠️ SIPEN: el TLS ya no
   falla por el proxy; los datos se cargan por JS. Seguros se mudó a `sis.gob.do`.
@@ -1425,8 +1423,9 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
 - ✅ Edenorte: RSS semanal de mantenimientos con circuito; Edesur: HTML de la
   semana. ✅ MIVHED: CSV de licencias de construcción 2022–2026. ✅ CAASD: CSV
   del último mes de producción de agua.
-- ❌ SIE (403 CF), SNIP (login), IDAC y Liga Municipal (Power BI), MOPC (token
-  embebido en su JS: no se usa). IGN: solo WMS raster. COE: RSS vacío.
+- ❌ SIE (403 CF), SNIP (login), IDAC y Liga Municipal (Power BI), MOPC (su
+  lectura exige lo que su portal lleva en el navegador: no se usa; se
+  evalúa si es un hallazgo que notificar). IGN: solo WMS raster. COE: RSS vacío.
   ⚠️ Hallazgo de seguridad menor en un servidor de la CAASD; se notifica aparte.
 
 ### G.10 MAP — la nómina pública general del Estado
@@ -1501,7 +1500,7 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
 
 - ✅ SIMBAD (`simbad.sb.gob.do`, Apache Superset; robots 404): se leen solo
   `/api/v1/chart/{id}/data/?format=json&type=results`, que devuelve `colnames`,
-  `coltypes` y `data` **sin el campo de la consulta**. Gráficos: 1467
+  `coltypes` y `data`. Gráficos: 1467
   morosidad (jul-2026 1.79 %), 1466 cartera (RD$2.48 billones), 1464 solvencia
   (may-2026 18.87 %), 1423 tasa de préstamos nuevos (14.00 %; ventana fija que
   termina el 2026-08-05). 20–23 filas por serie; cada una termina en su mes.
@@ -2063,14 +2062,16 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
 
 ### H.10 Hallazgos de seguridad (se notifican; no se usan)
 
-- **CCPSD (registro mercantil)**: su consulta pública expone en el navegador el
-  acceso a un servicio interno. No se usó; se notifica a la CCPSD como el
+- **CCPSD**: hallazgo de seguridad; no se usó; se notifica aparte, como el
   precedente del 311 (§A.9).
-- **CNZFE**: su sitio muestra mensajes de error que revelan detalles del servidor.
+- **CNZFE**: hallazgo de seguridad; se notifica aparte.
 
 Los avisos de estos hallazgos (y los de la SB, la CAASD y el 311) se entregan al
-dueño aparte y **no se guardan en este repositorio, que es público**: el qué y el
-dónde de cada uno se escriben aquí cuando la institución lo haya corregido.
+dueño aparte y **no se guardan en el árbol de este repositorio, que es público**:
+el qué y el dónde de cada uno se escriben aquí cuando la institución lo haya
+corregido. Las versiones anteriores de estas líneas, con el detalle, **siguen en
+el historial de git**; qué hacer con eso lo decide el dueño (docs/DECISIONES.md,
+pendientes).
 
 ### H.11 Pendientes que deja esta pasada
 
@@ -2250,4 +2251,6 @@ la casa, como mucho tres POST por consulta, sin sesión ni cookies:
   firmante (la que enlaza su lista de decretos). Fue el único caso en las 15,608 fichas.
 - Implementado: `public/data/wikidata.json`, `lib/wikidata.ts`, el `owl:sameAs` de
   `lib/grafo-rdf.ts` y el `sameAs` del JSON-LD de cada ficha (docs/ARQUITECTURA.md, el
-  grafo semántico). `/fuentes` lo declara.
+  grafo semántico). `/fuentes` lo declara. De una persona, el enlace sale solo si es PEP
+  hoy o firmó decretos como jefe de Estado (la regla de proporcionalidad de su ficha): de
+  las 64, eso deja fuera a quien dejó el cargo hace más de tres años.

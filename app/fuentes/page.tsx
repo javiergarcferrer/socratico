@@ -698,8 +698,7 @@ export default async function FuentesPage() {
             Comercio y Producción. Su consulta pública nacional solo{" "}
             <strong>valida un certificado</strong> que ya se tiene, con su número y su
             código, y devuelve la denominación, sus fechas y su estado: no busca por
-            nombre ni por RNC ni muestra socios, gerentes o capital. Su selector de
-            cámaras usa un servicio interno que la plataforma no toca. La búsqueda de
+            nombre ni por RNC ni muestra socios, gerentes o capital. La búsqueda de
             nombres comerciales de la <strong>ONAPI</strong>{" "}
             exige una clave antiautomatización que rota (sin ella responde 401).
           </p>
@@ -1070,7 +1069,9 @@ export default async function FuentesPage() {
             . De Wikidata se toma solo el identificador (QID) de una provincia, una institución, un
             banco o una persona con cargo, para decir que es la misma cosa (<code className="rounded bg-canvas px-1 py-0.5 font-mono">owl:sameAs</code>):
             nunca su descripción, su foto ni su biografía. Una ficha se ata a un QID solo si la
-            correspondencia es única en los dos sentidos. <ResumenWikidata />
+            correspondencia es única en los dos sentidos, y una persona solo si es PEP hoy o
+            firmó decretos como jefe de Estado, la misma regla con que su ficha se ofrece a los
+            buscadores. <ResumenWikidata />
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
             El servicio SPARQL de Wikidata veta las consultas automáticas en su robots, así que los
@@ -1209,9 +1210,7 @@ export default async function FuentesPage() {
             gráfico por una interfaz sin clave. Se leen cada día cuatro series del
             sistema financiero (morosidad, cartera de créditos, solvencia y tasa de
             los préstamos nuevos), pidiendo solo sus datos. Cada gráfico trae unos
-            dos años y termina en su propio mes, que se dice junto a la cifra. Esa
-            misma interfaz expone información interna que no debería ser pública; no
-            se usa, y se notifica a la Superintendencia.
+            dos años y termina en su propio mes, que se dice junto a la cifra.
           </p>
         </Fuente>
 

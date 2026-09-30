@@ -22,7 +22,8 @@ import { cn } from "@/lib/cn";
  *    completa, que es la tabla equivalente, el camino del lector de pantalla y
  *    el del teléfono. Por eso el dibujo va fuera del tabulador y del árbol de
  *    accesibilidad (repetiría cada vecino antes de la lista) y no se pinta
- *    por debajo de `sm`: a 390 px sus nombres bajarían de 12 px.
+ *    por debajo de `lg`: el SVG se escala al ancho, y con menos de unos 770 px
+ *    de dibujo sus rótulos bajarían de 12 px.
  */
 export interface VecinoRed {
   clave: string;
@@ -110,7 +111,7 @@ export function RedVecinos({
   const { puntos, rotulos, alto } = colocar(vecinos);
   const cy = alto / 2;
   return (
-    <figure className={cn("hidden sm:block", className)}>
+    <figure className={cn("hidden lg:block", className)}>
       <svg viewBox={`0 0 ${ANCHO} ${alto}`} aria-hidden className="h-auto w-full">
         {puntos.map((p) => {
           const hacia = p.lado === "izquierda" ? -1 : 1;
@@ -191,7 +192,7 @@ export function RedVecinos({
         {etiqueta}
         {total > vecinos.length
           ? `. El dibujo muestra ${vecinos.length} de ${total}; la lista de abajo las trae todas.`
-          : ". La lista de abajo dice lo mismo, con la fuente de cada arista."}
+          : ". La lista de abajo dice lo mismo, arista por arista."}
       </figcaption>
     </figure>
   );

@@ -11,8 +11,8 @@ const FORMATOS: readonly FormatoRdf[] = ["ttl", "jsonld", "nt"];
 /**
  * La descripción RDF de un nodo del grafo (`lib/grafo-rdf.ts`): lo que dice
  * su ficha, en Turtle, JSON-LD o N-Triples, con los vocabularios de la
- * ontología (`/ontologia`). Es también lo que devuelve la ficha misma cuando
- * se la pide con `Accept: text/turtle` (el middleware reescribe aquí).
+ * ontología (`/ontologia`). Es también adonde remite la ficha misma cuando se
+ * la pide con `Accept: text/turtle` (un 303 de `redirects()` en `next.config.ts`).
  *
  * `?nodo=` es la ruta de la ficha (`/funcionarios/luis-rodolfo-abinader-corona`,
  * `/instituciones/5`, `/banca/banreservas`, `/empresas/401010062`,

@@ -2,7 +2,7 @@
 
 - **Para:** Oficina Gubernamental de Tecnologías de la Información y Comunicación (OGTIC), equipo de Cuenta Única.
 - **Vía:** el canal que la OGTIC indique para integrar Cuenta Única (confirmarlo en cuentaunica.gob.do o con su mesa de ayuda).
-- **Fundamento:** solicitud de servicio (cooperación). No es una solicitud de la Ley 200-04. Base: el borrador de `docs/PLAN-DEMOCRACIA.md` §9.4, con las direcciones de vuelta de §9.5. El aviso sobre el token del 311 va aparte (`ogtic-aviso-seguridad-311.md`).
+- **Fundamento:** solicitud de servicio (cooperación). No es una solicitud de la Ley 200-04. Base: el borrador de `docs/PLAN-DEMOCRACIA.md` §9.4, con las direcciones de vuelta de §9.5. El aviso de seguridad del 311 va aparte.
 - **Estado:** borrador, sin enviar. Cuando llegue el identificador del cliente, los pasos siguientes son los de `docs/PLAN-DEMOCRACIA.md` §9.5.
 
 ---

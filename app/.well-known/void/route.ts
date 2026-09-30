@@ -17,6 +17,7 @@ export const dynamic = "force-static";
 export async function GET() {
   const [clases, wd, f] = await Promise.all([inventario(), enlacesWikidata(), getFuncionarios()]);
   const ds = `${SITIO}/.well-known/void#grafo`;
+  const editor: Termino = { tipo: "blanco", valor: "editor" };
   const ls = `${SITIO}/.well-known/void#wikidata`;
   const x: Triple[] = [
     t(ds, "rdf:type", iri("void:Dataset")),
@@ -30,6 +31,11 @@ export async function GET() {
       ),
     ),
     t(ds, "foaf:homepage", iri(`${SITIO}${enlace.grafo()}`)),
+    // Quien lo publica. La licencia de reutilización no se declara: la decide el dueño.
+    { s: iri(ds), p: PREFIJOS.dct + "publisher", o: editor },
+    { s: editor, p: PREFIJOS.rdf + "type", o: iri("foaf:Organization") },
+    { s: editor, p: PREFIJOS.foaf + "name", o: lit("Socrático.do") },
+    { s: editor, p: PREFIJOS.foaf + "homepage", o: iri(`${SITIO}/`) },
     t(ds, "void:uriSpace", lit(`${SITIO}/`)),
     t(ds, "void:uriLookupEndpoint", iri(`${SITIO}/api/grafo?formato=ttl&nodo=`)),
     t(ds, "void:feature", iri("http://www.w3.org/ns/formats/Turtle")),
@@ -45,10 +51,17 @@ export async function GET() {
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.provincia("santiago")}#id`)),
     t(ls, "rdf:type", iri("void:Linkset")),
     t(ls, "void:linkPredicate", iri("owl:sameAs")),
-    t(ls, "void:target", iri(ds)),
+    t(ls, "void:subjectsTarget", iri(ds)),
     t(ls, "void:objectsTarget", iri("http://www.wikidata.org/")),
     t(ls, "void:triples", entero(wd.total)),
-    t(ls, "dct:description", lit("Solo las correspondencias únicas en los dos sentidos; se buscaron en la réplica de Wikidata de QLever.", "es")),
+    t(
+      ls,
+      "dct:description",
+      lit(
+        "Solo las correspondencias únicas en los dos sentidos, buscadas en la réplica de Wikidata de QLever; de personas, solo quien es PEP hoy o firmó decretos como jefe de Estado.",
+        "es",
+      ),
+    ),
   ];
   for (const v of ["schema", "org", "foaf", "eli", "rov", "skos", "dct", "owl"] as const) {
     x.push(t(ds, "void:vocabulary", iri(PREFIJOS[v])));

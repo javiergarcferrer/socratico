@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
-import Plegable from "@/components/plegable";
 import { formatFecha } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
 import { PREFIJOS, expandir } from "@/lib/rdf";
@@ -99,8 +98,8 @@ export default function OntologiaPage() {
           <Link href={enlace.grafo()} className="text-brand-700 underline">
             el grafo
           </Link>{" "}
-          y cómo se relacionan, escritas en OWL y RDFS para que una máquina las lea sin preguntar. Cada término
-          equivale a uno de los vocabularios que el mundo ya usa, y cada clase se ata a su elemento de Wikidata.
+          y cómo se relacionan, escritas en OWL y RDFS para que una máquina las lea sin preguntar. Cada término se
+          alinea con los vocabularios que el mundo ya usa y, donde lo hay, con su elemento de Wikidata.
         </p>
         <p className="mt-3 text-sm text-ink-soft">
           Espacio de nombres <code className="break-all font-mono text-[13px] text-ink">{PREFIJOS.soc}</code>, prefijo{" "}
@@ -129,7 +128,7 @@ export default function OntologiaPage() {
 
       <section aria-labelledby="clases" className="space-y-3">
         <h2 id="clases" className="font-display text-xl text-ink">
-          Las clases
+          ¿Qué clases de cosas hay?
         </h2>
         {CLASES.map((c) => (
           <Card as="article" key={c.id} id={c.id} className="scroll-mt-24 px-5 py-4 sm:px-6">
@@ -138,12 +137,12 @@ export default function OntologiaPage() {
             <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{c.comentario}</p>
             <dl className="mt-3 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[9rem_1fr]">
               {c.subClaseDe.length > 0 && (
-                <>
+                <div className="contents">
                   <dt className="text-ink-soft">Es una</dt>
                   <dd>
                     <Lista terminos={c.subClaseDe} conjuncion="y" />
                   </dd>
-                </>
+                </div>
               )}
               {c.wikidata?.map((w) => (
                 <div key={w.qid} className="contents">
@@ -165,7 +164,7 @@ export default function OntologiaPage() {
 
       <section aria-labelledby="propiedades" className="space-y-3">
         <h2 id="propiedades" className="font-display text-xl text-ink">
-          Las relaciones y los datos
+          ¿Cómo se relacionan?
         </h2>
         <p className="text-sm leading-relaxed text-ink-soft">
           Una relación liga dos cosas del grafo (una persona con su cargo); un dato le da un valor a una (la fecha
@@ -204,7 +203,7 @@ export default function OntologiaPage() {
 
       <section aria-labelledby="listas" className="space-y-3">
         <h2 id="listas" className="font-display text-xl text-ink">
-          Las listas cerradas
+          ¿Qué listas cerradas usa?
         </h2>
         <p className="text-sm leading-relaxed text-ink-soft">
           Salen de las mismas tablas que usa la interfaz, así que el grafo y las páginas nunca dicen cosas distintas.
@@ -215,21 +214,20 @@ export default function OntologiaPage() {
               <CardTitle id={`lista-${e.id}`}>{e.etiqueta}</CardTitle>
               <p className="mt-1 text-sm leading-relaxed text-ink-soft">{e.comentario}</p>
             </div>
-            <Plegable
-              className="border-t border-hairline"
-              etiqueta={`Ver los ${e.conceptos.length} conceptos`}
-              etiquetaCerrar="Ocultarlos"
-            >
-              <ul className="px-5 py-2 sm:px-6">
-                {e.conceptos.map((c) => (
-                  <li key={c.id} id={c.id} className="scroll-mt-24 py-1.5 text-sm">
-                    <span className="text-ink">{c.etiqueta}</span>{" "}
-                    <span className="font-mono text-xs text-ink-soft">soc:{c.id}</span>
-                    {c.definicion && <span className="block text-xs leading-relaxed text-ink-soft">{c.definicion}</span>}
-                  </li>
-                ))}
-              </ul>
-            </Plegable>
+            {/*
+              Abiertas y no en un Plegable: cada concepto es el destino de su
+              IRI (`…/ontologia#movimiento-designa`), y un Plegable cerrado no
+              monta sus anclas.
+            */}
+            <ul className="grid grid-cols-1 gap-x-6 border-t border-hairline px-5 py-2 sm:grid-cols-2 sm:px-6">
+              {e.conceptos.map((c) => (
+                <li key={c.id} id={c.id} className="scroll-mt-24 py-1.5 text-sm">
+                  <span className="text-ink">{c.etiqueta}</span>{" "}
+                  <span className="font-mono text-xs text-ink-soft">soc:{c.id}</span>
+                  {c.definicion && <span className="block text-xs leading-relaxed text-ink-soft">{c.definicion}</span>}
+                </li>
+              ))}
+            </ul>
           </Card>
         ))}
       </section>

@@ -20,8 +20,11 @@ verified mechanics per source live there; this is what every adapter obeys.
   through `lib/xlsx.ts`. The panorama composes indicators with a fault-tolerant
   `Promise.all`; one source down never blanks the page.
 - **GET only**, except the exact postbacks a public form itself performs
-  (Senate `consultante`, Consultoría `Search`). Never a login, admin, or
-  subscription endpoint. Never copy telemetry keys the portals leak (RECON §2.10).
+  (Senate `consultante`, Consultoría `Search`; since 2026-09-30, owner-approved
+  in docs/DECISIONES.md: the MAP directory, BCRD `GetContentForRender`, the
+  Poder Judicial hearing roll by exact case number, the Registro Inmobiliario
+  file by exact number). Never a login, admin, or subscription endpoint.
+  Never copy telemetry keys the portals leak (RECON §2.10).
 - **Never evade a WAF, challenge, 403, 470, or robots rule.** Do not rotate
   User-Agent or IP, do not spoof a browser. A blocked source is unblocked
   institutionally (whitelist, Ley 200-04); write that down in docs/AUDITORIA.md
