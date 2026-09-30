@@ -850,6 +850,19 @@ export default async function FuentesPage() {
             </Link>{" "}
             encuentra por lo que se compra. Cada uno abre su ficha, leída en vivo.
           </p>
+          <p className="mt-3">
+            En{" "}
+            <Link href={enlace.grafo()} className="font-medium text-brand-700 hover:underline">
+              el grafo
+            </Link>
+            , lo que cada institución le contrató a sus doce mayores proveedores, y cada
+            proveedor a sus ocho mayores clientes, es una contratación con su monto. Se ata a
+            la empresa que la cobró por el RNC que el padrón de la DGII da a su registro de
+            proveedor (
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-historico-rnc.py</code>
+            , sin red): unos 22.8 mil de los 32 mil proveedores con contratos. El resto son
+            personas físicas o proveedores de fuera, y quedan como proveedor, sin empresa.
+          </p>
         </Fuente>
 
         <Fuente nombre="DGCP · medidas sobre proveedores" estado="activa" etiqueta="Instantánea local">

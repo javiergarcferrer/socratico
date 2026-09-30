@@ -114,6 +114,10 @@ const rncMayor = corpus.docs.find((d) => d.t === "proveedor" && d.r === mayorPro
 const instituciones = leer("instituciones.json").instituciones;
 const MINERD = instituciones.find((x) => x.acronimo === "MINERD");
 
+// El cruce RPE → RNC con que el grafo ata una contratación a su empresa.
+const rncDe = leer("historico/rnc.json").rnc;
+const topMinerd = historicoInstituciones[String(MINERD.id)].top;
+
 // Homónimos: dos registros de proveedor con el mismo nombre, sin la forma
 // jurídica. Pueden ser dos personas o dos empresas; la herramienta no elige.
 const FORMAS = new Set(["srl", "sa", "sas", "eirl", "cxa", "spa", "ltda", "inc", "s", "a", "c", "x", "por"]);
@@ -155,7 +159,7 @@ const CASOS = [
       exigir(ini.result?.instructions?.includes("procurement"), "las instrucciones no nombran procurement");
       const { result } = await rpc("tools/list");
       const nombres = result.tools.map((t) => t.name);
-      for (const n of ["search", "fetch", "procurement", "contracting_history", "neighbors", "path", "signed_decrees", "ontology"]) {
+      for (const n of ["retrieve", "search", "fetch", "procurement", "contracting_history", "neighbors", "path", "signed_decrees", "sparql", "ontology"]) {
         exigir(nombres.includes(n), `falta la herramienta ${n}`);
       }
       for (const t of result.tools) {
@@ -439,6 +443,112 @@ const CASOS = [
     },
   },
   {
+    pregunta: "El grafo: ¿a quién le ha contratado más el MINERD? (grupo compras)",
+    async correr() {
+      const { datos, error } = await llamar("neighbors", { id: `/instituciones/${MINERD.id}`, grupo: "compras" });
+      exigir(!error, error);
+      const [rpe, nombre, , monto] = topMinerd[0];
+      const primera = datos.relaciones[0];
+      const destino = rncDe[rpe] ? `/empresas/${rncDe[rpe]}` : `/proveedores/${rpe}`;
+      exigir(datos.total === topMinerd.length, `${datos.total} contrataciones; debían ser ${topMinerd.length}`);
+      exigir(primera?.id === destino, `la primera va a ${primera?.id}; debía ir a ${destino} (${nombre})`);
+      exigir(primera.detalle?.replace(/\D/g, "").startsWith(String(monto)), `el monto dice «${primera.detalle}»; debía ser ${monto}`);
+      return `${nombre}: ${pesos(monto)} → ${destino}`;
+    },
+  },
+  {
+    pregunta: "El grafo: la empresa del mayor proveedor llega a su mayor cliente en un salto",
+    async correr() {
+      const rnc = rncDe[mayorProveedor.rpe];
+      exigir(rnc, "el oráculo no tiene su RNC");
+      const uc = filaProveedor.c[0][0];
+      const { datos, error } = await llamar("path", { desde: `/empresas/${rnc}`, hasta: `/instituciones/${uc}` });
+      exigir(!error, error);
+      exigir(datos.encontrado && datos.saltos === 1, `${datos.encontrado ? `${datos.saltos} saltos` : datos.explicacion}`);
+      return datos.pasos.map((x) => x.nombre).join(" → ");
+    },
+  },
+  {
+    pregunta: "La ontología 1.1 declara la contratación",
+    async correr() {
+      const { datos, error } = await llamar("ontology", {});
+      exigir(!error, error);
+      exigir(datos.clases.some((c) => c.id === "soc:Contratacion"), "no declara soc:Contratacion");
+      for (const p of ["soc:contratante", "soc:contratista", "soc:montoContratado", "soc:numeroDeContratos"]) {
+        exigir(datos.propiedades.some((x) => x.id === p), `no declara ${p}`);
+      }
+      return `versión ${datos.version}`;
+    },
+  },
+  {
+    pregunta: "SPARQL: la suma de lo que el MINERD contrató a sus mayores proveedores",
+    async correr() {
+      const { datos, error } = await llamar("sparql", {
+        nodos: [`/instituciones/${MINERD.id}`],
+        vecinos: false,
+        consulta: `SELECT (SUM(?m) AS ?total) (COUNT(?c) AS ?n) WHERE { ?c soc:contratante <https://socratico.vercel.app/instituciones/${MINERD.id}#id> ; soc:montoContratado ?m }`,
+      });
+      exigir(!error, error);
+      const esperado = topMinerd.reduce((s, f) => s + f[3], 0);
+      const fila = datos.filas[0];
+      exigir(Number(fila?.total?.valor) === esperado, `suma ${fila?.total?.valor}; debía ser ${esperado}`);
+      exigir(Number(fila?.n?.valor) === topMinerd.length, `cuenta ${fila?.n?.valor}; debía ser ${topMinerd.length}`);
+      return `${pesos(esperado)} en ${topMinerd.length} contrataciones`;
+    },
+  },
+  {
+    pregunta: "SPARQL: una actualización o un SERVICE se rechazan",
+    async correr() {
+      const a = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: "INSERT DATA { <urn:a> <urn:b> <urn:c> }" });
+      exigir(a.error, "aceptó un INSERT");
+      const b = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: "SELECT * WHERE { SERVICE <https://query.wikidata.org/sparql> { ?s ?p ?o } }" });
+      exigir(b.error?.includes("SERVICE"), `no rechazó SERVICE: ${b.error ?? "respondió"}`);
+      return "rechazados";
+    },
+  },
+  {
+    pregunta: "retrieve: «¿Cuál es la compra pública más grande de 2026?» en una llamada",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuál es la compra pública más grande de 2026?" });
+      exigir(!error, error);
+      exigir(datos.compras?.total === de2026.length, `corrió procurement con ${datos.compras?.total ?? "nada"}; debían ser ${de2026.length}`);
+      exigir(datos.evidencias[0]?.id === `/procesos/${encodeURIComponent(de2026[0].codigo)}`, `la primera evidencia es ${datos.evidencias[0]?.id}`);
+      return `${datos.evidencias[0].titulo.slice(0, 60)}…`;
+    },
+  },
+  {
+    pregunta: `retrieve: «¿Cuánto le ha contratado el Estado a ${mayorProveedor.nombre}?»`,
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: `¿Cuánto le ha contratado el Estado a ${mayorProveedor.nombre}?` });
+      exigir(!error, error);
+      const ev = datos.evidencias.find((e) => e.clase === "Lo contratado desde 2015");
+      exigir(ev, "no trajo lo contratado");
+      exigir(ev.texto.replace(/[^\d]/g, "").startsWith(String(suma(filaProveedor.s, 2))), `dice «${ev.texto.slice(0, 80)}»`);
+      return ev.texto.slice(0, 60);
+    },
+  },
+  {
+    pregunta: "retrieve: «¿Quién dirige el MINERD?» ata la institución por sus siglas",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "¿Quién dirige el MINERD?" });
+      exigir(!error, error);
+      const e = datos.entidades[0];
+      exigir(e?.id === `/instituciones/${MINERD.id}`, `la primera entidad es ${e?.id}`);
+      exigir(e.relaciones.some((r) => r.includes("La dirige")), "no dice quién la dirige");
+      return e.relaciones.find((r) => r.includes("La dirige")).slice(0, 70);
+    },
+  },
+  {
+    pregunta: "retrieve: «¿Cuánto debe el país?» no ata entidades por la palabra «país»",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuánto debe el país?" });
+      exigir(!error, error);
+      exigir(datos.entidades.length === 0, `ató ${datos.entidades.map((x) => x.titulo).join(", ")}`);
+      exigir(datos.pantallas.some((x) => x.url.endsWith("/deuda")), "no lleva a /deuda");
+      return "lleva a /deuda";
+    },
+  },
+  {
     pregunta: "¿Quién dirige el Ministerio de Educación?",
     async correr() {
       const { datos, error } = await llamar("neighbors", { id: `/instituciones/${MINERD.id}`, grupo: "cargos" });
@@ -485,11 +595,13 @@ const CASOS = [
         ["procurement", { texto: cedula }],
         ["contracting_history", { proveedor: cedula }],
         ["contracting_history", { proveedor: "00112345678" }],
+        ["retrieve", { pregunta: `¿De quién es la cédula ${cedula}?` }],
+        ["sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: `SELECT * WHERE { ?s ?p "${cedula}" }` }],
       ]) {
         const { error } = await llamar(n, args);
         exigir(error, `${n} aceptó ${JSON.stringify(args)}`);
       }
-      return "rechazada en las cuatro";
+      return "rechazada en las seis";
     },
   },
 ];

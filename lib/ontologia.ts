@@ -26,7 +26,7 @@ import { ONTOLOGIA, PREFIJOS, entero, expandir, iri, lit, t, type Triple } from 
  * Wikidata el 30-09-2026 (docs/AUDITORIA.md §H.14).
  */
 
-export const VERSION = "1.0.0";
+export const VERSION = "1.1.0";
 export const PUBLICADA = "2026-09-30";
 
 export interface Clase {
@@ -122,6 +122,14 @@ export const CLASES: Clase[] = [
     comentario:
       "Una inscripción en el Registro de Proveedores del Estado de la DGCP (RPE): puede ser una empresa o una persona física.",
     subClaseDe: ["foaf:Agent"],
+  },
+  {
+    id: "Contratacion",
+    etiqueta: "Contratación",
+    etiquetaEn: "Contracting",
+    comentario:
+      "Lo que una institución le ha contratado a un proveedor por el sistema de compras desde 2015, agregado: cuántos contratos y por cuánto (valor contratado en pesos, no pagado; sin cancelados, en otras monedas ni atípicos de RD$10 mil millones o más). Solo los pares de las listas de mayores: los ocho clientes de cada proveedor y los doce proveedores de cada institución.",
+    subClaseDe: [],
   },
   {
     id: "Norma",
@@ -352,6 +360,46 @@ export const PROPIEDADES: Propiedad[] = [
     rango: ["soc:Proveedor"],
   },
   {
+    id: "contratante",
+    tipo: "objeto",
+    etiqueta: "contratante",
+    etiquetaEn: "contracting authority",
+    comentario: "La institución que contrató: la unidad de compra deducida del prefijo del código de sus contratos.",
+    dominio: ["soc:Contratacion"],
+    rango: ["soc:Institucion"],
+    funcional: true,
+  },
+  {
+    id: "contratista",
+    tipo: "objeto",
+    etiqueta: "contratista",
+    etiquetaEn: "contractor",
+    comentario: "La inscripción de proveedor a la que se contrató. Si su RNC es de una persona jurídica, esa empresa está inscrita como ella (soc:inscritaComo).",
+    dominio: ["soc:Contratacion"],
+    rango: ["soc:Proveedor"],
+    funcional: true,
+  },
+  {
+    id: "montoContratado",
+    tipo: "dato",
+    etiqueta: "monto contratado",
+    etiquetaEn: "contracted amount",
+    comentario: "La suma de los contratos en pesos dominicanos (DOP): valor adjudicado, no pagado.",
+    dominio: ["soc:Contratacion"],
+    rango: ["xsd:integer"],
+    funcional: true,
+  },
+  {
+    id: "numeroDeContratos",
+    tipo: "dato",
+    etiqueta: "número de contratos",
+    etiquetaEn: "number of contracts",
+    comentario: "Cuántos contratos suma la contratación.",
+    dominio: ["soc:Contratacion"],
+    rango: ["xsd:integer"],
+    funcional: true,
+  },
+  {
     id: "numero",
     tipo: "dato",
     etiqueta: "número",
@@ -515,7 +563,7 @@ export function triplesOntologia(): Triple[] {
       o,
       "dct:description",
       lit(
-        "Las clases y relaciones del grafo de Socrático.do, una herramienta independiente y no oficial sobre datos del Estado dominicano: personas con cargo público, instituciones, decretos, entidades financieras, empresas, provincias, declaraciones juradas y medidas sobre proveedores.",
+        "Las clases y relaciones del grafo de Socrático.do, una herramienta independiente y no oficial sobre datos del Estado dominicano: personas con cargo público, instituciones, decretos, entidades financieras, empresas, proveedores y lo que el Estado les contrató, provincias, declaraciones juradas y medidas sobre proveedores.",
         "es",
       ),
     ),

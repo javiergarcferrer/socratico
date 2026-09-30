@@ -12,6 +12,7 @@ import { SITIO } from "@/lib/sitio";
 export const DIRECCION_MCP = `${SITIO}/mcp`;
 
 export type NombreHerramienta =
+  | "retrieve"
   | "search"
   | "fetch"
   | "procurement"
@@ -19,9 +20,16 @@ export type NombreHerramienta =
   | "neighbors"
   | "path"
   | "signed_decrees"
+  | "sparql"
   | "ontology";
 
 export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: string; llano: string }[] = [
+  {
+    nombre: "retrieve",
+    titulo: "Recuperar la evidencia de una pregunta",
+    llano:
+      "Una pregunta en llano entra; sale la evidencia para contestarla: registros, las entidades del grafo con sus relaciones y compras, la consulta de compras que pide y las llamadas para seguir, todo con su fuente y su fecha.",
+  },
   {
     nombre: "search",
     titulo: "Buscar en Socrático",
@@ -58,6 +66,11 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
     nombre: "signed_decrees",
     titulo: "Decretos que firmó una persona",
     llano: "El registro de la Consultoría Jurídica por firmante, filtrado por año, materia y palabras.",
+  },
+  {
+    nombre: "sparql",
+    titulo: "Consulta SPARQL",
+    llano: "Una consulta SPARQL de lectura sobre la descripción RDF de los nodos que se nombran y sus vecinos, en motores abiertos (N3.js y Comunica).",
   },
   {
     nombre: "ontology",

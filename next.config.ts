@@ -19,6 +19,11 @@ import type { NextConfig } from "next";
 */
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Comunica (el motor SPARQL de `sparql` en `lib/mcp.ts`) arma su motor con
+  // cientos de módulos que se resuelven al cargarse: se deja fuera del
+  // empaquetado y se requiere de `node_modules` tal cual, y el trazado lleva
+  // solo lo que requiere.
+  serverExternalPackages: ["@comunica/query-sparql-rdfjs-lite", "n3"],
   outputFileTracingIncludes: {
     "/buscar": ["./public/data/busqueda/**"],
     "/api/buscar": ["./public/data/busqueda/**"],
@@ -37,12 +42,13 @@ const nextConfig: NextConfig = {
     "/normativa": ["./public/data/decretos/**", "./public/data/wikidata.json"],
     // El grafo semántico (`lib/grafo-rdf.ts`) describe cualquier nodo: lee las
     // instantáneas de personas, decretos, bancos, empresas, medidas,
-    // declaraciones y los QID de Wikidata. La clave casa también con
-    // «/grafo/camino» y «/api/grafo». Las fichas que incrustan su JSON-LD
-    // leen además `wikidata.json`.
+    // declaraciones, las contrataciones desde 2015 (`historico/`) y los QID de
+    // Wikidata. La clave casa también con «/grafo/camino» y «/api/grafo». Las
+    // fichas que incrustan su JSON-LD leen además `wikidata.json`.
     "/grafo": [
       "./public/data/decretos/**",
       "./public/data/empresas/**",
+      "./public/data/historico/**",
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
     ],
     // El servidor MCP (`lib/mcp.ts`) busca en el índice y describe nodos del

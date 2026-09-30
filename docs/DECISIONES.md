@@ -43,6 +43,19 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   así que no cuenta pedidos: un límite por dirección sería una regla del
   cortafuegos de Vercel sobre `/mcp` (panel del proyecto, y según el plan,
   costo). Hoy no hace falta; decidir si se pone antes de anunciarlo.
+- **Un SPARQL del grafo entero** (30-09-2026). El dueño pidió «un grafo de
+  conocimiento y ontológico real» con tecnologías abiertas. Hoy SPARQL corre
+  a pedido, sobre la descripción de los nodos que se nombran y sus vecinos
+  (ARQUITECTURA, `sparql`). El grafo entero sin personas naturales
+  (instituciones, empresas proveedoras, contrataciones, procesos, decretos,
+  bancos, provincias) son del orden de un millón de triples, y medido no carga
+  en una función: ~13 s y 2 GB en N3 con Comunica, ~25 s y 1 GB en Oxigraph.
+  Tenerlo entero pide un almacén SPARQL servido aparte (Oxigraph o QLever en
+  un servidor, con su costo mensual), que es una base de datos fuera de la
+  invariante, o una réplica que la gente descargue y cargue en su propio
+  motor (un volcado en N-Triples, sin personas naturales: la regla de
+  «ninguna herramienta lista personas en masa» sigue). Decidir si se quiere
+  alguna de las dos.
 - **La licencia de reutilización del grafo** (30-09-2026). El VoID y las
   descripciones RDF no declaran licencia (`dct:license`), así que quien las
   reutiliza no sabe en qué términos. Los datos son del Estado; la selección,
@@ -135,6 +148,22 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Cerradas, para que nadie las reabra
 
+- **El grafo de conocimiento y la recuperación (30-09-2026).** El dueño: «un
+  grafo de conocimiento y ontológico real, para que los datos se puedan
+  recuperar; quizás RAG, con tecnologías abiertas». Se hizo, con estas reglas
+  decididas en la sesión (ARQUITECTURA, el grafo semántico y el servidor MCP):
+  - **El dinero entra al grafo**: las contrataciones de institución a
+    proveedor (ontología 1.1.0), atadas a la empresa por el RNC del padrón,
+    nunca por una cédula; una persona física queda como proveedor.
+  - **La recuperación es de la plataforma; la respuesta, del asistente**:
+    `retrieve` junta la evidencia con su fuente y su fecha; la plataforma no
+    llama a un modelo ni guarda su clave.
+  - **SPARQL a pedido, no un almacén**: sobre los nodos que se nombran y sus
+    vecinos, en memoria y solo durante la llamada. El grafo entero queda
+    abierto arriba («Un SPARQL del grafo entero»).
+  - **El motor, N3.js y Comunica**, no Oxigraph: pasan el criterio de
+    dependencias («Código abierto probado»); el registro de Oxigraph lo
+    publica un solo mantenedor.
 - **La cédula de un título oficial tampoco se enseña (30-09-2026).** La
   revisión del servidor MCP encontró que un asistente al que se le pegaba una
   cédula recibía el nombre de su dueña: dos títulos de decretos (Consultoría

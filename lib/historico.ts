@@ -175,3 +175,46 @@ export async function prefijoSinAsignar(nombre: string): Promise<ResumenHistoric
   const clave = nombre.trim().toLowerCase();
   return r?.sinAsignar.find((s) => s.unidades.some((u) => u.trim().toLowerCase() === clave)) ?? null;
 }
+
+/**
+ * El RNC de persona jurídica de un proveedor de la historia, por su RPE:
+ * `rnc.json`, el cruce de `scripts/build-historico-rnc.py` con el padrón de la
+ * DGII. `null` si no tiene (una persona física, un proveedor extranjero): el
+ * grafo lo ata a la empresa solo cuando el padrón lo dice.
+ */
+export async function rncDeProveedor(rpe: string): Promise<string | null> {
+  const d = await leer<{ rnc: Record<string, string> }>("rnc.json");
+  return d?.rnc[rpe] ?? null;
+}
+
+let paresMemo: Promise<{ pares: number; proveedores: number; corte: string } | null> | null = null;
+
+/**
+ * Cuántas contrataciones institución → proveedor describe el grafo: los pares
+ * de las listas de mayores (los ocho clientes de cada proveedor y los doce
+ * proveedores de cada institución), sin repetir. Para el inventario del grafo.
+ */
+export function contarContrataciones(): Promise<{ pares: number; proveedores: number; corte: string } | null> {
+  paresMemo ??= (async () => {
+    const pares = new Set<string>();
+    let corte = "";
+    let proveedores = 0;
+    for (let n = 0; n < 10; n++) {
+      const d = await leer<{ corte: string; filas: Record<string, FilaProveedor> }>(`proveedores/${n}.json`);
+      if (!d) return null;
+      corte = d.corte;
+      for (const [rpe, f] of Object.entries(d.filas)) {
+        proveedores++;
+        for (const [uc] of f.c) pares.add(`${uc}|${rpe}`);
+      }
+    }
+    const inst = await leer<{ filas: Record<string, HistoriaInstitucion> }>("instituciones.json");
+    for (const [uc, h] of Object.entries(inst?.filas ?? {})) for (const [rpe] of h.top) pares.add(`${uc}|${rpe}`);
+    return { pares: pares.size, proveedores, corte };
+  })().catch((err) => {
+    console.error("[historico] contrataciones:", err);
+    paresMemo = null;
+    return null;
+  });
+  return paresMemo;
+}

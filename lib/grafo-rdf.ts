@@ -36,6 +36,7 @@ import { medidasDeRnc, ofacDeRnc, hrefFichaOfac, getSanciones } from "@/lib/sanc
 import { PROVINCIAS, provinciaDeSlug, provinciaDeTexto } from "@/lib/provincias";
 import { getWikidata, hrefWikidata, wikidataDe } from "@/lib/wikidata";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
+import { contarContrataciones, getResumenHistorico, historiaDeInstitucion, historiaDeProveedor, rncDeProveedor } from "@/lib/historico";
 import { desdeMayusculas } from "@/lib/congreso";
 
 /**
@@ -307,6 +308,10 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
       t(d.url, "soc:publicadaPor", iri(s)),
     );
   }
+  // Lo que contrató desde 2015: sus doce mayores proveedores (`lib/historico.ts`).
+  for (const [rpe, nombre, contratos, monto] of ligero ? [] : ((await historiaDeInstitucion(inst.id))?.historia.top ?? [])) {
+    await triplesContratacion({ uc: inst.id, rpe, proveedor: nombre, contratos, monto }, x);
+  }
   const qid = await wikidataDe({ tipo: "institucion", id: String(inst.id) });
   if (qid) x.push(t(s, "owl:sameAs", iri(`wd:${qid}`)));
   return { triples: x, titulo: inst.nombre, nota };
@@ -374,7 +379,9 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
   if (e.actividad) x.push(t(s, "schema:description", lit(e.actividad, "es")));
   for (const rpe of e.rpe) {
     const pr = `${SITIO}${enlace.proveedor(rpe)}#id`;
-    x.push(t(s, "soc:inscritaComo", iri(pr)), t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "soc:rpe", lit(rpe)), t(pr, "rdfs:label", lit(`RPE ${rpe}`)));
+    // Su nombre en el registro de proveedores si tiene contratos; si no, su número.
+    const nombre = ligero ? null : ((await historiaDeProveedor(rpe))?.historia.nombre ?? null);
+    x.push(t(s, "soc:inscritaComo", iri(pr)), t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "soc:rpe", lit(rpe)), t(pr, "rdfs:label", lit(nombre ?? `RPE ${rpe}`)));
   }
   for (const p of ligero ? [] : await medidasDeRnc(e.rnc)) {
     const pr = `${SITIO}${enlace.proveedor(p.rpe)}#id`;
@@ -391,6 +398,15 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
       if (m.resolucion) x.push(t(mIri, "rdfs:label", lit(m.resolucion, "es")));
     }
   }
+  // Lo que el Estado le contrató desde 2015, por cada inscripción: sus ocho mayores clientes.
+  for (const rpe of ligero ? [] : e.rpe) {
+    const h = await historiaDeProveedor(rpe);
+    for (const [uc, contratos, monto] of h?.historia.clientes ?? []) {
+      const inst = institucionPorId(uc);
+      if (!inst) continue;
+      await triplesContratacion({ uc, rpe, proveedor: h!.historia.nombre, contratos, monto, institucion: inst.nombre, empresa: s }, x);
+    }
+  }
   const ofac = await ofacDeRnc(e.rnc);
   if (ofac) x.push(t(s, "rdfs:seeAlso", iri(hrefFichaOfac(ofac.ent))));
   const banco = await entidadPorRnc(e.rnc);
@@ -399,6 +415,45 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
     x.push(t(s, "owl:sameAs", iri(b)), t(b, "rdfs:label", lit(banco.nombre)));
   }
   return { triples: x, titulo: e.razonSocial };
+}
+
+/* --------------------------------------------------------- contrataciones */
+
+/** La tabla de contratos de la DGCP, de donde salen las contrataciones (`scripts/build-historico.py`). */
+const FUENTE_CONTRATOS = "https://datosabiertos.dgcp.gob.do/api-dgcp/v1/tablas/contratos?Type=csv";
+
+/**
+ * Una contratación (lo que una institución le contrató a un proveedor desde
+ * 2015, agregado) con el mismo IRI la describa quien la describa: la
+ * institución o la empresa. Si el RNC del proveedor es de una persona
+ * jurídica (`rncDeProveedor`), la empresa queda inscrita como él y el camino
+ * institución → empresa se recorre; una persona física queda como proveedor,
+ * con su ficha, sin nodo propio.
+ */
+async function triplesContratacion(
+  c: { uc: number; rpe: string; proveedor: string; contratos: number; monto: number; institucion?: string; empresa?: string },
+  x: Triple[],
+): Promise<void> {
+  const pr = `${SITIO}${enlace.proveedor(c.rpe)}#id`;
+  const k = `${SITIO}${enlace.proveedor(c.rpe)}#contratacion-${c.uc}`;
+  x.push(
+    t(k, "rdf:type", iri("soc:Contratacion")),
+    t(k, "soc:contratante", iri(DE(c.uc))),
+    t(k, "soc:contratista", iri(pr)),
+    t(k, "soc:montoContratado", entero(c.monto)),
+    t(k, "soc:numeroDeContratos", entero(c.contratos)),
+    t(k, "dct:source", iri(FUENTE_CONTRATOS)),
+    t(pr, "rdf:type", iri("soc:Proveedor")),
+    t(pr, "soc:rpe", lit(c.rpe)),
+    t(pr, "rdfs:label", lit(c.proveedor)),
+  );
+  if (c.institucion) x.push(t(DE(c.uc), "rdfs:label", lit(c.institucion, "es")));
+  if (c.empresa) return;
+  const rnc = await rncDeProveedor(c.rpe);
+  if (rnc) {
+    const e = iriDe({ tipo: "empresa", id: rnc });
+    x.push(t(e, "soc:inscritaComo", iri(pr)), t(e, "rdfs:label", lit(c.proveedor)));
+  }
 }
 
 /* --------------------------------------------------------------- decreto */
@@ -501,13 +556,15 @@ export interface ClaseContada {
 
 /** Cuántos nodos de cada clase tiene el grafo hoy: para VoID y para `/grafo`. */
 export async function inventario(): Promise<ClaseContada[]> {
-  const [f, indice, fin, padron, dj, sanc] = await Promise.all([
+  const [f, indice, fin, padron, dj, sanc, contrataciones, historico] = await Promise.all([
     getFuncionarios(),
     indiceDecretos(),
     getFinancieras(),
     padronEmpresas(),
     getDeclaraciones(),
     getSanciones(),
+    contarContrataciones(),
+    getResumenHistorico(),
   ]);
   const cargos = f?.personas.reduce((n, p) => n + p.cargos.length, 0) ?? 0;
   const decretos = indice ? Object.values(indice.anios).reduce((a, b) => a + b, 0) + indice.sinFecha : 0;
@@ -529,6 +586,20 @@ export async function inventario(): Promise<ClaseContada[]> {
     { clase: "soc:Provincia", etiqueta: "Provincias", n: PROVINCIAS.length, fuente: "ONE", corte: null },
     { clase: "soc:DeclaracionJurada", etiqueta: "Declaraciones juradas publicadas", n: dj?.declaraciones.length ?? 0, fuente: "Portales de transparencia", corte: dj?.generado ?? null },
     { clase: "soc:MedidaDGCP", etiqueta: "Medidas sobre proveedores", n: medidas, fuente: "DGCP", corte: sanc?.generado ?? null },
+    {
+      clase: "soc:Proveedor",
+      etiqueta: "Proveedores con contratos desde 2015",
+      n: contrataciones?.proveedores ?? 0,
+      fuente: "DGCP (contratos)",
+      corte: historico?.corte ?? null,
+    },
+    {
+      clase: "soc:Contratacion",
+      etiqueta: "Contrataciones de institución a proveedor",
+      n: contrataciones?.pares ?? 0,
+      fuente: "DGCP (contratos)",
+      corte: historico?.corte ?? null,
+    },
   ];
   return filas.filter((c) => c.n > 0);
 }
@@ -569,10 +640,11 @@ export const CLASE_DE_TIPO: Record<TipoNodoRdf, string> = {
 };
 
 /** Los grupos de aristas, en el orden en que se leen. */
-export type GrupoRelacion = "cargos" | "decretos" | "entidades" | "lugares" | "registros";
+export type GrupoRelacion = "cargos" | "compras" | "decretos" | "entidades" | "lugares" | "registros";
 
 export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "cargos", etiqueta: "Cargos" },
+  { id: "compras", etiqueta: "Compras públicas desde 2015" },
   { id: "decretos", etiqueta: "Decretos" },
   { id: "entidades", etiqueta: "La misma entidad y quien la supervisa" },
   { id: "lugares", etiqueta: "Provincias" },
@@ -621,6 +693,10 @@ const V = {
   declaracion: expandir("soc:declaracion"),
   publicadaPor: expandir("soc:publicadaPor"),
   inscritaComo: expandir("soc:inscritaComo"),
+  contratante: expandir("soc:contratante"),
+  contratista: expandir("soc:contratista"),
+  montoContratado: expandir("soc:montoContratado"),
+  numeroDeContratos: expandir("soc:numeroDeContratos"),
   decretosFirmados: expandir("soc:decretosFirmados"),
   mismo: expandir("owl:sameAs"),
   verTambien: expandir("rdfs:seeAlso"),
@@ -788,6 +864,30 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
     }
   }
 
+  // Las contrataciones: desde la institución, a quién contrató (la empresa si
+  // el padrón la ata, si no la ficha del proveedor); desde la empresa, qué
+  // institución le contrató, por cada una de sus inscripciones.
+  const cuanto = (c: string) => {
+    const m = uno(c, V.montoContratado, "literal");
+    const n = uno(c, V.numeroDeContratos, "literal");
+    return m ? `RD$ ${Number(m).toLocaleString("es-DO")} en ${Number(n ?? 0).toLocaleString("es-DO")} ${n === "1" ? "contrato" : "contratos"} desde 2015` : null;
+  };
+  for (const x of entran.get(sujeto) ?? []) {
+    if (x.p !== V.contratante || x.s.tipo !== "iri") continue;
+    const pr = uno(x.s.valor, V.contratista, "iri");
+    if (!pr) continue;
+    const empresa = entran.get(pr)?.find((y) => y.p === V.inscritaComo && y.s.tipo === "iri")?.s.valor ?? null;
+    agregar({ grupo: "compras", verbo: "Contrató a", neutro: "Una contratación", ...hacia(empresa ?? pr), nombre: nombre(pr), detalle: cuanto(x.s.valor) });
+  }
+  for (const x of salen.get(sujeto) ?? []) {
+    if (x.p !== V.inscritaComo || x.o.tipo !== "iri") continue;
+    for (const y of entran.get(x.o.valor) ?? []) {
+      if (y.p !== V.contratista || y.s.tipo !== "iri") continue;
+      const inst = uno(y.s.valor, V.contratante, "iri");
+      if (inst) agregar({ grupo: "compras", verbo: "Le contrató", neutro: "Una contratación", ...hacia(inst), nombre: nombre(inst), detalle: cuanto(y.s.valor) });
+    }
+  }
+
   // Quien designa un decreto sin un cargo que lo diga (el cargo cita otra fila con el mismo número).
   const conCargo = new Set(salida.filter((r) => r.grupo === "decretos" && r.nodo).map((r) => r.href));
   for (const x of salen.get(sujeto) ?? []) {
@@ -936,7 +1036,7 @@ async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
  * La forma del resultado. Si cambia, cambia este número: la caché de datos
  * sobrevive a un despliegue y devolvería un resultado con la forma vieja.
  */
-const VERSION_CAMINO = "2";
+const VERSION_CAMINO = "3";
 
 /** Las instantáneas que lee una descripción: su tamaño en bytes cambia con casi cualquier cambio de datos. */
 const INSTANTANEAS = [
@@ -947,6 +1047,8 @@ const INSTANTANEAS = [
   "sanciones.json",
   "wikidata.json",
   "empresas/meta.json",
+  "historico/instituciones.json",
+  "historico/rnc.json",
 ];
 
 let huellaMemo: Promise<string> | null = null;
