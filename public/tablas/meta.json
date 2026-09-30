@@ -36,12 +36,17 @@
         {
           "nombre": "contratos",
           "tipo": "INTEGER",
-          "descripcion": "Contratos registrados desde 2015. NULL si no compra por la DGCP."
+          "descripcion": "Contratos registrados desde 2015. NULL si no hay ninguno que se le pueda atribuir: no compra por la DGCP, o sus contratos no se atribuyen (sin_asignar). NULL no es cero."
         },
         {
           "nombre": "monto_contratado",
           "tipo": "BIGINT",
-          "descripcion": "Pesos contratados desde 2015 (contratado, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más)."
+          "descripcion": "Pesos contratados desde 2015 (contratado, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más). NULL como contratos."
+        },
+        {
+          "nombre": "sin_asignar",
+          "tipo": "VARCHAR",
+          "descripcion": "Si sus contratos comparten prefijo de código con otra unidad y no se le atribuyen, ese prefijo (MOPC, MEPYD): lo contratado existe pero no está en esta fila."
         },
         {
           "nombre": "url",

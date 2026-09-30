@@ -212,7 +212,7 @@ function destinoDe(r: Relacion): { id: string | null; url: string | null; pista:
   const firmados = /^\/funcionarios\/([^/?#]+)\/decretos$/.exec(r.href);
   if (firmados) {
     const persona = enlace.funcionario(decodeURIComponent(firmados[1]));
-    return { id: null, url: absoluta(r.href), pista: `signed_decrees con persona «${persona}»` };
+    return { id: null, url: absoluta(r.href), pista: `signed_decrees con person «${persona}»` };
   }
   if (r.href.startsWith("/")) return { id: r.href, url: absoluta(r.href), pista: null };
   return { id: null, url: r.href, pista: null };
@@ -712,7 +712,7 @@ const Vecinos = z.object({
 });
 
 async function vecinos(id: string, grupo: GrupoRelacion | undefined, pagina: number): Promise<z.infer<typeof Vecinos>> {
-  const n = nodoDe(id, "fetch");
+  const n = nodoDe(id, "fetch con group o page");
   const d = await describir(n);
   if (!d) throw new Aviso(`No encontramos «${recortar(id, 120)}» en las instantáneas del grafo.`);
   const ruta = rutaDeNodo(n);
@@ -1690,7 +1690,7 @@ async function comprasDeInstitucion(i: Institucion): Promise<Seccion | null> {
       `- Procesos publicados del ${cobertura.desde} al ${cobertura.hasta}: ${ENTERO.format(publicado.procesos)}, por RD$ ${ENTERO.format(publicado.suma)} estimados (tabla de procesos de la DGCP, instantánea del ${corte?.slice(0, 10) ?? "?"}).`,
     );
   }
-  lineas.push(`- Por año y por proveedor: contracting_history con institucion «${id}». Proceso por proceso, por monto o por fecha: procurement con institucion «${id}».`);
+  lineas.push(`- Por año y por proveedor: contracting_history con institution «${id}». Proceso por proceso, por monto o por fecha: procurement con institution «${id}».`);
   return {
     lineas,
     metadata: {
@@ -1729,7 +1729,7 @@ async function comprasDeProveedor(rpe: string): Promise<Seccion | null> {
   if (historia.atipicos) {
     lineas.push(`- Fuera de las sumas: ${ENTERO.format(historia.atipicos[0])} contratos atípicos de RD$ 10 mil millones o más, por RD$ ${ENTERO.format(historia.atipicos[1])} (varios son errores de captura).`);
   }
-  lineas.push(`- Completo, y lo que le contrató una institución: contracting_history con proveedor «${id}».`);
+  lineas.push(`- Completo, y lo que le contrató una institución: contracting_history con supplier «${id}».`);
   return { lineas, metadata: { contratado: { contratos, monto, desde: historia.desde, hasta: historia.hasta, corte } } };
 }
 
@@ -2100,7 +2100,7 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
             ? `RD$ ${ENTERO.format(r.par.monto ?? 0)} en ${ENTERO.format(r.par.contratos ?? 0)} contratos. ${r.par.explicacion} Valor contratado, no pagado; tablas de contratos de la DGCP, corte del ${r.corte}.`
             : r.par.explicacion,
           url: r.proveedor?.url ?? r.institucion?.url ?? SITIO,
-          por: `contracting_history con proveedor «${r.proveedor?.id}» e institucion «${r.institucion?.id}»`,
+          por: `contracting_history con supplier «${r.proveedor?.id}» e institution «${r.institucion?.id}»`,
         });
       }
       const lista = (xs: { nombre: string; monto: number }[]) => xs.slice(0, 5).map((x) => `${x.nombre} (RD$ ${ENTERO.format(x.monto)})`).join("; ");
@@ -2112,7 +2112,7 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
           titulo: p.nombre,
           texto: `RD$ ${ENTERO.format(p.monto)} en ${ENTERO.format(p.contratos)} contratos, del ${p.desde} al ${p.hasta}, con ${ENTERO.format(p.clientes)} instituciones; sus mayores clientes: ${lista(p.mayoresClientes)}. Valor contratado, no pagado; tablas de contratos de la DGCP, corte del ${r.corte}.`,
           url: p.url,
-          por: `contracting_history con proveedor «${p.id}»`,
+          por: `contracting_history con supplier «${p.id}»`,
         });
       } else if (r.institucion) {
         const i = r.institucion;
@@ -2124,7 +2124,7 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
             ? i.sinAsignar
             : `RD$ ${ENTERO.format(i.monto)} en ${ENTERO.format(i.contratos)} contratos con ${ENTERO.format(i.proveedores)} proveedores; sus mayores: ${lista(i.mayoresProveedores)}. Valor contratado, no pagado; tablas de contratos de la DGCP, corte del ${r.corte}.`,
           url: i.url,
-          por: `contracting_history con institucion «${i.id}»`,
+          por: `contracting_history con institution «${i.id}»`,
         });
       }
     } catch (err) {
@@ -2209,7 +2209,7 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
  * procesos de compra de los últimos doce meses. El motor (DuckDB) corre en su
  * propia función, `/api/sql`, para no cargar sus ~70 MB en esta: la
  * herramienta la llama por HTTP en el mismo despliegue que atiende el pedido
- * (`origenDelPedido`), y el GET se cachea en la CDN.
+ * (`conOrigen`, que pone `app/mcp/route.ts`), y el GET se cachea en la CDN.
  */
 
 const TOPE_FILAS_SQL = 200;
@@ -2231,8 +2231,19 @@ export const conOrigen = <T>(o: string, fn: () => T): T => origen.run(o, fn);
 async function consultarTablas(sql: string): Promise<z.infer<typeof ResultadoSql>> {
   if (llevaCedula(sql)) throw new Aviso("Las tablas no guardan cédulas, y ninguna herramienta de Socrático busca por ella.");
   const base = origen.getStore() ?? SITIO;
-  const r = await fetch(`${base}/api/sql?q=${encodeURIComponent(sql)}`, { signal: AbortSignal.timeout(25_000) });
+  // Por GET, que la CDN guarda; una consulta larga (con tildes o saltos de línea se triplica al codificarla) va por POST.
+  const q = encodeURIComponent(sql);
+  const r =
+    q.length <= 6_000
+      ? await fetch(`${base}/api/sql?q=${q}`, { signal: AbortSignal.timeout(25_000) })
+      : await fetch(`${base}/api/sql`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ q: sql }),
+          signal: AbortSignal.timeout(25_000),
+        });
   const cuerpo = (await r.json().catch(() => null)) as { error?: string; columnas?: string[]; filas?: unknown[][]; truncada?: boolean; ms?: number } | null;
+  if (r.status === 503) throw new Aviso(cuerpo?.error ?? "El motor está ocupado: vuelve a intentar en unos segundos.");
   if (r.status === 400) throw new Aviso(`La consulta no corrió: ${(cuerpo?.error ?? "error de SQL").replace(/[.!]+$/, "")}. Las tablas y columnas están en la descripción de query.`);
   if (!r.ok || !cuerpo?.columnas) throw new Error(`/api/sql respondió ${r.status}`);
   const nombradas = NOMBRES_TABLAS.filter((t) => new RegExp(`\\b${t}\\b`, "i").test(sql));
@@ -2359,7 +2370,7 @@ export function servidorMcp(): McpServer {
       title: tituloHerramienta("search"),
       description:
         "Busca en los datos públicos del Estado dominicano que ordena Socrático.do: personas con cargo público, instituciones, entidades financieras, empresas del padrón de la DGII (por nombre o RNC), provincias, decretos («Decreto 497-25»), proveedores y procesos de compra, normas, iniciativas del Congreso, sentencias, obras, cargos de la nómina, documentos institucionales y datos abiertos. Por palabras (todas deben estar, tolera una errata) y por tema, ordenado por parecido: para ordenar compras por monto o fecha, o contarlas, usa procurement o query. Devuelve hasta 30 resultados por página; abre cada uno con fetch usando su id.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         query: z.string().min(1).max(1000).describe("Lo que se busca, en español: un nombre, un RNC de nueve cifras, un número de decreto o un tema."),
         type: z.enum(TIPOS_ID).optional().describe(`Solo resultados de este tipo: ${TIPOS_RESULTADO.map((t) => `${t.clave} (${t.plural.toLocaleLowerCase("es")})`).join(", ")}.`),
         page: z.number().int().min(1).max(100).optional().describe("La página, desde 1."),
@@ -2375,7 +2386,7 @@ export function servidorMcp(): McpServer {
     {
       title: tituloHerramienta("fetch"),
       description: `Lee un registro de Socrático.do por el id que devolvió search (o la dirección de su ficha, un RNC o «Decreto 497-25»). Un nodo del grafo (persona, institución, entidad financiera, empresa, decreto o provincia) trae sus datos, sus compras y sus relaciones (hasta ${POR_GRUPO_FETCH} por grupo: cargos, decretos, compras, entidades, lugares, registros), con su fuente y fecha de corte; otro registro trae el resumen del índice y la dirección de su fuente. Con group y page recorre un grupo de relaciones de un nodo entero, de ${POR_PAGINA_RELACIONES} en ${POR_PAGINA_RELACIONES} (quién dirige una institución: group «cargos»; a quién le contrató: group «compras»).`,
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         id: Id.describe("El id de un resultado de search."),
         group: z.enum(GRUPOS_ID).optional().describe("Solo para un nodo del grafo: las relaciones de este grupo, todas, por páginas."),
         page: z.number().int().min(1).max(1000).optional().describe("Con group: la página, desde 1."),
@@ -2393,7 +2404,7 @@ export function servidorMcp(): McpServer {
       title: tituloHerramienta("retrieve"),
       description:
         "Para contestar una pregunta en llano sobre el Estado dominicano: recupera en una llamada la evidencia (RAG sobre el grafo). Junta los registros del buscador híbrido (palabras y tema), las entidades del grafo que la pregunta nombra con sus datos, relaciones y compras, la consulta de compras que la pregunta pide si pide una («la compra más grande de 2026», «las licitaciones de mobiliario abiertas», «lo que publicó el MINERD»), la pantalla de la plataforma que la responde y las llamadas exactas para seguir. Cada pieza trae su fuente, su fecha y su dirección para citarla. No genera la respuesta: la da el asistente con esta evidencia.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         query: z.string().min(1).max(300).describe("La pregunta como la haría una persona, en español."),
         limit: z.number().int().min(1).max(20).optional().describe("Cuántas evidencias, como mucho (10 por omisión)."),
       }),
@@ -2409,7 +2420,7 @@ export function servidorMcp(): McpServer {
       title: tituloHerramienta("procurement"),
       description:
         "Los procesos de compra pública del Estado dominicano de los últimos doce meses (tabla de la DGCP: todos los que traen carátula, no una muestra), filtrados y ordenados: por año o fechas, institución, estado (abierto, en evaluación, adjudicado…), modalidad, objeto (bienes, obras, servicios), monto y palabras de la carátula; de mayor a menor monto por omisión, o por fecha. Da cuántos cumplen, la suma de sus valores estimados, el desglose por estado y las instituciones que más suman, en páginas de 25. Para «la compra más grande de 2026», «las licitaciones de mobiliario abiertas» o «lo que publicó el MOPC este año». El valor es el estimado al publicar; quién ganó no está aquí (la ficha del proceso lo lee en vivo).",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         text: z
           .string()
           .max(200)
@@ -2447,7 +2458,7 @@ export function servidorMcp(): McpServer {
       title: tituloHerramienta("contracting_history"),
       description:
         "Lo que el Estado dominicano ha contratado por el sistema de compras desde 2015 (tablas de contratos de la DGCP, agregadas): de un proveedor (por año, total y sus mayores clientes), de una institución (por año, total y sus mayores proveedores), lo que una institución le contrató a un proveedor si se piden los dos, o, sin ninguno, el país entero con los cien mayores proveedores y las instituciones que más contratan. Valor contratado, no pagado.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         supplier: z.string().max(200).optional().describe("El proveedor: su id («/proveedores/1211»), su RNC de nueve cifras, su RPE o su nombre."),
         institution: z.string().max(200).optional().describe("La institución: su id («/instituciones/237»), sus siglas («MINERD») o su nombre."),
         page: z.number().int().min(1).max(4).optional().describe("Sin proveedor ni institución: la página de los cien mayores proveedores, de 25 en 25."),
@@ -2465,8 +2476,8 @@ export function servidorMcp(): McpServer {
       title: tituloHerramienta("query"),
       description: `SQL de solo lectura (DuckDB) sobre el grafo entero sin personas naturales y los procesos de compra: para lo que las otras herramientas no ordenan, cuentan ni cruzan (empresas con medidas de la DGCP que siguen contratando, las instituciones que más procesos de excepción publicaron, proveedores activos desde tal año). Una sola consulta SELECT (o WITH … SELECT); devuelve hasta ${TOPE_FILAS_SQL} filas; cada una se corta a los 10 s. Las tablas, con sus columnas:
 ${esquemaCompacto()}
-Notas: contrataciones son solo los pares mayores (12 proveedores por institución, 8 clientes por empresa): para totales usa instituciones.monto_contratado o proveedores.monto_contratado. Montos en pesos, contratados (no pagados); procesos.valor_estimado es el estimado al publicar. procesos.unidad_compra es texto: cruza con instituciones por nombre o siglas con cuidado. Las personas naturales no están en estas tablas: se leen una a una con fetch.`,
-      inputSchema: z.object({
+Notas: contrataciones son solo los pares mayores (12 proveedores por institución, 8 clientes por empresa): para totales usa instituciones.monto_contratado o proveedores.monto_contratado; un NULL ahí no es cero (instituciones.sin_asignar dice cuándo sus contratos existen pero no se le atribuyen, como los del MOPC). Montos en pesos, contratados (no pagados); procesos.valor_estimado es el estimado al publicar. procesos.unidad_compra es texto: cruza con instituciones por nombre o siglas con cuidado. Las personas naturales no están en estas tablas: se leen una a una con fetch.`,
+      inputSchema: z.strictObject({
         sql: z
           .string()
           .min(1)
@@ -2484,7 +2495,7 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
     {
       title: tituloHerramienta("path"),
       description: `La cadena más corta de relaciones registradas por el Estado entre dos nodos del grafo (por ejemplo, una persona y una institución, o dos personas), buscando desde los dos extremos a la vez: hasta ${TOPE_CAMINO.saltos} saltos y ${TOPE_CAMINO.fichas} fichas abiertas. Si no la encuentra, dice por qué.`,
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         from: Id.describe("El id del primer nodo."),
         to: Id.describe("El id del segundo nodo."),
       }),
@@ -2500,7 +2511,7 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
       title: tituloHerramienta("signed_decrees"),
       description:
         "Los decretos del Poder Ejecutivo que el registro de la Consultoría Jurídica atribuye a la firma de una persona (un presidente, casi siempre), del más reciente al más viejo, filtrables por año, materia y palabras del título, en páginas de 25.",
-      inputSchema: z.object({
+      inputSchema: z.strictObject({
         person: z.string().min(1).max(200).describe("El id de la persona («/funcionarios/luis-rodolfo-abinader-corona») o su nombre."),
         year: z.number().int().min(1844).max(2100).optional().describe("Solo los de este año."),
         subject: z.enum(MATERIA_SLUGS).optional().describe(`Solo los de esta materia: ${MATERIAS.map((m) => `${m.slug} (${m.nombre})`).join(", ")}.`),
@@ -2520,7 +2531,7 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
       title: tituloHerramienta("ontology"),
       description:
         "Las clases, relaciones y vocabularios controlados del grafo de Socrático.do (OWL y RDFS, alineados con schema.org, W3C ORG, ELI, FOAF y Wikidata): qué es cada tipo de nodo y qué quiere decir cada relación; y dónde descargar el grafo (N-Triples) y sus tablas (Parquet).",
-      inputSchema: z.object({}),
+      inputSchema: z.strictObject({}),
       outputSchema: Ontologia,
       annotations: SOLO_LECTURA,
     },

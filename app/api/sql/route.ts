@@ -11,7 +11,7 @@ export const maxDuration = 30;
  * (`lib/grafo-sql.ts`; las tablas y sus columnas en `/tablas/meta.json`).
  * `GET ?q=SELECT …` o `POST {"q": "SELECT …"}`. Responde
  * `{columnas, filas, truncada, ms, generadas}`; un error de la consulta es un 400
- * con lo que hay que cambiar. Lo llama la herramienta `query` del servidor
+ * con lo que hay que cambiar; un motor ocupado, un 503. Lo llama la herramienta `query` del servidor
  * MCP; cualquiera puede llamarlo: los datos son los mismos que se descargan.
  * El GET se cachea en la CDN mientras dure el despliegue: las tablas solo
  * cambian con uno.
@@ -30,7 +30,7 @@ async function responder(q: unknown): Promise<Response> {
       { headers: { ...CORS, "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400" } },
     );
   } catch (err) {
-    if (err instanceof ErrorDeConsulta) return NextResponse.json({ error: err.message }, { status: 400, headers: CORS });
+    if (err instanceof ErrorDeConsulta) return NextResponse.json({ error: err.message }, { status: err.estado, headers: CORS });
     // Solo el mensaje: nunca la consulta de quien pregunta.
     console.error(`[api/sql] ${err instanceof Error ? err.message : String(err)}`);
     return NextResponse.json({ error: "El motor no pudo correr la consulta." }, { status: 502, headers: CORS });

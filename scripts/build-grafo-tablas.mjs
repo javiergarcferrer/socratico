@@ -2,7 +2,7 @@
 /**
  * Genera public/tablas/: el grafo sin personas naturales y los
  * procesos de compra, en tablas Parquet con tipos, para consultarlas en SQL
- * (la herramienta `query` del servidor MCP, por `/api/grafo/sql`) o bajarlas y
+ * (la herramienta `query` del servidor MCP, por `/api/sql`) o bajarlas y
  * abrirlas en DuckDB, pandas, Polars o una hoja de cálculo.
  *
  * De dónde sale cada tabla:
@@ -110,17 +110,25 @@ function tabla(nombre, descripcion, fuente, corte, columnas, filas) {
 
 // instituciones
 {
+  // Los contratos que no se le pueden atribuir a una unidad sin adivinar (su
+  // código comparte prefijo con otra: el MOPC con la OPRET) no se suman a
+  // ninguna; esa unidad dice el prefijo, como `contracting_history`, y no un 0.
+  const plano = (x) => x.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const sinAsignar = new Map(resumen.sinAsignar.flatMap((g) => g.unidades.map((u) => [plano(u), g.prefijo])));
   const filas = deTipo("Institucion").map((s) => {
     const id = clave(s, "instituciones");
-    const serie = historicoInst.filas[id]?.serie ?? null;
+    const serie = historicoInst.filas[id]?.serie ?? [];
+    const contratos = serie.reduce((t, f) => t + f[1], 0);
+    const nombre = uno(s, P.etiqueta);
     return {
       id: Number(id),
-      nombre: uno(s, P.etiqueta),
+      nombre,
       siglas: uno(s, P.alterno),
       sector: uno(s, `${SOC}sector`)?.replace(`${SOC}sector-`, "") ?? null,
       capitulo: instituciones.get(id)?.capitulo ?? null,
-      contratos: serie ? serie.reduce((t, f) => t + f[1], 0) : null,
-      monto_contratado: serie ? serie.reduce((t, f) => t + f[2], 0) : null,
+      contratos: contratos > 0 ? contratos : null,
+      monto_contratado: contratos > 0 ? serie.reduce((t, f) => t + f[2], 0) : null,
+      sin_asignar: sinAsignar.get(plano(nombre ?? "")) ?? null,
       url: uno(s, P.pagina),
     };
   });
@@ -135,8 +143,9 @@ function tabla(nombre, descripcion, fuente, corte, columnas, filas) {
       ["siglas", "VARCHAR", "Siglas, si las tiene (MINERD, MOPC)."],
       ["sector", "VARCHAR", "ejecutivo, descentralizada, local (ayuntamientos y juntas de distrito), empresa, financiera, poderes, seguridad-social, fideicomiso."],
       ["capitulo", "VARCHAR", "Capítulo del presupuesto (DIGEPRES)."],
-      ["contratos", "INTEGER", "Contratos registrados desde 2015. NULL si no compra por la DGCP."],
-      ["monto_contratado", "BIGINT", "Pesos contratados desde 2015 (contratado, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más)."],
+      ["contratos", "INTEGER", "Contratos registrados desde 2015. NULL si no hay ninguno que se le pueda atribuir: no compra por la DGCP, o sus contratos no se atribuyen (sin_asignar). NULL no es cero."],
+      ["monto_contratado", "BIGINT", "Pesos contratados desde 2015 (contratado, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más). NULL como contratos."],
+      ["sin_asignar", "VARCHAR", "Si sus contratos comparten prefijo de código con otra unidad y no se le atribuyen, ese prefijo (MOPC, MEPYD): lo contratado existe pero no está en esta fila."],
       ["url", "VARCHAR", "Su ficha en Socrático."],
     ],
     filas,

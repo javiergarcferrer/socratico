@@ -1244,21 +1244,43 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   embebido (`@duckdb/node-api`, fundación DuckDB, MIT, fijado a una versión
   exacta: en 2025 publicaron una versión maliciosa en npm y la retiraron en
   horas) carga las tablas en memoria una vez por instancia (~0,15 s, ~175 MB)
-  y después se cierra: `enable_external_access = false` y
-  `lock_configuration = true`. Probado contra `getenv`, `read_csv` de un
-  archivo del sistema, `COPY … TO`, `ATTACH`, `INSTALL`/`LOAD`, una URL
-  remota, `glob` y `SET`: los rechaza todos. Una sola sentencia y solo
-  `SELECT` (lo dice el motor al preparar, no una expresión regular); un hilo,
-  512 MB, 10 s por consulta (se interrumpe y el motor sigue) y a lo sumo 200
-  filas, leídas en flujo. El motor vive en **su propia función** porque su
-  biblioteca pesa ~70 MB y `/mcp` ya lleva ~177: la herramienta llama por
-  HTTP a `/api/sql` del mismo despliegue que atiende (`conOrigen` en
-  `app/mcp/route.ts`, solo los dominios del proyecto), y el GET se cachea en
-  la CDN. La descripción de `query` trae el esquema entero de `meta.json`.
-  Reemplaza a `sparql`, que corría SPARQL solo sobre 150 nodos: el grafo
-  entero no cabía en N3 con Comunica (~9 s y 1,8 GB), Oxigraph tiene un solo
-  mantenedor y Comunica no llega al uso amplio que se le pide a una
-  dependencia (~20 mil descargas por semana).
+  y después se cierra: `enable_external_access = false` (ni archivos, ni red,
+  ni extensiones: probado contra `read_csv` de un archivo del sistema,
+  `COPY … TO`, `ATTACH`, `INSTALL`/`LOAD`, una URL y `glob`) y
+  `lock_configuration = true` (ni `SET`). **Eso no basta**: la revisión halló
+  que un SELECT puede llamar funciones de tabla que cambian la instancia que
+  todos comparten —`enable_logging` dejaba leer con `duckdb_logs()` la
+  consulta de los demás, y con la bitácora en archivo tumbaba el proceso en la
+  consulta siguiente—, correr SQL escondido en una cadena (`query('…')`), o
+  armar una cadena que el techo de memoria no para (`repeat('x', 2e9)` llegó a
+  4 GB). Así que la consulta se lee antes en su árbol (`json_serialize_sql`,
+  el analizador del motor): una sentencia SELECT; de las funciones de tabla,
+  solo `range`, `generate_series`, `unnest`, `duckdb_tables` y
+  `duckdb_columns`; ninguna de las que arman cadenas o listas del tamaño que
+  se pida (`repeat`, `lpad`, `rpad`, `format`, `printf`, `bar`, `list_resize`,
+  `array_resize`, y `range` o `generate_series` como listas). Al correr: a lo
+  sumo dos consultas a la vez por instancia (la piscina de libuv tiene cuatro
+  hilos y una interrupción que llega antes de empezar se perdía), las demás
+  esperan hasta 10 s y si no, un 503 «ocupado»; 10 s por consulta contados
+  desde su turno, interrumpiendo cada 250 ms hasta que pare; un hilo, 512 MB
+  para sus operadores; 200 filas leídas en flujo y ninguna celda de más de
+  2 000 caracteres. Medido el 30-09-2026: seis consultas desbocadas a la vez,
+  dos cortadas a los 10,2 s y cuatro «ocupado» a los 10,2 s; la siguiente
+  responde en 18 ms. La evaluación prueba cada una de esas vías. El motor vive
+  en **su propia función** porque su biblioteca pesa ~70 MB y `/mcp` ya lleva
+  ~177: la herramienta llama a `/api/sql` del mismo despliegue que atiende
+  (`conOrigen` en `app/mcp/route.ts`, solo los dominios del proyecto), por GET
+  —que la CDN guarda— o por POST si la consulta es larga. La descripción de
+  `query` trae el esquema entero de `meta.json`. Reemplaza a `sparql`, que
+  corría SPARQL solo sobre 150 nodos: el grafo entero no cabía en N3 con
+  Comunica (~9 s y 1,8 GB), Oxigraph tiene un solo mantenedor y Comunica no
+  llega al uso amplio que se le pide a una dependencia (~20 mil descargas por
+  semana).
+- **Argumentos estrictos**: cada herramienta rechaza un argumento que no
+  existe. Sin eso, el esquema lo descartaba en silencio y
+  `contracting_history {institucion: …}` —el nombre de antes— contestaba por
+  el país entero; la evaluación lo prueba, y revisa que ninguna respuesta
+  nombre un argumento o una herramienta que ya no existen.
 - **La forma de ChatGPT**: `search` devuelve `results` con `id`, `title`,
   `url` y `text`; `fetch`, `id`, `title`, `text`, `url` y `metadata`. Todas
   las herramientas devuelven el objeto como `structuredContent` (con su
@@ -1317,7 +1339,7 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
 - **La evaluación** (`scripts/eval-mcp.mjs`, en `verificar.sh --completo`
-  contra `next start`): 49 preguntas de quien investiga —la compra más
+  contra `next start`): 51 preguntas de quien investiga —la compra más
   grande del año, las licitaciones de mobiliario abiertas, lo contratado a un
   proveedor, quién dirige una institución—, cada una con su oráculo calculado
   aparte de `public/data`, más las reglas de toda respuesta (sin cédula, con

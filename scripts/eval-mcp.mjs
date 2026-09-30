@@ -520,6 +520,27 @@ const CASOS = [
     },
   },
   {
+    pregunta: "SQL: el MOPC no da cero (sus contratos comparten prefijo), y una celda enorme se recorta",
+    async correr() {
+      const m = await llamar("query", { sql: "SELECT contratos, monto_contratado, sin_asignar FROM instituciones WHERE siglas = 'MOPC'" });
+      exigir(!m.error, m.error);
+      const [contratos, monto, prefijo] = m.datos.filas[0] ?? [];
+      exigir(contratos === null && monto === null && prefijo === "MOPC", `dice ${contratos}, ${monto}, ${prefijo}`);
+      const g = await llamar("query", { sql: "SELECT string_agg(titulo, ' ') FROM procesos" });
+      exigir(!g.error, g.error);
+      exigir(g.datos.truncada && g.datos.filas[0][0].length <= 2_001, `una celda de ${g.datos.filas[0][0].length} caracteres`);
+      return "NULL con su prefijo; la celda, a 2 000";
+    },
+  },
+  {
+    pregunta: "Un argumento que no existe es un error, no una respuesta sin filtro",
+    async correr() {
+      const { datos, error } = await llamar("contracting_history", { institucion: `/instituciones/${MINERD.id}` });
+      exigir(error, `respondió ${datos?.alcance ?? "algo"} con un argumento que no existe`);
+      return "rechazado";
+    },
+  },
+  {
     pregunta: "SQL: las tablas no guardan personas naturales",
     async correr() {
       const t = await llamar("query", { sql: "SELECT table_name FROM information_schema.tables ORDER BY 1" });
@@ -532,13 +553,32 @@ const CASOS = [
     },
   },
   {
-    pregunta: "SQL: una escritura, un archivo, la red o dos consultas se rechazan",
+    pregunta: "SQL: una escritura, un archivo, la red, dos consultas o una función que toca la instancia se rechazan",
     async correr() {
-      for (const sql of ["DROP TABLE procesos", "COPY procesos TO '/tmp/x.csv'", "SELECT * FROM read_csv('/etc/passwd')", "SELECT * FROM 'https://example.com/x.parquet'", "SELECT 1; SELECT 2", "SET threads = 8"]) {
+      const vetadas = [
+        "DROP TABLE procesos",
+        "COPY procesos TO '/tmp/x.csv'",
+        "SELECT * FROM read_csv('/etc/passwd')",
+        "SELECT * FROM 'https://example.com/x.parquet'",
+        "SELECT 1; SELECT 2",
+        "SET threads = 8",
+        // Funciones de tabla que cambian la instancia que todos comparten, o corren SQL escondido.
+        "SELECT * FROM enable_logging('QueryLog')",
+        "SELECT * FROM enable_logging(storage='file', storage_path='/tmp/p')",
+        "SELECT message FROM duckdb_logs()",
+        "SELECT * FROM query('SELECT * FROM enable_logging(''QueryLog'')')",
+        "SELECT * FROM pragma_version()",
+        // Una cadena del tamaño que se pida no la para el techo de memoria.
+        "SELECT length(repeat('x', 2000000000))",
+        "SELECT len(range(1000000000))",
+      ];
+      for (const sql of vetadas) {
         const { error } = await llamar("query", { sql });
         exigir(error, `aceptó ${sql}`);
       }
-      return "rechazadas las seis";
+      const despues = await llamar("query", { sql: "SELECT count(*) FROM provincias" });
+      exigir(despues.datos?.filas?.[0]?.[0] === 32, `el motor quedó mal: ${despues.error ?? JSON.stringify(despues.datos)}`);
+      return `rechazadas las ${vetadas.length}; el motor sigue`;
     },
   },
   {
@@ -751,6 +791,9 @@ function reglasGenerales() {
   for (const { nombre, res } of vistas) {
     const texto = JSON.stringify(res);
     if (CEDULA.test(texto)) fallos.push(`${nombre}: una respuesta trae algo con forma de cédula`);
+    // Una pista que nombra un argumento viejo lleva al modelo a pedir sin filtro (la revisión del 30-09-2026).
+    const vieja = /\b(con|e) (institucion|proveedor|persona|grupo|pagina|texto|anio|tipo|desde|hasta) «|\b(neighbors|sparql)\b/.exec(texto);
+    if (vieja) fallos.push(`${nombre}: una respuesta nombra «${vieja[0]}», que ya no es una herramienta ni un argumento`);
     if (res.isError) continue;
     const d = res.structuredContent ?? {};
     if (nombre === "search") {

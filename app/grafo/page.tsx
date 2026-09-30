@@ -233,11 +233,16 @@ async function Portada({ consulta }: { consulta: string }) {
             </a>
             , <span className="font-mono text-[13px] text-ink">{formatInt(volcado.triples)}</span> triples en N-Triples
             comprimido, del {formatFecha(volcado.generado)}, para SPARQL (Oxigraph, QLever o Apache Jena, todos
-            abiertos); y las mismas entidades, con lo contratado y los procesos de compra, en{" "}
+            abiertos). Las mismas entidades, con lo contratado desde 2015 y los procesos de compra del último año,
+            están también en nueve tablas para abrir en DuckDB, pandas o Polars (formato Parquet;{" "}
+            <a href="/tablas/procesos.parquet" className="text-brand-700 underline">
+              la de procesos
+            </a>
+            , por ejemplo; la lista de las nueve y sus columnas, en{" "}
             <a href="/tablas/meta.json" className="text-brand-700 underline">
-              tablas Parquet
-            </a>{" "}
-            para SQL (DuckDB, pandas o Polars), que el servidor MCP consulta con su herramienta query. Las personas
+              meta.json
+            </a>
+            ), y los asistentes de IA las consultan en SQL por el servidor MCP. Las personas
             con cargo, sus cargos y los decretos no entran:
             se leen una a una, en su ficha.
           </p>
