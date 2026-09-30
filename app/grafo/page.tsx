@@ -221,6 +221,14 @@ async function Portada({ consulta }: { consulta: string }) {
           . No hay un punto SPARQL: no hay almacén de triples; cada descripción se arma al pedirla, de las mismas
           instantáneas que pintan las fichas.
         </p>
+        <p>
+          Un asistente de IA (Claude, ChatGPT o cualquier cliente del Model Context Protocol) lo recorre con las
+          mismas reglas por el servidor MCP de la plataforma:{" "}
+          <Link href="/conectar" className="text-brand-700 underline">
+            cómo conectarlo
+          </Link>
+          .
+        </p>
       </section>
 
       <Aviso />
