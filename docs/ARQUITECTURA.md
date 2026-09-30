@@ -330,7 +330,10 @@ during a visit.
 - **`lib/financieras.ts`** — regulated financial entities (§H.6).
   `scripts/build-banca.py` reads the SB's `/supervisados/` listings and each
   entity's ficha (ten seconds between requests; on a Sucuri challenge it stops
-  without writing and never retries in a loop), the SB's monthly CSV of
+  asking the SB, writes only the categories it read whole and lists the rest in
+  `resumen.sbNoLeidas`, which the UI turns into its «what is missing» sentence
+  via `faltanDeLaSb`; `--cache D --sin-red` rebuilds from saved responses with no
+  request at all), the SB's monthly CSV of
   authorised entities, SIPEN's AFP page, the SIS insurers page (name and web
   only) and IDECOOP's XLSX (read with `zipfile`), and writes
   `public/data/banca.json`: no phones, e-mails or addresses. `getFinancieras`,
@@ -341,8 +344,10 @@ during a visit.
   `/banca` (sector chips only for sectors the snapshot holds, province filter for
   cooperatives) and `/banca/[slug]`, whose board and officer names link to
   `/funcionarios` through `personaPorNombre` (exact normalised name, three words
-  or more, a single person). In `/buscar` as type «financiera»
-  (`scripts/busqueda_financieras.py`, no vector).
+  or more, a single person) only when that person holds a post in the same
+  entity there. In `/buscar` as type «financiera»
+  (`scripts/busqueda_financieras.py`, no vector; acronyms and former names are
+  indexed).
 - **`lib/instituciones.ts`** now carries the whole public sector (§H.8):
   `sector`, `clasificador`, `dgcp` and the two transfer fields on each record;
   `SECTORES`, `sectorDe`, `contarPorSector`, `hrefDirectorio` for the sector

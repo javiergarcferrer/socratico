@@ -40,7 +40,8 @@ import type { ClaveGlosario } from "@/lib/glosario";
  *
  * **Privacidad.** Ni la instantánea ni esta capa guardan teléfonos, correos ni
  * direcciones; los nombres del consejo y de los funcionarios van tal como los
- * publica la SB, en texto, sin enlazar a nada.
+ * publica la SB. La ficha enlaza uno a `/funcionarios` solo si esa persona tiene
+ * allí un cargo en la misma entidad (`app/banca/[slug]/page.tsx`).
  *
  * Bloqueados (se declaran en `/fuentes`): la Superintendencia del Mercado de
  * Valores y el registro de intermediarios de seguros, tras desafíos de
@@ -166,8 +167,27 @@ export interface Financieras {
     cooperativasIncluidas: number;
     subagentes: { total: number; bancarios?: number; cambiarios?: number; fuente: string } | null;
     registroCasadas: number;
+    /** Las categorías de la SB que esta instantánea no trae, y por qué (el desafío de su cortafuegos). */
+    sbNoLeidas?: { categoria: string; sectores: Sector[]; motivo: "desafio" | "sin-cache"; total: number | null }[];
   };
   entidades: EntidadFinanciera[];
+}
+
+/**
+ * «los agentes de cambio y de remesas (42), las fiduciarias (5)…»: lo que la SB
+ * supervisa y esta instantánea no trae, dicho desde la instantánea misma para
+ * que la primera corrida completa lo borre sola. Vacío si no falta nada.
+ */
+export function faltanDeLaSb(d: Financieras): string {
+  const partes = (d.resumen.sbNoLeidas ?? []).flatMap((n) =>
+    n.sectores.map((s) => {
+      const info = infoSector(s);
+      const articulo = info.articulo === "una" ? "las" : "los";
+      return `${articulo} ${info.plural.toLowerCase()}${n.total != null ? ` (${n.total.toLocaleString("es-DO")})` : ""}`;
+    }),
+  );
+  if (partes.length === 0) return "";
+  return partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
 }
 
 /* ------------------------------------------------------------ vocabulario */
@@ -440,7 +460,11 @@ export async function entidadDeInstitucion(id: number): Promise<EntidadFinancier
 /** El número del decreto de incorporación si tiene ficha propia en `/normativa` («188-24»). */
 export function decretoConFicha(e: EntidadFinanciera): string | null {
   const n = e.decreto?.trim() ?? "";
-  return /^\d{1,4}-\d{2}$/.test(n) ? n : null;
+  const m = /^\d{1,4}-(\d{2})$/.exec(n);
+  if (!m) return null;
+  // «1433-04» con año 2014 no es el Decreto 1433-04: el sufijo tiene que ser el del año.
+  if (e.anioDecreto != null && String(e.anioDecreto).slice(-2) !== m[1]) return null;
+  return n;
 }
 
 /** «401010062» → «4-01-01006-2», como lo escribe la DGII. */

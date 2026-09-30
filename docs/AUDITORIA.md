@@ -1837,11 +1837,11 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
 - ⚠️ **Sucuri en la SB.** A un segundo entre peticiones, el cortafuegos respondió
   tras unas 70 con su desafío de JavaScript (HTTP 307 sin `Location`, «You are
   being redirected…», `sucuri_cloudproxy_js`). `scripts/build-banca.py` espera
-  diez segundos entre peticiones y, si ve el desafío, para sin escribir. La
-  instantánea del 29-09-2026 (22:55) salió completa para las 47 entidades de
-  intermediación financiera; la corrida que sumaba cambiarias (42), fiduciarias
-  (5), burós (4) y oficinas de representación (5) topó con el desafío en las
-  fichas cambiarias. **Tropiezo de higiene, declarado:** el constructor reintentó
+  diez segundos entre peticiones y, al primer desafío, no le pide nada más a la
+  SB. Las 47 entidades de intermediación financiera se leyeron enteras antes del
+  desafío; la corrida que sumaba cambiarias (42), fiduciarias (5), burós (4) y
+  oficinas de representación (5) topó con él en las fichas cambiarias, y las otras
+  tres no se alcanzaron. **Tropiezo de higiene, declarado:** el constructor reintentó
   dos veces más, con veinte minutos de pausa y una petición por minuto, y el
   desafío siguió. Reintentar a la espera de que ceda es insistir sobre un bloqueo:
   la regla es parar al primer desafío y pedir a la SB que admita el User-Agent
@@ -1853,12 +1853,19 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   estados financieros y memorias enlazados sin leerse), 7 AFP (SIPEN), 35
   compañías de seguros (SIS, solo nombre y web) y 1,211 cooperativas de ahorro,
   crédito o solo servicios múltiples (IDECOOP, de las 2,304 incorporadas). Ni
-  teléfonos, ni correos, ni direcciones. Los nombres del consejo se muestran como
-  los publica la SB; uno de tres palabras o más que coincide exacto con una sola
-  persona de `/funcionarios` lleva a su ficha (en Banreservas, 7 de 14: los
-  miembros que nombra un decreto). Banreservas, el Banco Agrícola y BANDEX se atan
-  a su ficha de institución en los dos sentidos. El CSV mensual de autorizadas solo
-  dice desde qué mes figura una razón social.
+  teléfonos, ni correos, ni direcciones. Los nombres del consejo y de los
+  funcionarios se muestran como los publica la SB; uno lleva a `/funcionarios` solo
+  si coincide (sin tildes ni mayúsculas, tres palabras o más) con una sola persona
+  **y** esa persona tiene allí un cargo en la misma entidad: en Banreservas, 12 de
+  sus 35 nombres; en el Banco Agrícola, 5 de 27; en BANDEX, 1 de 19. Un nombre
+  igual sin ese lazo puede ser otra persona y no se enlaza (la revisión halló tres
+  así). Banreservas, el Banco Agrícola y BANDEX se atan a su ficha de institución en
+  los dos sentidos. El CSV mensual de autorizadas dice desde qué mes figura la razón
+  social de 44 entidades; la SB cuenta 7,454 subagentes (7,161 bancarios, 293
+  cambiarios). La instantánea se rehízo con `--sin-red` desde las respuestas
+  guardadas antes del desafío, sin una sola petición: el script ya no aborta ante
+  el desafío, deja de pedirle a la SB, escribe lo que leyó entero y apunta en
+  `resumen.sbNoLeidas` lo que quedó fuera.
 
 ### H.7 El registro mercantil y las empresas
 

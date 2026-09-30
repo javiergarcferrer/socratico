@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import {
   SECTORES,
+  faltanDeLaSb,
   esSector,
   filtrarEntidades,
   formatMesLargo,
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/banca" },
   title: "Bancos y financieras",
   description:
-    "Los bancos, asociaciones y corporaciones de crédito, las AFP, las aseguradoras y las cooperativas de ahorro que el Estado autoriza: cuánto tiene cada una, quién la dirige y qué informa, según quien la supervisa.",
+    "Los bancos, asociaciones y corporaciones de crédito, con cuánto tiene cada uno y quién lo dirige según la Superintendencia de Bancos, y las AFP, las aseguradoras y las cooperativas de ahorro que el Estado autoriza, con lo que publica su registro.",
 };
 
 export const revalidate = 86400;
@@ -115,6 +116,7 @@ export default async function BancaPage({ searchParams }: Props) {
   const sistema = resumenSistema(d);
   const coops = d.resumen;
   const corteCoop = d.cortes.idecoop ? formatMesLargo(d.cortes.idecoop) : null;
+  const faltan = faltanDeLaSb(d);
 
   const url = (cambios: { sector?: Sector | null; provincia?: string | null; pagina?: number }) => {
     const u = new URLSearchParams();
@@ -152,14 +154,13 @@ export default async function BancaPage({ searchParams }: Props) {
       <header>
         <h1 className="font-display text-3xl text-ink sm:text-4xl">¿Quién guarda el dinero del país?</h1>
         <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft sm:text-sm">
-          Los bancos, asociaciones y corporaciones de crédito, las AFP, las aseguradoras y
-          las cooperativas de ahorro que el Estado autoriza, cada una con su ficha: cuánto
-          tiene, quién la dirige y qué informa, tal como lo publica quien la supervisa. No
-          están el mercado de valores ni los corredores de seguros, porque sus registros
-          están bloqueados; tampoco los agentes de cambio, las fiduciarias, los burós de
-          crédito ni las oficinas de representación, porque el sitio de la Superintendencia
-          de Bancos respondió con un desafío de su cortafuegos al leerlos. Las cooperativas
-          llegan hasta {corteCoop ?? "el último archivo del IDECOOP"}.
+          Los bancos, asociaciones y corporaciones de crédito, cada uno con cuánto tiene,
+          quién lo dirige y qué informa según la Superintendencia de Bancos; y las AFP, las
+          aseguradoras y las cooperativas de ahorro que el Estado autoriza, con lo que
+          publica su registro. No están el mercado de valores ni los corredores de seguros,
+          porque sus registros están bloqueados
+          {faltan ? `; tampoco ${faltan}, que la SB supervisa y cuyas fichas no se pudieron leer` : ""}.
+          Las cooperativas llegan hasta {corteCoop ?? "el último archivo del IDECOOP"}.
         </p>
       </header>
 
@@ -172,7 +173,12 @@ export default async function BancaPage({ searchParams }: Props) {
               </>
             }
             valor={formatInt(sistema.operan)}
-            ancla={{ alcance: "registro", periodo: "según la Superintendencia de Bancos" }}
+            ancla={{
+              alcance: "registro",
+              periodo: sistema.corteHasta
+                ? `según las fichas de la SB, la más reciente del ${formatFecha(sistema.corteHasta)}`
+                : "según la Superintendencia de Bancos",
+            }}
           />
           <Cifra
             etiqueta="Sus activos, sumados"
@@ -249,6 +255,7 @@ export default async function BancaPage({ searchParams }: Props) {
           La búsqueda mira el nombre, la razón social, las siglas y el RNC. Los puestos de
           bolsa, los fondos de inversión y los corredores de seguros no están: sus
           registros están bloqueados.
+          {faltan ? ` Tampoco ${faltan}: la SB los supervisa, pero sus fichas no se pudieron leer.` : ""}
         </EstadoVacio>
       ) : (
         <Card as="section" aria-labelledby="entidades">
@@ -341,8 +348,7 @@ export default async function BancaPage({ searchParams }: Props) {
         Fuentes: las fichas de la Superintendencia de Bancos, la página de AFP de la
         Superintendencia de Pensiones, la lista de compañías de la Superintendencia de
         Seguros y el archivo de cooperativas incorporadas del IDECOOP. Instantánea del{" "}
-        {formatFecha(d.generado)}; cada ficha dice la fecha de su dato. Se regenera con{" "}
-        <code className="font-mono">scripts/build-banca.py</code>.
+        {formatFecha(d.generado)}; cada ficha dice la fecha de su dato.
       </p>
     </div>
   );

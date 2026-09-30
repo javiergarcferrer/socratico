@@ -2,8 +2,9 @@
 
 Lee `public/data/banca.json` (lo arma `scripts/build-banca.py`) y devuelve una
 entrada por entidad (`t="financiera"`): su nombre corto como título, el tipo y
-el supervisor como detalle, y como texto auxiliar la razón social y el RNC,
-para que «Banreservas», «banco de reservas» o su RNC la encuentren. Enlaza a
+el supervisor como detalle, y como texto auxiliar las siglas, el nombre
+anterior, la razón social y el RNC, para que «Banreservas», «banco de
+reservas», «COOPNAMA» o su RNC la encuentren. Enlaza a
 `/banca/{slug}` (`enlace.entidadFinanciera` de lib/grafo.ts).
 
 Sin vector: el nombre de un banco o de una cooperativa no dice de qué trata
@@ -42,8 +43,10 @@ def entradas(datos) -> tuple[list[dict], str]:
     for e in d["entidades"]:
         detalle = " · ".join(x for x in (SECTOR.get(e["sector"], e.get("tipo") or ""),
                                          SUPERVISOR.get(e["supervisor"], "")) if x)
-        aux = " · ".join(x for x in (e.get("razonSocial"), e.get("rnc") and f"RNC {e['rnc']}",
-                                     e.get("tipo")) if x)[:240]
+        # Las siglas y el nombre anterior también: a una cooperativa se la busca
+        # por sus siglas («COOPNAMA»).
+        aux = " · ".join(x for x in (e.get("siglas"), e.get("antes"), e.get("razonSocial"),
+                                     e.get("rnc") and f"RNC {e['rnc']}", e.get("tipo")) if x)[:240]
         out.append({
             "t": "financiera",
             "ti": e["nombre"],

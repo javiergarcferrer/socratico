@@ -23,6 +23,7 @@ import {
   type Persona,
 } from "@/lib/financieras";
 import { hrefInstitucion } from "@/lib/instituciones";
+import { plano } from "@/lib/raiz";
 import { getFuncionarios, personaPorNombre, type Persona as PersonaPublica } from "@/lib/funcionarios";
 import { enlace } from "@/lib/grafo";
 import { formatFecha, formatPesos, tituloLegible } from "@/lib/format";
@@ -59,12 +60,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!e) return { title: "Entidad financiera no encontrada" };
   const s = infoSector(e.sector);
   const sup = SUPERVISORES[e.supervisor];
+  // Solo lo que su ficha de la SB trae de verdad: hay bancos sin consejo publicado.
+  const trae = [
+    e.activosMillones != null && "sus activos",
+    e.consejo?.length && "su consejo",
+    e.funcionarios?.length && "sus principales funcionarios",
+    e.estadosFinancieros?.length && "sus estados financieros",
+  ].filter((x): x is string => Boolean(x));
+  const lista = trae.length > 1 ? `${trae.slice(0, -1).join(", ")} y ${trae[trae.length - 1]}` : trae[0];
   return {
     title: e.nombre,
     alternates: { canonical: enlace.entidadFinanciera(e.slug) },
     description:
-      e.supervisor === "sb"
-        ? `${e.nombre}: ${s.nombre.toLowerCase()} bajo la supervisión ${sup.de}. Sus activos, su consejo, sus principales funcionarios y sus estados financieros, según la SB.`
+      e.supervisor === "sb" && lista
+        ? `${e.nombre}: ${s.nombre.toLowerCase()} bajo la supervisión ${sup.de}. ${lista[0].toUpperCase()}${lista.slice(1)}, según la SB.`
         : `${e.nombre}: ${s.nombre.toLowerCase()} bajo la supervisión ${sup.de}, con lo que publica de ella su supervisor.`,
   };
 }
@@ -75,8 +84,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * cada dato. El orden de IDENTIDAD §4.
  *
  * Todo sale de la instantánea de `lib/financieras.ts`. Los nombres del consejo
- * y de los funcionarios se muestran tal como los publica la SB, en texto: no
- * enlazan a nada ni se completan. Teléfonos, correos y direcciones no están.
+ * y de los funcionarios se muestran tal como los publica la SB, sin completar;
+ * uno enlaza a `/funcionarios` solo si esa persona tiene allí un cargo en esta
+ * misma entidad (ver `conCargo`). Teléfonos, correos y direcciones no están.
  */
 export default async function EntidadFinancieraPage({ params }: Props) {
   const { slug } = await params;
@@ -229,7 +239,23 @@ export default async function EntidadFinancieraPage({ params }: Props) {
 
       <QuienDirige
         e={e}
-        conCargo={(nombre) => (funcionarios ? personaPorNombre(funcionarios, nombre) : null)}
+        conCargo={(nombre) => {
+          // Solo si esa persona tiene, en /funcionarios, un cargo en esta misma
+          // entidad: en la institución que es (Banreservas) o en un cargo que la
+          // nombra. Un nombre igual sin ese lazo puede ser otra persona.
+          const p = funcionarios ? personaPorNombre(funcionarios, nombre) : null;
+          if (!p) return null;
+          const propios = [institucion?.nombre, e.razonSocial, e.nombre]
+            .filter((x): x is string => Boolean(x))
+            .map((x) => plano(x).trim())
+            .filter((x) => x.length >= 8);
+          const ata = p.cargos.some(
+            (c) =>
+              (institucion != null && c.institucionId === institucion.id) ||
+              propios.some((n) => plano(c.titulo).includes(n)),
+          );
+          return ata ? p : null;
+        }}
       />
 
       <QueInforma e={e} />
@@ -536,9 +562,9 @@ function QuienDirige({ e, conCargo }: { e: EntidadFinanciera; conCargo: (nombre:
       </div>
       <p className="border-t border-hairline px-5 py-3 text-xs leading-relaxed text-ink-soft">
         Nombres y cargos tal como los publica la Superintendencia de Bancos en la ficha de la
-        entidad, sin completar ni corregir. Un nombre de tres palabras o más que coincide letra
-        por letra con el de una sola persona con cargo público lleva a su ficha: es la regla de la
-        plataforma, «una persona es su nombre»; la SB no dice que sean la misma persona.
+        entidad, sin completar ni corregir. Un nombre lleva a la ficha de cargo público de una
+        persona que se llama igual (sin contar tildes ni mayúsculas) solo si esa persona tiene un
+        cargo en esta misma entidad según el MAP o un decreto; la SB no lo dice por sí misma.
       </p>
     </Card>
   );

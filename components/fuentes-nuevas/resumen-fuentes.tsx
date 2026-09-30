@@ -6,7 +6,7 @@ import { getTasa } from "@/lib/tasa";
 import { getResumenHistorico } from "@/lib/historico";
 import { getIndiceBiblioteca } from "@/lib/biblioteca";
 import { getCatalogo } from "@/lib/catalogo";
-import { SECTORES_EIF, getFinancieras, type Sector } from "@/lib/financieras";
+import { SECTORES_EIF, getFinancieras, type Sector, faltanDeLaSb } from "@/lib/financieras";
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { metaSanciones } from "@/lib/sanciones";
@@ -182,6 +182,24 @@ export async function ResumenFinancierasSb() {
         ? `, con fichas actualizadas entre el ${formatFecha(d.cortes.sb.desde)} y el ${formatFecha(d.cortes.sb.hasta)}`
         : ""}
       .
+    </>
+  );
+}
+
+/**
+ * Lo que la SB supervisa y la instantánea no trae, dicho desde la instantánea:
+ * cuando una corrida lo lea todo, la frase desaparece sola.
+ */
+export async function ResumenFaltanSb() {
+  const d = await getFinancieras();
+  const faltan = d ? faltanDeLaSb(d) : "";
+  if (!faltan) return null;
+  return (
+    <>
+      {" "}
+      Esta instantánea no trae {faltan}: al leer las fichas de la primera de esas categorías, el
+      cortafuegos respondió con su desafío y no se le pidió nada más a la SB. La vía para leerlas es
+      pedirle que admita el User-Agent de la plataforma.
     </>
   );
 }

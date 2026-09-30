@@ -24,7 +24,8 @@ export default function Loading() {
         <Skeleton className="h-3 w-3/4 max-w-lg bg-hairline/70" />
       </div>
       <div className="flex flex-wrap gap-2 sm:gap-1.5">
-        {Array.from({ length: 7 }).map((_, i) => (
+        {/* «Todas», los seis sectores a la vista y «Ver todas»: ocho, como la fila real. */}
+        {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="h-10 w-32 bg-hairline/70 sm:h-9" />
         ))}
       </div>
