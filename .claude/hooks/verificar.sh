@@ -124,9 +124,35 @@ fi
 
 # 6. Build (completo only).
 LOG="${TMPDIR:-/tmp}/socratico-build.log"
+construido=0
 if [ "$modo" = "--completo" ]; then
-  if timeout 600 npm run build >"$LOG" 2>&1; then ok "npm run build"; rm -f "$LOG"
+  if timeout 600 npm run build >"$LOG" 2>&1; then ok "npm run build"; rm -f "$LOG"; construido=1
   else mal "npm run build (see $LOG)"; tail -30 "$LOG" | sed 's/^/       /'; fi
+fi
+
+# 6b. The MCP server answers what it promises (docs/PLAN-ACCESO.md §6 sexies,
+#     M5): `scripts/eval-mcp.mjs` calls every tool against `next start` over
+#     the build just made, each case checked against an oracle read from the
+#     snapshots, plus the rules every answer keeps (no cédula, source, cut).
+#     A change that breaks a tool's shape does not reach `main`.
+if [ "$construido" = 1 ]; then
+  SLOG="${TMPDIR:-/tmp}/socratico-start.log"
+  puerto="$(node -e 'const s=require("net").createServer().listen(0,()=>{console.log(s.address().port);s.close()})')"
+  node node_modules/next/dist/bin/next start -p "$puerto" >"$SLOG" 2>&1 &
+  srv=$!
+  listo=0
+  for _ in $(seq 1 60); do
+    curl -s -o /dev/null "http://localhost:$puerto/robots.txt" && { listo=1; break; }
+    sleep 1
+  done
+  if [ "$listo" = 1 ] && eval_mcp="$(timeout 300 node scripts/eval-mcp.mjs --url "http://localhost:$puerto/mcp" 2>&1)"; then
+    ok "mcp: $(printf '%s\n' "$eval_mcp" | tail -1)"
+  else
+    mal "mcp: scripts/eval-mcp.mjs against next start"
+    if [ "$listo" = 1 ]; then printf '%s\n' "$eval_mcp" | grep -E 'FAIL|casos' | head -15 | sed 's/^/       /'
+    else echo "       next start did not answer in 60 s:"; tail -5 "$SLOG" | sed 's/^/       /'; fi
+  fi
+  kill "$srv" 2>/dev/null; wait "$srv" 2>/dev/null
 fi
 
 # 7. The stamp. `main` deploys to production on every push, so the gate has to

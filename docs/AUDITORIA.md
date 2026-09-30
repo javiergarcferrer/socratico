@@ -1226,7 +1226,10 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
 - ✅ `GET https://datosabiertos.dgcp.gob.do/api-dgcp/v1/tablas/contratos?Type=csv`
   → 200 `text/csv`, **115 MB en 3.5 s**, `Contratos.csv`: **722,825 contratos
   desde 2015** (código, estado, estado de adjudicación, fecha, valor, moneda,
-  objeto, RPE, razón social, documento). **No trae la unidad de compra.**
+  objeto, RPE, razón social, documento). **No trae la unidad de compra, ni el
+  código del proceso** (columnas releídas el 2026-09-30): un contrato no se ata
+  a su proceso por la tabla, así que quién ganó un proceso sale solo de la API
+  en vivo (la ficha `/procesos/{codigo}`), no de una instantánea.
 - ✅ `…/tablas/procesos?Type=csv` → 200 `text/csv`, **245 MB en 5.4 s**:
   **631,103 procesos** con unidad de compra, modalidad, tipo de excepción,
   estado, monto estimado y URL.

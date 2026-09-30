@@ -17,7 +17,7 @@ import { DIRECCION_MCP, HERRAMIENTAS_MCP } from "@/lib/mcp-herramientas";
 export const metadata: Metadata = {
   title: "Conectar tu asistente de IA",
   description:
-    "Conecta Claude, ChatGPT o cualquier cliente del Model Context Protocol a Socrático.do: busca, lee fichas y recorre el grafo de datos públicos del Estado dominicano, con la fuente y la fecha de cada dato. Sin cuenta ni clave.",
+    "Conecta Claude, ChatGPT o cualquier cliente del Model Context Protocol a Socrático.do: busca, ordena las compras públicas por monto, lee fichas y recorre el grafo de datos públicos del Estado dominicano, con la fuente y la fecha de cada dato. Sin cuenta ni clave.",
   alternates: { canonical: "/conectar" },
 };
 
@@ -45,7 +45,7 @@ export default function ConectarPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-soft">
           Con una dirección. Claude, ChatGPT y cualquier programa que hable el Model Context Protocol (MCP) pueden
-          buscar en la plataforma, leer sus fichas y recorrer{" "}
+          buscar en la plataforma, ordenar las compras públicas por monto o por fecha, leer sus fichas y recorrer{" "}
           <Link href={enlace.grafo()} className="text-brand-700 underline">
             el grafo
           </Link>

@@ -14,7 +14,20 @@ import {
   type GrupoRelacion,
   type Relacion,
 } from "@/lib/grafo-rdf";
-import { buscarEnTodo, EN_MAYUSCULAS, resultadoPorHref, TIPOS_RESULTADO, type Resultado, type TipoResultado } from "@/lib/busqueda";
+import {
+  buscarEnTodo,
+  EN_MAYUSCULAS,
+  procesosDelIndice,
+  proveedoresDelIndice,
+  resultadoPorHref,
+  TIPOS_RESULTADO,
+  type ProcesoIndexado,
+  type ProveedorIndexado,
+  type Resultado,
+  type TipoResultado,
+} from "@/lib/busqueda";
+import { getResumenHistorico, historiaDeInstitucion, historiaDeProveedor, prefijoSinAsignar } from "@/lib/historico";
+import { FUENTES_DEL_CRUCE, INSTITUCIONES, institucionPorId, type Institucion } from "@/lib/instituciones";
 import { buscarEmpresas, empresaPorRnc, padronEmpresas, type Empresa } from "@/lib/empresas";
 import { AVISO_DECRETO, decretoPorNumero, decretosDeFirmante, hrefDecreto, indiceDecretos, type AvisoDecreto } from "@/lib/decretos";
 import { MATERIAS } from "@/lib/materias-decreto";
@@ -48,7 +61,7 @@ import { llevaCedula, sinCedula } from "@/lib/padron";
  */
 
 /** Cambia cuando cambia la forma de una herramienta. */
-export const VERSION_MCP = "1.0.0";
+export const VERSION_MCP = "1.1.0";
 
 const AVISO =
   "Socrático.do es una herramienta independiente y no oficial: ordena lo que publica el Estado dominicano, con su fuente y su fecha de corte.";
@@ -58,12 +71,14 @@ const INSTRUCCIONES = `Socrático.do ordena lo que publica el Estado dominicano.
 Qué hay: un grafo de personas con cargo público, instituciones del Estado, decretos, entidades financieras supervisadas, personas jurídicas del padrón de la DGII y provincias, con sus relaciones (cargos, firmas, supervisión, declaraciones juradas publicadas, medidas de la DGCP, la lista SDN de la OFAC, Wikidata); y un índice de búsqueda de compras públicas, proveedores, normas, iniciativas del Congreso, sentencias, obras, documentos institucionales y datos abiertos. Todo sale de instantáneas de fuentes públicas (del Estado dominicano, más la lista SDN de la OFAC y los identificadores de Wikidata): cada respuesta dice su fuente y su fecha de corte.
 
 Cómo se usa:
-1. search con palabras: un nombre, un RNC de nueve cifras, «Decreto 497-25», un tema. Cada resultado trae un id.
+1. search con palabras: un nombre, un RNC de nueve cifras, «Decreto 497-25», un tema. Cada resultado trae un id. Ordena por parecido, no por monto ni fecha; con tipo se queda en un solo tipo (proceso, proveedor, norma…).
 2. fetch con ese id: el registro, con su fuente, su fecha y, si es un nodo del grafo, sus relaciones.
-3. neighbors recorre todas las relaciones de un nodo por páginas; path busca la cadena más corta de relaciones entre dos nodos; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo.
+3. Compras públicas: procurement filtra y ordena por monto o por fecha todos los procesos de compra de los últimos doce meses (por año, institución, estado, modalidad, objeto y palabras de la carátula) y da su total y su suma; contracting_history da lo contratado desde 2015 por un proveedor, por una institución o por el país, con sus mayores contrapartes. Para «la mayor», «las más recientes», «las abiertas» o «cuánto compra», usa estas, no search.
+4. neighbors recorre todas las relaciones de un nodo por páginas (quién dirige una institución: neighbors con grupo cargos); path busca la cadena más corta de relaciones entre dos nodos; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo.
 
 Reglas al usar estos datos:
 - Cita la fuente y la fecha de corte de cada dato; son instantáneas, no tiempo real.
+- El valor de un proceso de compra es el estimado al publicarlo, no lo adjudicado ni lo pagado. Quién ganó un proceso no está en las instantáneas: la ficha del proceso (su url) lo lee en vivo de la DGCP.
 - «Persona expuesta políticamente» (PEP) es una categoría legal (Ley 155-17, art. 2, num. 19): quien ocupa, u ocupó en los últimos tres años, un cargo obligado a declarar patrimonio. No es una acusación.
 - Una persona se identifica por su nombre normalizado, nunca por su cédula. Dos grafías son dos nodos, y dos personas con el mismo nombre pueden ser distintas: no afirmes que dos registros son la misma persona si la respuesta no lo dice.
 - Una relación dice lo que registra su fuente (un cargo, una firma, una supervisión); no implica parentesco, sociedad ni conducta indebida.
@@ -336,6 +351,16 @@ const Hallado = z.object({
 });
 type Hallado = z.infer<typeof Hallado>;
 
+const TIPOS_ID = TIPOS_RESULTADO.map((t) => t.clave) as [TipoResultado, ...TipoResultado[]];
+
+const Busqueda = z.object({
+  results: z.array(Hallado),
+  tipo: z.enum(TIPOS_ID).nullable().describe("El tipo al que se limitó la búsqueda, si se pidió."),
+  total: z.number().describe("Cuántos resultados del índice cumplen la consulta (sin las empresas del padrón ni las provincias)."),
+  pagina: z.number(),
+  paginas: z.number(),
+});
+
 /** Cuántos resultados devuelve `search`: los del índice, más empresas del padrón, provincias y lo que se nombra exacto. */
 const TOPE = { indice: 20, empresas: 5, provincias: 4, total: 30 } as const;
 
@@ -351,10 +376,33 @@ function lineaEmpresa(e: Empresa, corte: string | null): string {
     .join(" · ");
 }
 
-async function buscar(query: string): Promise<{ results: Hallado[] }> {
+/** La línea de un resultado del índice: tipo, detalle, quién lo publica, fecha, valor y su instantánea, sin repetir el tipo. */
+function lineaResultado(r: Resultado, corte: string | null | undefined): string {
+  const tipo = ETIQUETA_TIPO[r.tipo];
+  const igual = (x: string) => x.toLocaleLowerCase("es") === tipo.toLocaleLowerCase("es");
+  return [
+    tipo,
+    // «MIREX · Institución»: el detalle de una institución repite su tipo.
+    ...(r.detalle ?? "").split(" · ").filter((x) => x && !igual(x)),
+    r.origen,
+    r.fecha && `fecha ${r.fecha.slice(0, 10)}`,
+    r.sueldo && `mediana del sueldo mensual bruto RD$ ${ENTERO.format(r.sueldo.mediana)}`,
+    r.valor != null && `${r.tipo === "proceso" ? "valor estimado" : "valor"} RD$ ${ENTERO.format(r.valor)}`,
+    r.via === "tema" && "coincide por tema, no por sus palabras",
+    corte && `instantánea del ${corte}`,
+  ]
+    .filter((x, i): x is string => typeof x === "string" && x !== "" && (i === 0 || !igual(x)))
+    .join(" · ");
+}
+
+async function buscar(query: string, opciones: { tipo?: TipoResultado; pagina?: number } = {}): Promise<z.infer<typeof Busqueda>> {
   const q = query.trim().slice(0, 200);
   if (!q) throw new Aviso("La búsqueda está vacía: escribe un nombre, un RNC, un número de decreto o un tema.");
   sinBuscarPorCedula(q);
+  const { tipo, pagina = 1 } = opciones;
+  // Con un tipo o más allá de la primera página, solo el índice: lo que se
+  // nombra exacto, las provincias y el padrón van en la primera, sin tipo.
+  const soloIndice = tipo != null || pagina > 1;
   const padron = await cortePadron();
   const salida: Hallado[] = [];
   const vistos = new Set<string>();
@@ -365,7 +413,7 @@ async function buscar(query: string): Promise<{ results: Hallado[] }> {
   };
 
   // Lo que se nombra exacto va primero: un decreto por su número, una empresa por su RNC.
-  const decreto = (DECRETO.exec(q) ?? /^(\d{1,4}-\d{2})$/.exec(q))?.[1];
+  const decreto = soloIndice ? null : (DECRETO.exec(q) ?? /^(\d{1,4}-\d{2})$/.exec(q))?.[1];
   if (decreto) {
     const [d, indice] = await Promise.all([decretoPorNumero(numeroCanonico("decreto", decreto)), indiceDecretos()]);
     const ruta = d?.numero ? enlace.norma("decreto", d.numero) : null;
@@ -386,14 +434,14 @@ async function buscar(query: string): Promise<{ results: Hallado[] }> {
     }
   }
   const cifras = q.replace(/[\s.-]/g, "");
-  if (/^\d{9}$/.test(cifras)) {
+  if (!soloIndice && /^\d{9}$/.test(cifras)) {
     const e = await empresaPorRnc(cifras);
     if (e) sumar({ id: enlace.empresa(e.rnc), title: e.razonSocial, url: absoluta(enlace.empresa(e.rnc)), text: lineaEmpresa(e, padron) });
   }
 
   // Las provincias no están en el índice: se nombran.
   const a = agujas(q);
-  if (a.raices.length > 0) {
+  if (!soloIndice && a.raices.length > 0) {
     for (const p of PROVINCIAS.filter((x) => contieneTodas(plano(x.nombre), a)).slice(0, TOPE.provincias)) {
       const ruta = rutaDeNodo({ tipo: "provincia", id: p.slug });
       sumar({ id: ruta, title: p.nombre, url: absoluta(ruta), text: `Provincia · cabecera: ${p.cabecera} · límites de la ONE` });
@@ -401,41 +449,28 @@ async function buscar(query: string): Promise<{ results: Hallado[] }> {
   }
 
   const [h, empresas] = await Promise.all([
-    buscarEnTodo(q, { porPagina: TOPE.indice }),
-    a.raices.length > 0 ? buscarEmpresas(q, { limite: TOPE.empresas }) : Promise.resolve(null),
+    buscarEnTodo(q, { tipo, pagina, porPagina: soloIndice ? TOPE.total : TOPE.indice }),
+    !soloIndice && a.raices.length > 0 ? buscarEmpresas(q, { limite: TOPE.empresas }) : Promise.resolve(null),
   ]);
   if (!h) throw new Aviso("El índice de búsqueda no cargó. Intenta de nuevo en un momento.");
   for (const r of h.resultados) {
     if (!r.href) continue;
     // Todo lo del índice es de su instantánea; el estado de un proceso o una
-    // iniciativa, también: el de ese día.
-    const corte = h.instantaneas[r.tipo]?.slice(0, 10);
-    sumar({
-      id: idDeHref(r.href),
-      title: tituloDe(r),
-      url: absoluta(r.href),
-      text: [
-        ETIQUETA_TIPO[r.tipo],
-        r.detalle,
-        r.origen,
-        r.fecha && `fecha ${r.fecha.slice(0, 10)}`,
-        r.sueldo && `mediana del sueldo mensual bruto RD$ ${ENTERO.format(r.sueldo.mediana)}`,
-        r.valor != null && `${r.tipo === "proceso" ? "valor estimado" : "valor"} RD$ ${ENTERO.format(r.valor)}`,
-        r.via === "tema" && "coincide por tema, no por sus palabras",
-        corte && `instantánea del ${corte}`,
-      ]
-        .filter(
-          (x, i, todas): x is string =>
-            typeof x === "string" && x !== "" && (i === 0 || x.toLocaleLowerCase("es") !== String(todas[0]).toLocaleLowerCase("es")),
-        )
-        .join(" · "),
-    });
+    // iniciativa, también: el de ese día. Las instituciones, del cruce.
+    const corte = r.tipo === "institucion" ? FUENTES_DEL_CRUCE.dgcp.consultado : h.instantaneas[r.tipo]?.slice(0, 10);
+    sumar({ id: idDeHref(r.href), title: tituloDe(r), url: absoluta(r.href), text: lineaResultado(r, corte) });
   }
   for (const e of empresas?.filas ?? []) {
     const ruta = enlace.empresa(e.rnc);
     sumar({ id: ruta, title: e.razonSocial, url: absoluta(ruta), text: lineaEmpresa(e, padron) });
   }
-  return { results: salida.slice(0, TOPE.total) };
+  return {
+    results: salida.slice(0, TOPE.total),
+    tipo: tipo ?? null,
+    total: h.total,
+    pagina: h.pagina,
+    paginas: h.paginas,
+  };
 }
 
 /* ----------------------------------------------------------------- fetch */
@@ -496,6 +531,8 @@ async function leerNodo(n: NodoRdf): Promise<Documento | null> {
     }
     if (medidas.length > 20) lineas.push(`Siguen ${medidas.length - 20} medidas más en su ficha de proveedor.`);
   }
+  const compras = await comprasDelNodo(n);
+  if (compras) lineas.push(...compras.lineas);
   lineas.push("", `## Relaciones: ${relaciones.length}${paginas > 1 ? ` (página 1 de ${paginas})` : ""}`);
   if (relaciones.length === 0) lineas.push("Las fuentes no le registran relaciones con otros nodos.");
   lineas.push(...bloqueRelaciones(vista));
@@ -524,9 +561,26 @@ async function leerNodo(n: NodoRdf): Promise<Documento | null> {
       relaciones: relaciones.length,
       rdf: { turtle: absoluta(enlace.rdf(ruta, "ttl")), jsonld: absoluta(enlace.rdf(ruta, "jsonld")) },
       explorador: absoluta(enlace.grafo(ruta)),
+      ...compras?.metadata,
       aviso: AVISO,
     },
   };
+}
+
+/** Las compras de un nodo: las de una institución con unidad de compra, o lo contratado a una empresa inscrita como proveedor. */
+async function comprasDelNodo(n: NodoRdf): Promise<Seccion | null> {
+  if (n.tipo === "institucion") {
+    const i = institucionPorId(n.id);
+    return i ? comprasDeInstitucion(i) : null;
+  }
+  if (n.tipo !== "empresa") return null;
+  const { proveedores } = await proveedoresDelIndice();
+  const p = proveedores.filter((x) => x.rnc === n.id).sort((a, b) => (b.contratos ?? 0) - (a.contratos ?? 0))[0];
+  if (!p) return null;
+  const s = await comprasDeProveedor(p.rpe);
+  if (!s) return null;
+  s.lineas.splice(2, 0, `- Inscrita como proveedora del Estado: RPE ${p.rpe} → ${enlace.proveedor(p.rpe)}`);
+  return { lineas: s.lineas, metadata: { proveedor: enlace.proveedor(p.rpe), ...s.metadata } };
 }
 
 async function leerRegistro(href: string): Promise<Documento | null> {
@@ -538,6 +592,15 @@ async function leerRegistro(href: string): Promise<Documento | null> {
   const estadoAl = (r.tipo === "proceso" || r.tipo === "iniciativa") && dia ? ` (al ${dia})` : "";
   // Un proveedor con RNC de empresa es también una persona jurídica del grafo.
   const rnc = r.tipo === "proveedor" ? (/\bRNC (\d{9})\b/.exec(r.detalle ?? "")?.[1] ?? null) : null;
+  // Un proceso y un proveedor traen más de lo que guarda el índice: sus
+  // campos por separado, y lo contratado desde 2015.
+  const propio = /^\/(procesos|proveedores)\/([^/?#]+)$/.exec(r.href ?? href);
+  const extra =
+    r.tipo === "proceso" && propio?.[1] === "procesos"
+      ? await detalleDeProceso(decodeURIComponent(propio[2]))
+      : r.tipo === "proveedor" && propio?.[1] === "proveedores"
+        ? await comprasDeProveedor(decodeURIComponent(propio[2]))
+        : null;
   const lineas = [
     `# ${tituloDe(r)}`,
     `${ETIQUETA_TIPO[r.tipo]} · ${url}`,
@@ -552,6 +615,7 @@ async function leerRegistro(href: string): Promise<Documento | null> {
     r.contratos != null && `- Contratos con el Estado desde 2015: ${ENTERO.format(r.contratos)}`,
     rnc && `- Su RNC en el padrón de la DGII, como nodo del grafo: ${enlace.empresa(rnc)}`,
     r.archivos != null && `- Archivos con el mismo título, del mismo sitio: ${ENTERO.format(r.archivos)}`,
+    ...(extra?.lineas ?? []),
     "",
     "## Fuente",
     `El índice de búsqueda de Socrático.do${dia ? `, instantánea del ${dia}` : ""}. Es el resumen que guarda el índice; el registro completo, con su fuente original, está en ${url}.`,
@@ -562,7 +626,15 @@ async function leerRegistro(href: string): Promise<Documento | null> {
     title: tituloDe(r),
     text: lineas.join("\n"),
     url,
-    metadata: { tipo: "registro", clase: ETIQUETA_TIPO[r.tipo], fuente: "Índice de búsqueda de Socrático.do", corte: dia, externo: r.externo, aviso: AVISO },
+    metadata: {
+      tipo: "registro",
+      clase: ETIQUETA_TIPO[r.tipo],
+      fuente: "Índice de búsqueda de Socrático.do",
+      corte: dia,
+      externo: r.externo,
+      ...extra?.metadata,
+      aviso: AVISO,
+    },
   };
 }
 
@@ -812,6 +884,760 @@ async function decretosFirmados(
   };
 }
 
+/* ------------------------------------------------------------ procurement */
+
+/** Las etapas de un proceso tal como las escribe el índice (`scripts/busqueda_procesos.py`, del literal de la DGCP). */
+const ETAPAS = {
+  abierto: "Abierto a ofertas",
+  cerrado: "Recepción cerrada",
+  evaluacion: "En evaluación",
+  adjudicado: "Adjudicado",
+  desierto: "Desierto",
+  cancelado: "Cancelado",
+  suspendido: "Suspendido",
+} as const;
+
+/** Las modalidades tal como las escribe el índice: el literal de la DGCP, dos dichas corto. */
+const MODALIDADES = {
+  lpn: "Licitación Pública Nacional",
+  lpi: "Licitación Pública Internacional",
+  lpa: "Licitación Pública Abreviada",
+  restringida: "Licitación Restringida",
+  comparacion: "Comparación de Precios",
+  subasta: "Subasta Inversa",
+  sorteo: "Sorteo de Obras",
+  menor: "Contratación Menor",
+  umbral: "Compra menor al umbral",
+  excepcion: "Excepción",
+} as const;
+
+const OBJETOS = { bienes: "Bienes", obras: "Obras", servicios: "Servicios" } as const;
+
+type ClaveEtapa = keyof typeof ETAPAS;
+type ClaveModalidad = keyof typeof MODALIDADES;
+const CLAVES_ETAPA = Object.keys(ETAPAS) as [ClaveEtapa, ...ClaveEtapa[]];
+const CLAVES_MODALIDAD = Object.keys(MODALIDADES) as [ClaveModalidad, ...ClaveModalidad[]];
+const CLAVES_OBJETO = Object.keys(OBJETOS) as [keyof typeof OBJETOS, ...(keyof typeof OBJETOS)[]];
+const ORDENES_COMPRA = ["monto", "monto_asc", "fecha", "fecha_asc"] as const;
+
+const POR_PAGINA_COMPRAS = 25;
+/** Cuántas instituciones trae el desglose de `procurement`. */
+const TOPE_POR_INSTITUCION = 10;
+
+const FUENTE_PROCESOS = "Tabla de procesos de los datos abiertos de la DGCP (datosabiertos.dgcp.gob.do), los últimos doce meses";
+
+const NOTA_VALOR =
+  "El valor es el estimado que la unidad de compra registró al publicar el proceso: no es lo adjudicado ni lo pagado, y puede traer errores de captura.";
+const NOTA_ADJUDICATARIO =
+  "Quién ganó un proceso y por cuánto no está en esta instantánea: la ficha del proceso (su url) lo lee en vivo de la DGCP. Lo contratado desde 2015 por proveedor e institución, agregado, lo da contracting_history.";
+
+/** La institución de cada unidad de compra, por su nombre: el cruce las nombra igual que la tabla de procesos. */
+let institucionPorUnidad: Map<string, Institucion> | null = null;
+
+function institucionDeUnidad(unidad: string): Institucion | null {
+  institucionPorUnidad ??= new Map(INSTITUCIONES.map((i) => [plano(i.nombre), i]));
+  return institucionPorUnidad.get(plano(unidad)) ?? null;
+}
+
+const rutaInstitucion = (i: Institucion) => rutaDeNodo({ tipo: "institucion", id: String(i.id) });
+
+/**
+ * Las instituciones que nombra un texto: su id («/instituciones/5»), sus
+ * siglas exactas («MOPC»), su nombre exacto o, si no, todas las que llevan
+ * esas palabras («hospital» son todos los hospitales).
+ */
+function institucionesDe(texto: string): Institucion[] {
+  const d = resolver(texto);
+  if (d?.clase === "nodo" && d.nodo.tipo === "institucion") {
+    const i = institucionPorId(d.nodo.id);
+    if (!i) throw new Aviso(`No hay una institución con el id «${recortar(texto, 120)}».`);
+    return [i];
+  }
+  const p = plano(texto);
+  const siglas = INSTITUCIONES.filter((i) => i.acronimo && plano(i.acronimo) === p);
+  if (siglas.length) return siglas;
+  const exacto = INSTITUCIONES.filter((i) => plano(i.nombre) === p);
+  if (exacto.length) return exacto;
+  const a = agujas(texto);
+  if (a.raices.length === 0 && a.numeros.length === 0) return [];
+  return INSTITUCIONES.filter((i) => contieneTodas(plano(`${i.nombre} ${i.acronimo}`), a));
+}
+
+const ProcesoHallado = z.object({
+  id: z.string().describe("Lo que se le pasa a fetch."),
+  codigo: z.string(),
+  title: z.string(),
+  url: z.string().describe("La ficha del proceso: lee en vivo de la DGCP sus documentos, ofertas y adjudicación."),
+  institucion: z.object({ id: z.string().nullable().describe("El nodo de la institución, para fetch, neighbors o contracting_history."), nombre: z.string() }),
+  modalidad: z.string(),
+  estado: z.string().describe("La etapa el día del corte."),
+  objeto: z.string().nullable(),
+  fecha: z.string().describe("La fecha de publicación."),
+  valorEstimado: z.number().nullable().describe("En pesos. null si no lo trae o está en otra moneda."),
+});
+
+const Suma = { procesos: z.number(), suma: z.number().describe("La suma de sus valores estimados, en pesos.") };
+
+const Compras = z.object({
+  filtros: z.object({
+    texto: z.string().nullable(),
+    institucion: z
+      .object({ pedida: z.string(), instituciones: z.number(), nombres: z.array(z.string()).describe("Hasta diez de las que casaron.") })
+      .nullable(),
+    desde: z.string().nullable(),
+    hasta: z.string().nullable(),
+    estado: z.array(z.string()),
+    modalidad: z.array(z.string()),
+    objeto: z.string().nullable(),
+    montoMinimo: z.number().nullable(),
+    montoMaximo: z.number().nullable(),
+    orden: z.enum(ORDENES_COMPRA),
+  }),
+  total: z.number().describe("Cuántos procesos cumplen los filtros: todos, no una muestra."),
+  conValor: z.number().describe("Cuántos de ellos traen valor estimado en pesos."),
+  suma: z.number().describe("La suma de sus valores estimados, en pesos."),
+  pagina: z.number(),
+  paginas: z.number(),
+  procesos: z.array(ProcesoHallado),
+  porEstado: z.array(z.object({ estado: z.string(), ...Suma })),
+  porInstitucion: z
+    .array(z.object({ id: z.string().nullable(), nombre: z.string(), ...Suma }))
+    .describe(`Las ${TOPE_POR_INSTITUCION} unidades de compra con más valor estimado entre los que cumplen los filtros.`),
+  cobertura: z.object({
+    desde: z.string(),
+    hasta: z.string(),
+    procesos: z.number().describe("Todos los procesos de la instantánea."),
+  }),
+  notas: z.array(z.string()).describe("Qué es y qué no es cada cifra, y lo que la instantánea no cubre de lo pedido."),
+  fuente: z.string(),
+  corte: z.string().nullable(),
+  aviso: z.string(),
+});
+
+interface FiltrosCompras {
+  texto?: string;
+  institucion?: string;
+  anio?: number;
+  desde?: string;
+  hasta?: string;
+  estado?: ClaveEtapa[];
+  modalidad?: ClaveModalidad[];
+  objeto?: keyof typeof OBJETOS;
+  montoMinimo?: number;
+  montoMaximo?: number;
+  orden?: (typeof ORDENES_COMPRA)[number];
+  pagina?: number;
+}
+
+/** La primera y la última publicación de la instantánea. */
+let coberturaMemo: { procesos: ProcesoIndexado[]; desde: string; hasta: string } | null = null;
+
+function coberturaDe(procesos: ProcesoIndexado[]): { desde: string; hasta: string } {
+  if (coberturaMemo?.procesos !== procesos) {
+    let desde = procesos[0].fecha;
+    let hasta = procesos[0].fecha;
+    for (const p of procesos) {
+      if (p.fecha < desde) desde = p.fecha;
+      if (p.fecha > hasta) hasta = p.fecha;
+    }
+    coberturaMemo = { procesos, desde, hasta };
+  }
+  return coberturaMemo;
+}
+
+const mayor = (a: string | null, b: string | null) => (a == null ? b : b == null ? a : a > b ? a : b);
+const menor = (a: string | null, b: string | null) => (a == null ? b : b == null ? a : a < b ? a : b);
+
+async function compras(f: FiltrosCompras): Promise<z.infer<typeof Compras>> {
+  sinBuscarPorCedula(f.texto, f.institucion);
+  const { procesos, corte } = await procesosDelIndice();
+  if (procesos.length === 0) throw new Error("el índice no trae procesos de compra");
+  const cobertura = coberturaDe(procesos);
+
+  const texto = f.texto?.trim().slice(0, 200) || null;
+  const alternativas = texto
+    ? texto
+        .split("|")
+        .map((t) => agujas(t))
+        .filter((a) => a.raices.length > 0 || a.numeros.length > 0)
+    : [];
+  if (texto && alternativas.length === 0) {
+    throw new Aviso(`«${recortar(texto, 120)}» no trae palabras que buscar en la carátula: prueba con lo que se compra («mobiliario», «asfalto», «raciones»).`);
+  }
+
+  let unidades: Set<string> | null = null;
+  let elegidas: Institucion[] = [];
+  const pedida = f.institucion?.trim().slice(0, 200) || null;
+  if (pedida) {
+    elegidas = institucionesDe(pedida);
+    if (elegidas.length === 0) {
+      throw new Aviso(`Ninguna institución se llama «${recortar(pedida, 120)}». Usa sus siglas («MOPC»), palabras de su nombre o el id que da search («/instituciones/5»).`);
+    }
+    unidades = new Set(elegidas.map((i) => plano(i.nombre)));
+  }
+
+  const desde = mayor(f.desde ?? null, f.anio != null ? `${f.anio}-01-01` : null);
+  const hasta = menor(f.hasta ?? null, f.anio != null ? `${f.anio}-12-31` : null);
+  if (desde && hasta && desde > hasta) throw new Aviso(`El período pedido está vacío: empieza el ${desde} y termina el ${hasta}.`);
+  const etapas = f.estado?.length ? new Set<string>(f.estado.map((e) => ETAPAS[e])) : null;
+  const modalidades = f.modalidad?.length ? new Set<string>(f.modalidad.map((m) => MODALIDADES[m])) : null;
+  const objeto = f.objeto ? OBJETOS[f.objeto] : null;
+  const minimo = f.montoMinimo ?? null;
+  const maximo = f.montoMaximo ?? null;
+  const orden = f.orden ?? "monto";
+
+  // Las unidades son unas setecientas: su forma plana se calcula una vez por consulta.
+  const planoDe = new Map<string, string>();
+  const unidadPlana = (u: string) => {
+    let v = planoDe.get(u);
+    if (v === undefined) planoDe.set(u, (v = plano(u)));
+    return v;
+  };
+
+  const lista: ProcesoIndexado[] = [];
+  let conValor = 0;
+  let suma = 0;
+  const porEstado = new Map<string, { procesos: number; suma: number }>();
+  const porUnidad = new Map<string, { procesos: number; suma: number }>();
+  for (const p of procesos) {
+    if (desde && p.fecha < desde) continue;
+    if (hasta && p.fecha > hasta) continue;
+    if (etapas && !etapas.has(p.etapa)) continue;
+    if (modalidades && !modalidades.has(p.modalidad)) continue;
+    if (objeto && p.objeto !== objeto) continue;
+    if (minimo != null && (p.valor ?? -1) < minimo) continue;
+    if (maximo != null && (p.valor == null || p.valor > maximo)) continue;
+    if (unidades && !unidades.has(unidadPlana(p.unidad))) continue;
+    if (alternativas.length && !alternativas.some((a) => contieneTodas(p.planoTitulo, a))) continue;
+    lista.push(p);
+    const v = p.valor ?? 0;
+    if (p.valor != null) conValor++;
+    suma += v;
+    for (const [mapa, clave] of [
+      [porEstado, p.etapa],
+      [porUnidad, p.unidad],
+    ] as const) {
+      const g = mapa.get(clave) ?? { procesos: 0, suma: 0 };
+      g.procesos++;
+      g.suma += v;
+      mapa.set(clave, g);
+    }
+  }
+
+  const valor = (p: ProcesoIndexado) => p.valor ?? -1;
+  const comparar: Record<(typeof ORDENES_COMPRA)[number], (a: ProcesoIndexado, b: ProcesoIndexado) => number> = {
+    monto: (a, b) => valor(b) - valor(a) || b.fecha.localeCompare(a.fecha),
+    // Los que no traen valor, al final también de menor a mayor.
+    monto_asc: (a, b) => (a.valor == null ? 1 : 0) - (b.valor == null ? 1 : 0) || valor(a) - valor(b) || b.fecha.localeCompare(a.fecha),
+    fecha: (a, b) => b.fecha.localeCompare(a.fecha) || valor(b) - valor(a),
+    fecha_asc: (a, b) => a.fecha.localeCompare(b.fecha) || valor(b) - valor(a),
+  };
+  lista.sort(comparar[orden]);
+
+  const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA_COMPRAS));
+  const pagina = Math.min(Math.max(1, f.pagina ?? 1), paginas);
+
+  const notas = [NOTA_VALOR, NOTA_ADJUDICATARIO];
+  if (corte) notas.push(`El estado de cada proceso es el del ${corte.slice(0, 10)}, el día del corte.`);
+  if ((desde && desde < cobertura.desde) || (hasta && hasta > cobertura.hasta)) {
+    notas.push(
+      `La instantánea cubre lo publicado del ${cobertura.desde} al ${cobertura.hasta}: lo pedido fuera de esas fechas no está aquí, y un total del período no es el del año entero. Para años anteriores, contracting_history (lo contratado desde 2015, agregado).`,
+    );
+  }
+  if (orden.startsWith("monto") && lista.length > conValor) {
+    notas.push(`${ENTERO.format(lista.length - conValor)} de los que cumplen los filtros no traen valor en pesos (otra moneda o sin estimar): van al final.`);
+  }
+  if (elegidas.length > 1) {
+    notas.push(`«${recortar(pedida!, 80)}» casa con ${ENTERO.format(elegidas.length)} instituciones: se cuentan todas juntas. Para una sola, usa su id.`);
+  }
+
+  const aHallado = (p: ProcesoIndexado): z.infer<typeof ProcesoHallado> => {
+    const ruta = enlace.proceso(p.codigo);
+    const i = institucionDeUnidad(p.unidad);
+    return {
+      id: ruta,
+      codigo: p.codigo,
+      title: desdeMayusculas(p.titulo),
+      url: absoluta(ruta),
+      institucion: { id: i ? rutaInstitucion(i) : null, nombre: p.unidad },
+      modalidad: p.modalidad,
+      estado: p.etapa,
+      objeto: p.objeto,
+      fecha: p.fecha,
+      valorEstimado: p.valor,
+    };
+  };
+
+  return {
+    filtros: {
+      texto,
+      institucion: pedida
+        ? { pedida, instituciones: elegidas.length, nombres: elegidas.slice(0, 10).map((i) => i.nombre) }
+        : null,
+      desde,
+      hasta,
+      estado: f.estado?.map((e) => ETAPAS[e]) ?? [],
+      modalidad: f.modalidad?.map((m) => MODALIDADES[m]) ?? [],
+      objeto,
+      montoMinimo: minimo,
+      montoMaximo: maximo,
+      orden,
+    },
+    total: lista.length,
+    conValor,
+    suma,
+    pagina,
+    paginas,
+    procesos: lista.slice((pagina - 1) * POR_PAGINA_COMPRAS, pagina * POR_PAGINA_COMPRAS).map(aHallado),
+    porEstado: [...porEstado].map(([estado, g]) => ({ estado, ...g })).sort((a, b) => b.procesos - a.procesos),
+    porInstitucion: [...porUnidad]
+      .sort((a, b) => b[1].suma - a[1].suma || b[1].procesos - a[1].procesos)
+      .slice(0, TOPE_POR_INSTITUCION)
+      .map(([nombre, g]) => {
+        const i = institucionDeUnidad(nombre);
+        return { id: i ? rutaInstitucion(i) : null, nombre, ...g };
+      }),
+    cobertura: { desde: cobertura.desde, hasta: cobertura.hasta, procesos: procesos.length },
+    notas,
+    fuente: FUENTE_PROCESOS,
+    corte: corte?.slice(0, 10) ?? null,
+    aviso: AVISO,
+  };
+}
+
+/** Un proceso del índice por su código, para `fetch`. */
+let procesoPorCodigo: { procesos: ProcesoIndexado[]; mapa: Map<string, ProcesoIndexado> } | null = null;
+
+async function procesoDelIndice(codigo: string): Promise<ProcesoIndexado | null> {
+  const { procesos } = await procesosDelIndice();
+  if (procesoPorCodigo?.procesos !== procesos) procesoPorCodigo = { procesos, mapa: new Map(procesos.map((p) => [p.codigo, p])) };
+  return procesoPorCodigo.mapa.get(codigo) ?? null;
+}
+
+/* ---------------------------------------------------- contracting_history */
+
+const FUENTE_HISTORICO = "Tablas de contratos y procesos de los datos abiertos de la DGCP, desde 2015";
+
+const NOTAS_HISTORICO = [
+  "Valor contratado (adjudicado) en pesos, por año de adjudicación: no es lo pagado. Sin contratos cancelados ni en otras monedas.",
+  "Un contrato de RD$ 10 mil millones o más no se suma: se cuenta aparte como atípico, porque varios son errores de captura evidentes.",
+  "La institución de un contrato se deduce del prefijo de su código; lo que no se puede asignar sin adivinar (casi todo del MOPC, cuyo prefijo comparte la OPRET) queda fuera de las series por institución.",
+];
+
+const Contraparte = z.object({
+  id: z.string().nullable().describe("Lo que se le pasa a fetch (o a contracting_history)."),
+  nombre: z.string(),
+  contratos: z.number(),
+  monto: z.number().describe("Valor contratado en pesos."),
+});
+
+const Anio = z.object({ anio: z.number(), contratos: z.number(), monto: z.number() });
+const Atipicos = z.object({ contratos: z.number(), monto: z.number() }).nullable().describe("Sus contratos de RD$ 10 mil millones o más, fuera de las sumas.");
+
+const Historial = z.object({
+  alcance: z.enum(["pais", "proveedor", "institucion", "par"]),
+  proveedor: z
+    .object({
+      id: z.string(),
+      rpe: z.string(),
+      nombre: z.string(),
+      rnc: z.string().nullable(),
+      empresa: z.string().nullable().describe("Su nodo en el padrón de la DGII, si tiene RNC de empresa."),
+      url: z.string(),
+      desde: z.string(),
+      hasta: z.string(),
+      contratos: z.number(),
+      monto: z.number(),
+      serie: z.array(Anio),
+      mayoresClientes: z.array(Contraparte).describe("Las instituciones que más le contrataron, hasta ocho."),
+      clientes: z.number().describe("Cuántas instituciones distintas le contrataron."),
+      atipicos: Atipicos,
+    })
+    .nullable(),
+  institucion: z
+    .object({
+      id: z.string(),
+      nombre: z.string(),
+      siglas: z.string().nullable(),
+      url: z.string(),
+      contratos: z.number(),
+      monto: z.number(),
+      serie: z.array(Anio.extend({ procesos: z.number().describe("Procesos que publicó ese año.") })),
+      mayoresProveedores: z.array(Contraparte),
+      proveedores: z.number().describe("Cuántos proveedores distintos le contrataron."),
+      atipicos: Atipicos,
+      sinAsignar: z.string().nullable().describe("Si sus contratos comparten prefijo con otra unidad y por eso no se le asignan."),
+    })
+    .nullable(),
+  par: z
+    .object({ encontrado: z.boolean(), contratos: z.number().nullable(), monto: z.number().nullable(), explicacion: z.string() })
+    .nullable()
+    .describe("Lo que la institución le contrató al proveedor, si los dos se pidieron."),
+  pais: z
+    .object({
+      serie: z.array(Anio.extend({ procesos: z.number(), excepcion: z.number().describe("Procesos por alguna vía de excepción.") })),
+      contratos: z.number(),
+      monto: z.number(),
+      mayoresProveedores: z.array(Contraparte).describe("Una página de los cien proveedores con más valor contratado en todo el período."),
+      mayoresInstituciones: z.array(Contraparte).describe("Las veinticinco unidades de compra con más valor contratado."),
+      pagina: z.number(),
+      paginas: z.number(),
+      atipicos: z.object({ contratos: z.number(), monto: z.number() }),
+      sinAsignar: z.array(z.object({ prefijo: z.string(), contratos: z.number(), monto: z.number() })),
+    })
+    .nullable(),
+  notas: z.array(z.string()),
+  fuente: z.string(),
+  corte: z.string().describe("La última fecha de adjudicación del registro."),
+  aviso: z.string(),
+});
+
+const POR_PAGINA_HISTORICO = 25;
+
+/** Lo que en una razón social no es el nombre. */
+const FORMAS_JURIDICAS = new Set(["srl", "sa", "sas", "eirl", "cxa", "spa", "ltda", "inc", "s", "a", "c", "x", "por"]);
+
+/**
+ * El proveedor que nombra un texto: su id («/proveedores/1211»), su RPE, su
+ * RNC de nueve cifras o su nombre. Si el nombre es de varios, el aviso los
+ * nombra para que se pida con el id.
+ */
+async function proveedorDe(texto: string): Promise<ProveedorIndexado> {
+  const { proveedores } = await proveedoresDelIndice();
+  const t = texto.trim();
+  const porRpe = (rpe: string) =>
+    proveedores.find((p) => p.rpe === rpe) ??
+    ({ rpe, nombre: `RPE ${rpe}`, rnc: null, contratos: null, desde: null, hasta: null, planoNombre: "" } satisfies ProveedorIndexado);
+  let m: RegExpExecArray | null;
+  if ((m = /^(?:https?:\/\/[^/]+)?\/proveedores\/(\d{1,10})\/?$/.exec(t)) || (m = /^rpe\s*:?\s*(\d{1,10})$/i.exec(t))) return porRpe(m[1]);
+  const cifras = t.replace(/^(?:https?:\/\/[^/]+)?\/empresas\//, "").replace(/[\s.-]/g, "");
+  if (/^\d{11}$/.test(cifras)) {
+    throw new Aviso("Once cifras pueden ser una cédula, y este servidor no busca por ella: usa el nombre del proveedor o su RPE.");
+  }
+  if (/^\d{9}$/.test(cifras)) {
+    const conRnc = proveedores.filter((p) => p.rnc === cifras).sort((a, b) => (b.contratos ?? 0) - (a.contratos ?? 0));
+    if (conRnc.length === 0) {
+      throw new Aviso(`El RNC ${cifras} no figura entre los proveedores del índice (los que tienen contratos desde 2015). Que no esté no prueba que no exista: búscalo con search.`);
+    }
+    return conRnc[0];
+  }
+  if (/^\d{1,8}$/.test(cifras)) return porRpe(cifras);
+
+  const a = agujas(t);
+  if (a.raices.length === 0 && a.numeros.length === 0) throw new Aviso(`«${recortar(t, 120)}» no nombra a un proveedor: usa su nombre, su RNC o su RPE.`);
+  const candidatos = proveedores.filter((p) => contieneTodas(p.planoNombre, a));
+  // El nombre exacto, sin la forma jurídica: «Viamar» es «Viamar, SA», pero
+  // «Constructora» no es «E&Y Constructora, SRL».
+  const clave = (x: string) =>
+    plano(x)
+      .trim()
+      .split(" ")
+      .filter((w) => !FORMAS_JURIDICAS.has(w))
+      .join(" ");
+  const exactos = candidatos.filter((p) => clave(p.nombre) === clave(t));
+  const porContratos = (x: ProveedorIndexado[]) => [...x].sort((p, q) => (q.contratos ?? 0) - (p.contratos ?? 0));
+  if (exactos.length > 0) return porContratos(exactos)[0];
+  if (candidatos.length === 1) return candidatos[0];
+  if (candidatos.length === 0) {
+    throw new Aviso(`Ningún proveedor del Estado se llama «${recortar(t, 120)}» en el índice. Búscalo con search (tipo proveedor) y usa su id.`);
+  }
+  const lista = porContratos(candidatos)
+    .slice(0, 8)
+    .map((p) => `${p.nombre} (RPE ${p.rpe}${p.contratos ? `, ${ENTERO.format(p.contratos)} contratos` : ""}) → ${enlace.proveedor(p.rpe)}`)
+    .join("; ");
+  throw new Aviso(`Hay ${ENTERO.format(candidatos.length)} proveedores que se llaman así: ${lista}. Pide de nuevo con el id del que buscas.`);
+}
+
+/** Una sola institución: la que nombra el texto, o el aviso con las que casan. */
+function institucionUnica(texto: string): Institucion {
+  const todas = institucionesDe(texto);
+  if (todas.length === 1) return todas[0];
+  if (todas.length === 0) {
+    throw new Aviso(`Ninguna institución se llama «${recortar(texto, 120)}». Usa sus siglas («MOPC»), su nombre o el id que da search («/instituciones/5»).`);
+  }
+  const lista = todas
+    .slice(0, 8)
+    .map((i) => `${i.nombre}${i.acronimo ? ` (${i.acronimo})` : ""} → ${rutaInstitucion(i)}`)
+    .join("; ");
+  throw new Aviso(`«${recortar(texto, 80)}» casa con ${ENTERO.format(todas.length)} instituciones: ${lista}. Pide de nuevo con el id de una.`);
+}
+
+const contraparteInstitucion = ([uc, contratos, monto]: [number, number, number]): z.infer<typeof Contraparte> => {
+  const i = institucionPorId(uc);
+  return { id: i ? rutaInstitucion(i) : null, nombre: i?.nombre ?? `Unidad de compra ${uc}`, contratos, monto };
+};
+
+async function historial(pedido: { proveedor?: string; institucion?: string; pagina?: number }): Promise<z.infer<typeof Historial>> {
+  sinBuscarPorCedula(pedido.proveedor, pedido.institucion);
+  const resumen = await getResumenHistorico();
+  if (!resumen) throw new Error("historico/resumen.json no cargó");
+  const notas = [...NOTAS_HISTORICO];
+  const base = { fuente: FUENTE_HISTORICO, corte: resumen.corte, aviso: AVISO };
+
+  const textoProveedor = pedido.proveedor?.trim().slice(0, 200) || null;
+  const textoInstitucion = pedido.institucion?.trim().slice(0, 200) || null;
+
+  if (!textoProveedor && !textoInstitucion) {
+    const paginas = Math.max(1, Math.ceil(resumen.proveedores.length / POR_PAGINA_HISTORICO));
+    const pagina = Math.min(Math.max(1, pedido.pagina ?? 1), paginas);
+    const suma = <K extends "contratos" | "monto">(k: K) => resumen.anios.reduce((s, a) => s + a[k], 0);
+    const atipicos = { contratos: resumen.atipicos.length, monto: resumen.atipicos.reduce((s, a) => s + a.valor, 0) };
+    return {
+      alcance: "pais",
+      proveedor: null,
+      institucion: null,
+      par: null,
+      pais: {
+        serie: resumen.anios.map((a) => ({ anio: a.anio, contratos: a.contratos, monto: a.monto, procesos: a.procesos, excepcion: a.excepcion })),
+        contratos: suma("contratos"),
+        monto: suma("monto"),
+        mayoresProveedores: resumen.proveedores
+          .slice((pagina - 1) * POR_PAGINA_HISTORICO, pagina * POR_PAGINA_HISTORICO)
+          .map((p) => ({ id: enlace.proveedor(p.rpe), nombre: p.nombre, contratos: p.contratos, monto: p.monto })),
+        mayoresInstituciones: resumen.instituciones.slice(0, 25).map((i) => {
+          const c = contraparteInstitucion([i.uc, i.contratos, i.monto]);
+          return { ...c, nombre: i.nombre };
+        }),
+        pagina,
+        paginas,
+        atipicos,
+        sinAsignar: resumen.sinAsignar.map((s) => ({ prefijo: s.prefijo, contratos: s.contratos, monto: s.monto })),
+      },
+      notas,
+      ...base,
+    };
+  }
+
+  let proveedor: z.infer<typeof Historial>["proveedor"] = null;
+  let clientes: [number, number, number][] = [];
+  if (textoProveedor) {
+    const p = await proveedorDe(textoProveedor);
+    const h = await historiaDeProveedor(p.rpe);
+    if (!h) {
+      throw new Aviso(
+        `${p.nombre} (RPE ${p.rpe}) no tiene contratos en la instantánea histórica de la DGCP (corte del ${resumen.corte}). Que no los tenga ahí no prueba que no los haya: su ficha, ${absoluta(enlace.proveedor(p.rpe))}, lee su registro en vivo.`,
+      );
+    }
+    const { historia } = h;
+    clientes = historia.clientes;
+    proveedor = {
+      id: enlace.proveedor(p.rpe),
+      rpe: p.rpe,
+      nombre: historia.nombre,
+      rnc: p.rnc,
+      empresa: p.rnc ? enlace.empresa(p.rnc) : null,
+      url: absoluta(enlace.proveedor(p.rpe)),
+      desde: historia.desde,
+      hasta: historia.hasta,
+      contratos: historia.serie.reduce((s, f) => s + f[1], 0),
+      monto: historia.serie.reduce((s, f) => s + f[2], 0),
+      serie: historia.serie.map(([anio, contratos, monto]) => ({ anio, contratos, monto })),
+      mayoresClientes: historia.clientes.map(contraparteInstitucion),
+      clientes: historia.totalClientes,
+      atipicos: historia.atipicos ? { contratos: historia.atipicos[0], monto: historia.atipicos[1] } : null,
+    };
+  }
+
+  let institucion: z.infer<typeof Historial>["institucion"] = null;
+  let top: [string, string, number, number][] = [];
+  if (textoInstitucion) {
+    const i = institucionUnica(textoInstitucion);
+    if (!i.dgcp) {
+      throw new Aviso(
+        `${i.nombre} no tiene unidad de compra en el catálogo de la DGCP, así que el registro de compras no le asigna contratos. Que no estén aquí no prueba que no compre: puede hacerlo fuera de ese sistema.`,
+      );
+    }
+    const [h, sinAsignar] = await Promise.all([historiaDeInstitucion(i.id), prefijoSinAsignar(i.nombre)]);
+    const serie = h?.historia.serie ?? [];
+    top = h?.historia.top ?? [];
+    const explicacion = sinAsignar
+      ? `Sus contratos comparten el prefijo «${sinAsignar.prefijo}» con ${sinAsignar.unidades.filter((u) => plano(u) !== plano(i.nombre)).join(" y ") || "otra unidad"}: los ${ENTERO.format(sinAsignar.contratos)} contratos de ese prefijo (RD$ ${ENTERO.format(sinAsignar.monto)}) no se le asignan sin adivinar, y su serie de contratos sale vacía. Sus procesos sí se cuentan.`
+      : null;
+    if (explicacion) notas.push(explicacion);
+    institucion = {
+      id: rutaInstitucion(i),
+      nombre: i.nombre,
+      siglas: i.acronimo || null,
+      url: absoluta(enlace.institucion(i.id, i.acronimo || i.nombre)),
+      contratos: serie.reduce((s, f) => s + f[1], 0),
+      monto: serie.reduce((s, f) => s + f[2], 0),
+      serie: serie.map(([anio, contratos, monto, procesos]) => ({ anio, contratos, monto, procesos })),
+      mayoresProveedores: top.map(([rpe, nombre, contratos, monto]) => ({ id: enlace.proveedor(rpe), nombre, contratos, monto })),
+      proveedores: h?.historia.proveedores ?? 0,
+      atipicos: h?.historia.atipicos ? { contratos: h.historia.atipicos[0], monto: h.historia.atipicos[1] } : null,
+      sinAsignar: explicacion,
+    };
+  }
+
+  let par: z.infer<typeof Historial>["par"] = null;
+  if (proveedor && institucion?.sinAsignar) {
+    par = {
+      encontrado: false,
+      contratos: null,
+      monto: null,
+      explicacion: `Los contratos de ${institucion.nombre} no se le asignan sin adivinar (comparten prefijo con otra unidad), así que lo que le contrató a ${proveedor.nombre} no se puede leer de esta instantánea. La ficha del proveedor lee su registro en vivo.`,
+    };
+  } else if (proveedor && institucion) {
+    const uc = Number(nodoDeRuta(institucion.id)?.id);
+    const desdeProveedor = clientes.find(([c]) => c === uc);
+    const desdeInstitucion = top.find(([rpe]) => rpe === proveedor.rpe);
+    const fila = desdeProveedor ? { contratos: desdeProveedor[1], monto: desdeProveedor[2] } : desdeInstitucion ? { contratos: desdeInstitucion[2], monto: desdeInstitucion[3] } : null;
+    par = fila
+      ? {
+          encontrado: true,
+          ...fila,
+          explicacion: `Lo que ${institucion.nombre} le contrató a ${proveedor.nombre} desde 2015, según la instantánea histórica.`,
+        }
+      : {
+          encontrado: false,
+          contratos: null,
+          monto: null,
+          explicacion: `${institucion.nombre} no está entre los ${clientes.length} mayores clientes de ${proveedor.nombre}, ni ${proveedor.nombre} entre los ${top.length} mayores proveedores de ${institucion.nombre}: la instantánea agregada no guarda cada par, así que no se puede decir cuánto le contrató (puede ser poco o nada). La ficha del proveedor lee su registro en vivo.`,
+        };
+  }
+
+  return {
+    alcance: proveedor && institucion ? "par" : proveedor ? "proveedor" : "institucion",
+    proveedor,
+    institucion,
+    par,
+    pais: null,
+    notas,
+    ...base,
+  };
+}
+
+/* ---------------------------------------------------- compras dentro de fetch */
+
+interface Seccion {
+  lineas: string[];
+  metadata: Record<string, unknown>;
+}
+
+/** Cuántos procesos publicó cada unidad de compra en la instantánea, y por cuánto, por su nombre plano. */
+let porUnidadMemo: { procesos: ProcesoIndexado[]; mapa: Map<string, { procesos: number; suma: number }> } | null = null;
+
+function publicadoPorUnidad(procesos: ProcesoIndexado[]): Map<string, { procesos: number; suma: number }> {
+  if (porUnidadMemo?.procesos !== procesos) {
+    const mapa = new Map<string, { procesos: number; suma: number }>();
+    const planos = new Map<string, string>();
+    for (const p of procesos) {
+      let k = planos.get(p.unidad);
+      if (k === undefined) planos.set(p.unidad, (k = plano(p.unidad)));
+      const g = mapa.get(k) ?? { procesos: 0, suma: 0 };
+      g.procesos++;
+      g.suma += p.valor ?? 0;
+      mapa.set(k, g);
+    }
+    porUnidadMemo = { procesos, mapa };
+  }
+  return porUnidadMemo.mapa;
+}
+
+/** Lo que compra una institución: lo contratado desde 2015 y lo publicado en el último año, con las herramientas que lo abren. */
+async function comprasDeInstitucion(i: Institucion): Promise<Seccion | null> {
+  if (!i.dgcp) return null;
+  const id = rutaInstitucion(i);
+  const [h, sinAsignar, resumen, { procesos, corte }] = await Promise.all([
+    historiaDeInstitucion(i.id),
+    prefijoSinAsignar(i.nombre),
+    getResumenHistorico(),
+    procesosDelIndice(),
+  ]);
+  const serie = h?.historia.serie ?? [];
+  const contratos = serie.reduce((s, f) => s + f[1], 0);
+  const monto = serie.reduce((s, f) => s + f[2], 0);
+  const publicado = publicadoPorUnidad(procesos).get(plano(i.nombre)) ?? { procesos: 0, suma: 0 };
+  const cobertura = procesos.length ? coberturaDe(procesos) : null;
+  const lineas = ["", "## Compras públicas (DGCP)"];
+  if (sinAsignar) {
+    lineas.push(
+      `- Contratado desde 2015: no se le asigna sin adivinar. Sus contratos comparten el prefijo «${sinAsignar.prefijo}» con otra unidad; los ${ENTERO.format(sinAsignar.contratos)} de ese prefijo suman RD$ ${ENTERO.format(sinAsignar.monto)} (tablas de contratos de la DGCP, corte del ${resumen?.corte ?? "?"}).`,
+    );
+  } else if (contratos > 0) {
+    lineas.push(
+      `- Contratado desde 2015: RD$ ${ENTERO.format(monto)} en ${ENTERO.format(contratos)} contratos con ${ENTERO.format(h?.historia.proveedores ?? 0)} proveedores (valor contratado, no pagado; tablas de contratos de la DGCP, corte del ${resumen?.corte ?? "?"}).`,
+    );
+  } else {
+    lineas.push(`- Contratado desde 2015: la instantánea histórica de la DGCP no le registra contratos (corte del ${resumen?.corte ?? "?"}).`);
+  }
+  if (cobertura) {
+    lineas.push(
+      `- Procesos publicados del ${cobertura.desde} al ${cobertura.hasta}: ${ENTERO.format(publicado.procesos)}, por RD$ ${ENTERO.format(publicado.suma)} estimados (tabla de procesos de la DGCP, instantánea del ${corte?.slice(0, 10) ?? "?"}).`,
+    );
+  }
+  lineas.push(`- Por año y por proveedor: contracting_history con institucion «${id}». Proceso por proceso, por monto o por fecha: procurement con institucion «${id}».`);
+  return {
+    lineas,
+    metadata: {
+      compras: {
+        contratado: sinAsignar ? null : { contratos, monto, corte: resumen?.corte ?? null },
+        publicadoUltimoAnio: { procesos: publicado.procesos, sumaEstimada: publicado.suma, desde: cobertura?.desde ?? null, hasta: cobertura?.hasta ?? null },
+      },
+    },
+  };
+}
+
+/** Lo que el Estado le ha contratado a un proveedor desde 2015, en corto, con la herramienta que da el resto. */
+async function comprasDeProveedor(rpe: string): Promise<Seccion | null> {
+  const [h, resumen] = await Promise.all([historiaDeProveedor(rpe), getResumenHistorico()]);
+  if (!h) return null;
+  const { historia } = h;
+  const contratos = historia.serie.reduce((s, f) => s + f[1], 0);
+  const monto = historia.serie.reduce((s, f) => s + f[2], 0);
+  const id = enlace.proveedor(rpe);
+  const lineas = [
+    "",
+    "## Contratado con el Estado desde 2015",
+    `- RD$ ${ENTERO.format(monto)} en ${ENTERO.format(contratos)} contratos, del ${historia.desde} al ${historia.hasta}, con ${ENTERO.format(historia.totalClientes)} instituciones (valor contratado, no pagado; tablas de contratos de la DGCP, corte del ${resumen?.corte ?? h.corte}).`,
+    `- Por año: ${historia.serie.map(([anio, n, m]) => `${anio}, RD$ ${ENTERO.format(m)} (${ENTERO.format(n)})`).join("; ")}.`,
+    `- Sus mayores clientes: ${historia.clientes
+      .slice(0, 5)
+      .map((c) => {
+        const x = contraparteInstitucion(c);
+        return `${x.nombre}, RD$ ${ENTERO.format(x.monto)} en ${ENTERO.format(x.contratos)} contratos${x.id ? ` → ${x.id}` : ""}`;
+      })
+      .join("; ")}.`,
+  ];
+  if (historia.atipicos) {
+    lineas.push(`- Fuera de las sumas: ${ENTERO.format(historia.atipicos[0])} contratos atípicos de RD$ 10 mil millones o más, por RD$ ${ENTERO.format(historia.atipicos[1])} (varios son errores de captura).`);
+  }
+  lineas.push(`- Completo, y lo que le contrató una institución: contracting_history con proveedor «${id}».`);
+  return { lineas, metadata: { contratado: { contratos, monto, desde: historia.desde, hasta: historia.hasta, corte: resumen?.corte ?? h.corte } } };
+}
+
+/** Lo que el índice sabe de un proceso además de su resumen, y lo que no trae. */
+async function detalleDeProceso(codigo: string): Promise<Seccion | null> {
+  const [p, { corte }] = await Promise.all([procesoDelIndice(codigo), procesosDelIndice()]);
+  if (!p) return null;
+  const i = institucionDeUnidad(p.unidad);
+  const dia = corte?.slice(0, 10) ?? null;
+  const lineas = [
+    "",
+    "## El proceso",
+    `- Código: ${p.codigo}`,
+    `- Modalidad: ${p.modalidad}`,
+    `- Estado${dia ? ` al ${dia}` : ""}: ${p.etapa}`,
+    ...(p.objeto ? [`- Objeto: ${p.objeto}`] : []),
+    ...(i ? [`- La institución, como nodo del grafo: ${rutaInstitucion(i)}`] : []),
+    "",
+    "## Lo que esta instantánea no trae",
+    NOTA_ADJUDICATARIO,
+    NOTA_VALOR,
+  ];
+  return {
+    lineas,
+    metadata: {
+      codigo: p.codigo,
+      modalidad: p.modalidad,
+      estado: p.etapa,
+      objeto: p.objeto,
+      valorEstimado: p.valor,
+      institucion: i ? rutaInstitucion(i) : null,
+    },
+  };
+}
+
 /* -------------------------------------------------------------- ontology */
 
 const Ontologia = z.object({
@@ -876,7 +1702,7 @@ const Id = z.string().min(1).max(500);
 
 /**
  * Un servidor para un pedido: `createMcpHandler` lo pide en cada POST y lo
- * suelta al responder. Registrar seis herramientas cuesta microsegundos; los
+ * suelta al responder. Registrar ocho herramientas cuesta microsegundos; los
  * datos que leen están en memoria de la instancia (cada `lib/` memoiza su
  * instantánea).
  */
@@ -904,14 +1730,16 @@ export function servidorMcp(): McpServer {
     {
       title: tituloHerramienta("search"),
       description:
-        "Busca en los datos públicos del Estado dominicano que ordena Socrático.do: personas con cargo público, instituciones, entidades financieras, empresas del padrón de la DGII (por nombre o RNC), provincias, decretos («Decreto 497-25»), proveedores y procesos de compra, normas, iniciativas del Congreso, sentencias, obras, cargos de la nómina, documentos institucionales y datos abiertos. Por palabras (todas deben estar, tolera una errata) y por tema. Devuelve hasta 30 resultados; abre cada uno con fetch usando su id.",
+        "Busca en los datos públicos del Estado dominicano que ordena Socrático.do: personas con cargo público, instituciones, entidades financieras, empresas del padrón de la DGII (por nombre o RNC), provincias, decretos («Decreto 497-25»), proveedores y procesos de compra, normas, iniciativas del Congreso, sentencias, obras, cargos de la nómina, documentos institucionales y datos abiertos. Por palabras (todas deben estar, tolera una errata) y por tema, ordenado por parecido: para ordenar compras por monto o fecha, o contarlas, usa procurement. Devuelve hasta 30 resultados por página; abre cada uno con fetch usando su id.",
       inputSchema: z.object({
         query: z.string().min(1).max(1000).describe("Lo que se busca, en español: un nombre, un RNC de nueve cifras, un número de decreto o un tema."),
+        tipo: z.enum(TIPOS_ID).optional().describe(`Solo resultados de este tipo: ${TIPOS_RESULTADO.map((t) => `${t.clave} (${t.plural.toLocaleLowerCase("es")})`).join(", ")}.`),
+        pagina: z.number().int().min(1).max(100).optional().describe("La página, desde 1."),
       }),
-      outputSchema: z.object({ results: z.array(Hallado) }),
+      outputSchema: Busqueda,
       annotations: SOLO_LECTURA,
     },
-    async ({ query }) => resultado(await correr("search", () => buscar(query))),
+    async ({ query, tipo, pagina }) => resultado(await correr("search", () => buscar(query, { tipo, pagina }))),
   );
 
   s.registerTool(
@@ -925,6 +1753,61 @@ export function servidorMcp(): McpServer {
       annotations: SOLO_LECTURA,
     },
     async ({ id }) => resultado(await correr("fetch", () => leer(id))),
+  );
+
+  s.registerTool(
+    "procurement",
+    {
+      title: tituloHerramienta("procurement"),
+      description:
+        "Los procesos de compra pública del Estado dominicano de los últimos doce meses (tabla de la DGCP, todos, no una muestra), filtrados y ordenados: por año o fechas, institución, estado (abierto, en evaluación, adjudicado…), modalidad, objeto (bienes, obras, servicios), monto y palabras de la carátula; de mayor a menor monto por omisión, o por fecha. Da cuántos cumplen, la suma de sus valores estimados, el desglose por estado y las instituciones que más suman, en páginas de 25. Para «la compra más grande de 2026», «las licitaciones de mobiliario abiertas» o «lo que publicó el MOPC este año». El valor es el estimado al publicar; quién ganó no está aquí (la ficha del proceso lo lee en vivo).",
+      inputSchema: z.object({
+        texto: z
+          .string()
+          .max(200)
+          .optional()
+          .describe("Palabras que deben estar todas en la carátula (sin importar tildes ni mayúsculas; «muebles» casa con «mueble»). Alternativas separadas por « | »: «mobiliario | muebles | sillas» trae las que dicen cualquiera."),
+        institucion: z.string().max(200).optional().describe("La unidad de compra: su id («/instituciones/5»), sus siglas («MOPC», «INABIE») o palabras de su nombre («hospital» son todos los hospitales)."),
+        anio: z.number().int().min(2015).max(2100).optional().describe("Solo los publicados ese año."),
+        desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Publicados desde esta fecha (AAAA-MM-DD)."),
+        hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Publicados hasta esta fecha (AAAA-MM-DD)."),
+        estado: z
+          .array(z.enum(CLAVES_ETAPA))
+          .max(CLAVES_ETAPA.length)
+          .optional()
+          .describe(`La etapa el día del corte, una o varias: ${CLAVES_ETAPA.map((k) => `${k} (${ETAPAS[k]})`).join(", ")}.`),
+        modalidad: z
+          .array(z.enum(CLAVES_MODALIDAD))
+          .max(CLAVES_MODALIDAD.length)
+          .optional()
+          .describe(`Una o varias: ${CLAVES_MODALIDAD.map((k) => `${k} (${MODALIDADES[k]})`).join(", ")}.`),
+        objeto: z.enum(CLAVES_OBJETO).optional().describe("Bienes, obras o servicios."),
+        montoMinimo: z.number().min(0).optional().describe("Valor estimado mínimo, en pesos."),
+        montoMaximo: z.number().min(0).optional().describe("Valor estimado máximo, en pesos."),
+        orden: z.enum(ORDENES_COMPRA).optional().describe("monto: de mayor a menor (por omisión); monto_asc; fecha: los más recientes primero; fecha_asc."),
+        pagina: z.number().int().min(1).max(1000).optional().describe("La página, desde 1."),
+      }),
+      outputSchema: Compras,
+      annotations: SOLO_LECTURA,
+    },
+    async (f) => resultado(await correr("procurement", () => compras(f))),
+  );
+
+  s.registerTool(
+    "contracting_history",
+    {
+      title: tituloHerramienta("contracting_history"),
+      description:
+        "Lo que el Estado dominicano ha contratado por el sistema de compras desde 2015 (tablas de contratos de la DGCP, agregadas): de un proveedor (por año, total y sus mayores clientes), de una institución (por año, total y sus mayores proveedores), lo que una institución le contrató a un proveedor si se piden los dos, o, sin ninguno, el país entero con los cien mayores proveedores y las instituciones que más contratan. Valor contratado, no pagado.",
+      inputSchema: z.object({
+        proveedor: z.string().max(200).optional().describe("El proveedor: su id («/proveedores/1211»), su RNC de nueve cifras, su RPE o su nombre."),
+        institucion: z.string().max(200).optional().describe("La institución: su id («/instituciones/237»), sus siglas («MINERD») o su nombre."),
+        pagina: z.number().int().min(1).max(4).optional().describe("Sin proveedor ni institución: la página de los cien mayores proveedores, de 25 en 25."),
+      }),
+      outputSchema: Historial,
+      annotations: SOLO_LECTURA,
+    },
+    async (pedido) => resultado(await correr("contracting_history", () => historial(pedido))),
   );
 
   s.registerTool(

@@ -96,7 +96,7 @@ decisiones del dueño vivían dentro del archivo de arranque.
 
 | Archivo | Qué fija |
 |---|---|
-| `.claude/hooks/verificar.sh` | El gate: typecheck → identidad → controles sin efecto → índice → movimiento → statelessness → secretos → índice del buscador al día (`indice.bin` de su `corpus.json`) → **harness** → build. En verde estampa `.git/harness-gate` con el sha de HEAD. |
+| `.claude/hooks/verificar.sh` | El gate: typecheck → identidad → controles sin efecto → índice → movimiento → statelessness → secretos → índice del buscador al día (`indice.bin` de su `corpus.json`) → **harness** → build → **la evaluación del servidor MCP** (`scripts/eval-mcp.mjs` contra `next start` sobre ese build, en un puerto libre). En verde estampa `.git/harness-gate` con el sha de HEAD. |
 | `.claude/hooks/lib.sh` | Los patrones que comparten los hooks: prohibiciones de identidad, valores y nombres de secreto, qué archivo es de UI, de `/democracia` o de `supabase/`. |
 | `.claude/hooks/guard-bash.sh` | PreToolUse(Bash): rechaza `--force`, cualquier push que no sea a `main`, un push a `main` **sin la estampa del gate**, `--no-verify`, resets destructivos, `rm -rf` fuera de lo generado, escribir `.env`, cambiar secretos de Vercel/Supabase, y un identificador de modelo en un mensaje de commit. |
 | `.claude/hooks/guard-edit.sh` | PreToolUse(Edit/Write): rechaza secretos, `process.env` o Supabase fuera de `/democracia`, y las prohibiciones de identidad — antes de que el archivo se escriba. |

@@ -1,12 +1,13 @@
 ---
 name: verificar
-description: Run the repository gate (typecheck, identity, mute controls, statelessness, secrets, harness, next build) and report. Use before claiming any change is done, before /entregar, and whenever a build failure needs diagnosing.
+description: Run the repository gate (typecheck, identity, mute controls, statelessness, secrets, harness, next build, MCP eval) and report. Use before claiming any change is done, before /entregar, and whenever a build failure needs diagnosing.
 allowed-tools: Bash, Read, Grep, Glob, Edit
 ---
 # /verificar — the gate
 
-There is no test suite and no ESLint; `next build` is the only real gate and
-the hooks add six cheap invariants around it. Run the full mode:
+There is no unit-test suite and no ESLint; `next build` and the MCP eval run
+against it are the real gate, and the hooks add cheap invariants around them.
+Run the full mode:
 
 ```bash
 ./.claude/hooks/verificar.sh --completo
@@ -33,7 +34,13 @@ Then:
    `docs/`), a path it names that no longer exists, a `rules/*.md` that stopped
    naming the page it condenses, or an agent without `effort`. See
    `docs/HARNESS.md` §4.
-5. **Build failures on Next 15**: a `node:` import reached a client bundle
+5. **MCP eval failures** (`scripts/eval-mcp.mjs`, run against `next start`
+   over the fresh build): each `FAIL` line names the question and what the
+   tool answered versus the oracle read from `public/data`. A tool whose shape
+   changed on purpose updates its case in the same commit; a snapshot rebuilt
+   with a new shape updates the reader (`procesosDelIndice` in
+   `lib/busqueda.ts`), never the oracle to match the tool.
+6. **Build failures on Next 15**: a `node:` import reached a client bundle
    (move it to a server-only module), a `"use client"` component imported a
    server module, or a dynamic route lost `force-dynamic`. Read the last 40
    lines of the log the script names.

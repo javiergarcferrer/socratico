@@ -1097,15 +1097,40 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   `readOnlyHint` y `openWorldHint: false`, en este orden):
   `search` (`buscarEnTodo` de `lib/busqueda.ts`, más lo que se nombra exacto
   —decreto por número, empresa por RNC—, las provincias y cinco empresas del
-  padrón por nombre, `buscarEmpresas`; hasta 30), `fetch` (un nodo del grafo:
+  padrón por nombre, `buscarEmpresas`; hasta 30; con `tipo` o `pagina`, solo
+  el índice, un tipo y su página), `fetch` (un nodo del grafo:
   `describir` y `relacionesDesdeTriples` de `lib/grafo-rdf.ts`, sus datos en
   llano, las medidas de la DGCP de sus inscripciones, sus relaciones por grupo
-  —50, el resto por `neighbors`— y su fuente con fecha de corte; otro
-  resultado del índice: su resumen, por `resultadoPorHref`, que cuenta las
-  copias de un documento juntado), `neighbors` (las relaciones de un nodo por
-  grupo y página), `path` (`camino()`, cacheado),
+  —50, el resto por `neighbors`— y su fuente con fecha de corte; una
+  institución trae además sus compras —lo contratado desde 2015 y lo
+  publicado en el último año— y una empresa inscrita como proveedora, lo que
+  se le ha contratado; otro resultado del índice: su resumen, por
+  `resultadoPorHref`, que cuenta las copias de un documento juntado, y un
+  proceso o un proveedor, sus campos por separado y lo contratado),
+  `procurement` (todos los procesos del índice, `procesosDelIndice`,
+  filtrados por año o fechas, institución, estado, modalidad, objeto, monto y
+  palabras de la carátula —alternativas con « | »— y ordenados por monto o
+  fecha, con total, suma, desglose por estado y las diez instituciones que más
+  suman, en páginas de 25), `contracting_history` (`lib/historico.ts`: un
+  proveedor —por id, RPE, RNC o nombre, con `proveedoresDelIndice`—, una
+  institución, el par de los dos si figura en sus listas de mayores, o el
+  país con los cien mayores proveedores), `neighbors` (las relaciones de un
+  nodo por grupo y página), `path` (`camino()`, cacheado),
   `signed_decrees` (`decretosDeFirmante` con los filtros de la lista de la
   ficha) y `ontology` (`lib/ontologia.ts`).
+- **Las compras, de dos instantáneas y sin la API en vivo**: `procurement`
+  lee los procesos de los últimos doce meses que ya guarda el corpus del
+  buscador (`scripts/busqueda_procesos.py` junta modalidad y etapa en `d` y
+  «modalidad objeto» en `x`; `procesosDelIndice` los vuelve a separar), y
+  `contracting_history`, los agregados de `public/data/historico/`. La
+  institución de un proceso se ata por el nombre de su unidad de compra, que
+  el cruce (`instituciones.json`) escribe igual: las 667 unidades de la
+  instantánea del 25-09-2026 casan todas. Lo que no dan, y lo dicen en cada
+  respuesta: **quién ganó un proceso** (la tabla de contratos no trae el
+  código del proceso, AUDITORIA §G.1; la ficha `/procesos/{codigo}` lo lee en
+  vivo) y lo que una institución le contrató a un proveedor fuera de sus
+  listas de mayores (ocho clientes por proveedor, doce proveedores por
+  institución). El valor de un proceso es el estimado al publicarlo.
 - **La forma de ChatGPT**: `search` devuelve `results` con `id`, `title`,
   `url` y `text`; `fetch`, `id`, `title`, `text`, `url` y `metadata`. Todas
   las herramientas devuelven el objeto como `structuredContent` (con su
@@ -1136,13 +1161,26 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
 - **`lib/mcp-herramientas.ts`**: la dirección y la tabla de herramientas
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
-- **Trazado**: la clave `/mcp` lleva el índice de búsqueda y las instantáneas
-  del grafo. La función pesa ~166 MB, lo mismo que `/grafo/camino` (las
+- **Trazado**: la clave `/mcp` lleva el índice de búsqueda, las instantáneas
+  del grafo y `historico/` (unos 7 MB; `lib/historico.ts` abre el archivo de
+  un proveedor por el último dígito de su RPE). La función pesa ~166 MB, lo mismo que `/grafo/camino` (las
   importaciones de `lib/grafo-rdf.ts` arrastran otras instantáneas): cabe en
   el límite, con la misma deuda del arranque en frío.
 - **Verificado** el 30-09-2026 con los clientes oficiales: el SDK 1.x
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
+- **La evaluación** (`scripts/eval-mcp.mjs`, en `verificar.sh --completo`
+  contra `next start`): 24 preguntas de quien investiga —la compra más
+  grande del año, las licitaciones de mobiliario abiertas, lo contratado a un
+  proveedor, quién dirige una institución—, cada una con su oráculo calculado
+  aparte de `public/data`, más las reglas de toda respuesta (sin cédula, con
+  su aviso y su corte). El 30-09-2026, antes de `procurement` y
+  `contracting_history`, la producción pasaba 5 de 24: a la pregunta «¿cuál es
+  la compra más grande de 2026?» un asistente respondía con la séptima,
+  porque `search` ordena por parecido. Contra otro despliegue:
+  `node scripts/eval-mcp.mjs --url https://…/mcp` (en una sesión web, con
+  `NODE_USE_ENV_PROXY=1`: el `fetch` de Node no lee el proxy, y Vercel le
+  responde 403 a la salida directa).
 
 ## Primitivas compartidas — el sistema, en un sitio
 La identidad se diluyó dos veces por la misma causa (`docs/IDENTIDAD.md` §8):

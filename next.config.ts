@@ -46,9 +46,12 @@ const nextConfig: NextConfig = {
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
     ],
     // El servidor MCP (`lib/mcp.ts`) busca en el índice y describe nodos del
-    // grafo: lleva lo de `/buscar` y lo de `/grafo`.
+    // grafo: lleva lo de `/buscar` y lo de `/grafo`, y la historia de las
+    // compras desde 2015 (`lib/historico.ts`, que abre un archivo por el
+    // último dígito del RPE) para `contracting_history`.
     "/mcp": [
       "./public/data/busqueda/**",
+      "./public/data/historico/**",
       "./public/data/decretos/**",
       "./public/data/empresas/**",
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",

@@ -11,7 +11,15 @@ import { SITIO } from "@/lib/sitio";
 /** La dirección que se pega en el asistente. */
 export const DIRECCION_MCP = `${SITIO}/mcp`;
 
-export type NombreHerramienta = "search" | "fetch" | "neighbors" | "path" | "signed_decrees" | "ontology";
+export type NombreHerramienta =
+  | "search"
+  | "fetch"
+  | "procurement"
+  | "contracting_history"
+  | "neighbors"
+  | "path"
+  | "signed_decrees"
+  | "ontology";
 
 export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: string; llano: string }[] = [
   {
@@ -24,6 +32,17 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
     nombre: "fetch",
     titulo: "Leer un registro",
     llano: "Una ficha entera: sus datos, sus relaciones y su fuente con la fecha de corte.",
+  },
+  {
+    nombre: "procurement",
+    titulo: "Compras por monto, fecha o estado",
+    llano:
+      "Todos los procesos de compra de los últimos doce meses, filtrados por año, institución, estado, modalidad y palabras, y ordenados por monto o fecha, con su total y su suma.",
+  },
+  {
+    nombre: "contracting_history",
+    titulo: "Lo contratado desde 2015",
+    llano: "Lo que el Estado le ha contratado a un proveedor, lo que ha contratado una institución, o el país entero, año por año y con sus mayores contrapartes.",
   },
   {
     nombre: "neighbors",
