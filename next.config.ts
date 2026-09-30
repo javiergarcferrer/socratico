@@ -29,9 +29,10 @@ const nextConfig: NextConfig = {
     // literal, y no arrastran el resto.
     "/empresas": ["./public/data/empresas/**"],
     // El registro de decretos (~13 MB en un archivo por año, `lib/decretos.ts`)
-    // se abre por un nombre que se arma en la consulta: el trazado no lo
-    // adivina. Lo leen la ficha de una persona y sus decretos firmados, y la
-    // ficha de un decreto.
+    // se abre por un nombre que se arma en la consulta. Hoy el trazado lo
+    // incluye solo; se declara para no depender de que lo siga adivinando en
+    // las rutas que lo leen: la ficha de una persona y sus decretos firmados, y
+    // la ficha de un decreto.
     "/funcionarios": ["./public/data/decretos/**"],
     "/normativa": ["./public/data/decretos/**"],
   },

@@ -10,8 +10,10 @@ import {
   TIPOS_MEDIDA,
   esFutura,
   hrefFichaOfac,
+  motivoBancoMundialEnLlano,
   programaEnLlano,
   tonoEstadoRpe,
+  type EntidadBancoMundial,
   type EntidadOfac,
   type MedidaDgcp,
   type MetaSanciones,
@@ -266,6 +268,53 @@ export function NotaOfac({ entidad, fecha }: { entidad: EntidadOfac; fecha: stri
         >
           Ver la entrada en el buscador de la OFAC
           <IconExternal className="ml-0.5 inline h-3.5 w-3.5 align-[-2px]" />
+          <span className="sr-only">(se abre en otra pestaña)</span>
+        </a>
+      </p>
+    </Card>
+  );
+}
+
+/**
+ * La nota del Banco Mundial en la ficha de un proveedor cuyo nombre es
+ * **exactamente** el de una firma de su lista de inhabilitados. Un mismo nombre
+ * no prueba que sea la misma empresa, y la nota lo dice antes que nada: si el
+ * Banco la registra en otro país, puede ser otra.
+ */
+export function NotaBancoMundial({ entidades, fecha }: { entidades: EntidadBancoMundial[]; fecha: string | null }) {
+  if (entidades.length === 0) return null;
+  return (
+    <Card as="section" id="banco-mundial" aria-labelledby="bm-titulo" className="px-5 py-5">
+      <CardTitle id="bm-titulo" className="text-[15px]">
+        ¿Está en la lista de inhabilitados del Banco Mundial?
+      </CardTitle>
+      {entidades.map((e) => (
+        <div key={e.id} className="mt-2">
+          <p className="text-sm leading-relaxed text-ink">
+            Una firma con exactamente su mismo nombre, «{e.nombre}», está en la lista
+            {e.pais ? `, registrada en ${e.dominicana ? "la República Dominicana" : e.pais}` : ""}: inhabilitada desde el{" "}
+            {e.desde ? formatFecha(e.desde) : "(sin fecha)"}
+            {e.hasta ? ` hasta el ${formatFecha(e.hasta)}` : ", sin fecha de fin"}. {motivoBancoMundialEnLlano(e)}
+          </p>
+          {!e.dominicana && (
+            <p className="mt-1 text-sm leading-relaxed text-alerta-700">
+              El Banco Mundial la registra fuera del país: puede ser otra empresa con el mismo nombre.
+            </p>
+          )}
+        </div>
+      ))}
+      <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+        Es la lista de a quién no contrata el Banco Mundial en los proyectos que financia, no una medida del Estado
+        dominicano, y se cruza por el nombre, no por un documento: compáralo antes de sacar conclusiones. Lista
+        {fecha ? ` actualizada el ${formatFecha(fecha)}` : ""}.{" "}
+        <a
+          href="https://www.worldbank.org/en/projects-operations/procurement/debarred-firms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline sm:min-h-0"
+        >
+          Ver la lista del Banco Mundial
+          <IconExternal className="ml-0.5 inline h-3.5 w-3.5" />
           <span className="sr-only">(se abre en otra pestaña)</span>
         </a>
       </p>

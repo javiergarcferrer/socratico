@@ -111,7 +111,7 @@ export function Cifra({
       {href ? (
         <Link
           href={href}
-          className="font-mono text-xl font-semibold tabular-nums text-brand-700 underline decoration-brand-700/30 underline-offset-4 hover:decoration-brand-700"
+          className="inline-flex min-h-11 items-center self-start font-mono text-xl font-semibold tabular-nums text-brand-700 underline decoration-brand-700/30 underline-offset-4 hover:decoration-brand-700 sm:min-h-0"
         >
           {valor}
         </Link>

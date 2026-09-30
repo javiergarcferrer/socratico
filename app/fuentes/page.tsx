@@ -866,6 +866,24 @@ export default async function FuentesPage() {
           </p>
         </Fuente>
 
+        <Fuente nombre="Banco Mundial · firmas inhabilitadas" estado="activa" etiqueta="Instantánea local">
+          <p>
+            La lista de firmas e individuos con una inhabilitación vigente del Banco Mundial (a
+            quién no contrata en los proyectos que financia, incluidas las inhabilitaciones
+            cruzadas de otros bancos multilaterales) se lee entera en cada regeneración y se
+            guardan las firmas ligadas a la República Dominicana por su registro o su dirección y
+            las que tienen exactamente el mismo nombre que un proveedor inscrito en la DGCP.
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            Su API exige una clave que la propia página del Banco publica: el dueño aprobó usarla
+            el 30-09-2026 con una condición, que la clave no se escriba en ningún sitio. El script
+            la lee de la página en cada corrida y la usa en memoria. Los individuos se cuentan y no
+            se muestran. Un mismo nombre no prueba que sea la misma empresa: la plataforma dice
+            dónde la registra el Banco. No hay una descarga oficial sin clave. Se regenera con las
+            medidas de la DGCP, en el mismo script.
+          </p>
+        </Fuente>
+
         <Fuente nombre="Contraloría y Cámara de Cuentas · auditorías y declaraciones" estado="activa" etiqueta="Instantánea local">
           <p>
             En{" "}
@@ -873,8 +891,10 @@ export default async function FuentesPage() {
               auditorías y declaraciones
             </Link>{" "}
             se juntan los informes de auditoría de la Contraloría (y su Índice de
-            Control Interno trimestral) y los de la Cámara de Cuentas, que volvió a
-            responder después de meses de bloqueo. De la Cámara solo se leen los 10
+            Control Interno trimestral) y los de la Cámara de Cuentas. La Cámara
+            respondió el 24-09-2026 después de meses de bloqueo y el 30-09-2026 volvió a
+            rechazar la lectura (HTTP 470): lo que se muestra es de la última lectura que
+            respondió, y no se regenera hasta que responda. De ella solo se leían los 10
             informes más recientes de su canal, de unos 216 publicados; la página lo
             dice. Las listas de quién presentó su declaración jurada a tiempo, tarde o
             no la presentó son PDF: se enlazan con su fecha de corte y todavía no se

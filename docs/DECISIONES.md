@@ -133,8 +133,12 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
     el repositorio**. El script de build la lee de la página en cada corrida
     (AUDITORIA §H.13) y la usa en memoria.
   - **Guardar y seguir funcionarios, entidades financieras y empresas**:
-    aprobada la migración sobre el Supabase vivo que amplía el `check` de
-    `espacios.guardados.tipo`.
+    migración `supabase/migrations/20260930120000_espacios_personas.sql`,
+    **aplicada al Supabase vivo el 30-09-2026** (`espacios_personas`): amplía
+    `espacios.tipo_valido` (el `check` de `entradas.tipo`) y el `check` de
+    `seguimientos.tipo` con `funcionario`, `entidad-financiera` y `empresa`;
+    comprobado después con `select espacios.tipo_valido(…)` y la definición del
+    `check`. Las tres fichas llevan `AccionesFicha`.
   - **Gestiones institucionales: se envían.** Las solicitudes de la Ley 200-04
     (CCPSD, FEDOCÁMARAS y MICM por el registro mercantil; ONAPI; la SB, que su
     cortafuegos admita el User-Agent; SIMV; SIS; CASFL; Cámara de Cuentas;

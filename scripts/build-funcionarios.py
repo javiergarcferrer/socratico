@@ -279,8 +279,11 @@ gobernador gobernadora subdirector subdirectora encargado encargada asesor aseso
 inspector inspectora jefe jefa comandante subsecretario subsecretaria tesorero tesorera contralor contralora
 procurador procuradora juez jueza agregado agregada consejero consejera delegado delegada interventor
 interventora comisionado comisionada supervisor supervisora presidencia aeropuerto edificio oficinas
-departamento division unidad administracion
+departamento division unidad administracion proyecto nombre bomberos
 """.split())
+# «nombre»: «QUE DESIGNA CON EL NOMBRE DE X EL EDIFICIO…» pone un nombre a una
+# obra y no nombra a nadie; el mismo título puede designar además a una persona
+# («…Y DESIGNA A LA DRA. X, DIRECTORA»), que sí se lee.
 
 
 def es_nombre(n: str) -> bool:
@@ -304,7 +307,10 @@ def es_nombre(n: str) -> bool:
 # nombre; un sujeto en plural («Los Dres. …», «Los Agregados…») nombra a varias
 # personas a la vez y esta lectura no sabe separarlas: se descarta.
 TRATAMIENTO_NOMBRE = re.compile(
-    r"^(?:(?:el|la)\s+)?(?:(?:se[ñn]or(?:a|ita)?|sr(?:a|ta)?\.?|lic(?:da|do)?\.?|licenciad[oa]|dr(?:a)?\.?|"
+    # «De manera honorífica al señor X», «Al Sra. X», «El. Ing. X»: lo que
+    # queda delante del nombre cuando el título lo trae con su preposición.
+    r"^(?:de\s+manera\s+honor[ií]fica\s+)?(?:(?:al|a\s+la|el\.?|la)\s+)?"
+    r"(?:(?:se[ñn]or(?:a|ita)?|sr(?:a|ta)?\.?|lic(?:da|do)?\.?|licenciad[oa]|dr(?:a)?\.?|"
     r"doctor(?:a)?|ing\.?|ingenier[oa]|arq\.?|arquitect[oa]|prof\.?|profesor(?:a)?|monse[ñn]or)\s+)+",
     re.I,
 )

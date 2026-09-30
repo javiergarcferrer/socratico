@@ -26,6 +26,9 @@ const ENTRADILLA: Record<TipoCompartido, string> = {
   institucion: "Mira esta institución del Estado",
   norma: "Mira esta norma del Poder Ejecutivo",
   capitulo: "Mira cómo gasta esta institución",
+  funcionario: "Mira los cargos públicos de esta persona",
+  "entidad-financiera": "Mira esta entidad financiera supervisada",
+  empresa: "Mira esta empresa en el padrón de la DGII",
 };
 
 /** La línea que acompaña al enlace cuando no hay hoja de compartir nativa. */

@@ -65,6 +65,9 @@ verified mechanics per source live there; this is what every adapter obeys.
 3. Before a new source, exhaust the one already integrated (DGCP had four
    unused endpoints: ofertas, proveedores, catálogo, PACC).
 4. Never use a leaked credential, even to read public data: report it.
+   One owner-approved exception (2026-09-30, docs/DECISIONES.md): the key the
+   World Bank's debarment page publishes for its own table, read from that page
+   by `scripts/build-sanciones.py` at build time and never written anywhere.
 5. Publishing is not exposing: a public register's phones and emails are
    not shown.
 6. Declare coverage, always: 4 fuel prices are not «los precios», 11

@@ -30,6 +30,7 @@ import { formatFecha, formatPesos, tituloLegible } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import type { Ancla } from "@/lib/cifras";
 import { Ruta } from "@/components/ruta";
+import AccionesFicha from "@/components/acciones-ficha";
 import { ConectadoCon } from "@/components/conectado-con";
 import { Cifra, TiraDeCifras } from "@/components/papel";
 import { MarcaEstado } from "@/components/marca-estado";
@@ -145,6 +146,13 @@ export default async function EntidadFinancieraPage({ params }: Props) {
         {codigos.length > 0 && (
           <p className="mt-2 font-mono text-xs tabular-nums text-ink-soft">{codigos.join(" · ")}</p>
         )}
+        <AccionesFicha
+          className="mt-3"
+          tipo="entidad-financiera"
+          id={e.slug}
+          titulo={e.nombre}
+          href={enlace.entidadFinanciera(e.slug)}
+        />
         <p className="mt-3 text-[15px] leading-relaxed text-ink sm:text-sm">
           <QueEs e={e} d={d} />
         </p>

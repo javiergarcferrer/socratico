@@ -114,10 +114,11 @@ def pedir(url: str, tipo: str) -> tuple[int, dict, bytes]:
     raise AssertionError
 
 
-def robots_permite(host: str) -> tuple[bool, str]:
+def robots_permite(host: str, muestra: str = "/wp-json/wp/v2/media?media_type=application") -> tuple[bool, str]:
     """Reglas del grupo `User-agent: *` (varias líneas User-agent seguidas
-    forman un solo grupo; `Allow` más largo gana a `Disallow`). Un 404 es «sin
-    reglas»; un robots que no se pudo leer por otra causa salta el host."""
+    forman un solo grupo; `Allow` más largo gana a `Disallow`) contra la ruta
+    que de verdad se va a leer (`muestra`). Un 404 es «sin reglas»; un robots
+    que no se pudo leer por otra causa salta el host."""
     try:
         estado, _, cuerpo = pedir(f"https://{host}/robots.txt", "text/")
     except Exception as e:  # noqa: BLE001
@@ -143,8 +144,6 @@ def robots_permite(host: str) -> tuple[bool, str]:
             en_reglas = True
             if "*" in agentes and v:
                 reglas.append((k, v))
-    muestra = "/wp-json/wp/v2/media?media_type=application"
-
     def casa(r: str) -> int:
         patron = "^" + re.escape(r).replace(r"\*", ".*").replace(r"\$", "$")
         return len(r) if re.match(patron, muestra) else -1

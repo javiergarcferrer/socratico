@@ -80,6 +80,28 @@ export default async function DecretosFirmadosPage({ params, searchParams }: Pro
   const sp = await searchParams;
   const [f, indice] = await Promise.all([leerFirmante(persona.firma.clave), indiceDecretos()]);
 
+  if (indice && !f) {
+    return (
+      <div className="mx-auto max-w-4xl">
+        <Ruta raiz={{ href: "/funcionarios", label: "Funcionarios" }} padre={{ href: enlace.funcionario(persona.id), label: persona.nombre }} actual="Decretos con su firma" />
+        <EstadoVacio
+          como="h1"
+          className="mt-4"
+          titulo="El registro de decretos no trae esta firma"
+          accion={
+            <Button asChild variant="secondary">
+              <Link href={enlace.funcionario(persona.id)}>Volver a su ficha</Link>
+            </Button>
+          }
+        >
+          La ficha cuenta los decretos con la firma «{persona.firma.como}», pero el registro de la Consultoría
+          leído el {formatFecha(indice.generado)} no tiene filas con esa firma. Las dos instantáneas se rehacen por
+          separado y pueden no coincidir por unos días.
+        </EstadoVacio>
+      </div>
+    );
+  }
+
   if (!f || !indice) {
     return (
       <div className="mx-auto max-w-4xl">
@@ -109,8 +131,14 @@ export default async function DecretosFirmadosPage({ params, searchParams }: Pro
   const aniosDe = [...new Set(todos.map((d) => d.anio).filter((a): a is number => a != null))].sort((a, b) => b - a);
   const anio = sp.anio && /^\d{4}$/.test(sp.anio) && aniosDe.includes(Number(sp.anio)) ? Number(sp.anio) : null;
   const porDecadas = aniosDe.length > ANIOS_SUELTOS;
+  const decadas = [...new Set(aniosDe.map((an) => Math.floor(an / 10) * 10))];
+  const decadaPedida = sp.decada && /^\d{3}0$/.test(sp.decada) ? Number(sp.decada) : null;
   const decada =
-    anio != null ? Math.floor(anio / 10) * 10 : sp.decada && /^\d{3}0$/.test(sp.decada) ? Number(sp.decada) : null;
+    anio != null
+      ? Math.floor(anio / 10) * 10
+      : porDecadas && decadaPedida != null && decadas.includes(decadaPedida)
+        ? decadaPedida
+        : null;
 
   const url = (cambios: Partial<Record<"q" | "materia" | "anio" | "decada" | "p", string | null>>) => {
     const u = new URLSearchParams();
@@ -142,9 +170,13 @@ export default async function DecretosFirmadosPage({ params, searchParams }: Pro
   const pagina = Math.min(Math.max(1, Number(sp.p) || 1), paginas);
   const vista = lista.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
-  // La serie por año, con la materia y la búsqueda puestas (no el año).
+  // La serie por año, con la materia y la búsqueda puestas (no el año). Las
+  // filas con aviso no la dibujan: una fecha que no es de fiar no hace un año
+  // (el Trujillo del año 2000).
   const porAnio = new Map<number, number>();
-  for (const d of buscados) if (d.anio != null && cumpleMateria(d, materia)) porAnio.set(d.anio, (porAnio.get(d.anio) ?? 0) + 1);
+  for (const d of buscados) {
+    if (d.anio != null && !d.aviso && cumpleMateria(d, materia)) porAnio.set(d.anio, (porAnio.get(d.anio) ?? 0) + 1);
+  }
   const aniosSerie = [...porAnio.keys()].sort((x, y) => x - y);
   const serie =
     aniosSerie.length > 1
@@ -159,7 +191,6 @@ export default async function DecretosFirmadosPage({ params, searchParams }: Pro
 
   const avisos = todos.filter((d) => d.aviso).length;
   const erratas = todos.filter((d) => /^FE DE ERRATA/i.test(d.titulo)).length;
-  const decadas = [...new Set(aniosDe.map((an) => Math.floor(an / 10) * 10))];
   const aniosVisibles = porDecadas ? (decada != null ? aniosDe.filter((an) => Math.floor(an / 10) * 10 === decada) : []) : aniosDe;
 
   return (
@@ -173,11 +204,7 @@ export default async function DecretosFirmadosPage({ params, searchParams }: Pro
       <header className="mt-1 sm:mt-3">
         <p className="rotulo text-ink-soft">Registro de decretos · Consultoría Jurídica</p>
         <h1 className="mt-1.5 font-display text-3xl leading-tight text-ink sm:text-4xl">
-          ¿Qué decretos firmó{" "}
-          <Link href={enlace.funcionario(persona.id)} className="hover:text-brand-700">
-            {persona.nombre}
-          </Link>
-          ?
+          ¿Qué decretos firmó {persona.nombre}?
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
           Todo lo que el registro de la Consultoría Jurídica anota con la firma «{persona.firma.como}», con su
@@ -209,7 +236,7 @@ export default async function DecretosFirmadosPage({ params, searchParams }: Pro
             <SerieTemporal
               forma="columnas"
               formato="entero"
-              etiqueta={`Decretos por año con la firma de ${persona.nombre}, de ${aniosSerie[0]} a ${aniosSerie[aniosSerie.length - 1]}`}
+              etiqueta={`Decretos por año con la firma de ${persona.nombre}, de ${aniosSerie[0]} a ${aniosSerie[aniosSerie.length - 1]}, sin las filas con aviso sobre su fecha`}
               puntos={serie}
               destacar={anio != null ? String(anio) : undefined}
             />
@@ -361,11 +388,7 @@ function FilaDecreto({ d }: { d: Decreto }) {
           <Badge forma="etiqueta" variant="contorno">
             {d.materia.nombre}
           </Badge>
-          {d.aviso && (
-            <MarcaEstado tono="aviso" title={AVISO[d.aviso].llano}>
-              {AVISO[d.aviso].etiqueta}
-            </MarcaEstado>
-          )}
+          {d.aviso && <MarcaEstado tono="aviso">{AVISO[d.aviso].etiqueta}</MarcaEstado>}
         </div>
         {href ? (
           externo ? (
@@ -392,6 +415,7 @@ function FilaDecreto({ d }: { d: Decreto }) {
           <p className="mt-1 text-[15px] leading-snug text-ink [overflow-wrap:anywhere]">{titulo}</p>
         )}
         {d.institucion && <p className="mt-1 text-xs text-ink-soft">{desdeMayusculas(d.institucion)}</p>}
+        {d.aviso && <p className="mt-1 text-xs leading-relaxed text-alerta-700">{AVISO[d.aviso].llano}</p>}
       </div>
     </li>
   );

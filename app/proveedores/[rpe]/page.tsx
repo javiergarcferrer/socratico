@@ -20,8 +20,8 @@ import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import Conversacion from "@/components/espacios/conversacion";
-import { MedidasDelProveedor, NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
-import { medidasDeRnc, medidasDeRpe, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
+import { MedidasDelProveedor, NotaBancoMundial, NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
+import { bancoMundialDeRpe, medidasDeRnc, medidasDeRpe, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
 
 function nContratos(n: number): string {
   return `${n.toLocaleString("es-DO")} ${n === 1 ? "contrato" : "contratos"}`;
@@ -110,7 +110,7 @@ export default async function ProveedorPage({
     (registro?.tipoDocumento === "RNC" ? rncDeDocumento(registro.numeroDocumento) : null) ??
     tributario?.rnc ??
     null;
-  const [mismoRnc, ofac] = await Promise.all([medidasDeRnc(rnc), ofacDeRnc(rnc)]);
+  const [mismoRnc, ofac, bancoMundial] = await Promise.all([medidasDeRnc(rnc), ofacDeRnc(rnc), bancoMundialDeRpe(rpe)]);
   const otrosConMedidas = mismoRnc.filter((p) => p.rpe !== String(Number(rpe)));
 
   /*
@@ -290,6 +290,7 @@ export default async function ProveedorPage({
         />
       )}
       {ofac && <NotaOfac entidad={ofac} fecha={metaMedidas?.fuentes.ofac.fecha ?? null} />}
+      <NotaBancoMundial entidades={bancoMundial} fecha={metaMedidas?.fuentes.bancoMundial?.fecha ?? null} />
 
       {registro && (
         <Card as="section" className="p-6">

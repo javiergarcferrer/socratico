@@ -10,6 +10,7 @@ import { ConectadoCon } from "@/components/conectado-con";
 import { DeclaracionJurada } from "@/components/fuentes-nuevas/declaracion-jurada";
 import Plegable from "@/components/plegable";
 import { Ruta } from "@/components/ruta";
+import AccionesFicha from "@/components/acciones-ficha";
 import { Termino } from "@/components/termino";
 import { formatFecha, hace } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
@@ -64,7 +65,9 @@ export default async function FuncionarioPage({ params }: Props) {
   // Adónde lleva cada decreto de sus cargos: su ficha si el registro la resuelve, si no su PDF.
   const numeros = unicas(persona.cargos.map((c) => c.decreto?.numero).filter((n): n is string => Boolean(n)));
   const resueltos = await Promise.all(numeros.map(async (n) => [n, await decretoPorNumero(n)] as const));
-  const decretos = new Map(resueltos.filter(([, d]) => d?.ficha).map(([n]) => [n, true]));
+  // El número con ficha y el documento de esa ficha: un cargo que cita otro
+  // documento con el mismo número (una errata, un duplicado) va a su PDF.
+  const decretos = new Map(resueltos.filter(([, d]) => d?.ficha).map(([n, d]) => [n, d!.docId]));
 
   const principal = cargoPrincipal(persona);
   const hoy = principal ? esActual(principal) : false;
@@ -110,6 +113,13 @@ export default async function FuncionarioPage({ params }: Props) {
             También escrito: {persona.alias.slice(0, 4).join(" · ")}
           </p>
         )}
+        <AccionesFicha
+          className="mt-3"
+          tipo="funcionario"
+          id={persona.id}
+          titulo={persona.nombre}
+          href={enlace.funcionario(persona.id)}
+        />
       </header>
 
       <Card as="section" className="mt-5 p-5">
@@ -296,7 +306,7 @@ export default async function FuncionarioPage({ params }: Props) {
   );
 }
 
-function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Map<string, boolean> }) {
+function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Map<string, number | null> }) {
   const inst = c.institucionId != null ? institucionPorId(c.institucionId) : null;
   const tono = c.movimiento === "cesa" || c.movimiento === "sustituido" || c.movimiento === "renuncia" || c.movimiento === "anterior"
     ? "neutro"
@@ -305,7 +315,11 @@ function FilaCargo({ cargo: c, decretos }: { cargo: Cargo; decretos: Map<string,
       : "firma";
   const decreto = c.decreto;
   const hrefDelDecreto = decreto
-    ? hrefDecreto({ numero: decreto.numero, ficha: decretos.has(decreto.numero), docId: decreto.docId })
+    ? hrefDecreto({
+        numero: decreto.numero,
+        ficha: decretos.has(decreto.numero) && (decreto.docId == null || decretos.get(decreto.numero) === decreto.docId),
+        docId: decreto.docId,
+      })
     : null;
   return (
     <li className="border-b border-hairline px-4 py-3.5 last:border-0 sm:px-5">

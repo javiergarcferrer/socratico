@@ -111,7 +111,8 @@ export function indiceDecretos(): Promise<IndiceDecretos | null> {
   return indice;
 }
 
-const NUMERO_ANIO = /^\d{1,4}-(\d{2})$/;
+// «0-00» no es un número: el origen lo pone cuando no tiene uno (la regla del build).
+const NUMERO_ANIO = /^(?!0+-)\d{1,4}-(\d{2})$/;
 const ERRATA = /^FE DE ERRATA/i;
 
 /**
@@ -149,12 +150,18 @@ export function decretosDelAnio(anio: number | "sin-fecha"): Promise<Decreto[]> 
           ficha: false,
           materia: materiaDeDecreto(titulo, inst != null ? ind.instituciones[inst] : null),
         }));
-        // La ficha de un número es su primera fila que no es una errata (las
-        // filas vienen de la más reciente a la más vieja); si todas lo son, la primera.
-        for (const soloPrincipales of [true, false]) {
+        // La ficha de un número es, por orden, su primera fila limpia (ni errata
+        // ni con aviso: «199-17» tiene una fila de Medina y otra mal atribuida),
+        // si no la primera que no es errata, y si todas lo son, la primera. Las
+        // filas vienen de la más reciente a la más vieja.
+        const pasadas: ((d: Decreto) => boolean)[] = [
+          (d) => !ERRATA.test(d.titulo) && !d.aviso,
+          (d) => !ERRATA.test(d.titulo),
+          () => true,
+        ];
+        for (const vale of pasadas) {
           for (const d of decretos) {
-            if (!d.numero || !NUMERO_ANIO.test(d.numero) || vistos.has(d.numero)) continue;
-            if (soloPrincipales && ERRATA.test(d.titulo)) continue;
+            if (!d.numero || !NUMERO_ANIO.test(d.numero) || vistos.has(d.numero) || !vale(d)) continue;
             vistos.add(d.numero);
             d.ficha = true;
           }

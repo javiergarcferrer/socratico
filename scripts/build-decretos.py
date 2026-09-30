@@ -59,7 +59,8 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 SALIDA = RAIZ / "public" / "data" / "decretos"
 UA = "Socratico-Inteligencia/1.0 (registro de decretos; herramienta independiente)"
 
-NUMERO_ANIO = re.compile(r"^\d{1,4}-(\d{2})$")
+# «0-00» no es un número: el origen lo pone cuando no tiene uno.
+NUMERO_ANIO = re.compile(r"^(?!0+-)\d{1,4}-(\d{2})$")
 
 
 class Rechazo(Exception):

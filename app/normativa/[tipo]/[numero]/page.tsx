@@ -130,7 +130,7 @@ export default async function NormaPage({ params }: Props) {
             fuente: "Registro de decretos de la Consultoría Jurídica",
           },
           firmante && {
-            etiqueta: "Los demás decretos con su firma",
+            etiqueta: "Todos sus decretos",
             href: enlace.decretosFirmados(firmante.id),
             nombre: `${firmante.firma?.decretos.toLocaleString("es-DO") ?? ""} decretos`,
             fuente: "Registro de decretos de la Consultoría Jurídica",

@@ -3,8 +3,8 @@
 del Estado, empresas y personas físicas, y las entidades de la lista SDN de la
 OFAC ligadas a la República Dominicana.
 
-Cuatro descargas, sin clave (reconocimiento del 2026-09-29; docs/AUDITORIA.md
-§A.3, §A.12 y §G.1 para las tablas de la DGCP):
+Cinco descargas (reconocimiento del 2026-09-29; docs/AUDITORIA.md §A.3, §A.12
+y §G.1 para las tablas de la DGCP, §H.13 para el Banco Mundial):
 
 1. **Proveedores inhabilitados**, la tabla que la DGCP sirve en su sección
    «Tablas» de datos abiertos:
@@ -19,6 +19,12 @@ Cuatro descargas, sin clave (reconocimiento del 2026-09-29; docs/AUDITORIA.md
    la razón social, el documento, el tipo de persona y el estado actual de
    cada RPE. Se leen solo esas columnas; teléfonos, correos y contactos se
    descartan al leer (§E.6: publicar no es exponer).
+5. **La lista de firmas e individuos inhabilitados del Banco Mundial**: la
+   API que usa su página, con la clave que la página publica (se lee de la
+   página en cada corrida y no se escribe en ningún sitio; decisión del dueño
+   del 2026-09-30, docs/AUDITORIA.md §H.13). Se guardan las firmas ligadas al
+   país y las que tienen exactamente el mismo nombre que un proveedor inscrito
+   en la DGCP; los individuos solo se cuentan.
 3. y 4. **La lista SDN de la OFAC** (Tesoro de Estados Unidos),
    `https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV`
    y `…/ADD.CSV` (direcciones): responden 302 a una URL firmada de S3, que se
@@ -50,8 +56,8 @@ es inverosímil: menos de 1,500 medidas, un cruce con el registro por debajo del
 Uso:
     python3 scripts/build-sanciones.py                # descarga las cuatro fuentes
     python3 scripts/build-sanciones.py --guardar DIR  # y deja lo descargado en DIR
-    python3 scripts/build-sanciones.py --local DIR    # usa inhabilitados.csv,
-                                                      # proveedores.csv, sdn.csv y add.csv de DIR
+    python3 scripts/build-sanciones.py --local DIR    # usa inhabilitados.csv, proveedores.csv,
+                                                      # sdn.csv, add.csv y bm.json de DIR
 """
 import csv
 import datetime
@@ -75,14 +81,17 @@ BASE_OFAC = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/
 URL_SDN = f"{BASE_OFAC}/SDN.CSV"
 URL_ADD = f"{BASE_OFAC}/ADD.CSV"
 
+URL_BM = "https://www.worldbank.org/en/projects-operations/procurement/debarred-firms"
+
 MIN_EVENTOS = 1500
 MIN_CRUCE = 0.99
 MIN_SDN = 10_000
+MIN_BM = 1_000
 
 _ultima = 0.0
 
 
-def bajar(url: str, tipos: tuple[str, ...]) -> tuple[bytes, str]:
+def bajar(url: str, tipos: tuple[str, ...], cabeceras: dict | None = None) -> tuple[bytes, str]:
     """GET con UA propio, un reintento y el tipo validado. Devuelve el cuerpo
     y su `Last-Modified`. Entre dos peticiones pasa más de un segundo."""
     global _ultima
@@ -91,7 +100,7 @@ def bajar(url: str, tipos: tuple[str, ...]) -> tuple[bytes, str]:
         if espera > 0:
             time.sleep(espera)
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            req = urllib.request.Request(url, headers={"User-Agent": UA, **(cabeceras or {})})
             with urllib.request.urlopen(req, timeout=300) as r:
                 tipo = r.headers.get("content-type", "")
                 if not any(t in tipo for t in tipos):
@@ -260,9 +269,20 @@ ANONIMIZAR = [
     # «Yo, Julio Armando Aybar Aguasvivas, portador de…»
     (re.compile(rf"(\bYo,\s*){NOMBRE}"), r"\1[nombre omitido]"),
 ]
-# Cédula (con o sin guiones), pasaporte y domicilio particular.
+# Cédula (con o sin guiones), pasaporte y domicilio particular. Un domicilio
+# puede tener muchos tramos entre comas («c/Santa Teresa, No.6, Edif. …, Apto,
+# 3D, Naco»): llega hasta la fórmula que sigue en la carta. Un punto no lo
+# termina, porque las direcciones los llevan («Edif. Avellano»).
 DOCUMENTO = re.compile(r"\b\d{3}-?\s?\d{7}-?\s?\d\b|\b\d{11}\b|Pasaporte-?\s?[A-Z]{0,3}\d{5,9}", re.I)
-DOMICILIO = re.compile(r"(domiciliad[oa] y residente en )(?!esta ciudad)[^,]+(?:,[^,]+){0,4}?(?=, cortesmente|, me dirijo|, requiero|$)", re.I)
+DOMICILIO = re.compile(
+    r"(domiciliad[oa]s? y residentes? en )(?!esta ciudad)[^,]+(?:,[^,]+){0,12}?"
+    r"(?=,\s*(?:cortesmente|me dirijo|requiero|tenga a bien|solicit|por medio|mediante|quien)|$)", re.I)
+# El estado civil, el correo y el teléfono de quien firma tampoco se publican.
+ESTADO_CIVIL = re.compile(r"\b(?:casad|solter|divorciad|viud)[oa]s?\b", re.I)
+CORREO = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+TELEFONO = re.compile(r"\b(?:\+?1[\s-]?)?\(?(?:809|829|849)\)?[\s.-]?\d{3}[\s.-]?\d{4}\b")
+# Lo que no puede quedar después de anonimizar: si queda, no se escribe.
+DOMICILIO_SUELTO = re.compile(r"domiciliad[oa]s? y residentes? en (?!esta ciudad|\[domicilio omitido\])", re.I)
 
 
 def anonimizar(motivo: str) -> tuple[str, bool]:
@@ -274,6 +294,9 @@ def anonimizar(motivo: str) -> tuple[str, bool]:
         salida = patron.sub(cambio, salida)
     salida = DOCUMENTO.sub("[documento omitido]", salida)
     salida = DOMICILIO.sub(r"\1[domicilio omitido]", salida)
+    salida = ESTADO_CIVIL.sub("[estado civil omitido]", salida)
+    salida = CORREO.sub("[correo omitido]", salida)
+    salida = TELEFONO.sub("[teléfono omitido]", salida)
     return salida, salida != motivo
 
 
@@ -335,6 +358,85 @@ def ofac(sdn_txt: str, add_txt: str, rnc_a_rpes: dict[str, list[str]]):
     return salida, entradas, ligadas, individuos
 
 
+# ------------------------------------------------------- el Banco Mundial
+
+# Formas societarias al final de un nombre: «…, S.R.L.», «… SAS», «… Ltd.».
+FORMAS = {"srl", "sa", "sas", "eirl", "ltd", "ltda", "llc", "inc", "corp", "co", "limited", "gmbh", "sl",
+          "sac", "spa", "sarl", "bv", "ag", "plc", "pvt", "pte"}
+
+
+def clave_empresa(nombre: str) -> str:
+    """El nombre de una empresa para compararlo con otro: sin tildes, sin
+    puntuación y sin la forma societaria del final. «APPLUS NORCONTROL
+    REPUBLICA DOMINICANA, SRL» y «…, S.R.L.» dan la misma clave."""
+    t = re.sub(r"[^a-z0-9 ]+", " ", plano(nombre).replace(".", ""))
+    palabras = t.split()
+    while palabras and palabras[-1] in FORMAS:
+        palabras.pop()
+    return " ".join(palabras)
+
+
+def leer_banco_mundial(local: pathlib.Path | None) -> tuple[list[dict], bytes, str | None]:
+    """La lista de firmas e individuos inhabilitados del Banco Mundial
+    (docs/AUDITORIA.md §H.13). Su API exige una clave que la propia página
+    publica en un `<script>`; el dueño aprobó usarla (docs/DECISIONES.md,
+    30-09-2026) con una condición: **no se escribe en ningún sitio**. Se lee
+    de la página en cada corrida y vive solo en memoria. Devuelve las filas,
+    la respuesta cruda (para `--guardar`; no lleva la clave) y la fecha de
+    actualización que declara el Banco."""
+    if local is not None:
+        crudo = (local / "bm.json").read_bytes()
+    else:
+        pagina, _ = bajar(URL_BM, ("text/html",))
+        h = texto(pagina)
+        m_api = re.search(r'var\s+prodtabApi\s*=\s*"(https://[^"]+)"', h)
+        m_clave = re.search(r'var\s+propApiKey\s*=\s*"([^"]{16,64})"', h)
+        if not (m_api and m_clave and re.search(r'"apikey"\s*:\s*propApiKey\b', h)):
+            sys.exit("Banco Mundial: la página ya no publica el endpoint y la clave como antes. No se escribe.")
+        crudo, _ = bajar(m_api.group(1), ("application/json",), cabeceras={"apikey": m_clave.group(1)})
+    filas = json.loads(texto(crudo)).get("response", {}).get("ZPROCSUPP") or []
+    if len(filas) < MIN_BM:
+        sys.exit(f"Banco Mundial: {len(filas)} entradas (se esperaban más de {MIN_BM}). No se escribe.")
+    fecha = max((dia(f.get("LAST_REFRESH_DATE")) or "" for f in filas), default="") or None
+    return filas, crudo if local is None else b"", fecha
+
+
+def banco_mundial(filas: list[dict], nombre_a_rpes: dict[str, list[str]]) -> tuple[list[dict], dict]:
+    """Las firmas de la lista ligadas al país (por su país o su dirección) o
+    con **exactamente el mismo nombre** que un proveedor inscrito en la DGCP.
+    Los individuos no se guardan, como en la OFAC: solo se cuentan."""
+    salida, individuos, firmas = [], 0, 0
+    for f in filas:
+        if (f.get("SUPP_TYPE_CODE") or "").upper() == "I":
+            individuos += 1
+            continue
+        firmas += 1
+        nombre = limpio(f.get("SUPP_NAME"))
+        lugar = " ".join(limpio(f.get(k)) for k in ("COUNTRY_NAME", "SUPP_ADDR", "SUPP_CITY", "SUPP_STATE_CODE"))
+        dominicana = (f.get("LAND1") or "").upper() == "DO" or "dominican" in lugar.lower()
+        clave = clave_empresa(nombre)
+        rpes = nombre_a_rpes.get(clave, []) if len(clave.split()) >= 2 and len(clave) >= 8 else []
+        if not (dominicana or rpes):
+            continue
+        motivo = limpio(f.get("DEBAR_REASON")).rstrip(".")
+        hasta = dia(f.get("DEBAR_TO_DATE"))
+        salida.append({
+            "id": f.get("SUPP_ID"),
+            "nombre": nombre,
+            "pais": limpio(f.get("COUNTRY_NAME")) or None,
+            "desde": dia(f.get("DEBAR_FROM_DATE")),
+            # 2999-12-31 es su manera de escribir «sin fecha de fin».
+            "hasta": None if (hasta or "").startswith("2999") else hasta,
+            "motivo": motivo or None,
+            "cruzada": motivo.lower().startswith("cross debarment") or (f.get("ELIG_STAT") or "").upper().startswith("X"),
+            "estado": limpio(f.get("INELIGIBLY_STATUS")) or None,
+            "dominicana": dominicana,
+            "rpes": rpes,
+        })
+    salida.sort(key=lambda e: (not e["dominicana"], e["nombre"]))
+    return salida, {"firmas": firmas, "individuosOmitidos": individuos}
+
+
 # ------------------------------------------------------------------ main
 
 def main() -> None:
@@ -347,6 +449,7 @@ def main() -> None:
         crudo_rpe = (local / "proveedores.csv").read_bytes()
         crudo_sdn, lm_sdn = (local / "sdn.csv").read_bytes(), ""
         crudo_add = (local / "add.csv").read_bytes()
+        filas_bm, _, fecha_bm = leer_banco_mundial(local)
     else:
         print("DGCP: proveedores inhabilitados…")
         crudo_inhab, _ = bajar(URL_INHAB, ("text/csv",))
@@ -355,13 +458,16 @@ def main() -> None:
         print("OFAC: SDN.CSV y ADD.CSV…")
         crudo_sdn, lm_sdn = bajar(URL_SDN, ("text/csv", "application/octet-stream"))
         crudo_add, _ = bajar(URL_ADD, ("text/csv", "application/octet-stream"))
+        print("Banco Mundial: firmas e individuos inhabilitados…")
+        filas_bm, crudo_bm, fecha_bm = leer_banco_mundial(None)
         if "--guardar" in sys.argv:
             # Para rehacer sin volver a bajar 80 MB (`--local`). Fuera del
             # repositorio: el registro entero trae teléfonos y correos.
             destino = pathlib.Path(sys.argv[sys.argv.index("--guardar") + 1])
             destino.mkdir(parents=True, exist_ok=True)
+            # La respuesta del Banco Mundial no lleva la clave: se pidió con ella en la cabecera.
             for nombre, crudo in (("inhabilitados.csv", crudo_inhab), ("proveedores.csv", crudo_rpe),
-                                  ("sdn.csv", crudo_sdn), ("add.csv", crudo_add)):
+                                  ("sdn.csv", crudo_sdn), ("add.csv", crudo_add), ("bm.json", crudo_bm)):
                 (destino / nombre).write_bytes(crudo)
 
     hoy = datetime.date.today().isoformat()
@@ -378,6 +484,7 @@ def main() -> None:
     #    RNC → RPE de todas las personas jurídicas para cruzar la OFAC.
     registro: dict[str, dict] = {}
     rnc_a_rpes: dict[str, list[str]] = {}
+    nombre_a_rpes: dict[str, list[str]] = {}
     lector = csv.DictReader(io.StringIO(texto(crudo_rpe)))
     columnas = {"RPE", "RAZON_SOCIAL", "NUMERO_DOCUMENTO", "TIPO_DOCUMENTO", "TIPO_PERSONA", "ESTADO_RPE"}
     if not columnas <= set(lector.fieldnames or []):
@@ -398,6 +505,8 @@ def main() -> None:
         doc = m_rnc.group(1) if es_rnc else doc
         if juridica and es_rnc:
             rnc_a_rpes.setdefault(doc, []).append(rpe)
+        if juridica:
+            nombre_a_rpes.setdefault(clave_empresa(f.get("RAZON_SOCIAL") or ""), []).append(rpe)
         if rpe in rpes_tabla:
             registro[rpe] = {
                 "razonSocial": limpio(f.get("RAZON_SOCIAL")),
@@ -472,6 +581,9 @@ def main() -> None:
             p["certificacion"] = url
         p["eventos"].append(evento)
 
+    sueltos = [p["rpe"] for p in proveedores.values() for e in p["eventos"] if DOMICILIO_SUELTO.search(e["motivo"])]
+    if sueltos:
+        sys.exit(f"Queda un domicilio particular sin omitir en los motivos de los RPE {sorted(set(sueltos))}: no se escribe.")
     lista = []
     for p in proveedores.values():
         p["eventos"].sort(key=lambda e: e["fecha"] or "", reverse=True)
@@ -492,6 +604,9 @@ def main() -> None:
             fecha_sdn = email.utils.parsedate_to_datetime(lm_sdn).date().isoformat()
         except (TypeError, ValueError):
             fecha_sdn = None
+
+    # 5. El Banco Mundial.
+    bm, cuenta_bm = banco_mundial(filas_bm, nombre_a_rpes)
 
     salida = {
         "generado": hoy,
@@ -519,9 +634,19 @@ def main() -> None:
                 "ligadasRd": ligadas,
                 "individuosOmitidos": individuos,
             },
+            "bancoMundial": {
+                "url": URL_BM,
+                "fecha": fecha_bm,
+                "entradas": len(filas_bm),
+                "firmas": cuenta_bm["firmas"],
+                "individuosOmitidos": cuenta_bm["individuosOmitidos"],
+                "dominicanas": sum(1 for e in bm if e["dominicana"]),
+                "coincidencias": sum(1 for e in bm if e["rpes"]),
+            },
         },
         "proveedores": lista,
         "ofac": entidades,
+        "bancoMundial": bm,
     }
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
     SALIDA.write_text(json.dumps(salida, ensure_ascii=False, separators=(",", ":")))
@@ -539,6 +664,8 @@ def main() -> None:
     print(f"OFAC ({fecha_sdn}): {entradas} entradas; {ligadas} ligadas al país; "
           f"{len(entidades)} entidades guardadas ({sum(1 for e in entidades if e['rnc'])} con RNC, "
           f"{sum(1 for e in entidades if e['rpes'])} inscritas como proveedoras); {individuos} personas omitidas.")
+    print(f"Banco Mundial ({fecha_bm}): {len(filas_bm)} entradas; {sum(1 for e in bm if e['dominicana'])} firmas "
+          f"ligadas al país y {sum(1 for e in bm if e['rpes'])} con el mismo nombre que un proveedor de la DGCP.")
     print(f"→ {SALIDA} ({SALIDA.stat().st_size // 1024} KB)")
 
 
