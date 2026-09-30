@@ -23,9 +23,9 @@ import {
   inventario,
   vecindario,
   type Candidato,
+  type Candidatos,
   type Relacion,
 } from "@/lib/grafo-rdf";
-import { getFuncionarios } from "@/lib/funcionarios";
 
 /**
  * El explorador del grafo: la plataforma vista como lo que es, nodos y
@@ -106,10 +106,9 @@ const LISTADO_DE_CLASE: Record<string, string> = {
 };
 
 async function Portada({ consulta }: { consulta: string }) {
-  const [clases, wikidata, f, candidatos] = await Promise.all([
+  const [clases, wikidata, candidatos] = await Promise.all([
     inventario(),
     enlacesWikidata(),
-    getFuncionarios(),
     consulta ? buscarNodos(consulta) : Promise.resolve(null),
   ]);
   const ejemplo = `${SITIO}${enlace.funcionario("luis-rodolfo-abinader-corona")}`;
@@ -123,8 +122,8 @@ async function Portada({ consulta }: { consulta: string }) {
         <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-soft">
           Cada ficha de la plataforma es un nodo: una persona con cargo, una institución, un decreto, un banco, una
           empresa, una provincia. Las aristas salen de los registros del Estado: quién ocupa qué cargo, qué decreto lo
-          designó, quién lo firmó, quién supervisa a quién. Elige una ficha y mira con quién se toca; elige dos y
-          busca el camino entre ellas.
+          designó, quién lo firmó, quién supervisa a quién. Elige una ficha y mira con quién se liga; elige dos
+          y busca el camino entre ellas.
         </p>
       </header>
 
@@ -137,7 +136,7 @@ async function Portada({ consulta }: { consulta: string }) {
           placeholder="Un nombre, una institución, 339-20 o un RNC"
           ayuda="Busca entre los nodos del grafo: personas con cargo, instituciones, entidades financieras y provincias por su nombre; un decreto por su número; una empresa por su RNC."
         />
-        {candidatos && <ListaCandidatos candidatos={candidatos} consulta={consulta} hacia={(c) => enlace.grafo(rutaDeNodo(c.nodo))} />}
+        {candidatos && <ListaCandidatos resultado={candidatos} consulta={consulta} hacia={(c) => enlace.grafo(rutaDeNodo(c.nodo))} />}
       </section>
 
       {!consulta && (
@@ -151,6 +150,7 @@ async function Portada({ consulta }: { consulta: string }) {
                 <div className="px-5 py-3.5 sm:px-6">
                   <Link
                     href={enlace.grafo(rutaDeNodo(e.nodo))}
+                    rel="nofollow"
                     className="estira text-[15px] font-medium leading-snug text-ink hover:text-brand-700"
                   >
                     {e.nombre}
@@ -173,7 +173,7 @@ async function Portada({ consulta }: { consulta: string }) {
               key={c.clase}
               etiqueta={c.etiqueta}
               valor={formatInt(c.n)}
-              nota={c.fuente}
+              nota={c.corte ? `${c.fuente}, al ${formatFecha(c.corte)}` : c.fuente}
               href={LISTADO_DE_CLASE[c.clase]}
             />
           ))}
@@ -181,14 +181,13 @@ async function Portada({ consulta }: { consulta: string }) {
             <Cifra
               etiqueta="Fichas atadas a Wikidata"
               valor={formatInt(wikidata.total)}
-              nota={`Solo sin dudas: ${wikidata.porTipo.provincias} provincias, ${wikidata.porTipo.instituciones} instituciones, ${wikidata.porTipo.financieras} bancos y ${wikidata.porTipo.personas} personas`}
+              nota={`Solo sin dudas: ${wikidata.porTipo.provincias} provincias, ${wikidata.porTipo.instituciones} instituciones, ${wikidata.porTipo.financieras} bancos y ${wikidata.porTipo.personas} personas (PEP hoy o jefes de Estado); consultado el ${formatFecha(wikidata.generado ?? "")}`}
             />
           )}
         </TiraDeCifras>
         <p className="text-xs leading-relaxed text-ink-soft">
-          Censos de las instantáneas de la plataforma
-          {f?.generado ? <>; personas y cargos al corte del {formatFecha(f.generado)}</> : null}. Cada ficha dice su
-          fuente y su fecha.
+          Censos de las instantáneas de la plataforma, cada uno con su fuente y su fecha. Cada ficha dice además las
+          suyas.
         </p>
       </section>
 
@@ -204,9 +203,11 @@ async function Portada({ consulta }: { consulta: string }) {
           <code className="font-mono text-[13px] text-ink">application/n-triples</code>, la ficha remite a su
           descripción RDF; cada una la trae además incrustada en schema.org para los buscadores.
         </p>
-        <pre className="overflow-x-auto rounded-lg border border-hairline bg-surface px-4 py-3 font-mono text-[13px] leading-relaxed text-ink">
-          {`curl -L -H "Accept: text/turtle" \\\n  ${ejemplo}`}
-        </pre>
+        <Card>
+          <pre className="overflow-x-auto px-4 py-3 font-mono text-[13px] leading-relaxed text-ink">
+            {`curl -L -H "Accept: text/turtle" \\\n  ${ejemplo}`}
+          </pre>
+        </Card>
         <p>
           El vocabulario es la{" "}
           <Link href="/ontologia" className="text-brand-700 underline">
@@ -239,14 +240,18 @@ function Aviso() {
 }
 
 function ListaCandidatos({
-  candidatos,
+  resultado,
   consulta,
   hacia,
+  sin,
 }: {
-  candidatos: Candidato[];
+  resultado: Candidatos;
   consulta: string;
   hacia: (c: Candidato) => string;
+  /** Un nodo que no se ofrece (el de la vista, al buscar el otro extremo de un camino). */
+  sin?: NodoRdf;
 }) {
+  const candidatos = sin ? resultado.candidatos.filter((c) => claveNodo(c.nodo) !== claveNodo(sin)) : resultado.candidatos;
   if (candidatos.length === 0) {
     return (
       <EstadoVacio titulo={`Ningún nodo del grafo se llama «${consulta}».`}>
@@ -257,7 +262,9 @@ function ListaCandidatos({
   return (
     <Card as="section" aria-label={`Fichas que se llaman «${consulta}»`}>
       <p className="px-5 pt-3 text-xs text-ink-soft sm:px-6" aria-live="polite">
-        {candidatos.length === 1 ? "Una ficha" : `${candidatos.length} fichas`} con «{consulta}» en el nombre
+        {resultado.truncado
+          ? `Las primeras ${candidatos.length} fichas con «${consulta}» en el nombre: hay más; escribe más palabras para afinar.`
+          : `${candidatos.length === 1 ? "Una ficha" : `${candidatos.length} fichas`} con «${consulta}» en el nombre`}
       </p>
       <ul className="mt-2 border-t border-hairline">
         {candidatos.map((c) => (
@@ -335,6 +342,7 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
         <p className="mt-2 text-sm text-ink-soft">
           {v.relaciones.length === 1 ? "Una arista" : `${formatInt(v.relaciones.length)} aristas`}
           {vecinos.length > 0 && ` con ${vecinos.length === 1 ? "una ficha" : `${formatInt(vecinos.length)} fichas`}`}
+          {v.nota && <span className="block text-xs leading-relaxed">{v.nota}</span>}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <Button asChild variant="secondary">
@@ -365,7 +373,6 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
           etiqueta={`Las fichas que los registros del Estado ligan con ${v.titulo}`}
         />
       )}
-      {v.nota && <p className="text-xs leading-relaxed text-ink-soft">{v.nota}</p>}
 
       {grupos.length === 0 ? (
         <EstadoVacio titulo="Esta ficha no tiene aristas en el grafo todavía.">
@@ -412,7 +419,8 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
         />
         {candidatos && (
           <ListaCandidatos
-            candidatos={candidatos.filter((c) => claveNodo(c.nodo) !== claveNodo(v.nodo))}
+            resultado={candidatos}
+            sin={v.nodo}
             consulta={consulta}
             hacia={(c) => enlace.caminoGrafo(propia, rutaDeNodo(c.nodo))}
           />

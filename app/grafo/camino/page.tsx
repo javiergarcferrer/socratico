@@ -17,7 +17,7 @@ import { CLASE_DE_TIPO, TOPE_CAMINO, camino, vecindario } from "@/lib/grafo-rdf"
  */
 
 export const revalidate = 86400;
-// Abrir hasta 400 fichas puede tomar varios segundos la primera vez; luego el par queda en caché.
+// Abrir hasta 300 fichas puede tomar varios segundos la primera vez; luego el par queda en caché.
 export const maxDuration = 60;
 
 type Props = { searchParams: Promise<{ de?: string; a?: string }> };
@@ -104,7 +104,7 @@ export default async function CaminoPage({ searchParams }: Props) {
             ? "Se abrieron todas las fichas a las que se llega desde ellas y ninguna cadena las une. Hay aristas que una ficha no dice de sí misma (una institución solo describe sus cargos de hoy): un camino que pase por ellas no se ve desde aquí."
             : r.motivo === "fichas"
               ? `Se abrieron ${formatInt(r.exploradas)} fichas sin que los dos lados se tocaran. Puede haber un camino más largo: prueba desde una ficha intermedia.`
-              : `Ninguna cadena de hasta ${r.maxSaltos} saltos las une. Puede haber una más larga: prueba desde una ficha intermedia.`}
+              : `No encontramos una cadena de hasta ${r.maxSaltos} saltos entre las dos. Puede haber una más larga, o una que pase por una arista que ninguna de las fichas abiertas dice de sí misma: prueba desde una ficha intermedia.`}
         </EstadoVacio>
       )}
 

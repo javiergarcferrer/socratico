@@ -367,8 +367,8 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "fecha",
     etiquetaEn: "date",
     comentario:
-      "La fecha que da la fuente: la de promulgación de una norma, la del movimiento de un cargo (su designación, su cese).",
-    dominio: ["soc:Norma", "soc:Cargo"],
+      "La fecha que registra la fuente: la de una norma según la Consultoría Jurídica, la del movimiento de un cargo (su designación, su cese), la de una medida de la DGCP.",
+    dominio: ["soc:Norma", "soc:Cargo", "soc:MedidaDGCP"],
     rango: ["xsd:date"],
   },
   {

@@ -10,6 +10,28 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Abiertas — solo el dueño
 
+- **Los hallazgos de seguridad siguen en el historial público de git**
+  (30-09-2026). El repositorio es público. Desde esta fecha, el árbol ya no
+  dice el qué ni el dónde de los cinco fallos abiertos (CCPSD, CNZFE, SB, CAASD
+  y el portal 311, AUDITORIA §H.10), y los avisos se le entregaron al dueño
+  fuera del repositorio. Pero las versiones anteriores de esas líneas
+  (AUDITORIA, `/fuentes`, `lib/banca.ts`) siguen en commits de `main`, y
+  `/fuentes` llegó a mostrar una de ellas en producción. Reescribir la
+  historia exige `--force`, que ninguna sesión usa. Decidir:
+  1. hacer privado el repositorio hasta que se corrijan;
+  2. reescribir la historia y pedirle a GitHub que purgue lo que guardó; o
+  3. aceptarlo y mandar los avisos cuanto antes.
+- **La dirección permanente de los IRI** (30-09-2026). Los IRI del grafo y el
+  espacio de nombres de la ontología (`…/ontologia#`, versión 1.0.0) cuelgan
+  de `lib/sitio.ts`, hoy `https://socratico.vercel.app`. Si la plataforma se
+  muda a un dominio propio, cada IRI publicado cambia. Decidir el dominio
+  antes de que alguien los enlace, o dejar un `owl:sameAs` y redirecciones
+  permanentes del viejo al nuevo el día que se mude.
+- **La licencia de reutilización del grafo** (30-09-2026). El VoID y las
+  descripciones RDF no declaran licencia (`dct:license`), así que quien las
+  reutiliza no sabe en qué términos. Los datos son del Estado; la selección,
+  la ontología y las descripciones son de la plataforma. Decidir una
+  (por ejemplo CC BY 4.0) o dejarlo dicho.
 - **Denuncias y retiro de investigaciones publicadas** (`/p/<slug>`,
   docs/PLAN-ESPACIOS.md §3): cualquiera con cuenta puede publicar con el
   nombre de firma que quiera. Hoy la página dice que ese nombre no está

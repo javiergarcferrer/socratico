@@ -1,3 +1,5 @@
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import { unstable_cache } from "next/cache";
 import { SITIO } from "@/lib/sitio";
 import { enlace, nodoDeRuta, numeroCanonico, rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo";
@@ -18,7 +20,7 @@ import {
   type Movimiento,
   type Persona,
 } from "@/lib/funcionarios";
-import { INSTITUCIONES, buscarInstituciones, institucionPorId } from "@/lib/instituciones";
+import { FUENTES_DEL_CRUCE, INSTITUCIONES, buscarInstituciones, institucionPorId } from "@/lib/instituciones";
 import { decretoPorNumero, decretosDeFirmante, hrefDecreto, indiceDecretos, CONSULTORIA_PDF, type Decreto } from "@/lib/decretos";
 import { declaracionesDe, declaracionesDeInstitucion, getDeclaraciones } from "@/lib/declaraciones";
 import {
@@ -249,7 +251,11 @@ async function describirPersona(id: string, ligero = false): Promise<Descripcion
     if (d.institucionId != null) x.push(t(d.url, "soc:publicadaPor", iri(DE(d.institucionId))));
     if (d.fecha) x.push(t(d.url, "schema:uploadDate", fecha(d.fecha)));
   }
-  const qid = await wikidataDe({ tipo: "funcionario", id });
+  // Su QID de Wikidata, solo si es PEP hoy o firmó decretos como jefe de
+  // Estado: la regla de proporcionalidad de su ficha (solo esas se ofrecen a
+  // los buscadores). La página de Wikidata trae biografía y familia, que la
+  // plataforma no publica; de quien dejó un cargo hace años no se enlaza.
+  const qid = p.pepVigente || p.firma ? await wikidataDe({ tipo: "funcionario", id }) : null;
   if (qid) x.push(t(s, "owl:sameAs", iri(`wd:${qid}`)));
   return { triples: x, titulo: p.nombre, nota };
 }
@@ -489,6 +495,8 @@ export interface ClaseContada {
   etiqueta: string;
   n: number;
   fuente: string;
+  /** La fecha de la instantánea (ISO), si la tiene. */
+  corte: string | null;
 }
 
 /** Cuántos nodos de cada clase tiene el grafo hoy: para VoID y para `/grafo`. */
@@ -504,26 +512,37 @@ export async function inventario(): Promise<ClaseContada[]> {
   const cargos = f?.personas.reduce((n, p) => n + p.cargos.length, 0) ?? 0;
   const decretos = indice ? Object.values(indice.anios).reduce((a, b) => a + b, 0) + indice.sinFecha : 0;
   const medidas = sanc ? sanc.proveedores.reduce((n, p) => n + p.eventos.length, 0) : 0;
+  const personas = "MAP, decretos, cortes, JCE, Junta Monetaria y SIL";
   const filas: ClaseContada[] = [
-    { clase: "soc:Persona", etiqueta: "Personas con cargo público", n: f?.personas.length ?? 0, fuente: "MAP, decretos, cortes, JCE y SIL" },
-    { clase: "soc:Cargo", etiqueta: "Cargos", n: cargos, fuente: "MAP, decretos, cortes, JCE y SIL" },
-    { clase: "soc:Institucion", etiqueta: "Instituciones del Estado", n: INSTITUCIONES.length, fuente: "Clasificador de DIGEPRES" },
-    { clase: "soc:Decreto", etiqueta: "Decretos", n: decretos, fuente: "Consultoría Jurídica" },
-    { clase: "soc:EntidadFinanciera", etiqueta: "Entidades financieras", n: fin?.entidades.length ?? 0, fuente: "SB, SIPEN, SIS e IDECOOP" },
-    { clase: "soc:Empresa", etiqueta: "Personas jurídicas", n: padron?.empresas ?? 0, fuente: "Padrón de la DGII" },
-    { clase: "soc:Provincia", etiqueta: "Provincias", n: PROVINCIAS.length, fuente: "ONE" },
-    { clase: "soc:DeclaracionJurada", etiqueta: "Declaraciones juradas publicadas", n: dj?.declaraciones.length ?? 0, fuente: "Portales de transparencia" },
-    { clase: "soc:MedidaDGCP", etiqueta: "Medidas sobre proveedores", n: medidas, fuente: "DGCP" },
+    { clase: "soc:Persona", etiqueta: "Personas con cargo público", n: f?.personas.length ?? 0, fuente: personas, corte: f?.generado ?? null },
+    { clase: "soc:Cargo", etiqueta: "Cargos", n: cargos, fuente: personas, corte: f?.generado ?? null },
+    {
+      clase: "soc:Institucion",
+      etiqueta: "Instituciones del Estado",
+      n: INSTITUCIONES.length,
+      fuente: "Clasificador de DIGEPRES",
+      corte: FUENTES_DEL_CRUCE.clasificador.actualizado ?? null,
+    },
+    { clase: "soc:Decreto", etiqueta: "Decretos", n: decretos, fuente: "Consultoría Jurídica", corte: indice?.generado ?? null },
+    { clase: "soc:EntidadFinanciera", etiqueta: "Entidades financieras", n: fin?.entidades.length ?? 0, fuente: "SB, SIPEN, SIS e IDECOOP", corte: fin?.generado ?? null },
+    { clase: "soc:Empresa", etiqueta: "Personas jurídicas", n: padron?.empresas ?? 0, fuente: "Padrón de la DGII", corte: padron?.corteDgii ?? padron?.generado ?? null },
+    { clase: "soc:Provincia", etiqueta: "Provincias", n: PROVINCIAS.length, fuente: "ONE", corte: null },
+    { clase: "soc:DeclaracionJurada", etiqueta: "Declaraciones juradas publicadas", n: dj?.declaraciones.length ?? 0, fuente: "Portales de transparencia", corte: dj?.generado ?? null },
+    { clase: "soc:MedidaDGCP", etiqueta: "Medidas sobre proveedores", n: medidas, fuente: "DGCP", corte: sanc?.generado ?? null },
   ];
   return filas.filter((c) => c.n > 0);
 }
 
 /** Cuántos nodos están atados a Wikidata, por tipo. */
 export async function enlacesWikidata(): Promise<{ total: number; generado: string | null; porTipo: Record<string, number> }> {
-  const w = await getWikidata();
+  const [w, f] = await Promise.all([getWikidata(), getFuncionarios()]);
   if (!w) return { total: 0, generado: null, porTipo: {} };
   const porTipo = {
-    personas: Object.keys(w.personas).length,
+    // Las que se enlazan: PEP hoy o firmantes (la regla de `describirPersona`).
+    personas: Object.keys(w.personas).filter((id) => {
+      const p = f?.porId.get(id);
+      return p != null && (p.pepVigente || p.firma != null);
+    }).length,
     instituciones: Object.keys(w.instituciones).length,
     financieras: Object.keys(w.financieras).length,
     provincias: Object.keys(w.provincias).length,
@@ -827,11 +846,13 @@ export interface Camino {
 }
 
 /** Hasta cuántos saltos y cuántas fichas abre una búsqueda de camino. */
-export const TOPE_CAMINO = { saltos: 6, fichas: 400 } as const;
+export const TOPE_CAMINO = { saltos: 6, fichas: 300 } as const;
 
 /**
- * El camino más corto entre dos fichas, por búsqueda en anchura desde los dos
- * extremos a la vez (siempre avanza el lado con menos frontera). Las aristas
+ * El camino más corto que se encuentra entre dos fichas, por búsqueda en
+ * anchura desde los dos extremos a la vez (siempre avanza el lado con menos
+ * frontera). No es completo: una arista que solo dice un nodo que ningún lado
+ * abre no se ve, y la página lo dice. Las aristas
  * se toman sin dirección: una institución solo describe sus cargos de hoy,
  * pero la persona que la dirigió en 2004 sí la nombra. Acotado en saltos y en
  * fichas abiertas; el resultado dice si el tope se alcanzó.
@@ -915,18 +936,59 @@ async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
  * La forma del resultado. Si cambia, cambia este número: la caché de datos
  * sobrevive a un despliegue y devolvería un resultado con la forma vieja.
  */
-const VERSION_CAMINO = "1";
+const VERSION_CAMINO = "2";
+
+/** Las instantáneas que lee una descripción: su tamaño en bytes cambia con casi cualquier cambio de datos. */
+const INSTANTANEAS = [
+  "funcionarios.json",
+  "decretos/indice.json",
+  "banca.json",
+  "declaraciones.json",
+  "sanciones.json",
+  "wikidata.json",
+  "empresas/meta.json",
+];
+
+let huellaMemo: Promise<string> | null = null;
 
 /**
- * El camino, cacheado por par y por corte de las instantáneas (la fecha de
- * personas y cargos va en la clave): un despliegue con datos nuevos no lee
+ * La huella de los datos para la clave de la caché: el tamaño de cada
+ * instantánea que lee `describir` (no su fecha: un despliegue puede
+ * normalizarla). Un corte nuevo, o un cambio de datos con la misma fecha de
+ * corte (la separación de un tocayo), cambia la huella y deja atrás los
+ * caminos calculados con los viejos.
+ */
+function huellaDatos(): Promise<string> {
+  huellaMemo ??= Promise.all(
+    INSTANTANEAS.map((n) =>
+      stat(join(process.cwd(), "public", "data", n)).then(
+        (e) => `${e.size}`,
+        () => "-",
+      ),
+    ),
+  ).then((partes) => partes.join("."));
+  return huellaMemo;
+}
+
+/**
+ * El camino, cacheado por par **sin orden** (de A a B es el de B a A, al
+ * revés) y por la huella de los datos: un despliegue con datos nuevos no lee
  * caminos de los viejos.
  */
 export async function camino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
-  const corte = (await getFuncionarios())?.generado ?? "";
-  return unstable_cache(() => buscarCamino(de, a), ["grafo-camino", VERSION_CAMINO, corte, claveNodo(de), claveNodo(a)], {
-    revalidate: 86400,
-  })();
+  const [x, y] = [claveNodo(de), claveNodo(a)];
+  const alReves = x > y;
+  const [primero, segundo] = alReves ? [a, de] : [de, a];
+  const huella = await huellaDatos();
+  const r = await unstable_cache(
+    () => buscarCamino(primero, segundo),
+    ["grafo-camino", VERSION_CAMINO, huella, claveNodo(primero), claveNodo(segundo)],
+    { revalidate: 86400 },
+  )();
+  if (!alReves || !r.pasos) return r;
+  // Del otro extremo: los mismos pasos, al revés, cada arista con el paso al que llega.
+  const pasos = [...r.pasos].reverse().map((p, i, lista) => ({ ...p, via: i === 0 ? null : lista[i - 1].via }));
+  return { ...r, pasos };
 }
 
 /* ------------------------------------------------------------ schema.org */
@@ -1001,15 +1063,26 @@ export interface Candidato {
   detalle: string | null;
 }
 
+/** Lo que devuelve la búsqueda de nodos: los candidatos y si hay más que no se muestran. */
+export interface Candidatos {
+  candidatos: Candidato[];
+  /** Algún tipo tenía más coincidencias que las que caben: la lista es una muestra. */
+  truncado: boolean;
+}
+
+/** Cuántos candidatos de cada tipo, como mucho. */
+const TOPE_CANDIDATOS = { personas: 8, instituciones: 5, financieras: 4, total: 16 } as const;
+
 /**
  * Los nodos que se llaman así, para elegir uno en el explorador: un número de
  * decreto o un RNC exactos primero; luego personas, instituciones, entidades
  * financieras y provincias por todas las palabras tecleadas. No es el
  * buscador de la plataforma (`/buscar`): solo nombres de nodos del grafo.
+ * Cada tipo tiene su tope, y `truncado` dice si alguno se pasó.
  */
-export async function buscarNodos(q: string, limite = 16): Promise<Candidato[]> {
+export async function buscarNodos(q: string): Promise<Candidatos> {
   const texto = q.trim().slice(0, 120);
-  if (!texto) return [];
+  if (!texto) return { candidatos: [], truncado: false };
   const salida: Candidato[] = [];
   const numero = /^(?:decreto\s+(?:n[oú]m?\.?\s*)?)?(\d{1,4}-\d{2,4})$/i.exec(texto)?.[1];
   if (numero) {
@@ -1023,21 +1096,28 @@ export async function buscarNodos(q: string, limite = 16): Promise<Candidato[]> 
     const e = await empresaPorRnc(cifras);
     if (e) salida.push({ nodo: { tipo: "empresa", id: e.rnc }, nombre: e.razonSocial, clase: CLASE_DE_TIPO.empresa, detalle: `RNC ${e.rnc}` });
   }
-  if (salida.length) return salida;
+  if (salida.length) return { candidatos: salida, truncado: false };
 
+  let truncado = false;
   const a = agujas(texto);
   const f = await getFuncionarios();
   if (f) {
-    for (const p of filtrarPersonas(f, { q: texto }).slice(0, 8)) {
+    const personas = filtrarPersonas(f, { q: texto });
+    truncado ||= personas.length > TOPE_CANDIDATOS.personas;
+    for (const p of personas.slice(0, TOPE_CANDIDATOS.personas)) {
       salida.push({ nodo: { tipo: "funcionario", id: p.id }, nombre: p.nombre, clase: CLASE_DE_TIPO.funcionario, detalle: cargoPrincipal(p)?.titulo ?? null });
     }
   }
-  for (const i of buscarInstituciones(texto, 5)) {
+  const instituciones = buscarInstituciones(texto, TOPE_CANDIDATOS.instituciones + 1);
+  truncado ||= instituciones.length > TOPE_CANDIDATOS.instituciones;
+  for (const i of instituciones.slice(0, TOPE_CANDIDATOS.instituciones)) {
     salida.push({ nodo: { tipo: "institucion", id: String(i.id) }, nombre: i.nombre, clase: CLASE_DE_TIPO.institucion, detalle: i.acronimo || null });
   }
   const fin = await getFinancieras();
   if (fin) {
-    for (const e of filtrarEntidades(fin, { q: texto }).slice(0, 4)) {
+    const entidades = filtrarEntidades(fin, { q: texto });
+    truncado ||= entidades.length > TOPE_CANDIDATOS.financieras;
+    for (const e of entidades.slice(0, TOPE_CANDIDATOS.financieras)) {
       salida.push({ nodo: { tipo: "entidad-financiera", id: e.slug }, nombre: e.nombre, clase: CLASE_DE_TIPO["entidad-financiera"], detalle: e.tipo ?? null });
     }
   }
@@ -1046,13 +1126,15 @@ export async function buscarNodos(q: string, limite = 16): Promise<Candidato[]> 
       salida.push({ nodo: { tipo: "provincia", id: p.slug }, nombre: p.nombre, clase: CLASE_DE_TIPO.provincia, detalle: null });
     }
   }
+  truncado ||= salida.length > TOPE_CANDIDATOS.total;
   // Quien se llama exactamente así va primero, sea del tipo que sea: «Santiago» es la provincia.
   const exacto = plano(texto).trim();
-  return salida
+  const candidatos = salida
     .map((c, i) => ({ c, i, e: plano(c.nombre).trim() === exacto || plano(c.detalle ?? "").trim() === exacto ? 0 : 1 }))
     .sort((x, y) => x.e - y.e || x.i - y.i)
     .map((x) => x.c)
-    .slice(0, limite);
+    .slice(0, TOPE_CANDIDATOS.total);
+  return { candidatos, truncado };
 }
 
 export type { Termino };

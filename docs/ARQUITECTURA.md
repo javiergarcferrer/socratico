@@ -242,7 +242,7 @@ composed in `app/page.tsx`):
 - **`lib/auditorias.ts`** — Contraloría and Cámara de Cuentas audit reports
   plus the sworn-declaration lists as titled links, no names (§G.12);
   snapshot from `scripts/build-auditorias.py`; `/auditorias`.
-- **`lib/banca.ts`** — SIMBAD chart data (`type=results`, never the query)
+- **`lib/banca.ts`** — SIMBAD chart data (`type=results` only)
   for four banking series (§G.13), `IndicadoresBanca` on `/`. Daily.
 - **`lib/subastas.ts`** — Crédito Público auction results (§G.13), snapshot
   from `scripts/build-subastas.py` (build-time `xlrd` for 2025), `SubastasDeuda`
@@ -1028,10 +1028,13 @@ instantáneas que pinta la ficha, y se cachea como cualquier página.
   extremos a la vez, con las aristas sin dirección (una institución solo
   describe sus cargos de hoy; la persona que la dirigió antes sí la nombra) y
   sin cerrar un lado agotado mientras el otro tenga frontera; topes de 6
-  saltos y 400 fichas, y el resultado dice por qué no encontró (`motivo`).
-  Se cachea por par con `unstable_cache`, con la versión del resultado y el
-  corte de las instantáneas en la clave: la caché de datos sobrevive a un
-  despliegue.
+  saltos y 300 fichas, y el resultado dice por qué no encontró (`motivo`).
+  No es completa (una arista que solo dice un nodo que ningún lado abre no se
+  ve) y la página no lo afirma. Se cachea por par **sin orden** con
+  `unstable_cache`, con la versión del resultado y una huella de los datos (el
+  tamaño de cada instantánea que lee `describir`) en la clave: la caché de
+  datos sobrevive a un despliegue, y un cambio de datos con la misma fecha de
+  corte también debe dejarla atrás.
 - **Rutas.** `/grafo` (portada con el inventario; `?nodo=` la red de una
   ficha, `components/graficos/red-vecinos.tsx`, y su lista de aristas por
   grupo; `?q=` elige una ficha por nombre, número de decreto o RNC),
@@ -1053,12 +1056,27 @@ instantáneas que pinta la ficha, y se cachea como cualquier página.
   `scripts/build-wikidata.py`): solo el QID de provincias, instituciones,
   bancos y personas con cargo, para `owl:sameAs` y `sameAs`; una
   correspondencia entra si es única en los dos sentidos, y cada una se
-  revisó por su etiqueta. Se busca en la réplica de QLever porque el SPARQL
+  revisó por su etiqueta. **De una persona, el enlace sale solo si es PEP
+  hoy o firmó decretos como jefe de Estado** (`describirPersona`): la regla de
+  proporcionalidad de su ficha, porque la página de Wikidata trae biografía y
+  familia, que la plataforma no publica. Se busca en la réplica de QLever porque el SPARQL
   de Wikidata veta `/sparql` en su robots (docs/AUDITORIA.md §H.14).
 - **Trazado de archivos**: `/grafo` (la clave casa con `/grafo/camino` y
   `/api/grafo`) lleva decretos, padrón, funcionarios, declaraciones,
   sanciones, banca y `wikidata.json`; las fichas que incrustan su JSON-LD,
-  `wikidata.json`.
+  `wikidata.json`. ⚠️ **Deuda conocida**: como `components/en-el-grafo.tsx`
+  importa `lib/grafo-rdf.ts`, el trazado mete en las funciones de las fichas
+  de persona, institución, provincia, banca y norma el padrón de empresas
+  (~17 MB) y, donde no estaban, los decretos (~13 MB). Cabe de sobra en el
+  límite, pero pesa en el arranque en frío. El arreglo es sacar los
+  constructores de triples del nodo solo (sin vecinos) a un módulo que no
+  importe `lib/empresas`, `lib/sanciones` ni `lib/decretos`, y que la página
+  le pase la entidad que ya cargó.
+- **Sin `Vary: Accept`, a propósito**: la negociación la resuelve el
+  enrutador con un 303 antes de cualquier caché, y un 303 no se guarda por
+  omisión; marcar el HTML con `Vary: Accept` partiría la caché de cada ficha
+  por cada navegador. Lo único que puede pasar es que una caché intermedia
+  ajena le sirva el HTML a un cliente RDF, que es inofensivo.
 
 ## Primitivas compartidas — el sistema, en un sitio
 La identidad se diluyó dos veces por la misma causa (`docs/IDENTIDAD.md` §8):
@@ -1166,7 +1184,7 @@ las mismas piezas. Cada dato acepta `href` y lleva a su entidad.
 | `Multiples` + `maximoComun` | Paneles con escala común. | `/nomina` (áreas y cargos) |
 | `Leyenda`, `EscalaSecuencial` | Identidad sin color solo; texto en tinta, muestra al lado. | Capítulo de finanzas, barras apiladas, matriz |
 | `VerComoTabla` | La tabla equivalente, plegada, con el número de filas en el botón. | `/` (llegadas) |
-| `RedVecinos` | La red de un nodo: el centro y sus vecinos en dos columnas, cada uno con su nombre y su arista escritos; una sola marca en la firma, la categoría rotulada, no pintada. No se pinta por debajo de `sm` y va fuera del árbol de accesibilidad: la lista de aristas de la página es su tabla equivalente. | `/grafo?nodo=` |
+| `RedVecinos` | La red de un nodo: el centro y sus vecinos en dos columnas, cada uno con su nombre y su arista escritos; una sola marca en la firma, la categoría rotulada, no pintada. No se pinta por debajo de `lg` (el SVG se escala y sus rótulos bajarían de 12 px) y va fuera del árbol de accesibilidad: la lista de aristas de la página es su tabla equivalente. | `/grafo?nodo=` |
 | `paleta.ts`, `formato.ts` | Clases literales de las paletas (`CATEGORICA`, `SECUENCIAL`, `DIVERGENTE`, `ORDEN_TONOS`) y `formatearValor` sobre `lib/format.ts`. | — |
 
 `components/barras.tsx` y `components/nomina/charts.tsx` ya no existen: eran las

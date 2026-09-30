@@ -85,7 +85,8 @@ export async function ResumenWikidata() {
   return (
     <>
       Consultado el {formatFecha(w.generado)}: {n(w.provincias)} provincias, {n(w.instituciones)} instituciones,{" "}
-      {n(w.financieras)} entidades financieras y {n(w.personas)} personas con su QID.
+      {n(w.financieras)} entidades financieras y {n(w.personas)} personas con su QID, de las que se enlazan las
+      que cumplen esa regla hoy.
     </>
   );
 }

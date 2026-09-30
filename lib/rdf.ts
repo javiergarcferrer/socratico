@@ -13,7 +13,7 @@ import { SITIO } from "@/lib/sitio";
  * de las gramáticas de W3C (Turtle 1.1 §6.4, N-Triples 1.1 §2.4) y la salida
  * se valida contra un analizador independiente al construirla.
  *
- * Módulo puro: no toca `fs` ni la red, así que lo pueden usar el middleware,
+ * Módulo puro: no toca `fs` ni la red, así que lo pueden usar
  * las rutas y los componentes de servidor.
  */
 
