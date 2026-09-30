@@ -117,17 +117,20 @@ function palabras(s: string): string[] {
 }
 
 /**
- * Las que no se ataron a nadie y cuyo nombre leído tiene todas sus palabras en
- * el de esta persona: pueden ser suyas o de otra con un nombre parecido. Se
- * enseñan como tales, nunca como suyas.
+ * Las que no se ataron a nadie y cuyo nombre leído, de tres palabras o más,
+ * está entero en el de esta persona: pueden ser suyas o de otra con un nombre
+ * parecido. Se enseñan como tales, nunca como suyas, y solo en la ficha de
+ * quien está obligado a declarar: «Luis Fernández» a secas cabe en doce fichas
+ * y no dice nada de ninguna.
  */
 export async function declaracionesParecidas(nombres: string[]): Promise<Declaracion[]> {
   const d = await getDeclaraciones();
   if (!d) return [];
   const suyas = nombres.map((n) => new Set(palabras(n)));
-  return d.declaraciones.filter(
-    (x) => !x.personaId && x.nombre && suyas.some((s) => x.nombre!.split(" ").every((p) => s.has(p))),
-  );
+  return d.declaraciones.filter((x) => {
+    const buscadas = x.nombre?.split(" ") ?? [];
+    return !x.personaId && buscadas.length >= 3 && suyas.some((s) => buscadas.every((p) => s.has(p)));
+  });
 }
 
 /** Las que publica una institución en su portal. */

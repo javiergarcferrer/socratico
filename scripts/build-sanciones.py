@@ -69,6 +69,8 @@ import re
 import sys
 import time
 import unicodedata
+import urllib.error
+import urllib.parse
 import urllib.request
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
@@ -376,6 +378,44 @@ def clave_empresa(nombre: str) -> str:
     return " ".join(palabras)
 
 
+def robots_permite_api(url: str) -> tuple[bool, str]:
+    """El robots.txt del host de una API, con la regla del estándar (RFC 9309,
+    §2.3.1): si responde 200, manda su grupo `User-agent: *` sobre la ruta; si
+    responde 4xx, el archivo «no está disponible» y se puede leer; si responde
+    5xx o no contesta, no se lee. El gateway del Banco Mundial responde 403 a
+    `/robots.txt` y 200 a su API (docs/AUDITORIA.md §H.13)."""
+    partes = urllib.parse.urlsplit(url)
+    try:
+        req = urllib.request.Request(f"{partes.scheme}://{partes.netloc}/robots.txt", headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            texto_robots = r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        if 400 <= e.code < 500:
+            return True, f"robots {e.code}: no disponible (RFC 9309 §2.3.1.3)"
+        return False, f"robots {e.code}: no se lee"
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        return False, f"robots ilegible ({e})"
+    ruta = partes.path or "/"
+    agentes, reglas, en_reglas = [], [], False
+    for linea in texto_robots.splitlines():
+        linea = linea.split("#")[0].strip()
+        if ":" not in linea:
+            continue
+        k, v = (x.strip() for x in linea.split(":", 1))
+        if k.lower() == "user-agent":
+            if en_reglas:
+                agentes, en_reglas = [], False
+            agentes.append(v)
+        elif k.lower() in ("allow", "disallow"):
+            en_reglas = True
+            if "*" in agentes and v:
+                reglas.append((k.lower(), v))
+    casan = [(len(v), k) for k, v in reglas if ruta.startswith(v.rstrip("*").rstrip("$"))]
+    if casan and max(casan)[1] == "disallow":
+        return False, "robots veta la ruta de la API"
+    return True, "robots permite"
+
+
 def leer_banco_mundial(local: pathlib.Path | None) -> tuple[list[dict], bytes, str | None]:
     """La lista de firmas e individuos inhabilitados del Banco Mundial
     (docs/AUDITORIA.md §H.13). Su API exige una clave que la propia página
@@ -393,6 +433,10 @@ def leer_banco_mundial(local: pathlib.Path | None) -> tuple[list[dict], bytes, s
         m_clave = re.search(r'var\s+propApiKey\s*=\s*"([^"]{16,64})"', h)
         if not (m_api and m_clave and re.search(r'"apikey"\s*:\s*propApiKey\b', h)):
             sys.exit("Banco Mundial: la página ya no publica el endpoint y la clave como antes. No se escribe.")
+        permite, nota = robots_permite_api(m_api.group(1))
+        print(f"  gateway del Banco Mundial: {nota}")
+        if not permite:
+            sys.exit(f"Banco Mundial: {nota}. No se escribe; si el veto sigue, se quita la lista del script.")
         crudo, _ = bajar(m_api.group(1), ("application/json",), cabeceras={"apikey": m_clave.group(1)})
     filas = json.loads(texto(crudo)).get("response", {}).get("ZPROCSUPP") or []
     if len(filas) < MIN_BM:

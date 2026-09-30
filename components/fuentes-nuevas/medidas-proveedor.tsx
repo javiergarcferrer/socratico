@@ -277,11 +277,14 @@ export function NotaOfac({ entidad, fecha }: { entidad: EntidadOfac; fecha: stri
 
 /**
  * La nota del Banco Mundial en la ficha de un proveedor cuyo nombre es
- * **exactamente** el de una firma de su lista de inhabilitados. Un mismo nombre
- * no prueba que sea la misma empresa, y la nota lo dice antes que nada: si el
- * Banco la registra en otro país, puede ser otra.
+ * **exactamente** el de una firma de su lista que el Banco registra en la
+ * República Dominicana. Una del mismo nombre registrada en otro país no se
+ * pinta aquí (puede ser otra empresa): queda en la sección del listado de
+ * medidas, que lo dice. Aun así, un mismo nombre no prueba identidad, y la
+ * nota lo dice.
  */
-export function NotaBancoMundial({ entidades, fecha }: { entidades: EntidadBancoMundial[]; fecha: string | null }) {
+export function NotaBancoMundial({ entidades: todas, fecha }: { entidades: EntidadBancoMundial[]; fecha: string | null }) {
+  const entidades = todas.filter((e) => e.dominicana);
   if (entidades.length === 0) return null;
   return (
     <Card as="section" id="banco-mundial" aria-labelledby="bm-titulo" className="px-5 py-5">
@@ -291,16 +294,10 @@ export function NotaBancoMundial({ entidades, fecha }: { entidades: EntidadBanco
       {entidades.map((e) => (
         <div key={e.id} className="mt-2">
           <p className="text-sm leading-relaxed text-ink">
-            Una firma con exactamente su mismo nombre, «{e.nombre}», está en la lista
-            {e.pais ? `, registrada en ${e.dominicana ? "la República Dominicana" : e.pais}` : ""}: inhabilitada desde el{" "}
-            {e.desde ? formatFecha(e.desde) : "(sin fecha)"}
+            Una firma con exactamente su mismo nombre, «{e.nombre}», registrada en la República Dominicana,
+            está en la lista: inhabilitada desde el {e.desde ? formatFecha(e.desde) : "(sin fecha)"}
             {e.hasta ? ` hasta el ${formatFecha(e.hasta)}` : ", sin fecha de fin"}. {motivoBancoMundialEnLlano(e)}
           </p>
-          {!e.dominicana && (
-            <p className="mt-1 text-sm leading-relaxed text-alerta-700">
-              El Banco Mundial la registra fuera del país: puede ser otra empresa con el mismo nombre.
-            </p>
-          )}
         </div>
       ))}
       <p className="mt-2 text-xs leading-relaxed text-ink-soft">

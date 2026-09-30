@@ -131,7 +131,15 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   - **Lista de inhabilitados del Banco Mundial: se usa la clave que publica su
     propia página**, con una condición de la casa: la clave **no se escribe en
     el repositorio**. El script de build la lee de la página en cada corrida
-    (AUDITORIA §H.13) y la usa en memoria.
+    (AUDITORIA §H.13) y la usa en memoria. Lectura de la sesión, que el dueño
+    puede revertir: el `robots.txt` del gateway de la API (`apigwext`) responde
+    403 y la API responde 200. La regla de la casa para un robots ilegible
+    (saltar el host, `build-documentos.py`) se escribió para barrer sitios; el
+    estándar, RFC 9309 §2.3.1.3, dice que un 4xx en `robots.txt` es «no
+    disponible» y que se puede leer. `robots_permite_api()` aplica el estándar
+    en cada corrida: 4xx se lee, 5xx o sin respuesta no, y un `Disallow` que
+    cubra la ruta detiene el script. La página del Banco, donde está la
+    clave, tiene su robots en 200 y permite la ruta.
   - **Guardar y seguir funcionarios, entidades financieras y empresas**:
     migración `supabase/migrations/20260930120000_espacios_personas.sql`,
     **aplicada al Supabase vivo el 30-09-2026** (`espacios_personas`): amplía

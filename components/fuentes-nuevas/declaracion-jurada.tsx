@@ -30,12 +30,12 @@ import type { Persona } from "@/lib/funcionarios";
  * quien lo publica (decisión del dueño, 2026-09-30, docs/DECISIONES.md).
  */
 export async function DeclaracionJurada({ persona }: { persona: Persona }) {
+  const obligado = persona.pep.length > 0;
   const [datos, propias, parecidas] = await Promise.all([
     getDeclaraciones(),
     declaracionesDe(persona.id),
-    declaracionesParecidas([persona.nombre, ...persona.alias]),
+    obligado ? declaracionesParecidas([persona.nombre, ...persona.alias]) : Promise.resolve([]),
   ]);
-  const obligado = persona.pep.length > 0;
   if (!obligado && propias.length === 0 && parecidas.length === 0) return null;
   const porNombre = propias.some((d) => d.via === "nombre");
 

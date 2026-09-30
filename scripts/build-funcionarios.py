@@ -279,7 +279,7 @@ gobernador gobernadora subdirector subdirectora encargado encargada asesor aseso
 inspector inspectora jefe jefa comandante subsecretario subsecretaria tesorero tesorera contralor contralora
 procurador procuradora juez jueza agregado agregada consejero consejera delegado delegada interventor
 interventora comisionado comisionada supervisor supervisora presidencia aeropuerto edificio oficinas
-departamento division unidad administracion proyecto nombre bomberos
+departamento division unidad administracion proyecto nombre bomberos fundacion
 """.split())
 # «nombre»: «QUE DESIGNA CON EL NOMBRE DE X EL EDIFICIO…» pone un nombre a una
 # obra y no nombra a nadie; el mismo título puede designar además a una persona
@@ -289,6 +289,9 @@ departamento division unidad administracion proyecto nombre bomberos
 def es_nombre(n: str) -> bool:
     palabras = clave(n).split()
     if not 2 <= len(palabras) <= 9:
+        return False
+    # Solo iniciales («F. A. D», «P. N») es una sigla de rama, no una persona.
+    if all(len(p) == 1 for p in palabras):
         return False
     if any(p in NO_NOMBRE for p in palabras):
         return False
@@ -311,7 +314,14 @@ TRATAMIENTO_NOMBRE = re.compile(
     # queda delante del nombre cuando el título lo trae con su preposición.
     r"^(?:de\s+manera\s+honor[ií]fica\s+)?(?:(?:al|a\s+la|el\.?|la)\s+)?"
     r"(?:(?:se[ñn]or(?:a|ita)?|sr(?:a|ta)?\.?|lic(?:da|do)?\.?|licenciad[oa]|dr(?:a)?\.?|"
-    r"doctor(?:a)?|ing\.?|ingenier[oa]|arq\.?|arquitect[oa]|prof\.?|profesor(?:a)?|monse[ñn]or)\s+)+",
+    r"doctor(?:a)?|ing\.?|ingenier[oa]|arq\.?|arquitect[oa]|prof\.?|profesor(?:a)?|monse[ñn]or|do[ñn]a?)\s+)+",
+    re.I,
+)
+# Un grado militar que el título deja pegado al nombre, a veces con errata
+# («Genearl de Brigada Médico Dr. X»): el grado va aparte, no es el nombre.
+RANGO_NOMBRE = re.compile(
+    r"^(?:gen(?:e?a?ra?l)|genral|coronel|teniente\s+coronel|mayor\s+general|contralmirante|vicealmirante)\s+"
+    r"(?:de\s+(?:brigada|divisi[oó]n)\s+)?(?:(?:m[eé]dico|piloto)\s+)?",
     re.I,
 )
 
@@ -320,7 +330,7 @@ def depurar_nombre(n: str | None) -> str | None:
     n = limpio(n or "")
     if re.match(r"(?i)(?:los|las)\s", n):
         return None
-    n = TRATAMIENTO_NOMBRE.sub("", n)
+    n = TRATAMIENTO_NOMBRE.sub("", RANGO_NOMBRE.sub("", n))
     return n if es_nombre(n) else None
 
 

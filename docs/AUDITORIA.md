@@ -2182,3 +2182,24 @@ la casa, como mucho tres POST por consulta, sin sesión ni cookies:
   EBRD de 2026-06-26 a 2027-07-10. El robots del gateway (`apigwext`) responde 403 del
   WAF: no hay reglas legibles. No hay descarga oficial sin clave (los botones Excel y
   PDF se generan en el navegador).
+
+### H.14 Wikidata, para el grafo semántico (2026-09-30)
+
+- ❌ **`query.wikidata.org`**: su `robots.txt` (200) veta `/sparql` y `/bigdata` para
+  `*`. **Resbalón de higiene de esta sesión**: una consulta de prueba a `/sparql`
+  salió en el mismo comando que leyó el robots, antes de mirarlo. Fue una sola, no se
+  repite y ningún dato de ella se usa.
+- ⚠️ **`www.wikidata.org`**: `robots.txt` veta `/w/` (la API de búsqueda) y
+  `/wiki/Special:`, pero **permite `/wiki/Special:EntityData/<QID>.<formato>`**: se puede
+  leer un elemento que ya se conoce, no buscar uno.
+- ✅ **QLever** (`https://qlever.dev/api/wikidata`, Universidad de Friburgo): réplica de
+  Wikidata con SPARQL público; `robots.txt` → 404 (sin reglas). `GET ?query=` con
+  `Accept: application/sparql-results+json` → 200 en menos de un segundo. Es la vía
+  para buscar identificadores. Verificado con ella: Luis Abinader es `Q16594097`;
+  «presidente de la República Dominicana», `Q607982`; y las clases que la ontología
+  enlaza (`Q5` ser humano, `Q327333` organismo público, `Q192350` ministerio, `Q22687`
+  banco, `Q650241` institución financiera, `Q43229` organización, `Q820655` ley,
+  `Q2571972` decreto, `Q913337` provincia de la República Dominicana, `Q106155`
+  persona expuesta políticamente, `Q294414` cargo público, `Q454263` declaración
+  jurada, `Q786` República Dominicana). De Wikidata solo se toman identificadores
+  (`owl:sameAs`), nunca biografías, fotos ni datos personales.
