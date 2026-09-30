@@ -55,6 +55,21 @@ export async function compartirEnlace(tipo: TipoCompartido, titulo: string): Pro
   );
 }
 
+/** Copiar al portapapeles y decir «Copiado» dos segundos: lo comparten los dos botones de copiar. */
+function useCopiar(): [boolean, (texto: string) => Promise<void>] {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = async (texto: string) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      /* clipboard no disponible */
+    }
+  };
+  return [copiado, copiar];
+}
+
 /**
  * Copia el enlace de la página. Suelto para que una fila compacta pueda
  * llevarlo dentro de «Más opciones» (`components/acciones-ficha.tsx`).
@@ -66,22 +81,36 @@ export function CopiarEnlace({
   className?: string;
   variant?: "outline" | "ghost";
 }) {
-  const [copiado, setCopiado] = useState(false);
-
-  const copiar = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    } catch {
-      /* clipboard no disponible */
-    }
-  };
-
+  const [copiado, copiar] = useCopiar();
   return (
-    <Button variant={variant} size="sm" onClick={copiar} className={className}>
+    <Button variant={variant} size="sm" onClick={() => copiar(window.location.href)} className={className}>
       {copiado && <IconCheck className="h-4 w-4 text-valido-600" />}
       <span aria-live="polite">{copiado ? "Copiado" : "Copiar enlace"}</span>
+    </Button>
+  );
+}
+
+/**
+ * Copia un texto dado: una dirección o una orden que se pega en otro
+ * programa, como la del servidor MCP en `/conectar`. En un teléfono es la
+ * forma de llevársela: un bloque de código que se desplaza de lado no se
+ * selecciona bien con el dedo.
+ */
+export function CopiarTexto({
+  texto,
+  etiqueta = "Copiar",
+  className,
+}: {
+  texto: string;
+  /** Qué copia, dicho en el botón: «Copiar la dirección». */
+  etiqueta?: string;
+  className?: string;
+}) {
+  const [copiado, copiar] = useCopiar();
+  return (
+    <Button variant="outline" size="sm" onClick={() => copiar(texto)} className={className}>
+      {copiado && <IconCheck className="h-4 w-4 text-valido-600" />}
+      <span aria-live="polite">{copiado ? "Copiado" : etiqueta}</span>
     </Button>
   );
 }

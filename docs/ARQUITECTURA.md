@@ -1101,8 +1101,9 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   `describir` y `relacionesDesdeTriples` de `lib/grafo-rdf.ts`, sus datos en
   llano, las medidas de la DGCP de sus inscripciones, sus relaciones por grupo
   —50, el resto por `neighbors`— y su fuente con fecha de corte; otro
-  resultado del índice: su resumen, por `resultadoPorHref`), `neighbors` (las
-  relaciones de un nodo por grupo y página), `path` (`camino()`, cacheado),
+  resultado del índice: su resumen, por `resultadoPorHref`, que cuenta las
+  copias de un documento juntado), `neighbors` (las relaciones de un nodo por
+  grupo y página), `path` (`camino()`, cacheado),
   `signed_decrees` (`decretosDeFirmante` con los filtros de la lista de la
   ficha) y `ontology` (`lib/ontologia.ts`).
 - **La forma de ChatGPT**: `search` devuelve `results` con `id`, `title`,
@@ -1112,18 +1113,25 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
 - **El `id`** es la ruta de la ficha (la de `rutaDeNodo` si es un nodo, para
   que no cambie con el nombre) o la dirección del archivo de fuera; `resolver`
   acepta además la dirección entera, el IRI con `#id`, un RNC de nueve cifras
-  o «Decreto 497-25».
-- **Reglas que no se relajan aquí**: cada respuesta dice su fuente, su fecha
-  de corte y que la plataforma es independiente y no oficial; PEP se explica
-  como categoría legal; la cédula no está en ningún dato que se lee; las
-  instrucciones del servidor le piden al modelo no unir homónimos ni leer una
-  relación como parentesco o conducta. **Fuera, a propósito**: el rol de
+  o «Decreto 497-25». Una relación (`destinoDe`) lleva `id` solo si `fetch` la
+  abre (un nodo, o una ficha que está en el índice); lo de fuera (un PDF,
+  Wikidata, la OFAC) va solo con su `url`, y la lista de decretos firmados,
+  con la pista de `signed_decrees`.
+- **Reglas que no se relajan aquí**: la respuesta de cada herramienta dice su
+  fuente y su fecha de corte (`search`, en cada resultado; `fetch`,
+  `neighbors` y `path`, la del nodo y las de todas las instantáneas del grafo)
+  y que la plataforma es independiente y no oficial; PEP se explica como
+  categoría legal; **ninguna cadena sale con forma de cédula**: los adaptadores
+  la quitan al leer (`sinCedula`, `lib/padron.ts`) y el servidor pasa la
+  respuesta entera por el mismo filtro, y `search` y `signed_decrees` no buscan
+  por una (`llevaCedula`); las instrucciones del servidor le piden al modelo
+  no unir homónimos ni leer una relación como parentesco o conducta. **Fuera, a propósito**: el rol de
   audiencias y el Registro Inmobiliario (solo por número exacto que teclea un
   lector), la cuenta y los espacios, `/democracia` y las consultas en vivo.
 - **Fallos**: un `Aviso` sale con su mensaje en llano (el SDK lo vuelve un
   resultado con `isError`); cualquier otro se registra y sale genérico, sin
-  rutas ni pilas. El registro del servidor solo escribe el mensaje del
-  error, **nunca la consulta** de quien pregunta.
+  rutas ni pilas. El registro del servidor escribe el error (con su pila,
+  para depurar) y **nunca la consulta** de quien pregunta.
 - **`lib/mcp-herramientas.ts`**: la dirección y la tabla de herramientas
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.

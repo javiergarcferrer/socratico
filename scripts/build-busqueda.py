@@ -56,6 +56,7 @@ import busqueda_financieras  # noqa: E402
 import busqueda_leyes  # noqa: E402
 import busqueda_procesos  # noqa: E402
 import busqueda_sentencias  # noqa: E402
+from privacidad import sin_cedula  # noqa: E402
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 DATOS = RAIZ / "public" / "data"
@@ -437,8 +438,12 @@ def main() -> None:
         for k in ("ti", "x", "d"):
             if isinstance(d.get(k), str):
                 d[k] = reparar(d[k])
-    # Sin claves vacías: el archivo viaja entero en cada arranque en frío.
-    limpios = [{k: v for k, v in d.items() if v not in (None, "")} for d in docs]
+    # Sin claves vacías: el archivo viaja entero en cada arranque en frío. Y
+    # sin la cédula que traiga un título oficial (`privacidad.py`).
+    limpios = [
+        {k: (sin_cedula(v) if k in ("ti", "x", "d") else v) for k, v in d.items() if v not in (None, "")}
+        for d in docs
+    ]
     # El detalle y el texto auxiliar que se repiten («Compra menor al umbral ·
     # Adjudicado» en 40 mil procesos) viajan una vez en `frases` y cada entrada
     # lleva su índice, como `origenes`. `resolverFrases` (lib/busqueda-esquema.ts)

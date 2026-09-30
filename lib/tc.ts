@@ -51,6 +51,7 @@
 import { unstable_cache } from "next/cache";
 import { arbol, textoDe, type CheerioAPI, type Element } from "@/lib/html";
 import { pedirTextoOLanzar } from "@/lib/pedir";
+import { sinCedula } from "@/lib/padron";
 
 const ORIGEN = "https://tc.gob.do";
 const RUTA = "/consultas/secretar%C3%ADa/sentencias";
@@ -151,7 +152,8 @@ export function parsearListadoTC(html: string): { sentencias: SentenciaTC[]; esc
       numero,
       fecha: `${f[3]}-${f[2]}-${f[1]}`,
       expediente: ref && !/^n\/?d$/i.test(ref) ? ref : null,
-      relativo: textoDe(tds[3]),
+      // El TC escribe a veces la cédula de una parte («RNC núm. …»): no se enseña.
+      relativo: sinCedula(textoDe(tds[3])),
       ficha,
     });
   }

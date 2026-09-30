@@ -60,6 +60,38 @@ export function pareceCedula(texto: string): boolean {
 }
 
 /**
+ * Una cédula dentro de un texto, como la escriben los decretos y las
+ * sentencias: «Núm. 001-0000000-0», o el «RNC núm.» de una persona con ese formato.
+ * Once cifras juntas no cuentan: así se escriben también números de
+ * sentencia, parcelas y matrículas.
+ */
+const CEDULA_EN_TEXTO = /(?<![\d-])\d{3}-\d{7}-\d(?![\d-])/g;
+
+/**
+ * El texto sin cédulas. Un título oficial puede traer la de una persona (tres
+ * en todas las instantáneas al 30-09-2026: dos decretos y una sentencia del
+ * TC); la plataforma nunca la enseña ni la guarda (docs/DECISIONES.md), así
+ * que el número se cambia por «[omitida]», en mayúsculas si el texto lo está,
+ * para que `desdeMayusculas` lo trate como al resto. Lo usan los
+ * adaptadores al leer, los scripts al construir y el servidor MCP al
+ * responder.
+ */
+export function sinCedula(texto: string): string {
+  if (!/\d{3}-\d{7}-\d/.test(texto)) return texto;
+  const marca = texto === texto.toLocaleUpperCase("es") ? "[OMITIDA]" : "[omitida]";
+  return texto.replace(CEDULA_EN_TEXTO, marca);
+}
+
+/**
+ * ¿Lleva lo tecleado una cédula? Con guiones, en cualquier parte; sin ellos,
+ * solo si es todo lo tecleado (la regla de `/empresas`). A una persona no se
+ * la busca por su número, en ningún buscador de la plataforma.
+ */
+export function llevaCedula(texto: string): boolean {
+  return /(?<![\d-])\d{3}-\d{7}-\d(?![\d-])/.test(texto) || pareceCedula(texto);
+}
+
+/**
  * El estado ante la DGII, traducido a los oficios de `lib/estados.ts`: activa
  * no pide nada (grafito), suspendida o en cese temporal avisa (ocre), y dada
  * de baja, anulada o rechazada se cayó (sello).

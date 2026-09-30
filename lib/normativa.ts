@@ -29,6 +29,7 @@ import { agujas, contieneTodas, plano as planoConsulta } from "@/lib/raiz";
 import { numeroCanonico } from "@/lib/grafo";
 import { MATERIAS, OTROS_ASUNTOS, materiaDeDecreto, type Materia } from "@/lib/materias-decreto";
 import { decretoPorNumero, indiceDecretos } from "@/lib/decretos";
+import { sinCedula } from "@/lib/padron";
 
 const BASE = "https://www.consultoria.gov.do";
 
@@ -118,7 +119,8 @@ function aDocumento(f: FilaBuscador): Documento {
   return {
     tipo: TIPO_SINGULAR[f.TipoDocumento ?? -1] ?? texto(f.Tipo),
     numero: texto(f.Numero),
-    titulo: texto(f.Titulo),
+    // Un título puede traer la cédula de una persona: no se enseña.
+    titulo: sinCedula(texto(f.Titulo)),
     gaceta: texto(f.Gaceta) || null,
     fecha: iso ? iso.split("-").reverse().join("/") : null,
     fechaIso: iso,

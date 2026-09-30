@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { IconArrowRight, IconExternal } from "@/components/icons";
 import { recortar } from "@/lib/raiz";
+import { llevaCedula } from "@/lib/padron";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/buscar" },
@@ -88,7 +89,18 @@ export default async function BuscarPage({
         />
       </Suspense>
 
-      {q && (
+      {/*
+        Una cédula sola ya se fue a los proveedores (`rutaDirecta`); con otras
+        palabras, no se busca: el índice encontraría de quién es.
+      */}
+      {q && llevaCedula(q) && (
+        <EstadoVacio titulo="A una persona no se la busca por su número">
+          Lo tecleado lleva una cédula. La plataforma no la enseña ni busca por ella, aunque un título oficial la
+          traiga: busca por el nombre, la institución o el tema.
+        </EstadoVacio>
+      )}
+
+      {q && !llevaCedula(q) && (
         <>
           {/*
             El índice se carga una vez por instancia (menos de un segundo

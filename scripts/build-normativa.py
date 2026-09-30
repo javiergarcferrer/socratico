@@ -13,7 +13,11 @@ Requiere red con acceso a www.consultoria.gov.do (p. ej. una máquina local).
 import datetime
 import json
 import pathlib
+import sys
 import urllib.request
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from privacidad import sin_cedula  # noqa: E402
 
 BASE = "https://www.consultoria.gov.do"
 UA = "Socratico-Inteligencia/1.0 (instantanea normativa; herramienta independiente)"
@@ -47,8 +51,9 @@ def buscar(tipo: int, anio: int) -> list:
     # Solo lo que la plataforma usa: la fila cruda lleva nombres de personas
     # designadas y campos vacíos que no hacen falta en el repositorio.
     # `Institucion` alimenta el cruce con las fichas de institución.
+    # Un título puede traer la cédula de una persona: no se escribe.
     return [
-        {k: f.get(k) for k in
+        {k: (sin_cedula(f.get(k)) if k == "Titulo" else f.get(k)) for k in
          ("DocId", "TipoDocumento", "Tipo", "Numero", "Titulo", "Gaceta", "FechaPromulgacion",
           "Institucion")}
         for f in filas

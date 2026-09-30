@@ -536,7 +536,7 @@ investigación:
 
 | # | Entrega | Hecho cuando |
 |---|---|---|
-| M1 ✅ | **El servidor**: `search`, `fetch`, `neighbors`, `path`, `signed_decrees`, `ontology`, sobre el índice y el grafo; forma de ChatGPT en `search`/`fetch`; revisiones 2025 y 2026-07-28 | Claude y ChatGPT lo conectan con la dirección y cada respuesta trae fuente y corte |
+| M1 ⚠️ | **El servidor**: `search`, `fetch`, `neighbors`, `path`, `signed_decrees`, `ontology`, sobre el índice y el grafo; forma de ChatGPT en `search`/`fetch`; revisiones 2025 y 2026-07-28. Hecho y probado con los clientes oficiales del SDK (1.x y 2.x) contra el despliegue; falta anotar la primera conexión desde Claude y desde ChatGPT | Claude y ChatGPT lo conectan con la dirección y cada respuesta trae fuente y corte |
 | M2 | **Compras de un proveedor o de una institución**: una herramienta sobre `lib/dgcp.ts` y el histórico (`lib/historico.ts`), con el tope y el `truncated` que ya declaran sus lecturas | «¿Qué le ha comprado el MOPC a esta empresa?» se contesta con contratos, montos y fechas, y dice cuántos leyó |
 | M3 | **El texto**: el de una norma y el de un decreto (la Consultoría ya se lee; el PDF, por `lib/documentos.ts`), por páginas | El asistente cita el artículo, no solo el título |
 | M4 | **Cifras del panorama**: las de `/indicadores` y la deuda, cada una con su ancla (`lib/cifras.ts`) | Ninguna cifra sale sin su fecha y su fuente |
