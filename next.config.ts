@@ -33,8 +33,21 @@ const nextConfig: NextConfig = {
     // incluye solo; se declara para no depender de que lo siga adivinando en
     // las rutas que lo leen: la ficha de una persona y sus decretos firmados, y
     // la ficha de un decreto.
-    "/funcionarios": ["./public/data/decretos/**"],
-    "/normativa": ["./public/data/decretos/**"],
+    "/funcionarios": ["./public/data/decretos/**", "./public/data/wikidata.json"],
+    "/normativa": ["./public/data/decretos/**", "./public/data/wikidata.json"],
+    // El grafo semántico (`lib/grafo-rdf.ts`) describe cualquier nodo: lee las
+    // instantáneas de personas, decretos, bancos, empresas, medidas,
+    // declaraciones y los QID de Wikidata. La clave casa también con
+    // «/grafo/camino» y «/api/grafo». Las fichas que incrustan su JSON-LD
+    // leen además `wikidata.json`.
+    "/grafo": [
+      "./public/data/decretos/**",
+      "./public/data/empresas/**",
+      "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
+    ],
+    "/instituciones": ["./public/data/wikidata.json"],
+    "/banca": ["./public/data/wikidata.json"],
+    "/provincias": ["./public/data/wikidata.json"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus.
@@ -47,6 +60,47 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     staleTimes: { dynamic: 30, static: 300 },
+  },
+  /*
+    Negociación de contenido del grafo semántico: la dirección de una ficha
+    nombra una cosa (`…/funcionarios/x#id`), y quien la pide en RDF —con
+    `Accept: text/turtle`, `application/ld+json` o `application/n-triples` y
+    sin `text/html`— recibe un 303 a su descripción (`/api/grafo`), como
+    manda «Cool URIs for the Semantic Web» (W3C). Un navegador siempre pide
+    HTML y nunca entra aquí. Es una regla del enrutador: no despierta ninguna
+    función ni cambia la caché de la página. `/ontologia` hace lo mismo hacia
+    su Turtle, su JSON-LD o sus N-Triples.
+  */
+  async redirects() {
+    const formatos = [
+      { formato: "ttl", acepta: "(?!.*text/html).*(?:text/turtle|application/x-turtle).*" },
+      { formato: "jsonld", acepta: "(?!.*text/html).*application/ld\\+json.*" },
+      { formato: "nt", acepta: "(?!.*text/html).*application/n-triples.*" },
+    ];
+    const fichas = [
+      "/funcionarios/:slug",
+      "/instituciones/:id",
+      "/banca/:slug",
+      "/empresas/:rnc",
+      "/normativa/decreto/:numero",
+      "/provincias/:slug",
+    ];
+    return [
+      ...formatos.flatMap(({ formato, acepta }) =>
+        fichas.map((ficha) => ({
+          source: ficha,
+          has: [{ type: "header" as const, key: "accept", value: acepta }],
+          destination: `/api/grafo?nodo=${ficha}&formato=${formato}`,
+          statusCode: 303 as const,
+        })),
+      ),
+      ...formatos.map(({ formato, acepta }) => ({
+        source: "/ontologia",
+        has: [{ type: "header" as const, key: "accept", value: acepta }],
+        destination: `/ontologia.${formato}`,
+        statusCode: 303 as const,
+      })),
+    ];
   },
   async headers() {
     return [

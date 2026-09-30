@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { describir } from "@/lib/grafo-rdf";
-import { nodoDeRuta } from "@/lib/grafo";
+import { nodoDeRuta, rutaDeNodo } from "@/lib/grafo";
 import { SITIO } from "@/lib/sitio";
 import { TIPO_MIME, serializar, type FormatoRdf } from "@/lib/rdf";
 
@@ -21,7 +21,9 @@ const FORMATOS: readonly FormatoRdf[] = ["ttl", "jsonld", "nt"];
  */
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
-  const ruta = (params.get("nodo") ?? "").slice(0, 200);
+  // La ruta de la ficha o su IRI entero (`void:uriLookupEndpoint` le pega el IRI).
+  const pedido = (params.get("nodo") ?? "").slice(0, 300);
+  const ruta = (pedido.startsWith(SITIO + "/") ? pedido.slice(SITIO.length) : pedido).slice(0, 200);
   const formato = (params.get("formato") ?? "ttl") as FormatoRdf;
   if (!FORMATOS.includes(formato)) {
     return NextResponse.json({ error: "formato: ttl, jsonld o nt" }, { status: 400 });
@@ -31,13 +33,19 @@ export async function GET(req: Request) {
   try {
     const d = await describir(nodo);
     if (!d) return NextResponse.json({ error: "no existe ese nodo" }, { status: 404 });
-    const cabecera = `${d.titulo}\nDescrito por Socrático.do (herramienta independiente y no oficial) a partir de lo que publica el Estado.\nFicha: ${SITIO}${ruta}\nOntología: ${SITIO}/ontologia`;
+    const cabecera = [
+      d.titulo,
+      "Descrito por Socrático.do (herramienta independiente y no oficial) a partir de lo que publica el Estado.",
+      `Ficha: ${SITIO}${rutaDeNodo(nodo)}`,
+      `Ontología: ${SITIO}/ontologia`,
+      ...(d.nota ? [d.nota] : []),
+    ].join("\n");
     return new NextResponse(serializar(d.triples, formato, cabecera), {
       headers: {
         "Content-Type": TIPO_MIME[formato],
         "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
         "Access-Control-Allow-Origin": "*",
-        Link: `<${SITIO}${ruta}>; rel="canonical", <${SITIO}/ontologia>; rel="describedby"`,
+        Link: `<${SITIO}${rutaDeNodo(nodo)}>; rel="canonical", <${SITIO}/ontologia>; rel="describedby"`,
       },
     });
   } catch (err) {

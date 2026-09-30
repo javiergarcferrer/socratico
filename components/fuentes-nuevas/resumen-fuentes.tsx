@@ -10,6 +10,7 @@ import { SECTORES_EIF, getFinancieras, type Sector, faltanDeLaSb } from "@/lib/f
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { metaSanciones } from "@/lib/sanciones";
+import { getWikidata } from "@/lib/wikidata";
 
 /**
  * Las cifras vivas de cada instantánea nueva, para `/fuentes`: cuántos
@@ -72,6 +73,19 @@ export async function ResumenOfac() {
       entradas, {formatInt(o.ligadasRd)} ligadas al país, de las que{" "}
       {formatInt(o.ligadasRd - o.individuosOmitidos)} son entidades y{" "}
       {formatInt(o.individuosOmitidos)} personas que no se guardan.
+    </>
+  );
+}
+
+/** Los QID de Wikidata del grafo (`scripts/build-wikidata.py`): cuántas fichas atadas, por tipo. */
+export async function ResumenWikidata() {
+  const w = await getWikidata();
+  if (!w) return <>La instantánea no está disponible ahora mismo.</>;
+  const n = (o: Record<string, string>) => formatInt(Object.keys(o).length);
+  return (
+    <>
+      Consultado el {formatFecha(w.generado)}: {n(w.provincias)} provincias, {n(w.instituciones)} instituciones,{" "}
+      {n(w.financieras)} entidades financieras y {n(w.personas)} personas con su QID.
     </>
   );
 }

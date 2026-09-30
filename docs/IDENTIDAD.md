@@ -219,6 +219,7 @@ validó solo en claro, contra `canvas` (#F7F3EA) y `surface` (#FDFBF5).
 | ¿Cuándo pasa en el año? (temporada) | `MatrizMensual` | secuencial |
 | La misma medida partida por una faceta | `Multiples` + `maximoComun` | una serie por panel |
 | ¿Dónde? (cuánto por provincia; dónde está una provincia) | `MapaProvincias` (con `ubicar`, sin cifra: la elegida entre las demás) | secuencial en tramos 3–6 por cuantiles, rango de cada tramo escrito; el paso 1 es «cero» |
+| ¿Con quién se liga? (la red de una ficha) | `RedVecinos`: el centro y sus vecinos en dos columnas, nombre y arista escritos; la lista de aristas es su tabla | una sola marca en la firma, el centro en tinta; la categoría se rotula, no se pinta |
 | Una proporción contra un límite (ejecución, avance, puntuación) | **no es un gráfico**: `Progress`, el medidor | el oficio del dato |
 | Un solo número | **no es un gráfico**: `Cifra` con su ancla | — |
 

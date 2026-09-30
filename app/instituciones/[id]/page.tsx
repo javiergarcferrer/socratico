@@ -51,6 +51,7 @@ import { filtrarInformes, getAuditorias, informesDe } from "@/lib/auditorias";
 import Conversacion from "@/components/espacios/conversacion";
 import { QuienDirige } from "@/components/fuentes-nuevas/quien-dirige";
 import { DeclaracionesPublicadas } from "@/components/fuentes-nuevas/declaracion-jurada";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 import { getFuncionarios, personasDeInstitucion } from "@/lib/funcionarios";
 import { entidadDeInstitucion } from "@/lib/financieras";
 
@@ -83,7 +84,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: desdeMayusculas(i.nombre),
     // `/instituciones/237` y `/instituciones/237-minerd` son la misma página:
     // la canónica es la del tramo legible.
-    alternates: { canonical: hrefInstitucion(i) },
+    alternates: { canonical: hrefInstitucion(i), types: alternasRdf({ tipo: "institucion", id: String(i.id) }) },
     description: i.dgcp
       ? `Qué compra, cuánto gasta, a quién le paga y qué decreta el Estado sobre ${i.nombre}: presupuesto, contratos, nómina y normativa en una sola página.`
       : `Su sector y su capítulo en el Clasificador Institucional, su presupuesto, lo que le transfiere el Gobierno central y lo que decreta el Estado sobre ${i.nombre}, en una sola página.`,
@@ -340,6 +341,7 @@ export default async function InstitucionPage({ params }: Props) {
         </Link>
         .
       </p>
+      <EnElGrafo nodo={{ tipo: "institucion", id: String(i.id) }} className="mt-6" />
       {/* La clave es la ruta con solo el código: si cambia el nombre, la conversación sigue siendo la misma. */}
       <Conversacion className="mt-6" referencia={{ tipo: "institucion", ref: enlace.institucion(i.id), titulo: i.nombre, href: enlace.institucion(i.id) }} />
     </div>

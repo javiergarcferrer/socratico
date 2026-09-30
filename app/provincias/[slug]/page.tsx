@@ -27,6 +27,7 @@ import { EstadoVacio } from "@/components/estado-vacio";
 import { enlace } from "@/lib/grafo";
 import { GobiernoProvincial } from "@/components/fuentes-nuevas/gobierno-provincial";
 import { MapaProvincias } from "@/components/graficos";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 import { getMapa } from "@/lib/mapa";
 
 /*
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!p) return { title: "Provincia no encontrada" };
   return {
     title: p.nombre,
-    alternates: { canonical: enlace.provincia(p.slug) },
+    alternates: { canonical: enlace.provincia(p.slug), types: alternasRdf({ tipo: "provincia", id: p.slug }) },
     description: `${p.nombre} y el Estado: quién la gobierna, proveedores del Estado inscritos en la provincia, sus ayuntamientos y sus legisladores.`,
   };
 }
@@ -185,6 +186,7 @@ export default async function ProvinciaPage({ params }: Props) {
           </p>
         )}
       </Card>
+      <EnElGrafo nodo={{ tipo: "provincia", id: p.slug }} />
     </div>
   );
 }

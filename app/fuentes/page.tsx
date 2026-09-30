@@ -14,6 +14,7 @@ import { formatInt } from "@/lib/nomina";
 import { getResumenNomina } from "@/lib/nomina-server";
 import { FUENTES_DEL_CRUCE, INSTITUCIONES } from "@/lib/instituciones";
 import { FUENTE_MAPA } from "@/lib/mapa";
+import { enlace } from "@/lib/grafo";
 import { IconArrowLeft } from "@/components/icons";
 import {
   ResumenBiblioteca,
@@ -29,6 +30,7 @@ import {
   ResumenRnc,
   ResumenSanciones,
   ResumenTasa,
+  ResumenWikidata,
 } from "@/components/fuentes-nuevas/resumen-fuentes";
 
 export const metadata: Metadata = {
@@ -697,8 +699,8 @@ export default async function FuentesPage() {
             <strong>valida un certificado</strong> que ya se tiene, con su número y su
             código, y devuelve la denominación, sus fechas y su estado: no busca por
             nombre ni por RNC ni muestra socios, gerentes o capital. Su selector de
-            cámaras llama a un servicio con una clave incrustada en la página, que no
-            se usa. La búsqueda de nombres comerciales de la <strong>ONAPI</strong>{" "}
+            cámaras usa un servicio interno que la plataforma no toca. La búsqueda de
+            nombres comerciales de la <strong>ONAPI</strong>{" "}
             exige una clave antiautomatización que rota (sin ella responde 401).
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
@@ -1052,6 +1054,33 @@ export default async function FuentesPage() {
             que cae el 80 % del medio. Del padrón de la DGII solo se usa el RNC:
             ni teléfonos ni correos. El Senado, los procesos más viejos y lo
             publicado después de cada instantánea se buscan en su vertical.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Wikidata · identificadores del grafo semántico" estado="activa" etiqueta="Instantánea local">
+          <p>
+            <Link href={enlace.grafo()} className="font-medium text-brand-700 hover:underline">
+              El grafo
+            </Link>{" "}
+            no se lee de ninguna fuente nueva: cada ficha se describe en RDF con lo que ya pinta, en el
+            vocabulario de{" "}
+            <Link href="/ontologia" className="font-medium text-brand-700 hover:underline">
+              la ontología
+            </Link>
+            . De Wikidata se toma solo el identificador (QID) de una provincia, una institución, un
+            banco o una persona con cargo, para decir que es la misma cosa (<code className="rounded bg-canvas px-1 py-0.5 font-mono">owl:sameAs</code>):
+            nunca su descripción, su foto ni su biografía. Una ficha se ata a un QID solo si la
+            correspondencia es única en los dos sentidos. <ResumenWikidata />
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            El servicio SPARQL de Wikidata veta las consultas automáticas en su robots, así que los
+            identificadores se buscan en la réplica pública de QLever (Universidad de Friburgo), con
+            pocas consultas y pausa entre ellas. Provincias por su nombre entre las divisiones del país;
+            instituciones y bancos por su nombre exacto; personas, los presidentes contra quien firmó
+            decretos, y quien tiene un cargo obligado a declarar por su nombre completo exacto, de tres
+            palabras o más. Cada coincidencia se revisó por su etiqueta. Es una instantánea: se
+            regenera con{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-wikidata.py</code>.
           </p>
         </Fuente>
 

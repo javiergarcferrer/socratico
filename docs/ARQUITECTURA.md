@@ -983,6 +983,83 @@ deriva en cada lectura de las mismas fuentes e instantáneas.
   no es un 404: `NormaFueraDeAlcance` dice qué pasa y enseña los proyectos
   que la citan.
 
+## El grafo semántico — `lib/rdf.ts`, `lib/ontologia.ts`, `lib/grafo-rdf.ts`, `lib/wikidata.ts`
+La plataforma ya era un grafo de fichas enlazadas; esta capa lo dice en RDF,
+para máquinas y para el explorador (`/grafo`). **No hay almacén de triples ni
+punto SPARQL** (la invariante: sin base de datos en las superficies de
+inteligencia): cada descripción se deriva al pedirla de las mismas
+instantáneas que pinta la ficha, y se cachea como cualquier página.
+
+- **Seis tipos de nodo** (`NodoRdf` en `lib/grafo.ts`): persona con cargo,
+  institución, entidad financiera, persona jurídica, decreto con ficha y
+  provincia. `nodoDeRuta`/`rutaDeNodo` pasan de la ruta de la ficha al nodo y
+  de vuelta. **El IRI de la cosa es la ficha con `#id`**; sin él, la página
+  que la describe. La institución usa `/instituciones/<id>` sin el sufijo de
+  nombre, para que su IRI no cambie si cambia el nombre. Un cargo es un nodo
+  propio (`#cargo-<huella FNV>`, W3C ORG `Membership`: tiene fecha,
+  movimiento y decreto); una medida de la DGCP, `#medida-<huella>`; un
+  decreto sin ficha usa el IRI de su PDF en la Consultoría.
+- **`lib/rdf.ts`** escribe Turtle, N-Triples y JSON-LD sin dependencias
+  (escapes de las gramáticas del W3C; un IRI con espacios se codifica). Se
+  validó con un analizador independiente (rdflib 7.6): las tres salidas de
+  nueve nodos de muestra y de la ontología son isomorfas, y todo término
+  `soc:` que usan las descripciones está declarado en la ontología.
+- **`lib/ontologia.ts`** es la ontología `soc:` en OWL 2 y RDFS: clases,
+  propiedades con dominio y rango (la unión en OWL cuando son varios) y los
+  esquemas SKOS, que salen de las mismas tablas que usa la interfaz
+  (materias, movimientos, sectores, familias PEP, tipos de medida). Se alinea
+  hacia fuera sin afirmar de más: `rdfs:subClassOf`/`subPropertyOf` hacia
+  schema.org, W3C ORG, FOAF, ELI y ROV; `skos:closeMatch`/`broadMatch` hacia
+  las clases de Wikidata. Es la fuente de `/ontologia` (HTML, un ancla por
+  término, así que `…/ontologia#Persona` abre su definición) y de
+  `/ontologia.ttl`, `.jsonld` y `.nt` (estáticas).
+- **`lib/grafo-rdf.ts`** — `describir(nodo, ligero)`: los triples de un nodo
+  con el vecindario que hace falta para leerlo (cada vecino con su
+  `rdfs:label`). Topes que la descripción declara en su `nota`: una
+  institución, sus 200 primeros cargos vigentes en el orden de la
+  institución; quien firma decretos, sus 20 más recientes (la lista entera
+  está en su ficha). Nunca entra la cédula, un parentesco, una biografía ni
+  el consejo de un banco. `ligero` deja solo el nodo y sus datos propios: es
+  lo que `aSchemaOrg` convierte en el JSON-LD de schema.org que cada ficha
+  incrusta (`components/en-el-grafo.tsx`, con `alternasRdf()` en
+  `metadata.alternates.types`). `relacionesDesdeTriples` lee las aristas
+  **de los triples** (atravesando los cargos), así que el explorador pinta
+  exactamente lo que dice el RDF. `camino()` busca en anchura desde los dos
+  extremos a la vez, con las aristas sin dirección (una institución solo
+  describe sus cargos de hoy; la persona que la dirigió antes sí la nombra) y
+  sin cerrar un lado agotado mientras el otro tenga frontera; topes de 6
+  saltos y 400 fichas, y el resultado dice por qué no encontró (`motivo`).
+  Se cachea por par con `unstable_cache`, con la versión del resultado y el
+  corte de las instantáneas en la clave: la caché de datos sobrevive a un
+  despliegue.
+- **Rutas.** `/grafo` (portada con el inventario; `?nodo=` la red de una
+  ficha, `components/graficos/red-vecinos.tsx`, y su lista de aristas por
+  grupo; `?q=` elige una ficha por nombre, número de decreto o RNC),
+  `/grafo/camino?de=&a=` (`maxDuration` 60), `/api/grafo?nodo=&formato=`
+  (`ttl`, `jsonld`, `nt`; acepta también el IRI entero, que es lo que pega
+  `void:uriLookupEndpoint`) y `/.well-known/void` (VoID: particiones por
+  clase con sus censos y el conjunto de enlaces a Wikidata).
+- **Negociación de contenido** en `next.config.ts` (`redirects()` con `has`
+  sobre `Accept`): quien pide una ficha en `text/turtle`,
+  `application/ld+json` o `application/n-triples` **y sin `text/html`**
+  recibe un 303 a `/api/grafo` («Cool URIs for the Semantic Web»);
+  `/ontologia`, a su archivo. Es una regla del enrutador: no despierta
+  ninguna función ni toca la caché de la página, y un navegador nunca entra.
+- **Rastreo**: la portada del grafo se indexa y está en el sitemap (sale de
+  `lib/menu.ts`); la vista de un nodo es `noindex` y `robots.ts` veta
+  `/grafo?` y `/grafo/camino` (cada camino es una búsqueda); `/api/` ya
+  estaba vetado.
+- **Wikidata** (`lib/wikidata.ts` sobre `public/data/wikidata.json`, de
+  `scripts/build-wikidata.py`): solo el QID de provincias, instituciones,
+  bancos y personas con cargo, para `owl:sameAs` y `sameAs`; una
+  correspondencia entra si es única en los dos sentidos, y cada una se
+  revisó por su etiqueta. Se busca en la réplica de QLever porque el SPARQL
+  de Wikidata veta `/sparql` en su robots (docs/AUDITORIA.md §H.14).
+- **Trazado de archivos**: `/grafo` (la clave casa con `/grafo/camino` y
+  `/api/grafo`) lleva decretos, padrón, funcionarios, declaraciones,
+  sanciones, banca y `wikidata.json`; las fichas que incrustan su JSON-LD,
+  `wikidata.json`.
+
 ## Primitivas compartidas — el sistema, en un sitio
 La identidad se diluyó dos veces por la misma causa (`docs/IDENTIDAD.md` §8):
 donde existe una primitiva la adopción es alta; donde no existe, la idea se
@@ -1089,6 +1166,7 @@ las mismas piezas. Cada dato acepta `href` y lleva a su entidad.
 | `Multiples` + `maximoComun` | Paneles con escala común. | `/nomina` (áreas y cargos) |
 | `Leyenda`, `EscalaSecuencial` | Identidad sin color solo; texto en tinta, muestra al lado. | Capítulo de finanzas, barras apiladas, matriz |
 | `VerComoTabla` | La tabla equivalente, plegada, con el número de filas en el botón. | `/` (llegadas) |
+| `RedVecinos` | La red de un nodo: el centro y sus vecinos en dos columnas, cada uno con su nombre y su arista escritos; una sola marca en la firma, la categoría rotulada, no pintada. No se pinta por debajo de `sm` y va fuera del árbol de accesibilidad: la lista de aristas de la página es su tabla equivalente. | `/grafo?nodo=` |
 | `paleta.ts`, `formato.ts` | Clases literales de las paletas (`CATEGORICA`, `SECUENCIAL`, `DIVERGENTE`, `ORDEN_TONOS`) y `formatearValor` sobre `lib/format.ts`. | — |
 
 `components/barras.tsx` y `components/nomina/charts.tsx` ya no existen: eran las

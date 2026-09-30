@@ -411,6 +411,16 @@ export const PROPIEDADES: Propiedad[] = [
     subPropiedadDe: ["schema:taxID"],
   },
   {
+    id: "inicioOperaciones",
+    tipo: "dato",
+    etiqueta: "inicio de operaciones declarado",
+    etiquetaEn: "declared start of operations",
+    comentario:
+      "La fecha en que la persona jurídica declaró a la DGII que empezó a operar. No es su fecha de constitución, que el padrón no trae.",
+    dominio: ["soc:Empresa"],
+    rango: ["xsd:date"],
+  },
+  {
     id: "rpe",
     tipo: "dato",
     etiqueta: "RPE",

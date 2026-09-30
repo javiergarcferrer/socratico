@@ -11,5 +11,6 @@ export { Multiples, maximoComun } from "./multiples";
 export { Leyenda, EscalaSecuencial, type EntradaLeyenda } from "./leyenda";
 export { VerComoTabla, type ColumnaTabla } from "./ver-como-tabla";
 export { MapaProvincias, type ZonaMapa } from "./mapa-provincias";
+export { RedVecinos, type VecinoRed } from "./red-vecinos";
 export { CATEGORICA, SECUENCIAL, SECUENCIAL_RELLENO, DIVERGENTE, SERIE, CONTEXTO, OTROS, ORDEN_TONOS } from "./paleta";
 export { formatearValor, type FormatoValor } from "./formato";

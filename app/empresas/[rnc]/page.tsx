@@ -18,6 +18,7 @@ import { formatFecha, hace, SIN_DATO } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
 import { medidasDeRnc, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
 import { NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 
 /** La instantánea solo cambia con un despliegue: una ficha se rehace al día. */
 export const revalidate = 86400;
@@ -47,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: e.razonSocial,
     description: `${e.razonSocial}, RNC ${e.rnc}: ${detalle}. Según el padrón de contribuyentes de la DGII.`,
-    alternates: { canonical: enlace.empresa(e.rnc) },
+    alternates: { canonical: enlace.empresa(e.rnc), types: alternasRdf({ tipo: "empresa", id: e.rnc }) },
   };
 }
 
@@ -249,6 +250,7 @@ export default async function EmpresaPage({ params }: Props) {
         </Link>
         .
       </p>
+      <EnElGrafo nodo={{ tipo: "empresa", id: e.rnc }} className="mt-2" />
     </div>
   );
 }

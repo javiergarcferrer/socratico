@@ -12,13 +12,12 @@
  *   → 200 `application/json`, ~1–3 KB: `{ result: [{ colnames, coltypes, data }] }`,
  *     `data` = `[{ __timestamp: <ms UTC del día 1 del mes>, <métrica>: n }]`.
  *
- * **Nota de seguridad.** La API pública de ese Superset expone también el SQL
- * de cada gráfico y usuarios del personal de la SB (hallazgo del
- * reconocimiento, notificado a la SB, AUDITORIA §G.5). Esta capa lee
- * **solo** los endpoints de datos de las tarjetas que el propio tablero pinta
- * —nunca los de usuarios, SQL, bases de datos ni datasets— y pide
- * `type=results`, que devuelve solo `colnames`/`coltypes`/`data`: el SQL no
- * viaja en la respuesta y por eso tampoco queda en la caché de `fetch`. No se
+ * **Nota de seguridad.** La API pública de ese Superset expone más que los
+ * datos de sus gráficos (hallazgo del reconocimiento, que se notifica a la SB
+ * con un aviso fuera de este repositorio público, AUDITORIA §G.5). Esta capa
+ * lee **solo** los endpoints de datos de las tarjetas que el propio tablero
+ * pinta y pide `type=results`, que devuelve solo `colnames`/`coltypes`/`data`:
+ * nada más viaja en la respuesta ni queda en la caché de `fetch`. No se
  * registra ni se guarda ningún otro campo.
  *
  * Tarjetas (ids del tablero «inicio», estables desde su publicación):
