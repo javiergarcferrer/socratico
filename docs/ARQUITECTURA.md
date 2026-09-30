@@ -277,8 +277,14 @@ during a visit.
   `pdfminer.six`, a 40 s limit per file and `pypdf` as fallback; OCR'd scans are
   detected and skipped), the high courts and constitutional bodies (the Poder
   Judicial's missing Sectigo intermediate ships in `scripts/certificados/`; TLS
-  verification stays on), JCE's 2024 municipal winners (XLSX, `openpyxl`) and
-  the SIL legislators (local file). A person is their normalised name, never
+  verification stays on), JCE's 2024 municipal winners (XLSX, `openpyxl`), the
+  SIL legislators (local file) and, since 2026-09-30, the BCRD's Junta Monetaria
+  (§H.13: the `GetContentForRender` POST its own page makes; HTML comments are
+  stripped first because a retired member stays commented out; name and post only,
+  origin `bcrd`, institution 905002, numeral 31 except the secretary; cached as
+  `junta.json`; read first, so a failed read or fewer than five members stops
+  the script before the long reads, and registered last, so a new person never
+  shifts an existing slug). A person is their normalised name, never
   the cédula (dropped before the cache is written); gender, phones, e-mail,
   photos and biographies are never read. `numeral_311()` maps each post to the
   Ley 311-14 art. 2 numeral that makes it a PEP (Ley 155-17 art. 2 num. 19),
@@ -411,6 +417,38 @@ during a visit.
   `lib/grafo-servidor.ts` keeps local governments out of free-text recognition
   by sector as well as by type. `public/data/instituciones.json` (256 KB) is
   bundled into the middleware through `lib/buscar.ts`.
+
+## Consultas por número — `lib/audiencias.ts`, `lib/inmobiliario.ts` (`docs/AUDITORIA.md` §H.13)
+Two live lookups by an exact number the reader types, the POST each public page
+makes (owner decision 2026-09-30). Same shape in both:
+- **Validation in the layer** (`validarNuc`, `validarExpediente`): letters,
+  digits, `-`, `/`, `.`, 5–40 characters, at least one digit, sent as typed.
+  The page only shows the reason next to the field (`CampoBusqueda`'s `error`,
+  through `BuscadorUrl`: `ErrorCampo` + `aria-invalid`).
+- **`unstable_cache` per number, one hour** (the POST body keeps it out of the
+  fetch cache); the read throws inside so a failure is never cached, and the
+  exported function degrades to `null`. An empty list is an answer («no hay»),
+  `null` is «no contestó»: two `EstadoVacio` screens.
+- **`noindex, nofollow`** whenever `?q=` is present (`generateMetadata`), and the
+  title never carries the number.
+- `lib/audiencias.ts` (Rol Nacional de Audiencias, `idTipoConsulta: 4` only)
+  reads at most 3 pages of 20 and declares `truncado`; it keeps only each
+  party's role, from a closed list (`PAPELES`), inside the cached function, so
+  names reach neither the cache nor the page; `urlAudiencia` is dropped.
+  `proximaAudiencia` compares the roll's naive local times with Santo Domingo's
+  wall clock. `/audiencias`: the next hearing, then every hearing (stacked on
+  phones, a four-column `Table` from `sm`).
+- `lib/inmobiliario.ts` (Registro Inmobiliario): the answer with data has never
+  been seen, so every column is an optional `unknown` rendered by `aTexto` and
+  no row is dropped for its shape; a `statusCode` ≥ 400 inside the 200 is a
+  failure. `/inmobiliario`: a definition list on phones, a table from `sm`.
+- ⚠️ **`next dev` is not the production HTML.** React 19.2's development build
+  serializes into the page, as debug info, the resolved value of every read a
+  server component awaits: the raw roll, party names included, shows up in the
+  dev payload even though no component receives it. The production Flight server
+  has no such code (`serializeIONode`/`visitAsyncNode`/`emitIOInfoChunk` exist
+  only in `react-server-dom-webpack-server.*.development.js`). Check a layer
+  that handles personal data against `next start`, not `next dev`.
 
 ## API routes — `app/api/*` (all `export const dynamic = "force-dynamic"`)
 Thin proxies that call a `lib/dgcp.ts` function inside try/catch and return
@@ -855,6 +893,9 @@ sources impose:
   unit); `/obras/[snip]` → one project with its contracts and processes, linked
   to `/procesos/*` and `/proveedores/*`.
 - `/gestion` → SISMAP ranking, `?tabla=instituciones|ayuntamientos|juntas` and `?q=`.
+- `/audiencias?q=<NUC>` and `/inmobiliario?q=<número>` → the two lookups by
+  number (see «Consultas por número»); without `?q=` each explains what the
+  number is and where to find it. Both are views of the Normativa vertical.
 
 ## Chrome and indexing — `lib/menu.ts`, `app/sitemap.ts`, `lib/sitio.ts`
 - **Megamenú** (`components/megamenu.tsx` over `components/ui/navigation-menu.tsx`,
@@ -898,7 +939,7 @@ process-code API for `proceso-card` and `section-bar`. Push notifications are
 an open owner decision (`docs/PLAN-ACCESO.md` §6): not built.
 
 ## Formato — `lib/format.ts`
-Seis funciones, y el listado importa porque tres de ellas son obligatorias por
+Estas funciones, y el listado importa porque tres de ellas son obligatorias por
 identidad, no opcionales:
 - `formatMonto` — moneda es-DO por `Intl`.
 - `formatFecha` — fecha absoluta. Un valor **sin offset** es una fecha de
@@ -912,6 +953,10 @@ identidad, no opcionales:
 - `formatPesos` y `formatMagnitud` — magnitud escrita, nunca abreviada: en uso
   dominicano «MM» se lee *millones*, así que abreviar mil millones así se
   equivoca por tres órdenes de magnitud en las cifras que más pesan.
+- `tituloLegible` y `nombrePropio` — un texto que la fuente copia en MAYÚSCULAS:
+  en letra de frase lo que describe («Recurso de apelación»), en tipo título lo
+  que se nombra («Juzgado de Trabajo de San Cristobal»), con las siglas y los
+  números romanos intactos y sin poner tildes que la fuente no puso.
 
 ## El grafo — `lib/grafo.ts`, `lib/grafo-servidor.ts` (docs/PLAN-ACCESO.md §6 ter)
 Todo lo que se ve es un nodo que se pulsa. Nada se guarda: el grafo se
@@ -1088,7 +1133,7 @@ del commit que lo registra). El resto de tablas ordena en el servidor.
 | `components/portada.tsx` | La banda de tinta con la pregunta, y su tira de cifras. Estaba copiada en siete páginas. |
 | `components/estado-vacio.tsx` | «No hay nada» y «no pudimos mirar», que no se pueden confundir: `variante="caida"` obliga a decir qué pasó, qué sigue en pie y cuál es la única acción útil. |
 | `components/marca-estado.tsx` | La marca de estado de un expediente, sea de la fuente que sea, sobre `lib/estados.ts`. Estaba escrita tres veces. |
-| `components/campo-busqueda.tsx` | El campo de búsqueda con su **alcance dicho debajo**, antes del toque y no después de «sin resultados». |
+| `components/campo-busqueda.tsx` | El campo de búsqueda con su **alcance dicho debajo**, antes del toque y no después de «sin resultados»; si solo acepta una forma (un número de caso), dice por qué no vale junto al campo (`error`). |
 | `components/nav-filtros.tsx` | La fila de filtros que **son enlaces** (tipo, año, cuatrienio): cada uno es una página que se comparte. |
 | `components/marca.tsx` | El contrasello: `Sello`, `SelloCompacto`, `Logotipo`. |
 | `components/plegable.tsx` | Revelación progresiva sobre `ui/collapsible`; el botón dice **cuántos hay**, nunca «ver más». |

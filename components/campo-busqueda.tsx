@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { IconSearch, IconX } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { ErrorCampo } from "@/components/ui/error-campo";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 
@@ -24,6 +25,11 @@ import { cn } from "@/lib/cn";
  *    resultados» (ergonomía §6: un control explica su alcance antes del toque).
  *  · **Borrar es un botón con nombre**, no un aspa muda, y solo aparece cuando
  *    hay algo que borrar.
+ *
+ * Una búsqueda que solo acepta una forma —un número de caso, un número de
+ * expediente— dice por qué no vale **junto al campo** (`error`, con
+ * `ErrorCampo`, `aria-invalid` y `aria-describedby`: docs/DESIGN.md §1.2), no en
+ * una pantalla de «sin resultados» que haría creer que se buscó.
  */
 export function CampoBusqueda({
   valor,
@@ -36,6 +42,7 @@ export function CampoBusqueda({
   pendiente = false,
   textoBoton = "Buscar",
   name = "q",
+  error,
   className,
 }: {
   valor: string;
@@ -52,9 +59,17 @@ export function CampoBusqueda({
   pendiente?: boolean;
   textoBoton?: string;
   name?: string;
+  /**
+   * Por qué lo escrito no vale. Si el campo valida, se pasa siempre —`null`
+   * cuando no hay nada que decir—: la región viva tiene que existir antes de
+   * llenarse para que el lector de pantalla la anuncie.
+   */
+  error?: string | null;
   className?: string;
 }) {
   const ayudaId = useId();
+  const errorId = useId();
+  const describe = [error !== undefined && errorId, ayuda && ayudaId].filter(Boolean).join(" ") || undefined;
 
   return (
     <form
@@ -79,7 +94,8 @@ export function CampoBusqueda({
             onChange={(e) => onValor(e.target.value)}
             placeholder={placeholder}
             aria-label={etiqueta}
-            aria-describedby={ayuda ? ayudaId : undefined}
+            aria-describedby={describe}
+            aria-invalid={error ? true : undefined}
             enterKeyHint="search"
             className={cn("pl-9", onLimpiar && valor ? "pr-12 sm:pr-10" : "pr-3")}
           />
@@ -118,6 +134,11 @@ export function CampoBusqueda({
           </span>
         </Button>
       </div>
+      {error !== undefined && (
+        <ErrorCampo id={errorId} className="mt-2 leading-relaxed">
+          {error}
+        </ErrorCampo>
+      )}
       {ayuda && (
         <p id={ayudaId} className="mt-2 text-xs leading-relaxed text-ink-soft">
           {ayuda}

@@ -205,8 +205,36 @@ const SIGLAS = new Set([
   "EDESUR", "EDENORTE", "EDEESTE", "ETED", "CDEEE", "IDAC", "INTRANT", "OMSA", "OPRET", "MIREX",
   "MESCYT", "INFOTEP", "ISFODOSU", "UASD", "PN", "FFAA", "ARD", "DNCD", "TSS", "AFP", "ARS",
   "CESAC", "CESFRONT", "INESPRE", "BCRD", "PGR", "JCE", "TIC", "TI", "PVC", "LED", "GPS", "UPS",
-  "CCTV", "HVAC", "PC", "USB", "SAS", "SRL", "EIRL",
+  "CCTV", "HVAC", "PC", "USB", "SAS", "SRL", "EIRL", "SCJ",
 ]);
+
+/** Las palabras que un nombre propio deja en minúscula cuando no lo abren. */
+const PARTICULAS = new Set(["de", "del", "la", "las", "los", "el", "y", "e", "en", "a", "al", "por", "para", "con"]);
+
+/**
+ * Un **nombre propio** que la fuente copia TODO EN MAYÚSCULAS, en tipo título:
+ * «JUZGADO DE TRABAJO DE SAN CRISTOBAL» → «Juzgado de Trabajo de San
+ * Cristobal». Es el hermano de `tituloLegible` para lo que se nombra —un
+ * tribunal, una sala, un distrito—, donde la letra de frase dejaría «san
+ * cristobal». Las partículas van en minúscula salvo al principio; las siglas
+ * conocidas y los números romanos («SALA II») se quedan. Solo actúa si más del
+ * 60 % de las letras son mayúsculas y no pone tildes que la fuente no puso.
+ */
+export function nombrePropio(valor: string): string {
+  const letras = valor.match(/\p{L}/gu) ?? [];
+  if (letras.length < 2) return valor;
+  const mayus = letras.filter((l) => l !== l.toLowerCase()).length;
+  if (mayus / letras.length <= 0.6) return valor;
+  let primera = true;
+  return valor.replace(/[\p{L}\p{N}]+/gu, (t) => {
+    const abre = primera;
+    primera = false;
+    if (/\d/.test(t) || SIGLAS.has(t) || /^(?=[IVX]+$)X{0,3}(IX|IV|V?I{0,3})$/.test(t)) return t;
+    const bajo = t.toLowerCase();
+    if (!abre && PARTICULAS.has(bajo)) return bajo;
+    return bajo.charAt(0).toUpperCase() + bajo.slice(1);
+  });
+}
 
 /**
  * Un título que la fuente copia TODO EN MAYÚSCULAS, en oración: «ADQUISICIÓN

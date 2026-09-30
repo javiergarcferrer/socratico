@@ -950,7 +950,10 @@ export default async function FuentesPage() {
             páginas de la <strong>Suprema Corte</strong>, el <strong>Consejo del Poder
             Judicial</strong>, el <strong>Tribunal Constitucional</strong>, el <strong>Tribunal
             Superior Electoral</strong> (con sus gestiones desde 2012), la <strong>Junta Central
-            Electoral</strong> y el <strong>Defensor del Pueblo</strong>, la relación de{" "}
+            Electoral</strong>, el <strong>Defensor del Pueblo</strong> y la <strong>Junta
+            Monetaria</strong> (la página del Banco Central, con la consulta que hace ella misma:
+            nombre y cargo de sus miembros y de su secretaria, sin biografías ni fotos), la
+            relación de{" "}
             <strong>electos municipales de 2024</strong> de la JCE y los legisladores del SIL.
           </p>
           <p className="mt-3">
@@ -964,8 +967,7 @@ export default async function FuentesPage() {
             dice que lo ocupó, no que sea PEP. Los decretos anteriores a 2012 que nombran a varias
             personas son escaneos y no se leen. Solo las fichas de quien es PEP hoy se ofrecen a los
             buscadores externos. La Cámara de Cuentas y la Procuraduría rechazan hoy
-            la lectura (HTTP 470) y el Banco Central sirve su Junta Monetaria por una vía que no
-            devuelve el contenido: sus titulares no están salvo por un decreto o por el MAP.
+            la lectura (HTTP 470): sus titulares no están salvo por un decreto o por el MAP.
           </p>
         </Fuente>
 
@@ -1130,6 +1132,49 @@ export default async function FuentesPage() {
             tribunales dan abasto, no qué parte de lo nuevo se resolvió. No incluye la
             Suprema Corte. Son cifras preliminares; el script rechaza el archivo si los
             departamentos no suman el total.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Poder Judicial · audiencias de un caso" estado="activa" etiqueta="Conectada">
+          <p>
+            <Link href="/audiencias" className="font-medium text-brand-700 hover:underline">
+              Las audiencias de un caso
+            </Link>{" "}
+            se leen en vivo del Rol Nacional de Audiencias del Poder Judicial, con la misma
+            consulta que hace su página pública: por el número único del caso (NUC) exacto que
+            escribe el lector, y nada más. Trae la historia del caso en todos los tribunales por los
+            que pasó (fecha y hora, tribunal, sala, modalidad, estado, resultado, materia y asunto),
+            hasta 60 audiencias, las más recientes; si hay más, la página lo dice. Se guarda una
+            hora por número.
+          </p>
+          <p className="mt-3">
+            <strong>Límites que fijó el dueño el 30-09-2026:</strong> nunca se busca por nombre de
+            parte, cédula ni abogado, aunque la consulta del Poder Judicial lo permita, ni se lee el
+            rol entero; los nombres de las partes no se muestran ni se guardan, solo su papel
+            (recurrente, imputado, abogado…), y solo si es uno de una lista cerrada; la página con un
+            número no se ofrece a los buscadores. El enlace de las salas virtuales no se copia: está
+            en el rol del Poder Judicial.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Registro Inmobiliario · expedientes por número" estado="activa" etiqueta="Conectada">
+          <p>
+            <Link href="/inmobiliario" className="font-medium text-brand-700 hover:underline">
+              En qué va un expediente
+            </Link>{" "}
+            se lee en vivo de la consulta pública de expedientes del Registro Inmobiliario, con la
+            consulta que hace su página: por el número exacto, de al menos 5 caracteres. Da la fecha
+            de la solicitud, el órgano, el número del expediente y el original, el resultado, el
+            estado y el trámite. Se guarda una hora por número y la página con un número no se
+            ofrece a los buscadores.
+          </p>
+          <p className="mt-3">
+            <strong>Sin verificar:</strong> un número que no existe responde vacío, pero no se ha
+            visto una respuesta con datos, porque no hay un número real publicado y no se buscó uno.
+            Las columnas salen del código de la página del Registro; si una llega con otra forma, la
+            página dice «sin dato» y remite a la del Registro. <strong>Sin acceso:</strong> el
+            parcelario lleva reCAPTCHA y las certificaciones de estado jurídico exigen cuenta y pago:
+            no hay consulta pública del estado jurídico de un inmueble.
           </p>
         </Fuente>
 
@@ -1367,17 +1412,12 @@ export default async function FuentesPage() {
           <p>
             <strong>Cámara de Cuentas</strong> y <strong>Procuraduría General</strong>:
             respondieron 470 el 29 de septiembre de 2026; sus titulares solo están aquí si
-            un decreto o el MAP los nombra. <strong>Junta Monetaria</strong>: el Banco
-            Central sirve sus miembros por una consulta que no es un buscador público.{" "}
-            <strong>Registro de asociaciones sin fines de lucro</strong>: 403 de Cloudflare
-            hasta en su robots. <strong>BID</strong>: 403 de Cloudflare.{" "}
-            <strong>Banco Mundial</strong>: su lista de inhabilitados exige una clave que la
-            propia página publica; no se usa. <strong>Rol de audiencias del Poder
-            Judicial</strong> y <strong>expedientes del Registro Inmobiliario</strong>:
-            consultas que no son el buscador de una página, pendientes de decisión; el
-            parcelario lleva reCAPTCHA y las certificaciones de estado jurídico exigen
-            cuenta y pago. Ninguna se rodea: la vía es institucional (Ley 200-04), y cada
-            una está anotada en la auditoría de fuentes.
+            un decreto o el MAP los nombra. <strong>Registro de asociaciones sin fines de
+            lucro</strong>: 403 de Cloudflare hasta en su robots. <strong>BID</strong>: 403 de
+            Cloudflare. <strong>Registro Inmobiliario</strong>: su parcelario lleva reCAPTCHA y
+            las certificaciones de estado jurídico exigen cuenta y pago. Ninguna se rodea: la
+            vía es institucional (Ley 200-04), y cada una está anotada en la auditoría de
+            fuentes.
           </p>
         </Fuente>
       </div>

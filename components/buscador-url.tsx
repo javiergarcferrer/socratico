@@ -22,10 +22,16 @@ export function BuscadorUrl({
   etiqueta,
   placeholder,
   ayuda,
+  error,
 }: {
   etiqueta: string;
   placeholder?: string;
   ayuda?: string;
+  /**
+   * Por qué el `?q=` actual no vale, dicho por el servidor que lo validó
+   * (`null` si vale). Se calla en cuanto el lector cambia lo escrito.
+   */
+  error?: string | null;
 }) {
   const [pendiente, iniciar] = useTransition();
   const [url, setUrl] = useQueryStates(
@@ -58,6 +64,7 @@ export function BuscadorUrl({
       placeholder={placeholder}
       ayuda={ayuda}
       pendiente={pendiente}
+      error={error === undefined ? undefined : valor.trim() === inicial.trim() ? error : null}
     />
   );
 }

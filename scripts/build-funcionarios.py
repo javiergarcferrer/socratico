@@ -42,6 +42,13 @@ Fuentes, en el orden en que se leen:
    Se descarta el sexo.
 5. **Congreso**: los legisladores del período en `public/data/congreso.json`
    (sin red).
+6. **Banco Central — la Junta Monetaria** (`/a/d/2557-miembros-jm`, AUDITORIA
+   §H.13): la página es un cascarón que pide su contenido con el POST que hace
+   ella misma, `POST /Home/GetContentForRender` con `id=2557&languageName=es`
+   (aprobado por el dueño el 30-09-2026, docs/DECISIONES.md). Llega JSON dentro
+   de `text/html`; los nombres y los cargos vienen en el HTML de
+   `result.article.content`, y un miembro que ya salió queda **comentado** ahí:
+   los comentarios se quitan antes de leer. Solo nombre y cargo.
 
 Una persona es su **nombre normalizado** (sin tildes, en minúscula): nunca la
 cédula. Dos fuentes que escriben el nombre igual son la misma persona; si lo
@@ -110,6 +117,11 @@ JCE_TITULARES = "https://jce.gob.do/Miembros-Titulares"
 JCE_SUPLENTES = "https://jce.gob.do/Miembros-Suplentes"
 DEFENSOR = ("https://defensordelpueblo.gob.do/wp-json/wp/v2/pages?slug=despacho-defensor-del-pueblo"
             "&_fields=id,link,modified,content")
+JUNTA_CONTENIDO = "https://www.bcrd.gov.do/Home/GetContentForRender"
+JUNTA_PAGINA = "https://www.bcrd.gov.do/a/d/2557-miembros-jm"
+# «Banco Central de la República Dominicana» en public/data/instituciones.json:
+# la Junta Monetaria no tiene ficha propia, es el órgano superior del Banco.
+BCRD = 905002
 
 DESDE_TITULOS = "1996-08-16"
 DESDE_PDF = "2012-08-16"
@@ -1007,6 +1019,64 @@ def leer_organos() -> tuple[list[dict], dict]:
     return filas, estado
 
 
+def junta_del_html(html: str) -> list[dict]:
+    """Los integrantes de la Junta Monetaria en el HTML de su página: bloques
+    `<div class="col-…">` con el nombre en el primer encabezado y, debajo, lo
+    que la página dice de él («Gobernador del Banco Central», «Presidente»,
+    «Secretaria»). Los rótulos «Miembros ex-oficio» y «Miembros» abren cada
+    sección. Solo nombre y cargo; nada más de la página se guarda."""
+    # Un miembro que ya salió queda comentado («<!-- <h4>…</h4> -->»): fuera.
+    html = re.sub(r"<!--.*?-->", " ", html, flags=re.S)
+    filas: list[dict] = []
+    seccion = None
+    for bloque in re.findall(r'<div[^>]*class="[^"]*\bcol-[^"]*"[^>]*>(.*?)</div>', html, re.S):
+        titulos = [limpio(htmlmod.unescape(re.sub(r"<[^>]+>", " ", t)))
+                   for _, t in re.findall(r"<(h[1-6])[^>]*>(.*?)</\1>", bloque, re.S)]
+        titulos = [t for t in titulos if t]
+        if not titulos:
+            continue
+        # Un bloque de rótulos: «Junta Monetaria», «Miembros ex-oficio», «Miembros».
+        rotulos = [plano(t) for t in titulos]
+        if all(r == "junta monetaria" or r.startswith("miembros") for r in rotulos):
+            for r in rotulos:
+                if r.startswith("miembros"):
+                    seccion = "ex-oficio" if "oficio" in r else "miembros"
+            continue
+        nombre = depurar_nombre(titulos[0])
+        if not nombre or seccion is None:
+            continue
+        # «Miembro» a secas (hoy comentado en la página) no añade nada al cargo.
+        roles = [t for t in titulos[1:] if plano(t) != "miembro"]
+        preside = next((t for t in roles if re.fullmatch(r"president[ea]", plano(t))), None)
+        secretaria = next((t for t in roles if re.fullmatch(r"secretari[oa]", plano(t))), None)
+        # El cargo por el que se sienta en la Junta, en minúscula dentro de la frase.
+        por = next((t for t in roles if t not in (preside, secretaria)), None)
+        por = f", por ser {por[:1].lower()}{por[1:]}" if por else ""
+        if secretaria:
+            # Secretaria de la Junta, no miembro: la Ley 311-14 (num. 31) nombra a los miembros.
+            filas.append({"nombre": nombre, "cargo": f"{secretaria} de la Junta Monetaria", "pep": None})
+        elif preside:
+            filas.append({"nombre": nombre, "cargo": f"{preside} de la Junta Monetaria{por}", "pep": 31})
+        else:
+            filas.append({"nombre": nombre, "cargo": f"Miembro de la Junta Monetaria{por}", "pep": 31})
+    return filas
+
+
+def leer_junta_monetaria() -> tuple[list[dict], dict]:
+    """La Junta Monetaria en la página del Banco Central, con el POST que hace
+    esa misma página (AUDITORIA §H.13). Lanza si no contesta: sin la Junta no
+    se escribe (ver main)."""
+    cuerpo, _ = pedir(JUNTA_CONTENIDO, datos=b"id=2557&languageName=es", tipo=r"text/html|json",
+                      cabeceras={"Content-Type": "application/x-www-form-urlencoded"}, pausa=2.0)
+    d = json.loads(cuerpo.decode("utf-8-sig"))
+    articulo = ((d or {}).get("result") or {}).get("article") or {}
+    filas = junta_del_html(articulo.get("content") or "")
+    estado = {"url": JUNTA_PAGINA, "filas": len(filas),
+              "modificado": (articulo.get("publicationDateFrom") or "")[:10] or None,
+              "leido": datetime.date.today().isoformat(), "error": None}
+    return filas, estado
+
+
 def leer_electos(cache: pathlib.Path, sin_red: bool) -> list[dict]:
     ruta = cache / "electos-2024.xlsx"
     if not ruta.exists() and not sin_red:
@@ -1107,6 +1177,27 @@ def main() -> None:
 
     inst = Instituciones(INSTITUCIONES)
     reg = Registro()
+
+    # 0. Banco Central — la Junta Monetaria. Una lectura pequeña que se hace
+    # primero: si falla o llega corta, el script se detiene antes de las lecturas
+    # largas, no después. Sus cargos se registran al final (paso 6).
+    print("Banco Central — Junta Monetaria…")
+    ruta_junta = cache / "junta.json"
+    if args.sin_red and ruta_junta.exists():
+        junta, estado_junta = json.loads(ruta_junta.read_text(encoding="utf-8"))
+    else:
+        try:
+            junta, estado_junta = leer_junta_monetaria()
+        except Exception as e:  # noqa: BLE001 — cualquier fallo de lectura detiene la escritura
+            sys.exit(f"Banco Central — Junta Monetaria: no se pudo leer ({e}): no se escribe")
+    # Plausibilidad: la Ley Monetaria y Financiera (183-02) le da nueve miembros,
+    # tres de ellos por su cargo. Menos de cinco es que la página cambió de forma.
+    miembros = sum(1 for j in junta if j.get("pep") == 31)
+    if miembros < 5:
+        sys.exit(f"Banco Central — Junta Monetaria: {miembros} miembros leídos: no se escribe")
+    if not (args.sin_red and ruta_junta.exists()):
+        ruta_junta.write_text(json.dumps([junta, estado_junta], ensure_ascii=False), encoding="utf-8")
+    print(f"  {len(junta)} personas, {miembros} de ellas miembros (leído el {estado_junta.get('leido')})")
 
     # 1. MAP
     print("MAP — Directorio de Funcionarios…")
@@ -1324,6 +1415,17 @@ def main() -> None:
         }, peso=3)
         p["legislador"] = l["id"]
 
+    # 6. Banco Central — la Junta Monetaria, leída al principio (paso 0). Se
+    # registra al final a propósito: una persona nueva no le cambia el
+    # identificador a nadie que ya estaba (el slug repetido lo desempata el
+    # orden de llegada).
+    bcrd = BCRD if any(i["id"] == BCRD for i in inst.todas) else None
+    for j in junta:
+        reg.cargo(j["nombre"], {
+            "t": cargo_legible(j["cargo"]), "i": bcrd, "in": "Banco Central de la República Dominicana",
+            "m": "vigente", "o": "bcrd", "url": JUNTA_PAGINA, "pep": j.get("pep"),
+        }, peso=2)
+
     # Salida: cada persona con su nombre más usado y sus cargos, del más reciente al más viejo.
     personas = []
     usados: dict[str, int] = {}
@@ -1359,7 +1461,8 @@ def main() -> None:
                          "pdfLeidos": len(pendientes_pdf) - sin_texto - escaneos, "pdfSinTexto": sin_texto,
                          "pdfEscaneados": escaneos,
                          "designacionesPdf": pdfs, "firmantes": sum(1 for p in personas if p["f"])},
-            "organos": estado_organos,
+            # La Junta Monetaria va con los órganos, con la clave de su origen («bcrd»).
+            "organos": {**estado_organos, "bcrd": estado_junta},
             "electos2024": estado_electos,
             "congreso": {"filas": len(congreso["legisladores"]), "fuente": congreso.get("fuente")},
         },
