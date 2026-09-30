@@ -28,6 +28,11 @@ export interface Declaracion {
   nombre: string | null;
   /** La ficha de quien declara, si se ató sin dudas. */
   personaId: string | null;
+  /**
+   * Cómo se ató: `institucion` si tiene un cargo en la que la publica;
+   * `nombre` si su nombre, de tres o más palabras, es único en la plataforma.
+   */
+  via: "institucion" | "nombre" | null;
 }
 
 export interface FuenteDeclaraciones {
@@ -51,7 +56,15 @@ interface Cruda {
   generado: string;
   camara: string;
   fuentes: FuenteDeclaraciones[];
-  declaraciones: { t: string; f: string | null; u: string; b: number; n: string | null; p: string | null }[];
+  declaraciones: {
+    t: string;
+    f: string | null;
+    u: string;
+    b: number;
+    n: string | null;
+    p: string | null;
+    v?: "institucion" | "nombre" | null;
+  }[];
 }
 
 let memo: Promise<Declaraciones | null> | null = null;
@@ -73,6 +86,7 @@ export function getDeclaraciones(): Promise<Declaraciones | null> {
           institucionId: d.fuentes[x.b]?.id ?? null,
           nombre: x.n,
           personaId: x.p,
+          via: x.v ?? (x.p ? "institucion" : null),
         })),
       };
     })
@@ -88,6 +102,32 @@ export function getDeclaraciones(): Promise<Declaraciones | null> {
 export async function declaracionesDe(personaId: string): Promise<Declaracion[]> {
   const d = await getDeclaraciones();
   return d?.declaraciones.filter((x) => x.personaId === personaId) ?? [];
+}
+
+/** Palabras de un nombre como las compara el build: sin tildes, sin signos, en minúscula. */
+function palabras(s: string): string[] {
+  return s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+
+/**
+ * Las que no se ataron a nadie y cuyo nombre leído tiene todas sus palabras en
+ * el de esta persona: pueden ser suyas o de otra con un nombre parecido. Se
+ * enseñan como tales, nunca como suyas.
+ */
+export async function declaracionesParecidas(nombres: string[]): Promise<Declaracion[]> {
+  const d = await getDeclaraciones();
+  if (!d) return [];
+  const suyas = nombres.map((n) => new Set(palabras(n)));
+  return d.declaraciones.filter(
+    (x) => !x.personaId && x.nombre && suyas.some((s) => x.nombre!.split(" ").every((p) => s.has(p))),
+  );
 }
 
 /** Las que publica una institución en su portal. */

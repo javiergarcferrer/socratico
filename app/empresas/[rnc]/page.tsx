@@ -9,6 +9,7 @@ import { ConectadoCon } from "@/components/conectado-con";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { MarcaEstado } from "@/components/marca-estado";
 import { Ruta } from "@/components/ruta";
+import AccionesFicha from "@/components/acciones-ficha";
 import { Termino } from "@/components/termino";
 import { IconExternal } from "@/components/icons";
 import { empresaPorRnc, padronEmpresas } from "@/lib/empresas";
@@ -139,6 +140,7 @@ export default async function EmpresaPage({ params }: Props) {
           <Termino clave="personaJuridica" /> · <Termino clave="rnc" />{" "}
           <span className="font-mono font-medium tabular-nums text-ink">{e.rnc}</span>
         </p>
+        <AccionesFicha className="mt-3" tipo="empresa" id={e.rnc} titulo={e.razonSocial} href={enlace.empresa(e.rnc)} />
 
         <TiraDeCifras className="mt-5 lg:grid-cols-3">
           <Cifra

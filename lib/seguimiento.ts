@@ -35,6 +35,9 @@ export const TIPOS_SEGUIDO = [
   "proveedor",
   "institucion",
   "norma",
+  "funcionario",
+  "entidad-financiera",
+  "empresa",
 ] as const;
 
 export type TipoSeguido = (typeof TIPOS_SEGUIDO)[number];
@@ -47,6 +50,9 @@ export const GRUPOS_SEGUIDO: Record<TipoSeguido, { singular: string; plural: str
   proveedor: { singular: "Proveedor", plural: "Proveedores del Estado" },
   institucion: { singular: "Institución", plural: "Instituciones" },
   norma: { singular: "Norma", plural: "Decretos y normas" },
+  funcionario: { singular: "Persona con cargo público", plural: "Personas con cargo público" },
+  "entidad-financiera": { singular: "Entidad financiera", plural: "Bancos y entidades financieras" },
+  empresa: { singular: "Empresa", plural: "Empresas" },
 };
 
 /** ¿Este tipo tiene un estado que pueda cambiar y que la plataforma sepa leer? */

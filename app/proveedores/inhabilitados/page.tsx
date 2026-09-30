@@ -29,10 +29,13 @@ import {
   esTipoMedida,
   getSanciones,
   hrefFichaOfac,
+  motivoBancoMundialEnLlano,
   programaEnLlano,
+  type EntidadBancoMundial,
   type EntidadOfac,
   type FiltrosMedidas,
   type MedidaDgcp,
+  type MetaSanciones,
   type ProveedorConMedidas,
   type ViaOfac,
 } from "@/lib/sanciones";
@@ -304,6 +307,10 @@ export default async function MedidasPage({ searchParams }: Props) {
       </p>
 
       <SeccionOfac entidades={datos.ofac} q={q} ofac={datos.fuentes.ofac} generado={datos.generado} />
+
+      {datos.fuentes.bancoMundial && (
+        <SeccionBancoMundial entidades={datos.bancoMundial ?? []} bm={datos.fuentes.bancoMundial} />
+      )}
     </div>
   );
 }
@@ -456,6 +463,93 @@ function SeccionOfac({
           ))}
         </ul>
       )}
+    </Card>
+  );
+}
+
+/**
+ * Las firmas de la lista de inhabilitados del Banco Mundial ligadas al país o
+ * con exactamente el mismo nombre que un proveedor inscrito en la DGCP. Aparte
+ * de la OFAC: es otra lista, de un banco multilateral, con otros efectos, y un
+ * mismo nombre no prueba que sea la misma empresa.
+ */
+function SeccionBancoMundial({
+  entidades,
+  bm,
+}: {
+  entidades: EntidadBancoMundial[];
+  bm: NonNullable<MetaSanciones["fuentes"]["bancoMundial"]>;
+}) {
+  return (
+    <Card as="section" aria-labelledby="bm-lista-titulo">
+      <div className="px-5 pb-4 pt-5">
+        <Rotulo>
+          Firmas inhabilitadas · Banco Mundial
+          {bm.fecha ? ` · actualizada el ${formatFecha(bm.fecha)}` : ""}
+        </Rotulo>
+        <h2 id="bm-lista-titulo" className="mt-2 font-display text-2xl leading-tight text-ink">
+          ¿Qué firmas ligadas al país ha inhabilitado el Banco Mundial?
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+          La lista del Banco Mundial dice a quién no contrata el Banco en los proyectos que financia: no es
+          una medida del Estado dominicano. De sus {formatInt(bm.firmas)} firmas con una inhabilitación
+          vigente, {formatInt(bm.dominicanas)} {bm.dominicanas === 1 ? "está ligada" : "están ligadas"} al
+          país por su registro o su dirección, y {formatInt(bm.coincidencias)}{" "}
+          {bm.coincidencias === 1 ? "tiene" : "tienen"} exactamente el mismo nombre que un proveedor inscrito
+          en el Registro de Proveedores del Estado. Un mismo nombre no prueba que sea la misma empresa: cada
+          fila dice dónde la registra el Banco. Los {formatInt(bm.individuosOmitidos)} individuos de la lista no
+          se muestran.
+        </p>
+      </div>
+      {entidades.length === 0 ? (
+        <p className="border-t border-hairline px-5 py-4 text-sm text-ink-soft">
+          Ninguna firma de la lista está ligada al país ni lleva el nombre de un proveedor inscrito.
+        </p>
+      ) : (
+        <ul className="border-t border-hairline">
+          {entidades.map((e) => (
+            <li key={e.id} className="border-b border-hairline px-5 py-3.5 last:border-0">
+              <p className="text-[15px] font-medium leading-snug text-ink [overflow-wrap:anywhere]">{e.nombre}</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                {e.dominicana ? "Registrada en la República Dominicana" : `Registrada en ${e.pais ?? "otro país"}`}
+                {" · "}inhabilitada desde el {e.desde ? formatFecha(e.desde) : "(sin fecha)"}
+                {e.hasta ? ` hasta el ${formatFecha(e.hasta)}` : ", sin fecha de fin"}. {motivoBancoMundialEnLlano(e)}
+              </p>
+              {e.rpes.length > 0 && (
+                <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                  {"Mismo nombre que "}
+                  {e.rpes.map((rpe, i) => (
+                    <span key={rpe}>
+                      {i > 0 && ", "}
+                      <Link
+                        href={enlace.proveedor(rpe)}
+                        className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline sm:min-h-0"
+                      >
+                        el proveedor RPE {rpe}
+                      </Link>
+                    </span>
+                  ))}
+                  {e.dominicana ? "." : ": puede ser otra empresa con el mismo nombre."}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="border-t border-hairline px-5 py-3 text-xs leading-relaxed text-ink-soft">
+        De {formatInt(bm.entradas)} entradas vigentes, leídas con la clave que la propia página del Banco
+        publica (la plataforma no la guarda).{" "}
+        <a
+          href={bm.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-11 items-center font-medium text-brand-700 hover:underline sm:min-h-0"
+        >
+          Ver la lista del Banco Mundial
+          <IconExternal className="ml-1 h-3.5 w-3.5" />
+          <span className="sr-only">(se abre en otra pestaña)</span>
+        </a>
+      </p>
     </Card>
   );
 }

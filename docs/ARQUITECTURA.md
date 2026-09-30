@@ -322,8 +322,9 @@ during a visit.
   `lib/materias-decreto.ts`, shared with `/normativa`), decade/year and text,
   40 per page, indexed: they are acts of State) and the «Lo firma» edge on the
   decree ficha (omitted when the row is flagged `fuera`). The directory is
-  opened by a computed name, so `next.config.ts` traces it explicitly for
-  `/funcionarios` and `/normativa`.
+  opened by a computed name; file tracing includes it today anyway, and
+  `next.config.ts` declares it for `/funcionarios` and `/normativa` so it does
+  not depend on that.
 - **`lib/declaraciones.ts`** — sworn asset declarations the institutions
   publish themselves (§H.12, owner decision 2026-09-30).
   `scripts/build-declaraciones.py` searches each WordPress library of the
@@ -351,7 +352,16 @@ during a visit.
   (filters by family, type and year in the URL; search by exact RNC or RPE,
   name, resolution number or motive words; the OFAC entities below) and the
   «¿Tiene medidas de la DGCP?» section of `/proveedores/[rpe]`, which no longer
-  requires contracts to render.
+  requires contracts to render. Since 2026-09-30 it also reads the World Bank's
+  debarment list through the API its own page uses, with the key that page
+  publishes (read from the page on every run, held in memory, never written:
+  owner decision), keeping firms tied to the country or whose normalised name
+  (`clave_empresa`: no accents, punctuation or trailing legal form) equals a
+  registered DGCP supplier's; the page and the supplier ficha say that a
+  shared name does not prove the same company. Motives are redacted of
+  signers' names, ID numbers, home addresses (up to twelve comma-separated
+  parts), marital status, e-mails and phones, and the script refuses to write
+  if a residential address survives.
 - **`lib/empresas.ts`** (server-only) and **`lib/padron.ts`** (no `fs`: RNC
   shape, DGII status tone and wording shared with `ficha-rnc.tsx`) — the DGII
   roll of legal entities (§H.7). `scripts/build-empresas.py` reads the same ZIP

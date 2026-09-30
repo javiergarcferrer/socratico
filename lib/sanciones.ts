@@ -34,6 +34,12 @@ import { agujas, contieneTodas, plano } from "@/lib/raiz";
  *     proveedor y correcciones del registro. El tipo es una lectura del texto
  *     del Estado, y el texto va siempre entero al lado.
  *  3. **De la OFAC, solo entidades**, nunca personas. Es una lista extranjera.
+ *  4. **Del Banco Mundial, solo firmas** ligadas al país o con exactamente el
+ *     mismo nombre que un proveedor inscrito en la DGCP. Es una lista de a
+ *     quién no contrata el Banco en lo que financia, no una medida del Estado,
+ *     y un mismo nombre no prueba que sea la misma empresa: se dice así. Su API
+ *     exige la clave que publica su página; el build la lee de ahí y no la
+ *     escribe (decisión del dueño, 2026-09-30).
  *
  * Una instantánea tiene fecha de corte: que un proveedor no tenga medidas aquí
  * no certifica nada. Módulo de servidor (`node:fs`), memoizado por instancia.
@@ -313,6 +319,26 @@ export interface EntidadOfac {
   rpes: string[];
 }
 
+/** Una firma de la lista de inhabilitados del Banco Mundial. */
+export interface EntidadBancoMundial {
+  id: number;
+  nombre: string;
+  pais: string | null;
+  /** ISO. */
+  desde: string | null;
+  /** ISO, o `null` si la inhabilitación no tiene fecha de fin. */
+  hasta: string | null;
+  /** «Cross Debarment: EBRD», «2010 Procurement Guidelines, 1.14(a)(iii)»… tal cual. */
+  motivo: string | null;
+  /** La impuso otro banco multilateral y el Banco Mundial la aplica. */
+  cruzada: boolean;
+  estado: string | null;
+  /** Ligada al país por su país o su dirección. */
+  dominicana: boolean;
+  /** Los RPE de la DGCP con **exactamente el mismo nombre** (no prueba identidad). */
+  rpes: string[];
+}
+
 export interface MetaSanciones {
   generado: string;
   fuentes: {
@@ -342,12 +368,45 @@ export interface MetaSanciones {
       ligadasRd: number;
       individuosOmitidos: number;
     };
+    /** Falta en las instantáneas anteriores al 30-09-2026. */
+    bancoMundial?: {
+      url: string;
+      /** La fecha de actualización que declara el Banco (ISO), o `null`. */
+      fecha: string | null;
+      entradas: number;
+      firmas: number;
+      individuosOmitidos: number;
+      dominicanas: number;
+      coincidencias: number;
+    };
   };
 }
 
 export interface Sanciones extends MetaSanciones {
   proveedores: ProveedorConMedidas[];
   ofac: EntidadOfac[];
+  bancoMundial?: EntidadBancoMundial[];
+}
+
+/** Los bancos multilaterales que aparecen en las inhabilitaciones cruzadas, en llano. */
+const BANCOS_CRUZADOS: Record<string, string> = {
+  EBRD: "el Banco Europeo de Reconstrucción y Desarrollo",
+  ADB: "el Banco Asiático de Desarrollo",
+  AFDB: "el Banco Africano de Desarrollo",
+  IDB: "el Banco Interamericano de Desarrollo",
+};
+
+/**
+ * El motivo del Banco Mundial en llano: una inhabilitación cruzada dice qué
+ * banco la impuso; una cláusula de sus normas se cita tal cual.
+ */
+export function motivoBancoMundialEnLlano(e: EntidadBancoMundial): string {
+  const m = /^cross debarment:\s*(.+)$/i.exec(e.motivo ?? "");
+  if (m) {
+    const bancos = m[1].split(/[\/,]\s*/).map((b) => BANCOS_CRUZADOS[b.trim().toUpperCase()] ?? b.trim());
+    return `Inhabilitación cruzada: la impuso ${bancos.join(" y ")}, y el Banco Mundial la aplica.`;
+  }
+  return e.motivo ? `Según sus normas de adquisiciones: «${e.motivo}».` : "El Banco Mundial no escribe el motivo.";
 }
 
 interface Indice {
@@ -433,6 +492,13 @@ export async function ofacDeRnc(rnc: string | null | undefined): Promise<Entidad
   const n = (rnc ?? "").replace(/\D/g, "");
   if (n.length !== 9) return null;
   return (await cargar())?.ofacPorRnc.get(n) ?? null;
+}
+
+/** Las firmas del Banco Mundial con el mismo nombre que este RPE. */
+export async function bancoMundialDeRpe(rpe: string): Promise<EntidadBancoMundial[]> {
+  const d = (await cargar())?.datos;
+  const n = String(Number(rpe));
+  return d?.bancoMundial?.filter((e) => e.rpes.includes(n)) ?? [];
 }
 
 /** Los metadatos: fuentes, cortes y cuántas filas quedaron fuera y por qué. */

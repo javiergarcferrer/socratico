@@ -122,8 +122,8 @@ def nombre_del_titulo(titulo: str, url: str) -> str | None:
 def buscar_wp(base: str) -> tuple[list[dict], str, str]:
     """Las declaraciones de una biblioteca WordPress (con su prefijo, si es una
     segunda instalación). Devuelve (filas, estado, nota)."""
-    host = base.split("/", 1)[0]
-    ok, nota = documentos.robots_permite(host)
+    host, _, prefijo = base.partition("/")
+    ok, nota = documentos.robots_permite(host, f"/{prefijo + '/' if prefijo else ''}wp-json/wp/v2/media?search=declaracion")
     if not ok:
         return [], "robots", nota
     filas, vistos = [], set()
@@ -158,8 +158,11 @@ def buscar_wp(base: str) -> tuple[list[dict], str, str]:
 
 
 def buscar_presidencia() -> tuple[list[dict], str, str]:
-    """La página de declaraciones de la Presidencia: enlaces a PDF con su texto."""
-    ok, nota = documentos.robots_permite("presidencia.gob.do")
+    """La página de declaraciones de la Presidencia: un acordeón por año
+    (`<dt>`), y dentro, el nombre y el cargo de cada quien (`<h5>`) seguidos de
+    sus enlaces (el decreto que lo nombró y su declaración). El título de cada
+    fila junta el texto del enlace con ese nombre y ese cargo."""
+    ok, nota = documentos.robots_permite("presidencia.gob.do", "/transparencia/declaraciones-juradas")
     if not ok:
         return [], "robots", nota
     try:
@@ -168,17 +171,26 @@ def buscar_presidencia() -> tuple[list[dict], str, str]:
         return [], "error", str(e)
     if estado != 200:
         return [], "bloqueado", f"HTTP {estado}"
-    filas, vistos = [], set()
-    for href, texto in re.findall(r'<a[^>]+href="([^"]+\.pdf[^"]*)"[^>]*>(.*?)</a>', cuerpo.decode("utf-8", "replace"), re.S | re.I):
-        url = urllib.parse.urljoin(PRESIDENCIA, html.unescape(href))
+    def plano_html(t: str) -> str:
+        return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", t))).strip()
+
+    filas, vistos, quien = [], set(), ""
+    pieza = re.compile(r'<h5[^>]*>(.*?)</h5>|<a[^>]+href="([^"]+\.pdf[^"]*)"[^>]*>(.*?)</a>', re.S | re.I)
+    for m in pieza.finditer(cuerpo.decode("utf-8", "replace")):
+        if m.group(1) is not None:
+            quien = plano_html(m.group(1))
+            continue
+        url = urllib.parse.urljoin(PRESIDENCIA, html.unescape(m.group(2)))
         if "declaraciones-juradas" not in url or url in vistos:
             continue
         vistos.add(url)
-        titulo = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", texto))).strip()
-        if NO_PERSONAL.search(titulo):
+        texto = plano_html(m.group(3))
+        if NO_PERSONAL.search(texto):
             continue  # el decreto de nombramiento que la página pone al lado
         archivo = urllib.parse.unquote(url.rsplit("/", 1)[-1].split("?")[0])
-        filas.append({"t": (titulo or archivo)[:240], "f": None, "u": url, "archivo": archivo})
+        titulo = f"{texto or archivo} · {quien}" if quien else (texto or archivo)
+        # El nombre, del encabezado sin el cargo entre paréntesis; si no, del archivo.
+        filas.append({"t": titulo[:240], "f": None, "u": url, "archivo": quien.split("(")[0] or archivo})
     return filas, "ok", nota
 
 
@@ -192,17 +204,20 @@ def main() -> None:
             if c.get("i") is not None:
                 por_inst.setdefault(c["i"], set()).add(p["id"])
 
-    def atar(nombre: str | None, inst: int | None) -> str | None:
+    def atar(nombre: str | None, inst: int | None) -> tuple[str | None, str | None]:
+        """(persona, vía): «institucion» si tiene un cargo en la que publica,
+        «nombre» si su nombre de tres o más palabras es único en toda la
+        instantánea (puede haber cambiado de institución)."""
         if not nombre:
-            return None
+            return None, None
         buscadas = set(nombre.split())
         en_inst = [pid for pid in por_inst.get(inst, ()) if buscadas <= tokens[pid]] if inst else []
         if len(en_inst) == 1:
-            return en_inst[0]
+            return en_inst[0], "institucion"
         if len(en_inst) > 1 or len(buscadas) < 3:
-            return None
+            return None, None
         globales = [pid for pid, t in tokens.items() if buscadas <= t]
-        return globales[0] if len(globales) == 1 else None
+        return (globales[0], "nombre") if len(globales) == 1 else (None, None)
 
     fuentes, declaraciones = [], []
     for base, (institucion, inst_id) in BASES.items():
@@ -211,7 +226,8 @@ def main() -> None:
                         "encontradas": len(filas)})
         for f in filas:
             nombre = nombre_del_titulo(f["t"], f["u"])
-            declaraciones.append({**f, "b": len(fuentes) - 1, "n": nombre, "p": atar(nombre, inst_id)})
+            persona, via = atar(nombre, inst_id)
+            declaraciones.append({**f, "b": len(fuentes) - 1, "n": nombre, "p": persona, "v": via})
         print(f"  {base}: {len(filas)} ({estado}{'; ' + nota if nota else ''})", file=sys.stderr)
 
     filas, estado, nota = buscar_presidencia()
@@ -220,7 +236,8 @@ def main() -> None:
                     "estado": estado, "nota": nota, "encontradas": len(filas)})
     for f in filas:
         nombre = nombre_del_titulo(f.pop("archivo"), f["u"]) or nombre_del_titulo(f["t"], f["u"])
-        declaraciones.append({**f, "b": len(fuentes) - 1, "n": nombre, "p": atar(nombre, 1155)})
+        persona, via = atar(nombre, 1155)
+        declaraciones.append({**f, "b": len(fuentes) - 1, "n": nombre, "p": persona, "v": via})
     print(f"  presidencia.gob.do: {len(filas)} ({estado})", file=sys.stderr)
 
     if len(declaraciones) < 40:

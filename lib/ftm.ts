@@ -59,6 +59,11 @@ const ESQUEMA: Record<TipoEntrada, string> = {
   documento: "Document",
   dato: "Document",
   busqueda: "Document",
+  // Una persona con cargo público es una persona; una entidad supervisada por
+  // la SB o una empresa del padrón de la DGII, una empresa.
+  funcionario: "Person",
+  "entidad-financiera": "Company",
+  empresa: "Company",
 };
 
 /** El último tramo de la ruta, como nombre de archivo (Document lo exige). */

@@ -31,6 +31,9 @@ export const TIPOS_ENTRADA = [
   "dato",
   "cargo",
   "busqueda",
+  "funcionario",
+  "entidad-financiera",
+  "empresa",
 ] as const;
 
 export type TipoEntrada = (typeof TIPOS_ENTRADA)[number];
@@ -55,6 +58,9 @@ export const NOMBRE_TIPO: Record<TipoEntrada, string> = {
   dato: "Datos abiertos",
   cargo: "Cargo",
   busqueda: "Búsqueda",
+  funcionario: "Persona con cargo público",
+  "entidad-financiera": "Entidad financiera",
+  empresa: "Empresa",
 };
 
 /** Una referencia a un registro de la plataforma: lo único que se guarda de él. */
