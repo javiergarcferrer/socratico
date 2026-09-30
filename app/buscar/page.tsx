@@ -145,7 +145,7 @@ const NOTAS: Partial<Record<TipoResultado, string>> = {
   proveedor: NOTA_PROVEEDORES,
   proceso: "Los publicados en el Portal Transaccional en los últimos doce meses, por su carátula, código y unidad de compra; el monto es el estimado.",
   legislador: "Diputados y senadores con ficha en la plataforma, por nombre, cámara y provincia. Se encuentran por palabra, no por tema.",
-  funcionario: "Personas con cargo público según el Directorio de Funcionarios del MAP, los decretos, las altas cortes y la JCE, por nombre y por cargo. Se encuentran por palabra, no por tema.",
+  funcionario: "Personas con cargo público según el Directorio de Funcionarios del MAP, los decretos, las altas cortes, la JCE y la Junta Monetaria, por nombre y por cargo. Se encuentran por palabra, no por tema.",
   financiera:
     "Bancos, asociaciones y corporaciones de crédito de la Superintendencia de Bancos, AFP, aseguradoras y cooperativas de ahorro del IDECOOP, por nombre, razón social, siglas o RNC. Se encuentran por palabra, no por tema.",
   iniciativa: "Proyectos de ley y de resolución del SIL de la Cámara de Diputados, por su título y número de expediente.",

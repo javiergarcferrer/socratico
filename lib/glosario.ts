@@ -415,6 +415,18 @@ export const GLOSARIO = {
     llano:
       "Lo que ciertos funcionarios deben declarar de sus bienes ante la Cámara de Cuentas al entrar al cargo y al salir. La Ley 311-14 dice en su artículo 2 quiénes.",
   },
+
+  /* ------------------------------------------------------------ Justicia */
+  nuc: {
+    termino: "Número único de caso (NUC)",
+    llano:
+      "El número con que el Poder Judicial sigue un caso en todos los tribunales por los que pasa: el mismo en primera instancia, en apelación y en la Suprema Corte.",
+  },
+  falloReservado: {
+    termino: "Fallo reservado",
+    llano:
+      "El tribunal escuchó a las partes y dará su decisión otro día, en vez de decidir en la misma audiencia.",
+  },
 } satisfies Record<string, Glosa>;
 
 export type ClaveGlosario = keyof typeof GLOSARIO;

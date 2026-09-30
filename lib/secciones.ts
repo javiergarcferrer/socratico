@@ -158,12 +158,14 @@ export const SECCIONES: Seccion[] = [
     nombre: "Normativa",
     pregunta: "¿Qué decreta?",
     href: "/normativa",
-    descriptor: "Decretos, leyes y sentencias de los altos tribunales",
-    rutas: ["/normativa", "/constitucional", "/tse"],
+    descriptor: "Decretos, leyes, sentencias y audiencias",
+    rutas: ["/normativa", "/constitucional", "/tse", "/audiencias", "/inmobiliario"],
     vistas: [
       { href: "/normativa", label: "Decretos y leyes" },
       { href: "/constitucional", label: "Tribunal Constitucional" },
       { href: "/tse", label: "Tribunal Electoral" },
+      { href: "/audiencias", label: "Audiencias" },
+      { href: "/inmobiliario", label: "Registro Inmobiliario" },
     ],
     hue: {
       activo: "text-v-normativa",
@@ -294,7 +296,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
     etiqueta: "Funcionarios",
     href: "/funcionarios",
     alcance:
-      "Nombre de las personas con cargo público, sin importar tildes ni el orden: el Directorio de Funcionarios del MAP, los decretos, las altas cortes, la JCE y el Congreso (instantánea).",
+      "Nombre de las personas con cargo público, sin importar tildes ni el orden: el Directorio de Funcionarios del MAP, los decretos, las altas cortes, la JCE, la Junta Monetaria y el Congreso (instantánea).",
   },
   {
     etiqueta: "Empresas",

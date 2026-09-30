@@ -292,15 +292,15 @@ export default async function FuncionariosPage({ searchParams }: Props) {
           título y, cuando nombran a varias personas, por su texto desde el{" "}
           {formatFecha(f.decretos.desdePdf)}; las páginas de la Suprema Corte, el Consejo del Poder Judicial,
           el Tribunal Constitucional, el Tribunal Superior Electoral, la Junta Central Electoral y el Defensor
-          del Pueblo; los {f.electos2024.filas.toLocaleString("es-DO")} electos municipales de 2024 de la JCE y
-          los {f.congreso.filas} legisladores del SIL.
+          del Pueblo; la del Banco Central con los miembros de la Junta Monetaria; los{" "}
+          {f.electos2024.filas.toLocaleString("es-DO")} electos municipales de 2024 de la JCE y los{" "}
+          {f.congreso.filas} legisladores del SIL.
         </p>
         <p>
           <strong className="font-semibold text-ink">Qué no está.</strong> La Cámara de Cuentas y la
-          Procuraduría rechazan hoy la lectura (HTTP 470), y el Banco Central sirve su Junta Monetaria por
-          una vía que no devuelve el contenido: sus titulares faltan salvo que aparezcan en un decreto o en el
-          directorio del MAP. Los decretos anteriores a 2012 que nombran a varias personas son escaneos y no
-          se leen. Ver <Link href="/fuentes" className="text-brand-700 underline">el estado de las fuentes</Link>.
+          Procuraduría rechazan hoy la lectura (HTTP 470): sus titulares faltan salvo que aparezcan en un
+          decreto o en el directorio del MAP. Los decretos anteriores a 2012 que nombran a varias personas son
+          escaneos y no se leen. Ver <Link href="/fuentes" className="text-brand-700 underline">el estado de las fuentes</Link>.
         </p>
         <p>
           <strong className="font-semibold text-ink">Una persona es su nombre.</strong> Dos fuentes que

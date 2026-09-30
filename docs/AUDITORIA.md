@@ -1775,7 +1775,8 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   este entorno no llega (502 `connect_rejected`): límite del egreso, no de la
   fuente. ⚠️ **Banco Central**: `/a/d/2557-miembros-jm` es un cascarón que pide el
   contenido por `POST /Home/GetContentForRender` (`id=2557-miembros-jm`); la
-  consulta de prueba devolvió `"article": null`. ⚠️ Policía Nacional: robots
+  consulta de prueba devolvió `"article": null` (corregido en §H.13: con el número
+  solo, `id=2557`, responde; ✅ integrado). ⚠️ Policía Nacional: robots
   responde 500; con el antecedente `Disallow: /*?*` (§G.7) no se sigue.
 - ❌ SISMAP «Directorio Virtual» (`/Municipal/Directorio/Dir/Details/158`) → 404:
   la ruta no existe (corrige la pista de §A.7). `/Municipal/ayuntamientos` sí lista
@@ -2055,10 +2056,10 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
 - ✅ **Poder Judicial**: `ultimassentencias.poderjudicial.gob.do/` sirve la última
   sentencia de cada sala de la SCJ (5 filas, PDF en blob de Azure). ⚠️ El rol de
   audiencias (`apigestionaudienciasroles.poderjudicial.gob.do/api/Materias/` responde
-  sin clave) se consulta por `POST /api/Audiencias/ObtenerRolAudiencias/`: no se
-  probó. ❌ El buscador de la SCJ sigue siendo POST de formulario.
+  sin clave) se consulta por `POST /api/Audiencias/ObtenerRolAudiencias/` (corregido:
+  probado e integrado, §H.13). ❌ El buscador de la SCJ sigue siendo POST de formulario.
 - ⚠️ **Registro Inmobiliario**: `servicios.ri.gob.do/ConsultaDeExpedientes` da el
-  estado de un trámite por número exacto (POST); ❌ el parcelario lleva reCAPTCHA;
+  estado de un trámite por número exacto (POST; integrado, §H.13); ❌ el parcelario lleva reCAPTCHA;
   ❌ las certificaciones de estado jurídico exigen cuenta y pago. No hay consulta
   pública del estado jurídico de un inmueble.
 
@@ -2077,9 +2078,10 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
    con un OCR propio en build, y se declara.
 2. Las listas de omisos y tardíos de la Cámara de Cuentas contra la capa de
    personas (el conteo por institución de §G.12): la Cámara volvió a 470.
-3. La Junta Monetaria (BCRD) y los adjuntos del Defensor: sin vía hoy.
-4. Rol de audiencias del Poder Judicial y expedientes del Registro Inmobiliario:
-   consultas POST sin efecto; decisión del dueño antes de probarlas.
+3. Los adjuntos del Defensor: sin vía hoy. La Junta Monetaria (BCRD) ya se lee
+   (§H.13).
+4. ✅ Rol de audiencias del Poder Judicial y expedientes del Registro Inmobiliario:
+   aprobados por el dueño el 30-09-2026 e integrados (§H.13).
 5. ProCompetencia (RSS) y las últimas sentencias de la SCJ: tarjetas en vivo,
    baratas, sin hacer.
 6. Rehacer contra el universo nuevo de 894 fichas los scripts que casan por
@@ -2151,6 +2153,19 @@ la casa, como mucho tres POST por consulta, sin sesión ni cookies:
   plataforma **no usa**: nombre de parte (6), cédula (7), representante (26) y el rol
   entero sin filtro. El NUC no tiene un formato único (nueve patrones en 20 filas):
   se envía tal cual. 4.6 s para un caso.
+  **Integrado el 30-09-2026**: `lib/audiencias.ts` → `/audiencias`. Solo `idTipoConsulta: 4`
+  con el NUC que escribe el lector (cifras, letras, `-`, `/`, `.`, de 5 a 40, con al menos
+  una cifra), a lo sumo 3 páginas de 20 (lo demás se declara), caché por NUC de una hora.
+  De `partes` queda solo el papel final de cada entrada, si está en una lista cerrada
+  (`PAPELES`); el nombre se descarta dentro de la función cacheada y `urlAudiencia` no se
+  guarda. Verificado con el UA de la casa: NUC inexistente → 200 con `datos: []` (4.6 s);
+  el NUC real del reconocimiento → 200, 5 audiencias en 2 tribunales; ni el HTML pintado
+  ni la caché de Next llevan un nombre de parte. ⚠️ En `next dev` sí: React 19.2 serializa
+  en la página, como información de depuración, el valor de cada lectura que espera un
+  componente de servidor, respuesta cruda incluida. El servidor de producción de React no
+  tiene ese código (`serializeIONode`, `visitAsyncNode` y `emitIOInfoChunk` solo están en
+  la build de desarrollo de `react-server-dom-webpack`); comprobarlo en `next start` antes
+  de dar por cerrada una capa con datos personales.
 - ⚠️ **Registro Inmobiliario — consulta de expedientes.**
   `POST https://servicios.ri.gob.do/ConsultaDeExpedientes/GetExpedient`,
   `application/x-www-form-urlencoded`, `NoExpe=<número>` (mínimo 5 caracteres), sin
@@ -2160,6 +2175,12 @@ la casa, como mucho tres POST por consulta, sin sesión ni cookies:
   numeroExpediente, numeroOriginal, resultadoExpediente, estatusDigital, tramites`
   salen del JS de la página. El parcelario sigue con reCAPTCHA (❌) y las
   certificaciones de estado jurídico, con cuenta y pago (❌).
+  **Integrado el 30-09-2026**: `lib/inmobiliario.ts` → `/inmobiliario`, mismo contrato que
+  el rol (número exacto de 5 a 40 caracteres con una cifra, caché de una hora, `null` si no
+  contesta, un `statusCode` ≥ 400 dentro del 200 cuenta como caída). Número inexistente →
+  200 `data: []` (3.5 s), verificado con el UA de la casa. ⚠️ La forma con datos sigue sin
+  verse: cada columna se lee como `unknown` opcional (texto, número o lista) y ninguna fila
+  se descarta por su forma; la página y `/fuentes` lo dicen.
 - ✅ **BCRD — Junta Monetaria.** `/a/d/2557-miembros-jm` pide su contenido con
   `POST /Home/GetContentForRender`, `id=2557&languageName=es` (el número solo; la
   prueba de §H.3 mandaba el identificador entero y por eso volvía `null`) → 200 con
@@ -2169,6 +2190,15 @@ la casa, como mucho tres POST por consulta, sin sesión ni cookies:
   151,815 B) trae nombre y cargo del gobernador, la vicegobernadora, el gerente, el
   contralor, subgerentes, asesores y directores, con biografías y fotos que no se
   leen.
+  **Integrado el 30-09-2026** en `scripts/build-funcionarios.py` (`leer_junta_monetaria`,
+  caché `junta.json`, origen `bcrd`, institución 905002): diez personas, nueve miembros
+  (tres por su cargo: el gobernador, que la preside, el ministro de Hacienda y Economía y
+  el superintendente de Bancos) con el numeral 31, y la secretaria, sin numeral (la ley
+  nombra a los miembros). Se niega a escribir con menos de cinco miembros o si la lectura
+  falla. ⚠️ Desde este entorno el proxy de salida respondió 502 al abrir el túnel hacia
+  `www.bcrd.gov.do` (03:36 y 03:48 UTC del 30-09-2026, tres intentos, ninguno llegó al
+  Banco): la instantánea se armó con la respuesta del reconocimiento de ese mismo día
+  (02:16 UTC, mismo POST y mismo UA), puesta en la caché y leída con `--sin-red`.
 - ✅ **Banco Mundial — firmas e individuos inhabilitados.** La página
   `https://www.worldbank.org/en/projects-operations/procurement/debarred-firms` (robots
   permite) trae en un `<script>` en línea `var prodtabApi = "…"` y `var propApiKey = "…"`
