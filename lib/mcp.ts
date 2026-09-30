@@ -15,7 +15,7 @@ import {
   type Relacion,
 } from "@/lib/grafo-rdf";
 import { buscarEnTodo, EN_MAYUSCULAS, resultadoPorHref, TIPOS_RESULTADO, type Resultado, type TipoResultado } from "@/lib/busqueda";
-import { buscarEmpresas, empresaPorRnc, type Empresa } from "@/lib/empresas";
+import { buscarEmpresas, empresaPorRnc, padronEmpresas, type Empresa } from "@/lib/empresas";
 import { AVISO_DECRETO, decretoPorNumero, decretosDeFirmante, hrefDecreto, indiceDecretos, type AvisoDecreto } from "@/lib/decretos";
 import { MATERIAS } from "@/lib/materias-decreto";
 import { filtrarPersonas, getFuncionarios, personaPorId, type Persona } from "@/lib/funcionarios";
@@ -25,6 +25,7 @@ import { PREFIJOS, compactar, expandir, type Triple } from "@/lib/rdf";
 import { desdeMayusculas } from "@/lib/congreso";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
 import { tituloHerramienta } from "@/lib/mcp-herramientas";
+import { llevaCedula, sinCedula } from "@/lib/padron";
 
 /**
  * El servidor MCP de Socrático.do (`/mcp`): la puerta por la que un asistente
@@ -90,9 +91,31 @@ function recortar(texto: string, n: number): string {
   return `${corte.slice(0, Math.max(corte.lastIndexOf(" "), n - 20)).trimEnd()}…`;
 }
 
+/**
+ * Cada cadena de una respuesta, sin cédulas (`sinCedula`). Los adaptadores ya
+ * las quitan al leer; esto es la red del servidor: nada con forma de cédula
+ * sale por aquí, venga del campo que venga.
+ */
+function limpiar<T>(v: T): T {
+  if (typeof v === "string") return sinCedula(v) as T;
+  if (Array.isArray(v)) return v.map((x) => limpiar(x)) as T;
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, limpiar(x)])) as T;
+  return v;
+}
+
 /** Lo que el modelo recibe: el objeto como `structuredContent` y como texto JSON (la forma que pide ChatGPT). */
 function resultado<T extends Record<string, unknown>>(objeto: T) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(objeto) }], structuredContent: objeto };
+  const limpio = limpiar(objeto);
+  return { content: [{ type: "text" as const, text: JSON.stringify(limpio) }], structuredContent: limpio };
+}
+
+/** A una persona no se la busca por su número, tampoco aquí (`llevaCedula`, la regla de `/buscar` y `/empresas`). */
+function sinBuscarPorCedula(...textos: (string | undefined)[]): void {
+  if (textos.some((t) => t && llevaCedula(t))) {
+    throw new Aviso(
+      "Lo pedido lleva una cédula. Socrático no la enseña ni busca por ella, aunque un título oficial la traiga: busca por el nombre, la institución o el tema.",
+    );
+  }
 }
 
 /**
@@ -104,7 +127,8 @@ async function correr<T>(nombre: string, fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
-    if (err instanceof Aviso) throw err;
+    // El aviso repite a veces lo pedido: tampoco lleva una cédula.
+    if (err instanceof Aviso) throw new Aviso(sinCedula(err.message));
     console.error(`[mcp] ${nombre}:`, err);
     throw new Aviso("No se pudo completar la consulta: una instantánea no se pudo leer. Intenta de nuevo en un momento.");
   }
@@ -147,10 +171,25 @@ function idDeHref(href: string): string {
   return nodo ? rutaDeNodo(nodo) : href;
 }
 
-/** El otro extremo de una relación, como `id` para las herramientas (o su dirección de fuera). */
-function idDeRelacion(r: Relacion): string | null {
-  if (r.nodo) return rutaDeNodo(r.nodo);
-  return r.href;
+/**
+ * Adónde lleva una relación desde las herramientas: el `id` que abre `fetch`
+ * (un nodo del grafo, o una ficha de la plataforma que está en el índice), la
+ * dirección, y una pista cuando lo que la abre es otra herramienta. Lo de
+ * fuera (un PDF, Wikidata, la OFAC) no tiene `id`: se cita por su dirección.
+ */
+function destinoDe(r: Relacion): { id: string | null; url: string | null; pista: string | null } {
+  if (r.nodo) {
+    const ruta = rutaDeNodo(r.nodo);
+    return { id: ruta, url: absoluta(ruta), pista: null };
+  }
+  if (!r.href) return { id: null, url: null, pista: null };
+  const firmados = /^\/funcionarios\/([^/?#]+)\/decretos$/.exec(r.href);
+  if (firmados) {
+    const persona = enlace.funcionario(decodeURIComponent(firmados[1]));
+    return { id: null, url: absoluta(r.href), pista: `signed_decrees con persona «${persona}»` };
+  }
+  if (r.href.startsWith("/")) return { id: r.href, url: absoluta(r.href), pista: null };
+  return { id: null, url: r.href, pista: null };
 }
 
 /** Un nodo, o el aviso de que el `id` no es uno. */
@@ -188,6 +227,12 @@ async function procedencia(tipo: TipoNodoRdf): Promise<{ fuente: string; corte: 
     corte: propia?.corte?.slice(0, 10) ?? null,
     cortes,
   };
+}
+
+/** El corte del padrón de la DGII, para las empresas que `search` nombra. */
+async function cortePadron(): Promise<string | null> {
+  const p = await padronEmpresas();
+  return (p?.corteDgii ?? p?.generado)?.slice(0, 10) ?? null;
 }
 
 /* ------------------------------------------------------------------ datos */
@@ -241,7 +286,7 @@ function datosDe(triples: Triple[], sujeto: string): { dato: string; valor: stri
     if (x.o.tipo === "literal") {
       if (x.o.datatype === BOOLEANO) valor = x.o.valor === "true" ? "sí" : "no";
       else if (x.o.datatype === ENTERO_XSD) valor = ENTERO.format(Number(x.o.valor));
-      else if (p === "dct:title" || p === "schema:description") valor = desdeMayusculas(x.o.valor);
+      else if (p === "dct:title" || p === "schema:description" || p === "soc:etiquetaConsultoria") valor = desdeMayusculas(x.o.valor);
       else if (p === "soc:aviso") valor = AVISO_DECRETO[x.o.valor as AvisoDecreto]?.llano ?? x.o.valor;
       else valor = x.o.valor;
       if (p === "soc:pepVigente" && valor === "sí") {
@@ -287,15 +332,21 @@ const Hallado = z.object({
   id: z.string().describe("Lo que se le pasa a fetch (y a neighbors o path si es un nodo del grafo)."),
   title: z.string(),
   url: z.string().describe("La ficha en Socrático.do o el archivo en el sitio de la institución: la dirección para citar."),
-  text: z.string().describe("Qué es, en una línea: tipo, detalle, quién lo publica, fecha."),
+  text: z.string().describe("Qué es, en una línea: tipo, detalle, quién lo publica, fecha y la instantánea de donde sale."),
 });
 type Hallado = z.infer<typeof Hallado>;
 
 /** Cuántos resultados devuelve `search`: los del índice, más empresas del padrón, provincias y lo que se nombra exacto. */
 const TOPE = { indice: 20, empresas: 5, provincias: 4, total: 30 } as const;
 
-function lineaEmpresa(e: Empresa): string {
-  return ["Persona jurídica (padrón de la DGII)", `RNC ${e.rnc}`, e.estado && `estado ${e.estado.toLocaleLowerCase("es")}`, e.actividad && desdeMayusculas(e.actividad)]
+function lineaEmpresa(e: Empresa, corte: string | null): string {
+  return [
+    "Persona jurídica (padrón de la DGII)",
+    `RNC ${e.rnc}`,
+    e.estado && `estado ${e.estado.toLocaleLowerCase("es")}`,
+    e.actividad && desdeMayusculas(e.actividad),
+    corte && `padrón del ${corte}`,
+  ]
     .filter(Boolean)
     .join(" · ");
 }
@@ -303,6 +354,8 @@ function lineaEmpresa(e: Empresa): string {
 async function buscar(query: string): Promise<{ results: Hallado[] }> {
   const q = query.trim().slice(0, 200);
   if (!q) throw new Aviso("La búsqueda está vacía: escribe un nombre, un RNC, un número de decreto o un tema.");
+  sinBuscarPorCedula(q);
+  const padron = await cortePadron();
   const salida: Hallado[] = [];
   const vistos = new Set<string>();
   const sumar = (h: Hallado) => {
@@ -314,21 +367,28 @@ async function buscar(query: string): Promise<{ results: Hallado[] }> {
   // Lo que se nombra exacto va primero: un decreto por su número, una empresa por su RNC.
   const decreto = (DECRETO.exec(q) ?? /^(\d{1,4}-\d{2})$/.exec(q))?.[1];
   if (decreto) {
-    const d = await decretoPorNumero(numeroCanonico("decreto", decreto));
+    const [d, indice] = await Promise.all([decretoPorNumero(numeroCanonico("decreto", decreto)), indiceDecretos()]);
     const ruta = d?.numero ? enlace.norma("decreto", d.numero) : null;
     if (d?.numero && d.ficha && ruta) {
       sumar({
         id: ruta,
         title: `Decreto ${d.numero}`,
         url: absoluta(ruta),
-        text: ["Decreto", d.fecha && !d.aviso ? d.fecha : null, recortar(desdeMayusculas(d.titulo), 200)].filter(Boolean).join(" · "),
+        text: [
+          "Decreto",
+          d.fecha && !d.aviso ? d.fecha : null,
+          recortar(desdeMayusculas(d.titulo), 200),
+          indice && `registro de la Consultoría Jurídica del ${indice.generado.slice(0, 10)}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
       });
     }
   }
   const cifras = q.replace(/[\s.-]/g, "");
   if (/^\d{9}$/.test(cifras)) {
     const e = await empresaPorRnc(cifras);
-    if (e) sumar({ id: enlace.empresa(e.rnc), title: e.razonSocial, url: absoluta(enlace.empresa(e.rnc)), text: lineaEmpresa(e) });
+    if (e) sumar({ id: enlace.empresa(e.rnc), title: e.razonSocial, url: absoluta(enlace.empresa(e.rnc)), text: lineaEmpresa(e, padron) });
   }
 
   // Las provincias no están en el índice: se nombran.
@@ -336,7 +396,7 @@ async function buscar(query: string): Promise<{ results: Hallado[] }> {
   if (a.raices.length > 0) {
     for (const p of PROVINCIAS.filter((x) => contieneTodas(plano(x.nombre), a)).slice(0, TOPE.provincias)) {
       const ruta = rutaDeNodo({ tipo: "provincia", id: p.slug });
-      sumar({ id: ruta, title: p.nombre, url: absoluta(ruta), text: `Provincia · cabecera: ${p.cabecera}` });
+      sumar({ id: ruta, title: p.nombre, url: absoluta(ruta), text: `Provincia · cabecera: ${p.cabecera} · límites de la ONE` });
     }
   }
 
@@ -347,21 +407,22 @@ async function buscar(query: string): Promise<{ results: Hallado[] }> {
   if (!h) throw new Aviso("El índice de búsqueda no cargó. Intenta de nuevo en un momento.");
   for (const r of h.resultados) {
     if (!r.href) continue;
+    // Todo lo del índice es de su instantánea; el estado de un proceso o una
+    // iniciativa, también: el de ese día.
     const corte = h.instantaneas[r.tipo]?.slice(0, 10);
-    // El estado de un proceso o una iniciativa es el del día de la instantánea.
-    const detalle = (r.tipo === "proceso" || r.tipo === "iniciativa") && r.detalle && corte ? `${r.detalle} al ${corte}` : r.detalle;
     sumar({
       id: idDeHref(r.href),
       title: tituloDe(r),
       url: absoluta(r.href),
       text: [
         ETIQUETA_TIPO[r.tipo],
-        detalle,
+        r.detalle,
         r.origen,
         r.fecha && `fecha ${r.fecha.slice(0, 10)}`,
-        r.sueldo && `sueldo mensual bruto de mediana RD$ ${ENTERO.format(r.sueldo.mediana)}`,
-        r.valor != null && `valor RD$ ${ENTERO.format(r.valor)}`,
+        r.sueldo && `mediana del sueldo mensual bruto RD$ ${ENTERO.format(r.sueldo.mediana)}`,
+        r.valor != null && `${r.tipo === "proceso" ? "valor estimado" : "valor"} RD$ ${ENTERO.format(r.valor)}`,
         r.via === "tema" && "coincide por tema, no por sus palabras",
+        corte && `instantánea del ${corte}`,
       ]
         .filter(
           (x, i, todas): x is string =>
@@ -372,7 +433,7 @@ async function buscar(query: string): Promise<{ results: Hallado[] }> {
   }
   for (const e of empresas?.filas ?? []) {
     const ruta = enlace.empresa(e.rnc);
-    sumar({ id: ruta, title: e.razonSocial, url: absoluta(ruta), text: lineaEmpresa(e) });
+    sumar({ id: ruta, title: e.razonSocial, url: absoluta(ruta), text: lineaEmpresa(e, padron) });
   }
   return { results: salida.slice(0, TOPE.total) };
 }
@@ -393,8 +454,9 @@ const POR_PAGINA_RELACIONES = 50;
 
 function lineaRelacion(r: Relacion): string {
   const partes = [r.detalle, r.movimiento, r.fecha?.slice(0, 10)].filter(Boolean);
-  const destino = idDeRelacion(r);
-  return `- ${r.verbo}: ${r.nombre}${partes.length ? ` (${partes.join(" · ")})` : ""}${destino ? ` → ${destino}` : ""}`;
+  const d = destinoDe(r);
+  const destino = d.id ? ` → ${d.id}` : d.pista ? ` → ${d.pista}` : d.url ? ` → ${d.url} (fuera de Socrático)` : "";
+  return `- ${r.verbo}: ${r.nombre}${partes.length ? ` (${partes.join(" · ")})` : ""}${destino}`;
 }
 
 /** Las relaciones agrupadas, cada grupo con su título. */
@@ -531,8 +593,12 @@ const Vecino = z.object({
   detalle: z.string().nullable(),
   movimiento: z.string().nullable(),
   fecha: z.string().nullable(),
-  id: z.string().nullable().describe("El otro extremo: una ruta de la plataforma (se abre con fetch) o una dirección de fuera."),
-  url: z.string().nullable(),
+  id: z
+    .string()
+    .nullable()
+    .describe("El otro extremo, si fetch lo abre: un nodo del grafo o una ficha de la plataforma. null si solo tiene dirección de fuera (url) o lo abre otra herramienta (pista)."),
+  url: z.string().nullable().describe("La dirección del otro extremo, para citarlo."),
+  pista: z.string().nullable().describe("La herramienta que lo abre, cuando no es fetch: la lista de decretos firmados se pide a signed_decrees."),
   esNodo: z.boolean().describe("Si el otro extremo es un nodo del grafo (se recorre con neighbors o path)."),
 });
 
@@ -547,6 +613,9 @@ const Vecinos = z.object({
   paginas: z.number(),
   nota: z.string().nullable(),
   relaciones: z.array(Vecino),
+  fuente: z.string().describe("De dónde sale el nodo."),
+  corte: z.string().nullable().describe("La fecha de la instantánea de su fuente."),
+  cortes: z.string().describe("Las instantáneas de donde salen sus relaciones, con su fecha."),
   aviso: z.string(),
 });
 
@@ -558,6 +627,7 @@ async function vecinos(id: string, grupo: GrupoRelacion | undefined, pagina: num
   const todas = relacionesDesdeTriples(d.triples, iriDe(n)).filter((r) => !grupo || r.grupo === grupo);
   const paginas = Math.max(1, Math.ceil(todas.length / POR_PAGINA_RELACIONES));
   const actual = Math.min(Math.max(1, pagina), paginas);
+  const origen = await procedencia(n.tipo);
   return {
     id: ruta,
     title: d.titulo,
@@ -568,20 +638,19 @@ async function vecinos(id: string, grupo: GrupoRelacion | undefined, pagina: num
     pagina: actual,
     paginas,
     nota: d.nota ?? null,
-    relaciones: todas.slice((actual - 1) * POR_PAGINA_RELACIONES, actual * POR_PAGINA_RELACIONES).map((r) => {
-      const otro = idDeRelacion(r);
-      return {
-        grupo: r.grupo,
-        verbo: r.verbo,
-        nombre: r.nombre,
-        detalle: r.detalle,
-        movimiento: r.movimiento,
-        fecha: r.fecha?.slice(0, 10) ?? null,
-        id: otro,
-        url: otro ? absoluta(otro) : null,
-        esNodo: r.nodo != null,
-      };
-    }),
+    relaciones: todas.slice((actual - 1) * POR_PAGINA_RELACIONES, actual * POR_PAGINA_RELACIONES).map((r) => ({
+      grupo: r.grupo,
+      verbo: r.verbo,
+      nombre: r.nombre,
+      detalle: r.detalle,
+      movimiento: r.movimiento,
+      fecha: r.fecha?.slice(0, 10) ?? null,
+      ...destinoDe(r),
+      esNodo: r.nodo != null,
+    })),
+    fuente: origen.fuente,
+    corte: origen.corte,
+    cortes: origen.cortes,
     aviso: AVISO,
   };
 }
@@ -603,13 +672,14 @@ const Cadena = z.object({
   tope: z.object({ saltos: z.number(), fichas: z.number() }),
   explicacion: z.string(),
   explorador: z.string().describe("El mismo camino, dibujado en Socrático.do."),
+  cortes: z.string().describe("Las instantáneas de donde salen las relaciones del camino, con su fecha."),
   aviso: z.string(),
 });
 
 async function cadena(desde: string, hasta: string): Promise<z.infer<typeof Cadena>> {
   const a = nodoDe(desde, "path");
   const b = nodoDe(hasta, "path");
-  const c = await camino(a, b);
+  const [c, { cortes }] = await Promise.all([camino(a, b), procedencia(a.tipo)]);
   const explorador = absoluta(enlace.caminoGrafo(rutaDeNodo(a), rutaDeNodo(b)));
   const tope = { saltos: TOPE_CAMINO.saltos, fichas: TOPE_CAMINO.fichas };
   if (c.pasos) {
@@ -622,6 +692,7 @@ async function cadena(desde: string, hasta: string): Promise<z.infer<typeof Cade
       explicacion:
         "El camino más corto que se encontró, leyendo las relaciones sin dirección. Cada paso es una relación que registra una fuente del Estado; un camino no implica parentesco, sociedad ni conducta indebida.",
       explorador,
+      cortes,
       aviso: AVISO,
     };
   }
@@ -631,7 +702,7 @@ async function cadena(desde: string, hasta: string): Promise<z.infer<typeof Cade
       : c.motivo === "saltos"
         ? `No se encontró en ${c.maxSaltos} saltos; puede haber uno más largo.`
         : `Se abrieron ${c.exploradas} fichas sin encontrarlo, el tope de la búsqueda; puede haber un camino que no se alcanzó.`;
-  return { encontrado: false, saltos: null, pasos: [], exploradas: c.exploradas, tope, explicacion, explorador, aviso: AVISO };
+  return { encontrado: false, saltos: null, pasos: [], exploradas: c.exploradas, tope, explicacion, explorador, cortes, aviso: AVISO };
 }
 
 /* -------------------------------------------------------- signed_decrees */
@@ -694,6 +765,7 @@ async function decretosFirmados(
   persona: string,
   filtros: { anio?: number; materia?: string; texto?: string; pagina?: number },
 ): Promise<z.infer<typeof Firmados>> {
+  sinBuscarPorCedula(persona, filtros.texto);
   const p = await firmanteDe(persona);
   const firma = p.firma!;
   const [todos, indice] = await Promise.all([decretosDeFirmante(firma.clave), indiceDecretos()]);
@@ -727,7 +799,7 @@ async function decretosFirmados(
         fecha: d.fecha?.slice(0, 10) ?? null,
         titulo: desdeMayusculas(d.titulo),
         materia: d.materia.nombre,
-        etiquetaConsultoria: d.institucion,
+        etiquetaConsultoria: d.institucion ? desdeMayusculas(d.institucion) : null,
         aviso: d.aviso ? AVISO_DECRETO[d.aviso].llano : null,
         id: href?.startsWith("/") ? href : null,
         url: href ? absoluta(href) : null,
@@ -761,6 +833,7 @@ const Ontologia = z.object({
   ),
   esquemas: z.array(z.object({ id: z.string(), etiqueta: z.string(), conceptos: z.array(z.string()) })),
   descargas: z.object({ turtle: z.string(), jsonld: z.string(), ntriples: z.string(), pagina: z.string() }),
+  aviso: z.string(),
 });
 
 function ontologia(): z.infer<typeof Ontologia> {
@@ -790,6 +863,7 @@ function ontologia(): z.infer<typeof Ontologia> {
       ntriples: `${SITIO}/ontologia.nt`,
       pagina: `${SITIO}/ontologia`,
     },
+    aviso: AVISO,
   };
 }
 

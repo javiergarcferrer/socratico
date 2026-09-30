@@ -55,6 +55,7 @@ import { unstable_cache } from "next/cache";
 import { arbol, textoDe } from "@/lib/html";
 import { pedirTextoOLanzar } from "@/lib/pedir";
 import { numeroMes } from "@/lib/format";
+import { sinCedula } from "@/lib/padron";
 
 const ORIGEN = "https://visorpdf.tse.do";
 const USER_AGENT = "Socratico-Inteligencia/1.0 (justicia; herramienta independiente)";
@@ -160,7 +161,8 @@ export function parsearPaginaTSE(
       numero,
       fecha: fechaISO(textoDe(celdas[1])),
       expediente: expediente || null,
-      relativo: textoDe(celdas[3]),
+      // La cédula de una parte, si el tribunal la escribe, no se enseña.
+      relativo: sinCedula(textoDe(celdas[3])),
       ficha,
     });
   }

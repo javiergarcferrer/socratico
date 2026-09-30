@@ -17,7 +17,11 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
   fuera del repositorio. Pero las versiones anteriores de esas líneas
   (AUDITORIA, `/fuentes`, `lib/banca.ts`) siguen en commits de `main`, y
   `/fuentes` llegó a mostrar una de ellas en producción. Reescribir la
-  historia exige `--force`, que ninguna sesión usa. Decidir:
+  historia exige `--force`, que ninguna sesión usa. Lo mismo pasa con tres
+  cédulas que traían títulos oficiales (dos decretos y una sentencia del TC):
+  desde el 30-09-2026 ninguna instantánea las guarda, pero las versiones
+  anteriores siguen en el historial (abajo, «La cédula de un título
+  oficial»). Decidir:
   1. hacer privado el repositorio hasta que se corrijan;
   2. reescribir la historia y pedirle a GitHub que purgue lo que guardó; o
   3. aceptarlo y mandar los avisos cuanto antes.
@@ -130,6 +134,27 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
 
 ## Cerradas, para que nadie las reabra
 
+- **La cédula de un título oficial tampoco se enseña (30-09-2026).** La
+  revisión del servidor MCP encontró que un asistente al que se le pegaba una
+  cédula recibía el nombre de su dueña: dos títulos de decretos (Consultoría
+  Jurídica) y uno de una sentencia del TC («RNC núm.» de una persona) la
+  traían, y el índice de búsqueda la encontraba. La regla «nunca la cédula»
+  vale también para lo que el Estado escribe en un título:
+  - **No se guarda**: los scripts la cambian por «[omitida]» antes de
+    escribir (`scripts/privacidad.py` en decretos, normativa, sentencias y el
+    corpus del buscador); las tres de las instantáneas se quitaron con la
+    misma función y el índice por palabra se rehízo.
+  - **No se enseña**: los adaptadores la quitan al leer (`sinCedula` de
+    `lib/padron.ts` en `lib/busqueda.ts`, `lib/decretos.ts`,
+    `lib/normativa.ts`, `lib/tc.ts` y `lib/tse.ts`, que leen en vivo), y el
+    servidor MCP pasa cada respuesta por el mismo filtro.
+  - **No se busca por ella**: `llevaCedula` rechaza la consulta en
+    `buscarEnTodo`, en `/buscar` (que explica por qué), en la paleta y en el
+    servidor MCP. Una cédula sola sigue yendo a los proveedores del Estado,
+    como antes (`rutaDirecta`): el registro de la DGCP la resuelve y la ficha
+    no la enseña.
+  - Once cifras juntas no cuentan como cédula en un texto: así se escriben
+    números de sentencia, parcelas y matrículas.
 - **El servidor MCP: Socrático como capa ontológica (30-09-2026).** El dueño:
   Socrático será «la capa ontológica de la República Dominicana», conectada
   por MCP, para que cualquiera que use Claude o ChatGPT, o que esté

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { enlace } from "@/lib/grafo";
 import { materiaDeDecreto, type Materia } from "@/lib/materias-decreto";
+import { sinCedula } from "@/lib/padron";
 
 /**
  * El registro de decretos del Poder Ejecutivo: los ~78,800 que publica la
@@ -154,7 +155,8 @@ export function decretosDelAnio(anio: number | "sin-fecha"): Promise<Decreto[]> 
         const decretos = filas.map(([numero, fecha, titulo, docId, inst, firmante, aviso]) => ({
           numero,
           fecha,
-          titulo,
+          // Dos títulos del registro traen la cédula de una persona: no se enseña.
+          titulo: sinCedula(titulo),
           docId,
           institucion: inst != null ? (ind.instituciones[inst] ?? null) : null,
           firmante: firmante != null ? (ind.firmantes[firmante]?.clave ?? null) : null,

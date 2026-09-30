@@ -57,6 +57,10 @@ import sys
 import time
 import urllib.request
 from html.parser import HTMLParser
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from privacidad import sin_cedula  # noqa: E402
 
 UA = "Socratico-Inteligencia/1.0 (sentencias para el buscador; herramienta independiente)"
 TC = "https://tc.gob.do"
@@ -167,7 +171,8 @@ def relativo(s: str) -> str:
     t = t[:1].upper() + t[1:]
     if len(t) > MAX_RELATIVO:
         t = t[:MAX_RELATIVO].rsplit(" ", 1)[0].rstrip(",;:") + "…"
-    return t
+    # El TC escribe a veces la cédula de una parte («RNC núm. …»): no se escribe.
+    return sin_cedula(t)
 
 
 def tabla(html: str) -> Tabla:

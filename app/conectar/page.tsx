@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Rotulo } from "@/components/papel";
 import { IconExternal } from "@/components/icons";
+import { CopiarTexto } from "@/components/compartir";
 import { enlace } from "@/lib/grafo";
 import { DIRECCION_MCP, HERRAMIENTAS_MCP } from "@/lib/mcp-herramientas";
 
@@ -26,18 +27,14 @@ function Fuera({ href, children }: { href: string; children: React.ReactNode }) 
     <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brand-700 underline">
       {children}
       <IconExternal className="h-3.5 w-3.5 shrink-0" />
-      <span className="sr-only"> (abre en otra pestaña)</span>
+      <span className="sr-only"> (se abre en otra pestaña)</span>
     </a>
   );
 }
 
-function Codigo({ children }: { children: string }) {
-  return (
-    <Card>
-      <pre className="overflow-x-auto px-4 py-3 font-mono text-[13px] leading-relaxed text-ink">{children}</pre>
-    </Card>
-  );
-}
+
+/** La línea que agrega el servidor en Claude Code. */
+const ORDEN_CLAUDE_CODE = `claude mcp add --transport http socratico ${DIRECCION_MCP}`;
 
 export default function ConectarPage() {
   return (
@@ -62,9 +59,13 @@ export default function ConectarPage() {
         <h2 id="direccion" className="font-display text-xl text-ink">
           ¿Cuál es la dirección?
         </h2>
-        <Codigo>{DIRECCION_MCP}</Codigo>
+        <Card className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+          <code className="break-all font-mono text-[13px] leading-relaxed text-ink">{DIRECCION_MCP}</code>
+          <CopiarTexto texto={DIRECCION_MCP} etiqueta="Copiar la dirección" />
+        </Card>
         <p className="text-sm leading-relaxed text-ink-soft">
-          Un servidor MCP remoto por HTTP, de solo lectura y sin autenticación. Si se abre en el navegador, trae aquí.
+          Solo lee: no pide cuenta ni clave, y no escribe nada. Para el programa, es un servidor MCP remoto por HTTP
+          sin autenticación. Si se abre en el navegador, trae aquí.
         </p>
       </section>
 
@@ -104,9 +105,10 @@ export default function ConectarPage() {
               servidor HTTP en su configuración de MCP.
             </p>
           </div>
-          <pre className="mt-3 overflow-x-auto border-t border-hairline px-5 py-3 font-mono text-[13px] leading-relaxed text-ink sm:px-6">
-            {`claude mcp add --transport http socratico ${DIRECCION_MCP}`}
-          </pre>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-hairline px-5 py-3 sm:px-6">
+            <code className="break-all font-mono text-[13px] leading-relaxed text-ink">{ORDEN_CLAUDE_CODE}</code>
+            <CopiarTexto texto={ORDEN_CLAUDE_CODE} etiqueta="Copiar la orden" />
+          </div>
         </Card>
         <p className="text-sm leading-relaxed text-ink-soft">
           Los menús se nombran como los muestra cada programa en inglés al 30 de septiembre de 2026; cambian con sus

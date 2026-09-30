@@ -51,6 +51,7 @@ import { agujas, plano as planoConsulta, pruebas, sinTildes } from "@/lib/raiz";
 import { INDICE } from "@/lib/indice";
 import { PANTALLAS } from "@/lib/pantallas";
 import { enlace } from "@/lib/grafo";
+import { llevaCedula, sinCedula } from "@/lib/padron";
 
 export type TipoResultado =
   | "institucion"
@@ -698,6 +699,27 @@ export async function buscarEnTodo(
   try {
     const m = await motor();
     const docs = m.corpus.docs;
+    // A una persona no se la busca por su número. El índice guarda títulos
+    // oficiales que traían una cédula, y encontrarlos por ella diría de quién
+    // es aunque el título ya no la enseñe. Quien pinta la búsqueda explica el
+    // porqué con `llevaCedula`; esto es la red por si alguno lo olvida.
+    if (llevaCedula(q)) {
+      return {
+        resultados: [],
+        grupos: [],
+        total: 0,
+        porTipo: Object.fromEntries(TIPOS_RESULTADO.map((t) => [t.clave, 0])) as Record<TipoResultado, number>,
+        truncado: false,
+        soloTema: 0,
+        conErrata: false,
+        soloOrdenan: [],
+        pregunta: false,
+        pagina: 1,
+        paginas: 1,
+        generado: m.corpus.generado,
+        instantaneas: m.corpus.instantaneas,
+      };
+    }
     const c = analizarConsulta(q.trim().slice(0, 120));
     // Sin una palabra con contenido («de la», «¿?», «--») no hay tema: el
     // vector de las palabras vacías se parece a todo y traía 146 filas.
@@ -791,16 +813,26 @@ export async function buscarEnTodo(
  * pudimos mirar» no es «no está».
  */
 export async function resultadoPorHref(href: string): Promise<{ resultado: Resultado; corte: string | null } | null> {
-  const m = await motor();
-  const { corpus } = m;
+  const { corpus } = await motor();
+  // La biblioteca que junta las copias de un documento: sus archivos con el
+  // mismo título y del mismo sitio, contados, con sus formatos.
+  if (href.startsWith("/documentos?")) {
+    let primero: Entrada | null = null;
+    let copias = 0;
+    const formatos: string[] = [];
+    for (const d of corpus.docs) {
+      if (d.t !== "documento" || !d.h || hrefCopias(d) !== href) continue;
+      primero ??= d;
+      copias++;
+      if (d.d && !formatos.includes(d.d)) formatos.push(d.d);
+    }
+    if (!primero) return null;
+    return { resultado: aResultado(corpus, primero, "palabra", formatos, copias), corte: corpus.instantaneas.documento ?? null };
+  }
   for (const d of corpus.docs) {
     const propio =
       d.t === "proveedor" && d.r ? enlace.proveedor(d.r) : d.t === "proceso" && d.r ? enlace.proceso(d.r) : (d.h ?? null);
-    const copias = d.t === "documento" && d.h && href.startsWith("/documentos?") && hrefCopias(d) === href;
-    if (propio === href || copias) {
-      const resultado = aResultado(corpus, d, "palabra");
-      return { resultado: copias ? { ...resultado, href } : resultado, corte: corpus.instantaneas[d.t] ?? null };
-    }
+    if (propio === href) return { resultado: aResultado(corpus, d, "palabra"), corte: corpus.instantaneas[d.t] ?? null };
   }
   return null;
 }
@@ -941,8 +973,9 @@ function aResultado(c: Corpus, d: Entrada, via: Via, formatos?: string[], copias
   else if (archivos) href = hrefCopias(d);
   return {
     tipo: d.t,
-    titulo: d.ti,
-    detalle: detalle || null,
+    // Un título oficial puede traer la cédula de una persona: no se enseña.
+    titulo: sinCedula(d.ti),
+    detalle: detalle ? sinCedula(detalle) : null,
     origen: d.o === undefined ? null : c.origenes[d.o],
     href,
     externo: d.e === 1 && !archivos,

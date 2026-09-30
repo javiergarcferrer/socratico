@@ -3,6 +3,7 @@ import { buscarEnTodo, buscarPantallas, EN_MAYUSCULAS, esTipoResultado, TIPOS_RE
 import { formatFecha, formatPesos, SIN_DATO } from "@/lib/format";
 import { desdeMayusculas } from "@/lib/congreso";
 import { recortar } from "@/lib/raiz";
+import { llevaCedula } from "@/lib/padron";
 
 /** La fecha de la instantánea, o null si falta o no se lee (como en /buscar). */
 function fechaDeCorte(iso: string | undefined): string | null {
@@ -27,6 +28,8 @@ export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   const q = recortar(params.get("q"), 120);
   if (q.length < 2) return NextResponse.json({ resultados: [], total: 0 });
+  // A una persona no se la busca por su número (`lib/padron.ts`).
+  if (llevaCedula(q)) return NextResponse.json({ resultados: [], total: 0 });
   const n = Math.min(20, Math.max(1, Number.parseInt(params.get("n") ?? "6", 10) || 6));
   const tipo = params.get("tipo");
   if (tipo !== null && !esTipoResultado(tipo)) {

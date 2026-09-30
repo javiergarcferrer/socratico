@@ -54,6 +54,7 @@ import urllib.request
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from consultoria_decretos import (CONSULTORIA, fecha_de_cache, fecha_iso,  # noqa: E402
                                   firmas_presidenciales, leer_decretos, limpio)
+from privacidad import sin_cedula  # noqa: E402
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 SALIDA = RAIZ / "public" / "data" / "decretos"
@@ -140,7 +141,8 @@ def main() -> None:
     for d in decretos:
         numero = limpio(d.get("Numero") or "").replace(" ", "")
         fecha = fecha_iso(d.get("FechaPromulgacion"))
-        titulo = limpio(d.get("Titulo") or "")
+        # Dos títulos del registro traen la cédula de una persona: no se escribe.
+        titulo = sin_cedula(limpio(d.get("Titulo") or ""))
         firma = limpio(d.get("Presidente") or "")
         etiqueta = limpio(d.get("Institucion") or "")
         del_numero = anio_del_numero(numero, este_anio)
