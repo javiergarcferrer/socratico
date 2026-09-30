@@ -79,7 +79,8 @@ same heights and grids as the content so nothing jumps), `components/graficos/*`
 (every chart — docs/IDENTIDAD.md §Gráficos: `BarrasHorizontales`/`FilaBarra`/
 `MarcaBarra` for a ranking, `MapaProvincias` for where (province choropleth or locator), `SerieTemporal` columns for a flow and line for a
 stock or rate, one axis only, `BarraApilada`, `MatrizMensual`, `Multiples`,
-`Leyenda`, `VerComoTabla`; colours only from the validated `--color-grafico-*`
+`Leyenda`, `VerComoTabla`, `RedVecinos` for who a node links to (one mark,
+the edge written, its list is the table); colours only from the validated `--color-grafico-*`
 palettes, state from `lib/estados.ts`; every datum takes `href`; `Progress` is a
 meter against 100 %, never a ranking). If a primitive is
 missing, add it to the layer it belongs to; do not reimplement

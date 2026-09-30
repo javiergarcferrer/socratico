@@ -127,7 +127,28 @@ export const enlace = {
   empresa(rnc: string | number): string {
     return `/empresas/${String(rnc).replace(/\D/g, "")}`;
   },
+  /**
+   * Un nodo en el explorador del grafo, por la ruta de su ficha:
+   * `/grafo?nodo=/funcionarios/luis-rodolfo-abinader-corona`. Sin ruta, la
+   * portada del explorador.
+   */
+  grafo(ruta?: string | null): string {
+    return ruta ? `/grafo?nodo=${enRuta(ruta)}` : "/grafo";
+  },
+  /** El camino más corto entre dos fichas, en el explorador. */
+  caminoGrafo(de: string, a: string): string {
+    return `/grafo/camino?de=${enRuta(de)}&a=${enRuta(a)}`;
+  },
+  /** La descripción RDF de una ficha: Turtle, JSON-LD o N-Triples. */
+  rdf(ruta: string, formato: "ttl" | "jsonld" | "nt" = "ttl"): string {
+    return `/api/grafo?nodo=${enRuta(ruta)}&formato=${formato}`;
+  },
 } as const;
+
+/** Una ruta como valor de consulta, con sus barras legibles (se admiten en la consulta). */
+function enRuta(ruta: string): string {
+  return encodeURIComponent(ruta).replace(/%2F/gi, "/");
+}
 
 /* ------------------------------------------------- nodos del grafo RDF */
 

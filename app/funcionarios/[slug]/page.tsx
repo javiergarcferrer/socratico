@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { Cifra, TiraDeCifras } from "@/components/papel";
 import { ConectadoCon } from "@/components/conectado-con";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 import { DeclaracionJurada } from "@/components/fuentes-nuevas/declaracion-jurada";
 import Plegable from "@/components/plegable";
 import { Ruta } from "@/components/ruta";
@@ -42,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const c = cargoPrincipal(p);
   return {
     title: p.nombre,
-    alternates: { canonical: enlace.funcionario(p.id) },
+    alternates: { canonical: enlace.funcionario(p.id), types: alternasRdf({ tipo: "funcionario", id: p.id }) },
     description: c
       ? `${p.nombre}: ${c.titulo}. Sus cargos públicos, con el decreto o la fuente de cada uno.`
       : `${p.nombre}: sus cargos públicos, con la fuente de cada uno.`,
@@ -302,6 +303,7 @@ export default async function FuncionarioPage({ params }: Props) {
         </Link>
         .
       </p>
+      <EnElGrafo nodo={{ tipo: "funcionario", id: persona.id }} className="mt-6" />
     </div>
   );
 }

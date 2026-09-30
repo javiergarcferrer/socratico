@@ -42,6 +42,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
 import { IconExternal } from "@/components/icons";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 
 export const revalidate = 86400;
 
@@ -71,7 +72,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const lista = trae.length > 1 ? `${trae.slice(0, -1).join(", ")} y ${trae[trae.length - 1]}` : trae[0];
   return {
     title: e.nombre,
-    alternates: { canonical: enlace.entidadFinanciera(e.slug) },
+    alternates: { canonical: enlace.entidadFinanciera(e.slug), types: alternasRdf({ tipo: "entidad-financiera", id: e.slug }) },
     description:
       e.supervisor === "sb" && lista
         ? `${e.nombre}: ${s.nombre.toLowerCase()} bajo la supervisión ${sup.de}. ${lista[0].toUpperCase()}${lista.slice(1)}, según la SB.`
@@ -282,6 +283,7 @@ export default async function EntidadFinancieraPage({ params }: Props) {
         . Copia del {formatFecha(d.generado)}; los datos son los que publica{" "}
         {sup.conArticulo}, sin ajustes nuestros.
       </p>
+      <EnElGrafo nodo={{ tipo: "entidad-financiera", id: e.slug }} className="mt-2" />
     </div>
   );
 }

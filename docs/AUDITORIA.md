@@ -954,16 +954,14 @@ Bellas Artes, en ±2 %; Mujer publica 487 plazas frente a 1,037 del MAP.
 
 ### A.9 311 — lectura pública, y un hallazgo de seguridad que reportar
 
-- ✅ El Directus del 311 (`directus-dev.311.gob.do/items/statistics_documents`)
-  **responde sin autenticación**: catálogo de documentos estadísticos por año y
-  carpeta (`statistics_documents`, `statistics_folders`, `statistics_years`).
-  Valor moderado: son PDF, no series.
-- ⚠️ **Hallazgo de seguridad**: el bundle de cliente de `311.gob.do/estadisticas`
-  publica un **token de Directus en claro** junto a la configuración del portal.
-  No lo usamos ni lo registramos aquí. Corresponde reportarlo a la OGTIC por el
-  canal de divulgación responsable que el propio Estado publica; conviene
-  señalar también que el portal de producción consume un host llamado
-  `directus-**dev**`.
+- ✅ El catálogo de documentos estadísticos del 311 (por año y carpeta)
+  **responde sin autenticación**. Valor moderado: son PDF, no series. Su
+  dirección no se escribe aquí mientras siga abierto el hallazgo de abajo.
+- ⚠️ **Hallazgo de seguridad**: el portal de estadísticas del 311 expone en el
+  navegador algo que no debe. No se usa. Se notifica a la OGTIC por el canal de
+  divulgación responsable que el propio Estado publica, con un aviso que se
+  entrega al dueño aparte y **no vive en este repositorio, que es público**: el
+  detalle (qué y dónde) se escribe aquí cuando esté corregido.
 
 ### A.10 Verificados de menor calado (estado de campo)
 
@@ -1192,7 +1190,7 @@ corte honesto es el último mes con devengado real, no el último mes con filas.
 1. **Fase 5** (endpoints DGCP) — ejecutable ya, sin decisiones previas.
 2. **Fase 6** (SIGEF) — decidir la ventana de caché y el conjunto de
    instituciones a precalentar en el panorama.
-3. Reportar a la OGTIC el token expuesto del 311 (§A.9).
+3. Reportar a la OGTIC el hallazgo de seguridad del 311 (§A.9).
 4. Pedir al BCRD el índice de archivos por sección (§A.6), o resolverlo desde
    un entorno con navegador.
 5. Recon dedicada: TSS (boletines), Aduanas (comercio exterior), Tribunal
@@ -1202,8 +1200,8 @@ corte honesto es el último mes con devengado real, no el último mes con filas.
 7. Verificar desde el egress de producción lo que este entorno no puede:
    TLS de `www.poderjudicial.gob.do` y de SIPEN, y el navegador headless (§B.5).
 8. **Solicitar a la OGTIC el cliente OAuth2 de Cuenta Única** (§A.11,
-   PLAN-DEMOCRACIA §9.4). Cabe en el mismo oficio que el reporte del token
-   del 311 (§A.9).
+   PLAN-DEMOCRACIA §9.4). Va en un oficio aparte del aviso de seguridad del
+   311 (§A.9): un aviso no debe parecer atado a un pedido.
 
 
 ---
@@ -1345,8 +1343,8 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
 - ✅/⚠️ Superintendencia de Bancos: SIMBAD (`simbad.sb.gob.do`) es un Apache
   Superset público: `/api/v1/chart/1467/data/?format=json` da la morosidad
   (1.79 % a julio), 24 meses por gráfico. ⚠️ **Hallazgo de seguridad:** su API
-  pública expone el SQL de cada gráfico y usuarios del personal; se notifica a
-  la SB, no se usa.
+  pública expone más de lo que el tablero muestra; se notifica a la SB con un
+  aviso aparte (fuera de este repositorio público) y no se usa.
 - ✅ Crédito Público: `/Content/subastas/consolidados/2026/02Consolidado.xlsx`.
 - ❌ SIMV y ONE: desafío de Cloudflare hasta en robots. ⚠️ SIPEN: el TLS ya no
   falla por el proxy; los datos se cargan por JS. Seguros se mudó a `sis.gob.do`.
@@ -1429,7 +1427,7 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
   del último mes de producción de agua.
 - ❌ SIE (403 CF), SNIP (login), IDAC y Liga Municipal (Power BI), MOPC (token
   embebido en su JS: no se usa). IGN: solo WMS raster. COE: RSS vacío.
-  ⚠️ Hallazgo de seguridad menor: Tomcat por defecto en `gis.caasd.gob.do`.
+  ⚠️ Hallazgo de seguridad menor en un servidor de la CAASD; se notifica aparte.
 
 ### G.10 MAP — la nómina pública general del Estado
 
@@ -1508,7 +1506,7 @@ documentos (§G.2), catálogo de datos abiertos (§G.3), alertas de INDOMET
   (may-2026 18.87 %), 1423 tasa de préstamos nuevos (14.00 %; ventana fija que
   termina el 2026-08-05). 20–23 filas por serie; cada una termina en su mes.
   No hay serie de depósitos. ⚠️ Hallazgo de seguridad pendiente de notificar a
-  la SB (§G.5): no se tocan los endpoints de usuarios, SQL ni datasets.
+  la SB (§G.5): no se toca nada fuera de los datos de los gráficos que se leen.
 - ✅ Subastas: la lista `/emisiones/subastas?dlAnio=AAAA&tipocontenido=Resultados`
   (GET; 2009–2026) enlaza un consolidado por año que se reescribe tras cada
   subasta: `…/2026/02Consolidado.xlsx`, `…/2025/02Consolidado.xls` (BIFF: `xlrd`
@@ -1627,8 +1625,8 @@ Para pintar un mapa sin teselas ni clave (`lib/mapa.ts`, `scripts/build-mapa.py`
    Público, SIMBAD.
 5. Robos y armas (MIP), matrícula (MINERD), licencias (MIVHED).
 6. Fichas de datos.gob.do (3 h 30 min): solo si una rutina programada lo asume.
-7. Institucional (Ley 200-04 y divulgación responsable): SB (SQL y usuarios
-   expuestos en SIMBAD), CAASD (Tomcat), Cámara de Cuentas (500), SCJ (GET en
+7. Institucional (Ley 200-04 y divulgación responsable): SB (hallazgo de
+   seguridad en SIMBAD), CAASD (hallazgo menor), Cámara de Cuentas (500), SCJ (GET en
    su buscador), PJ (cadena TLS), SNS/MAP/MIDEREC (REST cerrada),
    Agricultura/INFOTEP/SIE/SIMV/ONE (WAF).
 
@@ -2064,12 +2062,14 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
 
 ### H.10 Hallazgos de seguridad (se notifican; no se usan)
 
-- **CCPSD / app.registromercantil.do**: el selector de cámaras llama a
-  `POST /api/getfetch` con **usuario y contraseña escritos en el JS público** y una
-  consulta FetchXML arbitraria contra un Dynamics CRM. No se llamó; se notifica a
-  la CCPSD como el precedente del 311 (§A.9).
-- **CNZFE**: su `robots.txt` empieza con advertencias de PHP que exponen rutas del
-  servidor y el plugin `wp-file-manager`.
+- **CCPSD (registro mercantil)**: su consulta pública expone en el navegador el
+  acceso a un servicio interno. No se usó; se notifica a la CCPSD como el
+  precedente del 311 (§A.9).
+- **CNZFE**: su sitio muestra mensajes de error que revelan detalles del servidor.
+
+Los avisos de estos hallazgos (y los de la SB, la CAASD y el 311) se entregan al
+dueño aparte y **no se guardan en este repositorio, que es público**: el qué y el
+dónde de cada uno se escriben aquí cuando la institución lo haya corregido.
 
 ### H.11 Pendientes que deja esta pasada
 
@@ -2203,3 +2203,21 @@ la casa, como mucho tres POST por consulta, sin sesión ni cookies:
   persona expuesta políticamente, `Q294414` cargo público, `Q454263` declaración
   jurada, `Q786` República Dominicana). De Wikidata solo se toman identificadores
   (`owl:sameAs`), nunca biografías, fotos ni datos personales.
+- ✅ **Primera lectura** (`scripts/build-wikidata.py`, 30-09-2026; cinco consultas con
+  6 s de pausa; un 429 de QLever en la consulta de provincias por etiqueta se respetó y
+  se reescribió por `P150` de `Q786`): **128 fichas con QID**, 32 provincias (todas),
+  30 instituciones, 2 bancos (Popular y Adopem) y 64 personas: 31 firmantes de decretos
+  (las palabras de su firma contra los titulares de la Presidencia) y 33 con un cargo
+  obligado a declarar o un escaño, por nombre completo exacto de tres palabras o más.
+  Solo pares únicos en los dos sentidos. Las 96 etiquetas se
+  revisaron a mano; la única sin etiqueta en español, Clara Martínez Thedy
+  (`Q124393485`), se confirmó con **una** lectura de
+  `Special:EntityData/Q124393485.json` (200): humana, ciudadana dominicana, diplomática.
+- ✅ **Error de armado que destapó la revisión**: el Gaspar Polanco que firmó 19 decretos
+  en 1864 compartía ficha con el director de Normas de 2001. `otra_epoca()` en
+  `scripts/build-funcionarios.py` ya no une a un firmante con un tocayo cuyos cargos
+  caen todos a más de 70 años de sus firmas; la dirección sin sufijo queda para el
+  firmante (la que enlaza su lista de decretos). Fue el único caso en las 15,608 fichas.
+- Implementado: `public/data/wikidata.json`, `lib/wikidata.ts`, el `owl:sameAs` de
+  `lib/grafo-rdf.ts` y el `sameAs` del JSON-LD de cada ficha (docs/ARQUITECTURA.md, el
+  grafo semántico). `/fuentes` lo declara.

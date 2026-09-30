@@ -42,6 +42,7 @@ export const FUERA_DEL_INDICE: Record<string, string> = {
   "/cuenta": "Trámite: se llega desde «Entrar» o «Guardar», no se elige.",
   "/espacio/proyecto": "Un proyecto concreto: se abre desde tu espacio, no desde el índice.",
   "/espacio/moderar": "Privada: la cola de quien modera la conversación.",
+  "/grafo/camino": "Un resultado: se llega eligiendo dos fichas en el grafo, no desde el índice.",
 };
 
 function construir(): Destino[] {

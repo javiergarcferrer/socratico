@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { enlace, numeroCanonico } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 import { ETIQUETA_MOVIMIENTO, getFuncionarios, personaPorFirma, personasDelDecreto } from "@/lib/funcionarios";
 import { decretoPorNumero } from "@/lib/decretos";
 
@@ -38,9 +39,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tipo = tipoDeRuta(slug);
   if (!tipo) return { title: "Norma no encontrada" };
   const norma = await cargarNorma(tipo, numero);
+  // Un decreto del registro es un nodo del grafo: su RDF es una alterna de la ficha.
+  const registro = tipo === "Decreto" ? await decretoPorNumero(numeroCanonico(slug, numero)) : null;
   return {
     title: `${tipo} ${numero}`,
-    alternates: { canonical: enlace.norma(slug, numero) ?? undefined },
+    alternates: {
+      canonical: enlace.norma(slug, numero) ?? undefined,
+      ...(registro?.numero ? { types: alternasRdf({ tipo: "decreto", id: registro.numero }) } : {}),
+    },
     // Sin el texto, la página es un camino, no contenido: se sigue, no se indexa.
     ...(norma ? {} : { robots: { index: false, follow: true } }),
     description: norma?.titulo
@@ -184,6 +190,7 @@ export default async function NormaPage({ params }: Props) {
         </Link>
         .
       </p>
+      {registro?.numero && <EnElGrafo nodo={{ tipo: "decreto", id: registro.numero }} className="mt-6" />}
       {enlace.norma(slug, numero) && (
         <Conversacion
           className="mt-6"

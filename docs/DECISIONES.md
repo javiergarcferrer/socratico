@@ -153,9 +153,11 @@ arranque; aquí puede crecer y leerse cuando se toca el área.
     PGR; DIGECOG; Hacienda por la API del SIGEF; y las anteriores: Consultoría
     Jurídica, ONE, 911, JCE, BCRD, SNS, MAP, MIDEREC, SIE, Agricultura,
     INFOTEP, SCJ, Poder Judicial, OGTIC) y los avisos de divulgación
-    responsable (CCPSD, CNZFE; SB y CAASD de la tercera pasada; el token del
-    311). Una sesión no puede enviarlas: van redactadas en `docs/gestiones/`,
-    listas para que el dueño las firme y las mande.
+    responsable (CCPSD, CNZFE; SB y CAASD de la tercera pasada; el portal
+    311). Una sesión no puede enviarlas: las solicitudes y las cartas de
+    cooperación van redactadas en `docs/gestiones/`, listas para que el dueño
+    las firme y las mande; los avisos de seguridad se le entregan aparte,
+    porque el repositorio es público y un aviso describe un fallo abierto.
 
 - **Personas con cargo público y la marca PEP (29-09-2026).** El dueño pidió
   «todas las entidades públicas», los bancos, el registro mercantil y poder

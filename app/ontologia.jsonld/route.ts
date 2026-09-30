@@ -1,8 +1,8 @@
 import { triplesOntologia } from "@/lib/ontologia";
 import { aJsonLd, TIPO_MIME } from "@/lib/rdf";
 
+// Sale del código (`lib/ontologia.ts`): cambia solo con un despliegue.
 export const dynamic = "force-static";
-export const revalidate = 86400;
 
 /** La ontología en JSON-LD (`lib/ontologia.ts`); la página en llano está en `/ontologia`. */
 export function GET() {
