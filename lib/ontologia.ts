@@ -128,7 +128,7 @@ export const CLASES: Clase[] = [
     etiqueta: "Contratación",
     etiquetaEn: "Contracting",
     comentario:
-      "Lo que una institución le ha contratado a un proveedor por el sistema de compras desde 2015, agregado: cuántos contratos y por cuánto (valor contratado en pesos, no pagado; sin cancelados, en otras monedas ni atípicos de RD$10 mil millones o más). Solo los pares de las listas de mayores: los ocho clientes de cada proveedor y los doce proveedores de cada institución.",
+      "Lo que una institución le ha contratado a un proveedor por el sistema de compras desde 2015, agregado: cuántos contratos y por cuánto (valor contratado en pesos, no pagado; sin cancelados, en otras monedas ni atípicos de RD$10 mil millones o más). Solo los pares de las listas de mayores: los doce proveedores de cada institución y los ocho clientes de cada proveedor con RNC de persona jurídica.",
     subClaseDe: [],
   },
   {

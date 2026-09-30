@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { Worker } from "node:worker_threads";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { SITIO } from "@/lib/sitio";
@@ -493,7 +495,7 @@ type Documento = z.infer<typeof Documento>;
 const POR_PAGINA_RELACIONES = 50;
 
 function lineaRelacion(r: Relacion): string {
-  const partes = [r.detalle, r.movimiento, r.fecha?.slice(0, 10)].filter(Boolean);
+  const partes = [r.monto != null ? `RD$ ${ENTERO.format(r.monto)}` : null, r.detalle, r.movimiento, r.fecha?.slice(0, 10)].filter(Boolean);
   const d = destinoDe(r);
   const destino = d.id ? ` → ${d.id}` : d.pista ? ` → ${d.pista}` : d.url ? ` → ${d.url} (fuera de Socrático)` : "";
   return `- ${r.verbo}: ${r.nombre}${partes.length ? ` (${partes.join(" · ")})` : ""}${destino}`;
@@ -677,6 +679,7 @@ const Vecino = z.object({
   detalle: z.string().nullable(),
   movimiento: z.string().nullable(),
   fecha: z.string().nullable(),
+  monto: z.number().nullable().describe("Una contratación: el valor contratado desde 2015 en pesos (no pagado)."),
   id: z
     .string()
     .nullable()
@@ -729,6 +732,7 @@ async function vecinos(id: string, grupo: GrupoRelacion | undefined, pagina: num
       detalle: r.detalle,
       movimiento: r.movimiento,
       fecha: r.fecha?.slice(0, 10) ?? null,
+      monto: r.monto,
       ...destinoDe(r),
       esNodo: r.nodo != null,
     })),
@@ -1778,14 +1782,17 @@ const GENERICAS = new Set(["estado", "pais", "gobierno", "republica", "republica
  * la abre ni el Estado mismo. Es lo que se ata al grafo: la pregunta entera
  * ata a cualquiera que se llame «País».
  */
-function nombresPropios(q: string): string[] {
-  const vistos = new Set<string>();
+function nombresPropios(q: string, siglas: ReadonlySet<string> = new Set()): string[] {
+  const vistos = new Set<string>(siglas);
   const salida: string[] = [];
+  // La palabra que abre la pregunta lleva mayúscula por abrirla: sola, no es un nombre.
+  const inicio = q.search(/\p{L}/u);
   for (const m of q.matchAll(/[A-ZÁÉÍÓÚÑ][\p{L}\d.&'-]*(?:\s+(?:(?:de|del|la|las|los|y|e)\s+)?[A-ZÁÉÍÓÚÑ][\p{L}\d.&'-]*)*/gu)) {
     let nombre = m[0].trim();
     const primera = nombre.split(/\s+/)[0];
     if (INTERROGATIVA.test(primera)) nombre = nombre.slice(primera.length).trim();
     const k = plano(nombre).trim();
+    if (m.index === inicio && !/\s/.test(m[0].trim())) continue;
     if (k.length < 3 || GENERICAS.has(k) || NO_ES_OBJETO.has(k) || vistos.has(k)) continue;
     vistos.add(k);
     salida.push(nombre);
@@ -1830,73 +1837,116 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
   const pide = Object.fromEntries(Object.entries(INTENCION).map(([k, re]) => [k, re.test(p)])) as Record<keyof typeof INTENCION, boolean>;
   const anio = Number(/\b(20[1-3]\d)\b/.exec(q)?.[1] ?? NaN);
 
-  const nombres = nombresPropios(q);
-  const [h, pantallas, porNombre, { proveedores }] = await Promise.all([
+  // Siglas: una palabra que la pregunta escribe en mayúsculas y que es la
+  // sigla de una institución («MINERD», «INAPA»). En minúsculas no cuentan:
+  // «trabajo», «cultura» y «agricultura» son también siglas del catálogo.
+  const mayusculas = new Set(q.split(/[^\p{L}\d]+/u).filter((w) => w.length >= 3 && w === w.toLocaleUpperCase("es") && /\p{L}/u.test(w)));
+  const nombradas = INSTITUCIONES.filter((i) => i.acronimo && mayusculas.has(i.acronimo.toLocaleUpperCase("es")) && mayusculas.has(i.acronimo));
+  const nombres = nombresPropios(q, new Set(nombradas.map((i) => plano(i.acronimo).trim())));
+  const [h, pantallas, porNombre, { proveedores }, { procesos }] = await Promise.all([
     buscarEnTodo(q, { porPagina: 20 }),
     buscarPantallas(q, 3),
     Promise.all(nombres.map(async (n) => ({ nombre: n, nodos: await buscarNodos(n), indice: await buscarEnTodo(n, { porPagina: 5 }) }))),
     proveedoresDelIndice(),
+    procesosDelIndice(),
   ]);
   if (!h) throw new Aviso("El índice de búsqueda no cargó. Intenta de nuevo en un momento.");
 
-  // Las entidades: primero las siglas exactas que la pregunta escribe
-  // («MINERD», «MOPC»), luego los resultados del buscador que son nodos del
-  // grafo, y por último los nombres que casan en el grafo.
-  const nodos: { n: NodoRdf; por: string }[] = [];
+  // Las entidades: primero las siglas, luego los nombres propios que la
+  // pregunta escribe, y por último los resultados del buscador que son nodos
+  // del grafo. Las dos primeras son «fuertes» (la pregunta las nombra) y son
+  // las únicas que filtran una consulta; las del buscador solo acompañan.
+  const nodos: { n: NodoRdf; por: string; fuerte: boolean }[] = [];
   const ya = new Set<string>();
-  const sumarNodo = (n: NodoRdf, por: string) => {
+  const sumarNodo = (n: NodoRdf, por: string, fuerte: boolean) => {
     const k = claveNodo(n);
     if (ya.has(k) || nodos.length >= TOPE_RECUPERAR.entidades) return;
     ya.add(k);
-    nodos.push({ n, por });
+    nodos.push({ n, por, fuerte });
   };
-  const siglas = new Set(p.trim().split(" ").filter((w) => w.length >= 3));
-  const nombradas = INSTITUCIONES.filter((i) => i.acronimo && siglas.has(plano(i.acronimo).trim()));
-  for (const i of nombradas) sumarNodo({ tipo: "institucion", id: String(i.id) }, `la pregunta escribe sus siglas, ${i.acronimo}`);
-  // Un nombre propio: el nodo que se llama así, o el proveedor que se llama
-  // así (y su empresa, si el padrón la ata). Atar por nombre es recuperar, no
-  // afirmar identidad: se dice «por» qué se ató.
+  for (const i of nombradas) sumarNodo({ tipo: "institucion", id: String(i.id) }, `la pregunta escribe sus siglas, ${i.acronimo}`, true);
+  // Un nombre propio: el nodo que se llama así; si no, el proveedor que se
+  // llama exactamente así (sin la forma jurídica) y su empresa. Dos
+  // proveedores con el mismo nombre pueden ser dos personas o dos empresas:
+  // no se elige uno, se dice (la regla de contracting_history).
   let proveedorNombrado: ProveedorIndexado | null = null;
+  const notasEnlace: string[] = [];
+  const sinAtar: string[] = [];
+  const clave = (x: string) =>
+    plano(x)
+      .trim()
+      .split(" ")
+      .filter((w) => !FORMAS_JURIDICAS.has(w))
+      .join(" ");
   for (const { nombre, nodos: c } of porNombre) {
-    const exacto = c.candidatos.find((x) => plano(x.nombre).trim() === plano(nombre).trim()) ?? (c.candidatos.length === 1 ? c.candidatos[0] : null);
+    const exacto = c.candidatos.find((x) => plano(x.nombre).trim() === plano(nombre).trim());
     if (exacto) {
-      sumarNodo(exacto.nodo, `la pregunta lo nombra: «${nombre}»`);
+      sumarNodo(exacto.nodo, `la pregunta lo nombra: «${nombre}»`, true);
       continue;
     }
-    const a = agujas(nombre);
-    if (!a.raices.length) continue;
-    const casan = proveedores.filter((x) => contieneTodas(x.planoNombre, a)).sort((x, y) => (y.contratos ?? 0) - (x.contratos ?? 0));
-    const elegido = casan[0];
-    if (elegido && (casan.length === 1 || (elegido.contratos ?? 0) > 5 * (casan[1].contratos ?? 0))) {
+    const iguales = proveedores.filter((x) => clave(x.nombre) === clave(nombre));
+    if (iguales.length === 1) {
+      const elegido = iguales[0];
       proveedorNombrado ??= elegido;
-      if (elegido.rnc) sumarNodo({ tipo: "empresa", id: elegido.rnc }, `la pregunta nombra al proveedor «${elegido.nombre}» (RPE ${elegido.rpe}), y su RNC es de esta empresa`);
-    } else if (c.candidatos[0]) {
-      sumarNodo(c.candidatos[0].nodo, `su nombre casa con «${nombre}»`);
+      if (elegido.rnc) sumarNodo({ tipo: "empresa", id: elegido.rnc }, `la pregunta nombra al proveedor «${elegido.nombre}» (RPE ${elegido.rpe}), y su RNC es de esta empresa`, true);
+      continue;
     }
+    if (iguales.length > 1) {
+      notasEnlace.push(
+        `«${nombre}» es el nombre de ${iguales.length} registros de proveedor distintos (${iguales
+          .slice(0, 4)
+          .map((x) => `RPE ${x.rpe}`)
+          .join(", ")}): pueden ser personas o empresas distintas, y no se eligió ninguno. Pide contracting_history con el id del que buscas.`,
+      );
+      continue;
+    }
+    if (c.candidatos.length === 1) sumarNodo(c.candidatos[0].nodo, `su nombre casa con «${nombre}»`, true);
+    else sinAtar.push(nombre);
   }
   for (const r of h.resultados.slice(0, 10)) {
     if (!r.href) continue;
     const n = nodoDeRuta(r.href);
-    if (n) sumarNodo(n, "el buscador la trae entre los primeros resultados");
+    if (n) sumarNodo(n, "el buscador la trae entre los primeros resultados", false);
     else if (r.tipo === "proveedor") {
       const rnc = /\bRNC (\d{9})\b/.exec(r.detalle ?? "")?.[1];
-      if (rnc) sumarNodo({ tipo: "empresa", id: rnc }, "el buscador trae al proveedor, y su RNC es de esta empresa");
+      if (rnc) sumarNodo({ tipo: "empresa", id: rnc }, "el buscador trae al proveedor, y su RNC es de esta empresa", false);
     }
   }
   const entidades = (await Promise.all(nodos.map(({ n, por }) => contextoDeNodo(n, por).catch(() => null)))).filter(
     (e): e is z.infer<typeof EntidadRecuperada> => e != null,
   );
 
-  // La consulta de compras, si la pregunta pide una.
+  // La consulta de compras, si la pregunta pide una. La institución que filtra
+  // es solo la que la pregunta nombra (siglas o nombre), nunca una que el
+  // buscador trajo; y lo que la pregunta nombra no es lo que se compra.
   let compra: z.infer<typeof Recuperado>["compras"] = null;
   const evidencias: z.infer<typeof Evidencia>[] = [];
-  const institucionPedida = nombradas[0] ?? INSTITUCIONES.find((i) => {
-    const a = agujas(i.nombre);
-    return a.raices.length >= 2 && contieneTodas(p, a);
-  });
-  if (pide.compras && (pide.mayor || pide.reciente || pide.abierta || Number.isFinite(anio) || institucionPedida)) {
-    const palabrasInstitucion = new Set(institucionPedida ? plano(`${institucionPedida.nombre} ${institucionPedida.acronimo}`).trim().split(" ") : []);
-    const objeto = palabrasDeContenido(q).filter((w) => !/\d/.test(w) && !NO_ES_OBJETO.has(w) && !palabrasInstitucion.has(w));
+  const notasRuta: string[] = [];
+  const instFuerte = nodos.find((x) => x.fuerte && x.n.tipo === "institucion")?.n;
+  const institucionPedida = instFuerte ? institucionPorId(instFuerte.id) : null;
+  const cobertura = procesos.length ? coberturaDe(procesos) : null;
+  const antesDeLaInstantanea = Number.isFinite(anio) && cobertura != null && anio < Number(cobertura.desde.slice(0, 4));
+  if (antesDeLaInstantanea && pide.compras) {
+    notasRuta.push(
+      `Los procesos de compra de la instantánea van del ${cobertura!.desde} al ${cobertura!.hasta}: ${anio} no está, y no se corrió procurement. Lo contratado en ${anio}, agregado por año, lo da contracting_history.`,
+    );
+  }
+  // Si la pregunta nombra algo que no se pudo atar, una consulta sin ese filtro
+  // contestaría otra pregunta: no se corre, se dice.
+  const nombreSuelto = !institucionPedida && sinAtar.length > 0;
+  if (pide.compras && nombreSuelto) {
+    notasRuta.push(
+      `No se pudo atar «${sinAtar[0]}» a una sola institución o proveedor, y no se corrió procurement: sin ese filtro contestaría por todo el Estado. Búscala con search y pide procurement con su id.`,
+    );
+  }
+  const quiereCompras = pide.compras && !antesDeLaInstantanea && !proveedorNombrado && !nombreSuelto;
+  if (quiereCompras && (pide.mayor || pide.reciente || pide.abierta || Number.isFinite(anio) || institucionPedida)) {
+    const nombrado = new Set(
+      [...nombres, ...nombradas.map((i) => i.acronimo), ...(institucionPedida ? [institucionPedida.nombre, institucionPedida.acronimo] : [])]
+        .flatMap((x) => plano(x).trim().split(" "))
+        .filter(Boolean),
+    );
+    const objeto = palabrasDeContenido(q).filter((w) => !/\d/.test(w) && !NO_ES_OBJETO.has(w) && !nombrado.has(w));
     const filtros: FiltrosCompras = {
       ...(Number.isFinite(anio) ? { anio } : {}),
       ...(institucionPedida ? { institucion: rutaInstitucion(institucionPedida) } : {}),
@@ -1951,12 +2001,29 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
     }
   }
 
-  // Lo contratado desde 2015, si la pregunta lo pide y nombra a quién.
-  const instNodo = nodos.find((x) => x.n.tipo === "institucion")?.n;
-  if (pide.contratado && (proveedorNombrado || instNodo)) {
+  // Lo contratado desde 2015, si la pregunta lo pide (o pide las compras de un
+  // proveedor, que la tabla de procesos no ata a quien ganó) y nombra a quién:
+  // el par si nombra a los dos.
+  const quiereHistoria = pide.contratado || (pide.compras && (proveedorNombrado != null || antesDeLaInstantanea));
+  if (quiereHistoria && (proveedorNombrado || instFuerte)) {
     try {
-      const pedido = proveedorNombrado ? { proveedor: enlace.proveedor(proveedorNombrado.rpe) } : { institucion: rutaDeNodo(instNodo!) };
+      const pedido = {
+        ...(proveedorNombrado ? { proveedor: enlace.proveedor(proveedorNombrado.rpe) } : {}),
+        ...(instFuerte ? { institucion: rutaDeNodo(instFuerte) } : {}),
+      };
       const r = await historial(pedido);
+      if (r.par) {
+        evidencias.push({
+          id: r.proveedor?.id ?? null,
+          clase: "Lo contratado desde 2015",
+          titulo: `${r.institucion?.nombre} → ${r.proveedor?.nombre}`,
+          texto: r.par.encontrado
+            ? `RD$ ${ENTERO.format(r.par.monto ?? 0)} en ${ENTERO.format(r.par.contratos ?? 0)} contratos. ${r.par.explicacion} Valor contratado, no pagado; tablas de contratos de la DGCP, corte del ${r.corte}.`
+            : r.par.explicacion,
+          url: r.proveedor?.url ?? r.institucion?.url ?? SITIO,
+          por: `contracting_history con proveedor «${r.proveedor?.id}» e institucion «${r.institucion?.id}»`,
+        });
+      }
       const lista = (xs: { nombre: string; monto: number }[]) => xs.slice(0, 5).map((x) => `${x.nombre} (RD$ ${ENTERO.format(x.monto)})`).join("; ");
       if (r.proveedor) {
         const p = r.proveedor;
@@ -2011,8 +2078,15 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
   const inst = primera("institucion");
   const empresa = primera("empresa");
   const persona = primera("funcionario");
-  if (compra) siguientes.push({ herramienta: "procurement", argumentos: { ...compra.filtros, pagina: 2 }, para: "Las siguientes, o los mismos con otros filtros." });
-  else if (pide.compras) {
+  if (compra && compra.total > POR_PAGINA_COMPRAS) {
+    siguientes.push({ herramienta: "procurement", argumentos: { ...compra.filtros, pagina: 2 }, para: "Las siguientes, o los mismos con otros filtros." });
+  } else if (antesDeLaInstantanea) {
+    siguientes.push({
+      herramienta: "contracting_history",
+      argumentos: inst ? { institucion: rutaDeNodo(inst) } : {},
+      para: `Lo contratado por año desde 2015, que incluye ${anio}.`,
+    });
+  } else if (pide.compras && !compra) {
     siguientes.push({
       herramienta: "procurement",
       argumentos: { ...(Number.isFinite(anio) ? { anio } : {}), ...(inst ? { institucion: rutaDeNodo(inst) } : {}), orden: "monto" },
@@ -2044,6 +2118,8 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
     pantallas: (pantallas ?? []).map((x) => ({ titulo: x.titulo, url: absoluta(x.href), texto: [x.tema, x.nota].filter(Boolean).join(" · ") })),
     siguientes,
     notas: [
+      ...notasEnlace,
+      ...notasRuta,
       "Es evidencia recuperada, no una respuesta: cada pieza trae su fuente y su fecha de corte; cita su url.",
       "Se recupera por palabras (índice BM25 propio), por tema (Model2Vec potion-multilingual-128M, de código abierto) y por las entidades del grafo que la pregunta nombra; que algo no salga no prueba que no exista.",
       ...(compra ? [`Los filtros de compras se dedujeron de la pregunta (${compra.deducidos}); si no son esos, pide procurement con los tuyos.`] : []),
@@ -2095,20 +2171,13 @@ const ResultadoSparql = z.object({
   aviso: z.string(),
 });
 
-/** Un término RDF/JS, lo que devuelve Comunica. */
-type TerminoJs = { termType: string; value: string; datatype?: { value: string }; language?: string };
-
-const aTermino = (x: TerminoJs) => ({
-  tipo: x.termType === "NamedNode" ? "iri" : x.termType === "Literal" ? "literal" : "blanco",
-  valor: x.value,
-  datatype: x.termType === "Literal" && x.datatype && !x.language ? x.datatype.value : null,
-  idioma: x.language || null,
-});
 
 async function consultarSparql(consulta: string, ids: string[], conVecinos: boolean): Promise<z.infer<typeof ResultadoSparql>> {
   const texto = consulta.trim();
   sinBuscarPorCedula(texto);
-  if (/\bSERVICE\b/i.test(texto)) throw new Aviso("SERVICE no se admite: la consulta corre solo sobre las descripciones de Socrático.");
+  // SERVICE o LOAD leerían otra fuente; se buscan fuera de los IRI, los literales y los comentarios.
+  const codigo = texto.replace(/<[^<>"{}|^`\\\s]*>|"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|#[^\n]*/g, " ");
+  if (/\b(SERVICE|LOAD)\b/i.test(codigo)) throw new Aviso("SERVICE y LOAD no se admiten: la consulta corre solo sobre las descripciones de Socrático.");
   const semillas = [...new Set(ids.map((id) => nodoDe(id, "sparql")).map((n) => claveNodo(n)))].map((k) => {
     const [tipo, ...resto] = k.split(":");
     return { tipo, id: resto.join(":") } as NodoRdf;
@@ -2143,99 +2212,144 @@ async function consultarSparql(consulta: string, ids: string[], conVecinos: bool
     await describirTodos(caben);
   }
 
-  // El almacén de la llamada, con los términos armados directo (sin pasar por texto).
-  const { Store, DataFactory: F } = await import("n3");
-  const termino = (x: Triple["s"]) =>
-    x.tipo === "iri"
-      ? F.namedNode(x.valor)
-      : x.tipo === "blanco"
-        ? F.blankNode(x.valor)
-        : F.literal(x.valor, x.idioma ?? (x.datatype ? F.namedNode(x.datatype) : undefined));
-  const store = new Store();
-  for (const x of triples) {
-    store.addQuad(F.quad(termino(x.s) as ReturnType<typeof F.namedNode>, F.namedNode(x.p), termino(x.o)));
-  }
-
   const declarados = new Set([...texto.matchAll(/PREFIX\s+([A-Za-z][\w-]*)?:/gi)].map((m) => m[1] ?? ""));
   const prologo = Object.entries(PREFIJOS)
     .filter(([k]) => !declarados.has(k))
     .map(([k, v]) => `PREFIX ${k}: <${v}>`)
     .join("\n");
-  const motor = await motorSparql();
-  let r: ResultadoComunica;
-  try {
-    r = (await motor.query(`${prologo}\n${texto}`, { sources: [store] })) as ResultadoComunica;
-  } catch (err) {
-    throw new Aviso(`La consulta no es SPARQL válido: ${recortar(String(err instanceof Error ? err.message : err), 300)}`);
+  const hecho = await enHiloSparql({ triples, consulta: `${prologo}\n${texto}`, tope: TOPE_SPARQL.filas });
+  if (!hecho.ok) {
+    if (hecho.motivo === "actualizacion") throw new Aviso("Solo consultas de lectura (SELECT, ASK, CONSTRUCT o DESCRIBE): una actualización no se ejecuta.");
+    if (hecho.motivo === "sintaxis") {
+      throw new Aviso(`La consulta no es SPARQL de lectura válido, o pide leer otra fuente (LOAD, SERVICE), que no se admite. El motor dice: ${recortar(hecho.mensaje, 300)}`);
+    }
+    throw new Error(`sparql: ${hecho.mensaje}`);
   }
-  // Una actualización no se ejecuta: el tipo se sabe antes de correrla.
-  if (r.resultType === "void") throw new Aviso("Solo consultas de lectura (SELECT, ASK, CONSTRUCT o DESCRIBE): una actualización no se ejecuta.");
+  const r = hecho.resultado;
 
   const { cortes } = await procedencia(semillas[0].tipo);
   const base = {
-    alcance: { semillas: semillas.map(rutaDeNodo), nodos: descritos.size, triples: store.size, recortado },
+    alcance: { semillas: semillas.map(rutaDeNodo), nodos: descritos.size, triples: r.triples, recortado },
     notas: [
-      `La consulta corrió sobre las descripciones de ${descritos.size} nodos${conVecinos ? " (las semillas y sus vecinos)" : ""} y la ontología: ${ENTERO.format(store.size)} triples, no el grafo entero. Un COUNT o un «no hay» vale para ese alcance.`,
+      `La consulta corrió sobre las descripciones de ${descritos.size} nodos${conVecinos ? " (las semillas y sus vecinos)" : ""} y la ontología: ${ENTERO.format(r.triples)} triples, no el grafo entero. Un COUNT o un «no hay» vale para ese alcance.`,
       "Los prefijos soc:, rdf:, rdfs:, owl:, xsd:, skos:, dct:, foaf:, schema:, org:, rov:, eli: y wd: ya están declarados.",
       ...(recortado ? [`Los topes (${TOPE_SPARQL.nodos} nodos, ${ENTERO.format(TOPE_SPARQL.triples)} triples) dejaron vecinos fuera.`] : []),
     ],
     cortes,
     aviso: AVISO,
   };
-  if (r.resultType === "boolean") {
-    return { forma: "ask", variables: [], filas: [], booleano: await r.execute(), triples: [], truncado: false, ...base };
-  }
-  if (r.resultType === "quads") {
-    const quads = await (await r.execute()).toArray({ limit: TOPE_SPARQL.filas + 1 });
-    const nt = (x: TerminoJs) =>
-      x.termType === "NamedNode"
-        ? `<${x.value}>`
-        : x.termType === "BlankNode"
-          ? `_:${x.value}`
-          : `${JSON.stringify(x.value)}${x.language ? `@${x.language}` : x.datatype && x.datatype.value !== PREFIJOS.xsd + "string" ? `^^<${x.datatype.value}>` : ""}`;
-    return {
-      forma: "construct",
-      variables: [],
-      filas: [],
-      booleano: null,
-      triples: quads.slice(0, TOPE_SPARQL.filas).map((q) => `${nt(q.subject)} ${nt(q.predicate)} ${nt(q.object)} .`),
-      truncado: quads.length > TOPE_SPARQL.filas,
-      ...base,
-    };
-  }
-  const filas = await (await r.execute()).toArray({ limit: TOPE_SPARQL.filas + 1 });
-  const lineas = filas.slice(0, TOPE_SPARQL.filas).map((b) => Object.fromEntries([...b].map(([k, v]) => [k.value, aTermino(v)])));
+  if (r.forma === "ask") return { forma: "ask", variables: [], filas: [], booleano: r.booleano, triples: [], truncado: false, ...base };
+  if (r.forma === "construct") return { forma: "construct", variables: [], filas: [], booleano: null, triples: r.lineas, truncado: r.truncado, ...base };
   return {
     forma: "select",
-    variables: [...new Set(lineas.flatMap((f) => Object.keys(f)))],
-    filas: lineas,
+    variables: [...new Set(r.filas.flatMap((f) => Object.keys(f)))],
+    filas: r.filas,
     booleano: null,
     triples: [],
-    truncado: filas.length > TOPE_SPARQL.filas,
+    truncado: r.truncado,
     ...base,
   };
 }
 
-/** Lo que devuelve Comunica, en lo que se usa aquí. */
-type ResultadoComunica =
-  | { resultType: "void" }
-  | { resultType: "boolean"; execute(): Promise<boolean> }
-  | { resultType: "quads"; execute(): Promise<{ toArray(o: { limit: number }): Promise<{ subject: TerminoJs; predicate: TerminoJs; object: TerminoJs }[]> }> }
-  | { resultType: "bindings"; execute(): Promise<{ toArray(o: { limit: number }): Promise<Iterable<[{ value: string }, TerminoJs]>[]> }> };
+/* El hilo de SPARQL (`lib/sparql-hilo.cjs`). Una consulta que crece con el
+   cuadrado de los triples (un producto cruzado con ORDER BY o COUNT) no se
+   puede cortar desde dentro de Comunica: corre en un hilo con techo de
+   memoria y plazo, y si los pasa se mata el hilo, no el servidor. Uno por
+   instancia, reutilizado (armar el motor cuesta ~0,8 s), y una consulta a la
+   vez: el techo es de todo el hilo. */
 
-type MotorSparql = { query(q: string, contexto: { sources: unknown[] }): Promise<unknown> };
+/** Cuánto puede tardar y cuánta memoria puede usar una consulta. */
+const LIMITE_HILO = { ms: 10_000, memoriaMb: 256 } as const;
 
-let motorMemo: Promise<MotorSparql> | null = null;
+type Termino2 = { tipo: string; valor: string; datatype: string | null; idioma: string | null };
 
-/** El motor de Comunica, uno por instancia: armarlo cuesta ~0,8 s; consultar, milisegundos. */
-function motorSparql(): Promise<MotorSparql> {
-  motorMemo ??= import("@comunica/query-sparql-rdfjs-lite")
-    .then((m) => new m.QueryEngine() as unknown as MotorSparql)
-    .catch((err) => {
-      motorMemo = null;
-      throw err;
+type RespuestaHilo =
+  | {
+      ok: true;
+      resultado:
+        | { forma: "ask"; triples: number; booleano: boolean }
+        | { forma: "construct"; triples: number; lineas: string[]; truncado: boolean }
+        | { forma: "select"; triples: number; filas: Record<string, Termino2>[]; truncado: boolean };
+    }
+  | { ok: false; motivo: "sintaxis" | "actualizacion" | "fallo"; mensaje: string };
+
+/** El `require` de Node, que el empaquetado deja tal cual en la salida. */
+declare const __non_webpack_require__: NodeJS.Require;
+
+let hilo: Worker | null = null;
+let cola: Promise<unknown> = Promise.resolve();
+let siguientePedido = 0;
+
+function hiloSparql(): Worker {
+  if (!hilo) {
+    // El hilo se carga de disco, sin empaquetar (el archivo va en el trazado de
+    // `/mcp`, next.config.ts). Sus dos paquetes se resuelven aquí con el
+    // `require.resolve` de Node, que el trazado sigue con todas sus
+    // dependencias, y el hilo requiere exactamente esas rutas.
+    hilo = new Worker(join(process.cwd(), "lib", "sparql-hilo.cjs"), {
+      workerData: {
+        n3: __non_webpack_require__.resolve("n3"),
+        comunica: __non_webpack_require__.resolve("@comunica/query-sparql-rdfjs-lite"),
+      },
+      resourceLimits: { maxOldGenerationSizeMb: LIMITE_HILO.memoriaMb, maxYoungGenerationSizeMb: 32 },
     });
-  return motorMemo;
+    hilo.unref();
+  }
+  return hilo;
+}
+
+function matarHilo(): void {
+  const h = hilo;
+  hilo = null;
+  void h?.terminate();
+}
+
+function enHiloSparql(pedido: { triples: Triple[]; consulta: string; tope: number }): Promise<RespuestaHilo> {
+  const turno = cola.then(
+    () =>
+      new Promise<RespuestaHilo>((resolver, rechazar) => {
+        const h = hiloSparql();
+        const id = ++siguientePedido;
+        const fin = (accion: () => void) => {
+          clearTimeout(reloj);
+          h.off("message", alMensaje);
+          h.off("error", alError);
+          h.off("exit", alSalir);
+          accion();
+        };
+        const alMensaje = (m: RespuestaHilo & { id: number }) => {
+          if (m.id === id) fin(() => resolver(m));
+        };
+        const alError = (err: Error & { code?: string }) => {
+          matarHilo();
+          fin(() =>
+            rechazar(
+              err.code === "ERR_WORKER_OUT_OF_MEMORY"
+                ? new Aviso(`La consulta pidió más de ${LIMITE_HILO.memoriaMb} MB y se cortó. Un producto cruzado (dos patrones sin variable en común) crece con el cuadrado de los triples: únelos por una variable, filtra o usa menos vecinos.`)
+                : err,
+            ),
+          );
+        };
+        const alSalir = () => {
+          if (hilo === h) hilo = null;
+          fin(() => rechazar(new Error("el hilo de sparql salió")));
+        };
+        const reloj = setTimeout(() => {
+          matarHilo();
+          fin(() =>
+            rechazar(
+              new Aviso(`La consulta pasó de ${LIMITE_HILO.ms / 1000} s y se cortó. Un producto cruzado (dos patrones sin variable en común) con ORDER BY o COUNT crece con el cuadrado de los triples: únelos por una variable, filtra, o pide sin vecinos.`),
+            ),
+          );
+        }, LIMITE_HILO.ms);
+        h.on("message", alMensaje);
+        h.on("error", alError);
+        h.on("exit", alSalir);
+        h.postMessage({ id, triples: pedido.triples, consulta: pedido.consulta, tope: pedido.tope });
+      }),
+  );
+  cola = turno.catch(() => undefined);
+  return turno;
 }
 
 /* -------------------------------------------------------------- ontology */

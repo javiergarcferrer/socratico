@@ -19,10 +19,9 @@ import type { NextConfig } from "next";
 */
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // Comunica (el motor SPARQL de `sparql` en `lib/mcp.ts`) arma su motor con
-  // cientos de módulos que se resuelven al cargarse: se deja fuera del
-  // empaquetado y se requiere de `node_modules` tal cual, y el trazado lleva
-  // solo lo que requiere.
+  // Comunica y N3 (el motor SPARQL de `sparql` en `lib/mcp.ts`) corren en un
+  // hilo aparte, `lib/sparql-hilo.cjs`, que se carga de disco tal cual: no
+  // pasan por el empaquetado.
   serverExternalPackages: ["@comunica/query-sparql-rdfjs-lite", "n3"],
   outputFileTracingIncludes: {
     "/buscar": ["./public/data/busqueda/**"],
@@ -56,6 +55,8 @@ const nextConfig: NextConfig = {
     // compras desde 2015 (`lib/historico.ts`, que abre un archivo por el
     // último dígito del RPE) para `contracting_history`.
     "/mcp": [
+      // El hilo de `sparql` y lo que requiere (no lo ve el trazado: se carga por ruta).
+      "./lib/sparql-hilo.cjs",
       "./public/data/busqueda/**",
       "./public/data/historico/**",
       "./public/data/decretos/**",

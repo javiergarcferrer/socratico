@@ -309,8 +309,13 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
     );
   }
   // Lo que contrató desde 2015: sus doce mayores proveedores (`lib/historico.ts`).
-  for (const [rpe, nombre, contratos, monto] of ligero ? [] : ((await historiaDeInstitucion(inst.id))?.historia.top ?? [])) {
+  const historia = ligero ? null : (await historiaDeInstitucion(inst.id))?.historia;
+  for (const [rpe, nombre, contratos, monto] of historia?.top ?? []) {
     await triplesContratacion({ uc: inst.id, rpe, proveedor: nombre, contratos, monto }, x);
+  }
+  if (historia && historia.proveedores > historia.top.length) {
+    const compras = `Se describen sus ${historia.top.length} mayores proveedores de los ${historia.proveedores.toLocaleString("es-DO")} a los que contrató desde 2015.`;
+    nota = nota ? `${nota} ${compras}` : compras;
   }
   const qid = await wikidataDe({ tipo: "institucion", id: String(inst.id) });
   if (qid) x.push(t(s, "owl:sameAs", iri(`wd:${qid}`)));
@@ -451,8 +456,12 @@ async function triplesContratacion(
   if (c.empresa) return;
   const rnc = await rncDeProveedor(c.rpe);
   if (rnc) {
+    // La empresa con su nombre del padrón, no el del registro de proveedores:
+    // un centenar de cruces cambió de nombre entre uno y otro.
     const e = iriDe({ tipo: "empresa", id: rnc });
-    x.push(t(e, "soc:inscritaComo", iri(pr)), t(e, "rdfs:label", lit(c.proveedor)));
+    const padron = await empresaPorRnc(rnc);
+    x.push(t(e, "soc:inscritaComo", iri(pr)));
+    if (padron) x.push(t(e, "rdfs:label", lit(padron.razonSocial)));
   }
 }
 
@@ -563,7 +572,7 @@ export async function inventario(): Promise<ClaseContada[]> {
     padronEmpresas(),
     getDeclaraciones(),
     getSanciones(),
-    contarContrataciones(),
+    contarContrataciones((uc) => institucionPorId(uc) != null),
     getResumenHistorico(),
   ]);
   const cargos = f?.personas.reduce((n, p) => n + p.cargos.length, 0) ?? 0;
@@ -588,7 +597,7 @@ export async function inventario(): Promise<ClaseContada[]> {
     { clase: "soc:MedidaDGCP", etiqueta: "Medidas sobre proveedores", n: medidas, fuente: "DGCP", corte: sanc?.generado ?? null },
     {
       clase: "soc:Proveedor",
-      etiqueta: "Proveedores con contratos desde 2015",
+      etiqueta: "Proveedores con contrataciones en el grafo",
       n: contrataciones?.proveedores ?? 0,
       fuente: "DGCP (contratos)",
       corte: historico?.corte ?? null,
@@ -644,7 +653,7 @@ export type GrupoRelacion = "cargos" | "compras" | "decretos" | "entidades" | "l
 
 export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "cargos", etiqueta: "Cargos" },
-  { id: "compras", etiqueta: "Compras públicas desde 2015" },
+  { id: "compras", etiqueta: "Mayores contrataciones desde 2015" },
   { id: "decretos", etiqueta: "Decretos" },
   { id: "entidades", etiqueta: "La misma entidad y quien la supervisa" },
   { id: "lugares", etiqueta: "Provincias" },
@@ -670,6 +679,8 @@ export interface Relacion {
   /** El movimiento del cargo, en llano: «Designación». */
   movimiento: string | null;
   fecha: string | null;
+  /** Una contratación: el valor contratado en pesos (no pagado). */
+  monto: number | null;
 }
 
 const V = {
@@ -736,8 +747,8 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
 
   const salida: Relacion[] = [];
   const vistas = new Set<string>();
-  const agregar = (r: Omit<Relacion, "detalle" | "movimiento" | "fecha"> & Partial<Relacion>) => {
-    const completa: Relacion = { detalle: null, movimiento: null, fecha: null, ...r };
+  const agregar = (r: Omit<Relacion, "detalle" | "movimiento" | "fecha" | "monto"> & Partial<Relacion>) => {
+    const completa: Relacion = { detalle: null, movimiento: null, fecha: null, monto: null, ...r };
     const k = [completa.grupo, completa.verbo, completa.href, completa.nombre, completa.detalle, completa.fecha].join("|");
     if (vistas.has(k)) return;
     vistas.add(k);
@@ -870,21 +881,24 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
   const cuanto = (c: string) => {
     const m = uno(c, V.montoContratado, "literal");
     const n = uno(c, V.numeroDeContratos, "literal");
-    return m ? `RD$ ${Number(m).toLocaleString("es-DO")} en ${Number(n ?? 0).toLocaleString("es-DO")} ${n === "1" ? "contrato" : "contratos"} desde 2015` : null;
+    return {
+      monto: m ? Number(m) : null,
+      detalle: `${Number(n ?? 0).toLocaleString("es-DO")} ${n === "1" ? "contrato" : "contratos"} desde 2015 · valor contratado, no pagado`,
+    };
   };
   for (const x of entran.get(sujeto) ?? []) {
     if (x.p !== V.contratante || x.s.tipo !== "iri") continue;
     const pr = uno(x.s.valor, V.contratista, "iri");
     if (!pr) continue;
     const empresa = entran.get(pr)?.find((y) => y.p === V.inscritaComo && y.s.tipo === "iri")?.s.valor ?? null;
-    agregar({ grupo: "compras", verbo: "Contrató a", neutro: "Una contratación", ...hacia(empresa ?? pr), nombre: nombre(pr), detalle: cuanto(x.s.valor) });
+    agregar({ grupo: "compras", verbo: "Contrató a", neutro: "Una contratación", ...hacia(empresa ?? pr), nombre: nombre(pr), ...cuanto(x.s.valor) });
   }
   for (const x of salen.get(sujeto) ?? []) {
     if (x.p !== V.inscritaComo || x.o.tipo !== "iri") continue;
     for (const y of entran.get(x.o.valor) ?? []) {
       if (y.p !== V.contratista || y.s.tipo !== "iri") continue;
       const inst = uno(y.s.valor, V.contratante, "iri");
-      if (inst) agregar({ grupo: "compras", verbo: "Le contrató", neutro: "Una contratación", ...hacia(inst), nombre: nombre(inst), detalle: cuanto(y.s.valor) });
+      if (inst) agregar({ grupo: "compras", verbo: "Le contrató", neutro: "Una contratación", ...hacia(inst), nombre: nombre(inst), ...cuanto(y.s.valor) });
     }
   }
 
@@ -1048,6 +1062,7 @@ const INSTANTANEAS = [
   "wikidata.json",
   "empresas/meta.json",
   "historico/instituciones.json",
+  "historico/proveedores/0.json",
   "historico/rnc.json",
 ];
 

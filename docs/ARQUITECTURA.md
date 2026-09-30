@@ -1045,8 +1045,11 @@ una función (medido: abajo).
   `soc:numeroDeContratos`, con `dct:source` a la tabla de contratos de la
   DGCP. Salen de `lib/historico.ts` y cubren los pares de sus listas de
   mayores: los doce proveedores de cada institución (`describirInstitucion`)
-  y los ocho clientes de cada proveedor (`describirEmpresa`, por cada RPE de
-  la empresa). El IRI es el mismo desde los dos lados
+  y los ocho clientes de cada proveedor con RNC de persona jurídica
+  (`describirEmpresa`, por cada RPE de la empresa); un proveedor sin empresa
+  solo entra por las listas de las instituciones. El inventario cuenta solo
+  lo que se emite (`contarContrataciones`), y la nota de la institución dice
+  de cuántos proveedores son sus doce. El IRI es el mismo desde los dos lados
   (`/proveedores/<rpe>#contratacion-<uc>`), así que dos descripciones se
   funden. La empresa se ata a la inscripción (`soc:inscritaComo`) por el RNC
   que el padrón de la DGII da a su RPE: `public/data/historico/rnc.json`, de
@@ -1175,19 +1178,38 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   abiertas de mobiliario», «lo que compró el MOPC en 2026», con los filtros
   deducidos dichos en `deducidos`), `contracting_history` («cuánto le ha
   contratado el Estado a Viamar») o `path` («qué relación hay entre A y B»).
-  Un nombre propio es una secuencia con mayúscula que no abre la pregunta ni
-  es el Estado mismo: la pregunta entera ataba «¿cuánto debe el país?» a dos
-  cooperativas que se llaman «País». Atar por nombre es recuperar, no afirmar
-  identidad: cada entidad dice `por` qué se ató.
+  Las reglas del enlace, cada una por un error que se vio:
+  - **Siglas solo en mayúsculas**: «trabajo», «cultura» y «agricultura» son
+    también siglas del catálogo, y «materiales de trabajo» filtraba por el
+    Ministerio de Trabajo.
+  - **Un nombre propio** es una secuencia con mayúscula que no es la palabra
+    sola que abre la pregunta («Proveedores que…» ataba a un proveedor), ni
+    una sigla ya atada («INAPA» ataba a INAPECF por prefijo), ni el Estado
+    mismo (la pregunta entera ataba «¿cuánto debe el país?» a dos
+    cooperativas «País»).
+  - **Un proveedor, solo por su nombre exacto** sin la forma jurídica; si dos
+    registros se llaman igual (hay homónimos, personas y empresas), no se
+    elige ninguno y la nota lo dice, la regla de `contracting_history`.
+  - **Solo filtra lo que la pregunta nombra** (sus siglas o un nombre que ata
+    una sola entidad), nunca un nodo que trajo el buscador; si nombra algo que
+    no se pudo atar, `procurement` no se corre (contestaría por todo el
+    Estado) y la nota lo dice. Lo nombrado sale de las palabras de la carátula.
+  - **Un proveedor nombrado** va a `contracting_history` (el par, si también
+    nombra una institución), no a `procurement`, cuya tabla no dice quién
+    ganó; **un año anterior a la instantánea de procesos**, también.
+  Atar por nombre es recuperar, no afirmar identidad: cada entidad dice `por`
+  qué se ató.
 - **`sparql`, a pedido**. SPARQL 1.1 de lectura sobre las descripciones RDF
   de hasta 10 nodos nombrados y, por omisión, sus vecinos (hasta 150 nodos y
   100 mil triples), más la ontología, en un almacén **N3.js** en memoria con el
   motor **Comunica** (`@comunica/query-sparql-rdfjs-lite`, sin actores de red),
   que viven lo que dura la llamada; el motor se arma una vez por instancia
-  (~0,8 s en frío) y una consulta tarda milisegundos. Los prefijos de
+  (~0,8 s en frío) y una consulta bien acotada tarda milisegundos (una mal
+  acotada, abajo, se corta a los 10 s). Los prefijos de
   `lib/rdf.ts` vienen declarados. Una actualización se rechaza **antes** de
   ejecutarse (Comunica las ejecutaría sobre el almacén de la llamada) y
-  `SERVICE` también. Cada respuesta dice su alcance (nodos, triples, si los
+  `SERVICE` y `LOAD` también (buscados fuera de los IRI, los literales y los
+  comentarios). Cada respuesta dice su alcance (nodos, triples, si los
   topes recortaron): un COUNT vale para ese alcance, no para el grafo. **Por
   qué no el grafo entero**, medido el 30-09-2026 con un millón de triples
   sintéticos (lo que pesaría el grafo sin personas): Oxigraph (WASM) carga en
@@ -1196,9 +1218,28 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   servido aparte es una base de datos (DECISIONES, «Un SPARQL del grafo
   entero»). **Por qué N3 y Comunica y no Oxigraph**, que era más rápido: el
   criterio de dependencias (DECISIONES, «Código abierto probado»). N3.js
-  (~870 mil descargas al mes, dos mantenedores) y Comunica (su núcleo ~570 mil
-  al mes, cinco mantenedores, del IDLab de la Universidad de Gante) lo pasan;
-  el registro de Oxigraph lo publica un solo mantenedor.
+  (~870 mil descargas al mes, dos mantenedores) y Comunica (cinco
+  mantenedores, del IDLab de la Universidad de Gante; su núcleo,
+  `@comunica/core`, ~570 mil descargas al mes, y el paquete que se usa,
+  `@comunica/query-sparql-rdfjs-lite`, ~53 mil) lo pasan; el registro de
+  Oxigraph lo publica un solo mantenedor. Su costo: 468 paquetes nuevos en el
+  lockfile (Comunica es modular), de los que la función lleva lo que se
+  requiere, ~9 MB.
+- **El hilo de `sparql`** (`lib/sparql-hilo.cjs`). Comunica no se deja
+  cortar desde dentro, y una consulta mal acotada (dos patrones sin variable
+  en común, con ORDER BY o COUNT) crece con el cuadrado de los triples: en la
+  revisión, una sola llegó a 7 GB y dejó el servidor sin responder. Por eso
+  corre en un `worker_threads` con techo de memoria (256 MB de heap) y plazo
+  (10 s): si los pasa, se mata el hilo y se responde un aviso en llano; el
+  servidor sigue atendiendo y la próxima consulta arma un hilo nuevo. Uno por
+  instancia, reutilizado, una consulta a la vez. El hilo se carga de disco sin
+  empaquetar (va en el trazado de `/mcp` por `outputFileTracingIncludes`), y
+  sus dos paquetes se resuelven en el hilo del servidor con
+  `__non_webpack_require__.resolve`, que el empaquetado deja como
+  `require.resolve` y el trazado sigue con todas sus dependencias; el hilo
+  requiere esas mismas rutas (`workerData`). Se probaron, y no sirven, un
+  `new Worker(new URL(…))` (el empaquetado hace del hilo un trozo que el
+  trazado no lleva) y un `createRequire` (el trazado no lo sigue).
 - **La forma de ChatGPT**: `search` devuelve `results` con `id`, `title`,
   `url` y `text`; `fetch`, `id`, `title`, `text`, `url` y `metadata`. Todas
   las herramientas devuelven el objeto como `structuredContent` (con su
@@ -1249,7 +1290,7 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
 - **La evaluación** (`scripts/eval-mcp.mjs`, en `verificar.sh --completo`
-  contra `next start`): 39 preguntas de quien investiga —la compra más
+  contra `next start`): 46 preguntas de quien investiga —la compra más
   grande del año, las licitaciones de mobiliario abiertas, lo contratado a un
   proveedor, quién dirige una institución—, cada una con su oráculo calculado
   aparte de `public/data`, más las reglas de toda respuesta (sin cédula, con

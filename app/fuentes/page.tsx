@@ -855,8 +855,9 @@ export default async function FuentesPage() {
             <Link href={enlace.grafo()} className="font-medium text-brand-700 hover:underline">
               el grafo
             </Link>
-            , lo que cada institución le contrató a sus doce mayores proveedores, y cada
-            proveedor a sus ocho mayores clientes, es una contratación con su monto. Se ata a
+            , lo que cada institución le contrató a sus doce mayores proveedores, y lo que
+            cada empresa proveedora cobró de sus ocho mayores clientes, es una
+            contratación con su monto contratado (no pagado). Se ata a
             la empresa que la cobró por el RNC que el padrón de la DGII da a su registro de
             proveedor (
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-historico-rnc.py</code>

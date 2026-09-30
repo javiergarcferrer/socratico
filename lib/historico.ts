@@ -190,27 +190,36 @@ export async function rncDeProveedor(rpe: string): Promise<string | null> {
 let paresMemo: Promise<{ pares: number; proveedores: number; corte: string } | null> | null = null;
 
 /**
- * Cuántas contrataciones institución → proveedor describe el grafo: los pares
- * de las listas de mayores (los ocho clientes de cada proveedor y los doce
- * proveedores de cada institución), sin repetir. Para el inventario del grafo.
+ * Cuántas contrataciones institución → proveedor describe de verdad el grafo,
+ * y entre cuántos proveedores: los doce mayores proveedores de cada
+ * institución del cruce (`existe`), y los ocho mayores clientes de cada
+ * proveedor con RNC de persona jurídica (el lado de la empresa), sin repetir.
+ * Es la regla de `lib/grafo-rdf.ts`: el inventario no cuenta lo que no se
+ * emite.
  */
-export function contarContrataciones(): Promise<{ pares: number; proveedores: number; corte: string } | null> {
+export function contarContrataciones(existe: (uc: number) => boolean): Promise<{ pares: number; proveedores: number; corte: string } | null> {
   paresMemo ??= (async () => {
     const pares = new Set<string>();
-    let corte = "";
-    let proveedores = 0;
+    const proveedores = new Set<string>();
+    const sumar = (uc: number, rpe: string) => {
+      pares.add(`${uc}|${rpe}`);
+      proveedores.add(rpe);
+    };
+    const [inst, rnc] = await Promise.all([
+      leer<{ corte: string; filas: Record<string, HistoriaInstitucion> }>("instituciones.json"),
+      leer<{ rnc: Record<string, string> }>("rnc.json"),
+    ]);
+    if (!inst) return null;
+    for (const [uc, h] of Object.entries(inst.filas)) if (existe(Number(uc))) for (const [rpe] of h.top) sumar(Number(uc), rpe);
     for (let n = 0; n < 10; n++) {
       const d = await leer<{ corte: string; filas: Record<string, FilaProveedor> }>(`proveedores/${n}.json`);
       if (!d) return null;
-      corte = d.corte;
       for (const [rpe, f] of Object.entries(d.filas)) {
-        proveedores++;
-        for (const [uc] of f.c) pares.add(`${uc}|${rpe}`);
+        if (!rnc?.rnc[rpe]) continue;
+        for (const [uc] of f.c) if (existe(uc)) sumar(uc, rpe);
       }
     }
-    const inst = await leer<{ filas: Record<string, HistoriaInstitucion> }>("instituciones.json");
-    for (const [uc, h] of Object.entries(inst?.filas ?? {})) for (const [rpe] of h.top) pares.add(`${uc}|${rpe}`);
-    return { pares: pares.size, proveedores, corte };
+    return { pares: pares.size, proveedores: proveedores.size, corte: inst.corte };
   })().catch((err) => {
     console.error("[historico] contrataciones:", err);
     paresMemo = null;

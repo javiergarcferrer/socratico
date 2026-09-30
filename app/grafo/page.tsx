@@ -12,7 +12,7 @@ import Plegable from "@/components/plegable";
 import Antiguedad from "@/components/antiguedad";
 import { IconExternal } from "@/components/icons";
 import { formatInt } from "@/lib/nomina";
-import { formatFecha } from "@/lib/format";
+import { formatFecha, formatPesos } from "@/lib/format";
 import { SITIO } from "@/lib/sitio";
 import { enlace, nodoDeRuta, rutaDeNodo, type NodoRdf } from "@/lib/grafo";
 import {
@@ -332,7 +332,7 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
       clave: k,
       nombre: r.nombre,
       // El rótulo del tramo ya dice «Cargos»: el cargo va solo; los demás verbos sí dicen algo.
-      arista: r.verbo === "Cargo" && r.detalle ? r.detalle : [r.verbo, r.detalle].filter(Boolean).join(" · "),
+      arista: r.verbo === "Cargo" && r.detalle ? r.detalle : [r.verbo, r.monto != null ? formatPesos(r.monto) : null, r.detalle].filter(Boolean).join(" · "),
       grupo: GRUPOS.find((g) => g.id === r.grupo)!.etiqueta,
       href: enlace.grafo(rutaDeNodo(r.nodo)),
     });
@@ -468,8 +468,10 @@ function FilaRelacion({ r }: { r: Relacion }) {
         <div className="min-w-0 flex-1">
           <p className="text-xs text-ink-soft">{r.verbo}</p>
           <div className="mt-0.5 break-words">{nombre}</div>
-          {(r.detalle || r.fecha) && (
+          {(r.detalle || r.fecha || r.monto != null) && (
             <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
+              {r.monto != null && <span className="font-mono tabular-nums text-ink">{formatPesos(r.monto)}</span>}
+              {r.monto != null && r.detalle ? " · " : ""}
               {r.detalle}
               {r.detalle && r.fecha ? " · " : ""}
               <Antiguedad iso={r.fecha} prefijo={r.movimiento ?? undefined} />

@@ -113,6 +113,8 @@ const corpus = leer("busqueda/corpus.json");
 const rncMayor = corpus.docs.find((d) => d.t === "proveedor" && d.r === mayorProveedor.rpe)?.c ?? null;
 const instituciones = leer("instituciones.json").instituciones;
 const MINERD = instituciones.find((x) => x.acronimo === "MINERD");
+const INAPA = instituciones.find((x) => x.acronimo === "INAPA");
+const MESCYT = instituciones.find((x) => x.acronimo === "MESCYT");
 
 // El cruce RPE → RNC con que el grafo ata una contratación a su empresa.
 const rncDe = leer("historico/rnc.json").rnc;
@@ -452,7 +454,7 @@ const CASOS = [
       const destino = rncDe[rpe] ? `/empresas/${rncDe[rpe]}` : `/proveedores/${rpe}`;
       exigir(datos.total === topMinerd.length, `${datos.total} contrataciones; debían ser ${topMinerd.length}`);
       exigir(primera?.id === destino, `la primera va a ${primera?.id}; debía ir a ${destino} (${nombre})`);
-      exigir(primera.detalle?.replace(/\D/g, "").startsWith(String(monto)), `el monto dice «${primera.detalle}»; debía ser ${monto}`);
+      exigir(primera.monto === monto, `el monto es ${primera.monto}; debía ser ${monto}`);
       return `${nombre}: ${pesos(monto)} → ${destino}`;
     },
   },
@@ -536,6 +538,84 @@ const CASOS = [
       exigir(e?.id === `/instituciones/${MINERD.id}`, `la primera entidad es ${e?.id}`);
       exigir(e.relaciones.some((r) => r.includes("La dirige")), "no dice quién la dirige");
       return e.relaciones.find((r) => r.includes("La dirige")).slice(0, 70);
+    },
+  },
+  {
+    pregunta: "SPARQL: un producto cruzado se corta a tiempo y el servidor sigue",
+    async correr() {
+      const t0 = performance.now();
+      const { error } = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], consulta: "SELECT ?a ?f WHERE { ?a ?b ?c . ?d ?e ?f } ORDER BY ?c ?f LIMIT 1" });
+      const s = Math.round((performance.now() - t0) / 1000);
+      exigir(error?.includes("se cortó"), `no se cortó: ${error ?? "respondió"}`);
+      exigir(s <= 15, `tardó ${s} s`);
+      const b = await llamar("sparql", { nodos: [`/instituciones/${MINERD.id}`], vecinos: false, consulta: "ASK { ?x a soc:Contratacion }" });
+      exigir(b.datos?.booleano === true, `la siguiente consulta falló: ${b.error ?? JSON.stringify(b.datos)}`);
+      return `cortada en ${s} s; la siguiente responde`;
+    },
+  },
+  {
+    pregunta: "retrieve: «Muéstrame lo contratado por el INAPA» no ata a otra empresa por la sigla",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "Muéstrame lo contratado por el INAPA" });
+      exigir(!error, error);
+      exigir(datos.entidades[0]?.id === `/instituciones/${INAPA.id}`, `la primera entidad es ${datos.entidades[0]?.id}`);
+      const ev = datos.evidencias.find((e) => e.clase === "Lo contratado desde 2015");
+      exigir(ev?.id === `/instituciones/${INAPA.id}`, `lo contratado es de ${ev?.id ?? "nadie"}`);
+      return ev.titulo;
+    },
+  },
+  {
+    pregunta: "retrieve: «Proveedores que más le venden al MINERD» no ata un proveedor por la palabra que abre",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "Proveedores que más le venden al MINERD" });
+      exigir(!error, error);
+      exigir(!datos.entidades.some((e) => e.id.startsWith("/empresas/") && e.por.includes("nombra al proveedor")), "ató un proveedor");
+      exigir(datos.entidades[0]?.id === `/instituciones/${MINERD.id}`, `la primera entidad es ${datos.entidades[0]?.id}`);
+      return "MINERD";
+    },
+  },
+  {
+    pregunta: "retrieve: un nombre de dos proveedores no se resuelve por su cuenta",
+    async correr() {
+      exigir(homonimo, "el oráculo no encontró homónimos");
+      const { datos, error } = await llamar("retrieve", { pregunta: `¿Cuánto le ha contratado el Estado a ${homonimo[0].ti}?` });
+      exigir(!error, error);
+      exigir(datos.notas.some((n) => n.includes("registros de proveedor distintos")), "no avisó de los homónimos");
+      exigir(!datos.evidencias.some((e) => e.clase === "Lo contratado desde 2015" && e.id?.startsWith("/proveedores/")), "eligió a uno");
+      return `«${homonimo[0].ti}»`;
+    },
+  },
+  {
+    pregunta: "retrieve: «las compras más grandes del Ministerio de Educación Superior» no filtra por el MINERD",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuáles son las compras más grandes del Ministerio de Educación Superior?" });
+      exigir(!error, error);
+      const filtro = datos.compras?.filtros?.institucion ?? null;
+      exigir(filtro !== `/instituciones/${MINERD.id}`, "filtró por el MINERD");
+      exigir(!filtro || filtro === `/instituciones/${MESCYT.id}`, `filtró por ${filtro}`);
+      exigir(filtro || datos.notas.some((n) => n.includes("no se corrió procurement")), "corrió sin filtro y sin decirlo");
+      return filtro ? `filtra por ${filtro} (${datos.compras.total})` : "no corrió, y lo dice";
+    },
+  },
+  {
+    pregunta: "retrieve: «la compra más grande de 2019» (antes de la instantánea) lleva a la historia",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "¿Cuál fue la compra más grande de 2019?" });
+      exigir(!error, error);
+      exigir(datos.compras === null, "corrió procurement para 2019");
+      exigir(datos.notas.some((n) => n.includes("2019 no está")), "no dice que 2019 no está");
+      exigir(datos.siguientes.some((x) => x.herramienta === "contracting_history"), "no sugiere contracting_history");
+      return "lleva a contracting_history";
+    },
+  },
+  {
+    pregunta: "retrieve: «materiales de trabajo» en minúsculas no es la sigla de una institución",
+    async correr() {
+      const { datos, error } = await llamar("retrieve", { pregunta: "compras de materiales de trabajo abiertas" });
+      exigir(!error, error);
+      exigir(!datos.entidades.some((e) => e.por.includes("siglas")), `ató por siglas: ${datos.entidades.map((e) => e.titulo).join(", ")}`);
+      exigir(!datos.compras?.filtros?.institucion, `filtró por ${datos.compras?.filtros?.institucion}`);
+      return `${datos.compras?.total ?? 0} abiertas`;
     },
   },
   {
