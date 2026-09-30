@@ -22,6 +22,7 @@
  *    de presentar indicadores, sin tarjetas y sin sombras.
  */
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { textoAncla, type Ancla } from "@/lib/cifras";
@@ -88,6 +89,7 @@ export function Cifra({
   nota,
   ancla,
   tono = "text-ink",
+  href,
   className,
 }: {
   etiqueta: ReactNode;
@@ -95,15 +97,29 @@ export function Cifra({
   nota?: ReactNode;
   ancla?: Ancla;
   tono?: string;
+  /**
+   * Lo que la cifra cuenta, si tiene dónde verse: «4,808 decretos» lleva a
+   * los 4,808. El número es entonces un enlace, en la tinta de trabajo.
+   */
+  href?: string;
   className?: string;
 }) {
   const contexto = nota ?? textoAncla(ancla);
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <span className="text-xs leading-tight text-ink-soft">{etiqueta}</span>
-      <span className={cn("font-mono text-xl font-semibold tabular-nums", tono)}>
-        {valor}
-      </span>
+      {href ? (
+        <Link
+          href={href}
+          className="font-mono text-xl font-semibold tabular-nums text-brand-700 underline decoration-brand-700/30 underline-offset-4 hover:decoration-brand-700"
+        >
+          {valor}
+        </Link>
+      ) : (
+        <span className={cn("font-mono text-xl font-semibold tabular-nums", tono)}>
+          {valor}
+        </span>
+      )}
       {/*
         12 px y no 11: esta línea es la que declara **la base del número** —si
         es un censo, una muestra o una instantánea— y es lo único que impide

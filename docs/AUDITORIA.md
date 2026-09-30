@@ -2044,8 +2044,9 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
   (✅ 200 `text/html`; su robots solo veda `/error.aspx`); ninguno de los 11 RNC
   está en el registro de proveedores de la DGCP, ni cancelado. `robots.txt` del
   servicio de listas: 404. ✅ Lista consolidada de la ONU: 0
-  menciones (control negativo). ❌ Banco Mundial: la tabla de inhabilitados sale
-  de una API con `apikey` publicada en su JS: no se usa (decisión del dueño). ❌
+  menciones (control negativo). ⚠️ Banco Mundial: la tabla de inhabilitados sale
+  de una API con `apikey` publicada en su JS; el dueño aprobó usarla el 30-09-2026
+  sin escribirla en el repositorio (§H.13). ❌
   BID: 403 de Cloudflare hasta en robots.
 - ✅ **ProCompetencia**: robots con `Crawl-Delay: 20`; sus resoluciones no están en
   la REST, pero `https://procompetencia.gob.do/resoluciones-procompetencia/feed/`
@@ -2096,3 +2097,88 @@ La regla sigue siendo leer el robots **completo** antes de la primera petición.
    representación, §H.6), SIMV, SIS (intermediarios), CASFL (registro de ASFL),
    Cámara de Cuentas y PGR (470),
    DIGECOG (470), Hacienda (API del SIGEF, 403), BID; y los dos avisos de §H.10.
+
+### H.12 Declaraciones juradas de patrimonio — dónde están (2026-09-30)
+
+El dueño preguntó por las de Luis Abinader. Reconocimiento con el UA de la casa,
+robots primero, solo GET, sin transcribir ningún PDF:
+
+- ❌ **Cámara de Cuentas** (`camaradecuentas.gob.do/index.php/reportes-djp`) → **HTTP
+  470** «Request Blocked» otra vez (corrige §G.6/§G.12, que la vieron responder el
+  24-09-2026). `scripts/build-auditorias.py` no puede regenerarse hoy.
+- ⚠️ **Consulta Pública de DJP** (`https://consultadjp.camaradecuentas.gob.do/`) → 200
+  `text/html`, 23,151 B, ASP.NET MVC con AdminLTE, «Consulta DJP | Reporte Externo»:
+  es el registro central y busca por nombre, cédula, institución o cargo. El listado
+  sale por `POST Home/dtSourceDetalle` (DataTables) y el documento pide un **CAPTCHA**
+  (`POST /Reportes/ValidarCaptcha`). No se ejecutó: la plataforma no la lee; la ficha
+  de cada obligado la **enlaza** para que el lector busque. Vía para leerla:
+  institucional (un volcado de metadatos: declarante, institución, cargo, fecha).
+- ❌ `djurada.camaradecuentas.gob.do/DJP_OJO_CIUDADANO/pgReportesDJPExternos.aspx`,
+  que enlaza la Presidencia → 404 (enlace muerto; se puede reportar a su OAI).
+- ⚠️ **Presidencia** (`presidencia.gob.do/transparencia/declaraciones-juradas`, Drupal;
+  robots permite) → 200: 10 PDF de la Dirección de Comunicación, de 2012 a 2021.
+  **Ninguna del Presidente ni de la Vicepresidenta**; la sección no se actualiza
+  desde 2021.
+- ✅ **Las instituciones publican las de sus directivos** en su biblioteca WordPress:
+  `GET /wp-json/wp/v2/media?search=declaracion&media_type=application` (la lectura de
+  §G.2, filtrada). MAPRE y la Vicepresidencia tienen el portal de transparencia como
+  **segunda instalación** de WordPress bajo `/transparencia/` (su `wp-json` es otro).
+  Primera lectura de `scripts/build-declaraciones.py` (30-09-2026): **105
+  declaraciones de 7 instituciones** (MIP 55, MAPRE 15, MIVHED 12, DIGEIG 8, OGTIC 4,
+  INTRANT 2 y la Presidencia 9); **62 atadas a una ficha** sin dudas. Vicepresidencia:
+  0 por esa vía. Ambiente: robots 403 (Cloudflare), no se lee.
+- Veredicto para el dueño: **la declaración de Luis Abinader no está publicada en
+  abierto** en ningún portal legible; la tiene la Cámara de Cuentas y se consulta a
+  mano en su consulta pública. Decisión de enlazar: docs/DECISIONES.md (30-09-2026).
+
+### H.13 Consultas POST aprobadas y el Banco Mundial (2026-09-30)
+
+Aprobado por el dueño el 30-09-2026 (docs/DECISIONES.md). Reconocimiento con el UA de
+la casa, como mucho tres POST por consulta, sin sesión ni cookies:
+
+- ✅ **Poder Judicial — Rol Nacional de Audiencias.** Página pública
+  `rolnacionalaudiencias.poderjudicial.gob.do` (SPA de React, sin CAPTCHA ni clave),
+  API `https://apigestionaudienciasroles.poderjudicial.gob.do/api/`: catálogos por GET
+  (`Materias/`, `TipoConsultas/`, `Distritos/`, `Categorias?IdDistritoJudicial=30`) y el
+  rol por `POST /api/Audiencias/ObtenerRolAudiencias/` con JSON
+  `{"idDistritoJudicial":0,"idCategoriaTribunal":0,"idMateria":0,"idTribunal":0,"idSala":0,
+  "idModalidad":0,"idEstatus":0,"idTipoConsulta":4,"tipoConsulta":"<NUC>","fechaDesde":null,
+  "fechaHasta":null,"paginaActual":1,"registrosPorPagina":20}` → 200 JSON con
+  `totalRegistros` y `datos[]`: la **historia completa del caso en todos los
+  tribunales** (fecha y hora locales, tribunal, sala, modalidad, estado, resultado,
+  próxima audiencia, materia, asunto). `partes` es una cadena con nombres y su papel:
+  **no se muestra el nombre**, solo el papel. Tipos de consulta que la API admite y la
+  plataforma **no usa**: nombre de parte (6), cédula (7), representante (26) y el rol
+  entero sin filtro. El NUC no tiene un formato único (nueve patrones en 20 filas):
+  se envía tal cual. 4.6 s para un caso.
+- ⚠️ **Registro Inmobiliario — consulta de expedientes.**
+  `POST https://servicios.ri.gob.do/ConsultaDeExpedientes/GetExpedient`,
+  `application/x-www-form-urlencoded`, `NoExpe=<número>` (mínimo 5 caracteres), sin
+  cookies, token ni CAPTCHA → 200 JSON `{"data":[],"statusCode":200,"errorMessage":null,
+  "isSuccess":false}` para un número que no existe. **No se vio una respuesta con
+  datos** (no hay número real publicado): las columnas `fechaSolicitud, organo,
+  numeroExpediente, numeroOriginal, resultadoExpediente, estatusDigital, tramites`
+  salen del JS de la página. El parcelario sigue con reCAPTCHA (❌) y las
+  certificaciones de estado jurídico, con cuenta y pago (❌).
+- ✅ **BCRD — Junta Monetaria.** `/a/d/2557-miembros-jm` pide su contenido con
+  `POST /Home/GetContentForRender`, `id=2557&languageName=es` (el número solo; la
+  prueba de §H.3 mandaba el identificador entero y por eso volvía `null`) → 200 con
+  JSON dentro de `text/html`, 3,501 B: diez nombres y cargos en `article.content`
+  (HTML). Trampa: un miembro retirado queda **comentado** en el HTML y hay que
+  quitar los comentarios antes de leer. `id=2562` («Principales funcionarios»,
+  151,815 B) trae nombre y cargo del gobernador, la vicegobernadora, el gerente, el
+  contralor, subgerentes, asesores y directores, con biografías y fotos que no se
+  leen.
+- ✅ **Banco Mundial — firmas e individuos inhabilitados.** La página
+  `https://www.worldbank.org/en/projects-operations/procurement/debarred-firms` (robots
+  permite) trae en un `<script>` en línea `var prodtabApi = "…"` y `var propApiKey = "…"`
+  (32 caracteres; hay también una de QA: se ancla por el nombre de la variable). `GET`
+  al endpoint con la cabecera `apikey`, sin Origin ni Referer → 200 JSON, 1.75 MB,
+  7.7 s: `response.ZPROCSUPP[]`, **1,520 sanciones vigentes** (firmas 1,251,
+  individuos 260), con `SUPP_NAME`, `LAND1`/`COUNTRY_NAME`, dirección, `DEBAR_FROM_DATE`,
+  `DEBAR_TO_DATE` (2999-12-31 = indefinida), `DEBAR_REASON`, `INELIGIBLY_STATUS`,
+  `ELIG_STAT` (DEBARRED o X-DEBARRED, inhabilitación cruzada). `ADD_SUPP_INFO` no es
+  fiable y no se usa. **Una entrada dominicana**: una firma, inhabilitación cruzada del
+  EBRD de 2026-06-26 a 2027-07-10. El robots del gateway (`apigwext`) responde 403 del
+  WAF: no hay reglas legibles. No hay descarga oficial sin clave (los botones Excel y
+  PDF se generan en el navegador).

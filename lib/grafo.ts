@@ -115,6 +115,10 @@ export const enlace = {
   funcionario(slug: string): string {
     return `/funcionarios/${encodeURIComponent(slug.trim())}`;
   },
+  /** Los decretos que firmó una persona (el registro de la Consultoría): `/funcionarios/luis-rodolfo-abinader-corona/decretos`. */
+  decretosFirmados(slug: string): string {
+    return `/funcionarios/${encodeURIComponent(slug.trim())}/decretos`;
+  },
   /** Una entidad supervisada (banco, AFP, aseguradora, cooperativa): `/banca/banreservas`. */
   entidadFinanciera(slug: string): string {
     return `/banca/${encodeURIComponent(slug.trim())}`;

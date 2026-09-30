@@ -87,7 +87,7 @@ interface PersonaCruda {
   n: string;
   a: string[] | null;
   c: CargoCrudo[];
-  f: { como: string; decretos: number; desde: string; hasta: string } | null;
+  f: { como: string; clave?: string; decretos: number; desde: string; hasta: string } | null;
   leg: number | null;
   pep: number[] | null;
 }
@@ -145,8 +145,12 @@ export interface Persona {
   /** Otras grafías del mismo nombre normalizado. */
   alias: string[];
   cargos: Cargo[];
-  /** Si firmó decretos del Poder Ejecutivo: cuántos y entre qué fechas. */
-  firma: { como: string; decretos: number; desde: string; hasta: string } | null;
+  /**
+   * Si firmó decretos del Poder Ejecutivo: cuántos y entre qué fechas. `clave`
+   * es la firma tal como la escribe la Consultoría («LUIS ABINADER»): la que
+   * busca el registro de decretos (`lib/decretos.ts`).
+   */
+  firma: { como: string; clave: string; decretos: number; desde: string; hasta: string } | null;
   legislador: number | null;
   /** Numerales de la Ley 311-14 de sus cargos, de hoy o de antes. */
   pep: number[];
@@ -238,7 +242,8 @@ export function getFuncionarios(): Promise<Funcionarios | null> {
           nombre: p.n,
           alias: p.a ?? [],
           cargos,
-          firma: p.f,
+          // Una instantánea anterior a la clave la deriva de «como» (misma firma en mayúsculas).
+          firma: p.f ? { ...p.f, clave: p.f.clave ?? p.f.como.toLocaleUpperCase("es") } : null,
           legislador: p.leg,
           pep: p.pep ?? [],
           pepVigente: hoy || (ultima !== null && ultima >= limite),
@@ -277,6 +282,12 @@ export function getFuncionarios(): Promise<Funcionarios | null> {
 export async function personaPorId(id: string): Promise<Persona | null> {
   const f = await getFuncionarios();
   return f?.porId.get(id) ?? null;
+}
+
+/** Quien firma los decretos con esta clave del registro («LUIS ABINADER»), si la instantánea lo ata a una persona. */
+export async function personaPorFirma(clave: string): Promise<Persona | null> {
+  const f = await getFuncionarios();
+  return f?.personas.find((p) => p.firma?.clave === clave) ?? null;
 }
 
 /** La persona que es este legislador del SIL, si la instantánea la tiene. */

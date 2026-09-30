@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
     // ficha de proveedor y /fuentes leen únicamente su meta.json, por ruta
     // literal, y no arrastran el resto.
     "/empresas": ["./public/data/empresas/**"],
+    // El registro de decretos (~13 MB en un archivo por año, `lib/decretos.ts`)
+    // se abre por un nombre que se arma en la consulta: el trazado no lo
+    // adivina. Lo leen la ficha de una persona y sus decretos firmados, y la
+    // ficha de un decreto.
+    "/funcionarios": ["./public/data/decretos/**"],
+    "/normativa": ["./public/data/decretos/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus.

@@ -60,7 +60,8 @@ export async function generateMetadata({
   return {
     // La ficha de una persona física se lee aquí, pero no se ofrece a los
     // buscadores: su nombre no es el de una empresa (proporcionalidad, Ley 172-13).
-    ...(registro && esPersonaFisica(registro.tipoPersona, registro.tipoDocumento)
+    // La instantánea de medidas lo sabe aunque el registro en vivo no conteste.
+    ...((registro && esPersonaFisica(registro.tipoPersona, registro.tipoDocumento)) || medidas?.fisica
       ? { robots: { index: false, follow: true } }
       : {}),
     title: nombre ? `${nombre}: proveedor del Estado` : `Proveedor RPE ${rpe}`,

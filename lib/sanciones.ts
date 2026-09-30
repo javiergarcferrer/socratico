@@ -23,10 +23,11 @@ import { agujas, contieneTodas, plano } from "@/lib/raiz";
  *
  * Tres posturas que la interfaz declara donde tocan:
  *
- *  1. **Solo personas jurídicas.** Las medidas sobre personas físicas no están
- *     en la instantánea (ni nombre ni cédula), solo su número en los
- *     metadatos: publicarlas es decisión pendiente del dueño. En los motivos
- *     publicados, el nombre y el documento de quien firma una solicitud van
+ *  1. **Las personas físicas, con su nombre y nunca con su cédula** (decisión
+ *     del dueño, 2026-09-30): `fisica: true`, sin documento ni constancia del
+ *     RPE (la constancia muestra la cédula). Su fila no se ofrece a los
+ *     buscadores (`data-nosnippet`) y su ficha de proveedor no se indexa. En
+ *     los motivos, el nombre y el documento de quien firma una solicitud van
  *     sustituidos por «[nombre omitido]» y «[documento omitido]».
  *  2. **La lista mezcla cosas muy distintas**: sanciones, suspensiones
  *     preventivas, prohibiciones por cargo público, bajas que pidió el propio
@@ -281,9 +282,12 @@ export interface MedidaDgcp {
 
 export interface ProveedorConMedidas {
   rpe: string;
+  /** La razón social; en una persona física, su nombre tal como lo inscribió. */
   razonSocial: string;
-  /** Nueve cifras, o `null` (proveedor extranjero). */
+  /** Nueve cifras, o `null` (proveedor extranjero o persona física). */
   rnc: string | null;
+  /** Persona física inscrita con cédula: la cédula no está en la instantánea. */
+  fisica?: boolean;
   /** El estado del RPE en la tabla: Suspendido, Cancelado, Activo… */
   estadoRpe: string | null;
   /** La constancia del registro que enlaza la propia tabla de la DGCP. */

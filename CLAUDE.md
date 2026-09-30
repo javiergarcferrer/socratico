@@ -15,10 +15,10 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/`.
 | Compras públicas | `/licitaciones`, `/historico`, `/proveedores/inhabilitados` | API abierta de la DGCP + tablas completas desde 2015, medidas sobre proveedores, lista SDN de la OFAC y padrón RNC (instantáneas) | `lib/dgcp.ts`, `lib/historico.ts`, `lib/rnc.ts`, `lib/sanciones.ts` |
 | Finanzas públicas | `/finanzas` | SIGEF: ejecución y subsidio eléctrico (instantáneas) | `lib/fiscal.ts`, `lib/capitulos.ts`, `lib/subsidio.ts` |
 | Congreso Nacional | `/congreso` | SIL Diputados + consultante del Senado | `lib/congreso.ts`, `lib/senado.ts` |
-| Normativa y justicia | `/normativa`, `/constitucional`, `/tse`, tarjeta en `/` | Consultoría Jurídica (API JSON + instantánea); TC y TSE (HTML); boletín del Poder Judicial (instantánea) | `lib/normativa.ts`, `lib/tc.ts`, `lib/tse.ts`, `lib/justicia.ts` |
+| Normativa y justicia | `/normativa`, `/constitucional`, `/tse`, tarjeta en `/` | Consultoría Jurídica (API JSON + instantánea; registro completo de decretos con su firmante, por año); TC y TSE (HTML); boletín del Poder Judicial (instantánea) | `lib/normativa.ts`, `lib/decretos.ts`, `lib/tc.ts`, `lib/tse.ts`, `lib/justicia.ts` |
 | Nómina estatal | `/nomina`, `/nomina/general` | Instantánea de 86 instituciones + nómina general del MAP (492 mil plazas, agregada) | `lib/nomina.ts`, `lib/nomina-server.ts`, `lib/nomina-general.ts` |
 | Deuda pública | `/deuda` y tarjeta en `/` | Crédito Público (XLSX + instantánea con serie; subastas de bonos) | `lib/deuda.ts`, `lib/subastas.ts` |
-| Entidades y personas (transversal) | `/instituciones`, `/funcionarios`, `/empresas`, `/banca`, `/buscar` | Clasificador de DIGEPRES (894 entidades) cruzado DGCP ↔ SIGEF ↔ nómina ↔ Consultoría; funcionarios del MAP, decretos, cortes y JCE (PEP por la Ley 311-14); personas jurídicas del padrón DGII; supervisados de SB, SIPEN, SIS e IDECOOP; índice de búsqueda por palabra y por tema sobre las instantáneas | `lib/instituciones.ts`, `lib/funcionarios.ts`, `lib/empresas.ts`, `lib/padron.ts`, `lib/financieras.ts`, `lib/buscar.ts`, `lib/busqueda.ts` |
+| Entidades y personas (transversal) | `/instituciones`, `/funcionarios`, `/empresas`, `/banca`, `/buscar` | Clasificador de DIGEPRES (894 entidades) cruzado DGCP ↔ SIGEF ↔ nómina ↔ Consultoría; funcionarios del MAP, decretos, cortes y JCE (PEP por la Ley 311-14) y las declaraciones juradas que publican las instituciones; personas jurídicas del padrón DGII; supervisados de SB, SIPEN, SIS e IDECOOP; índice de búsqueda por palabra y por tema sobre las instantáneas | `lib/instituciones.ts`, `lib/funcionarios.ts`, `lib/declaraciones.ts`, `lib/empresas.ts`, `lib/padron.ts`, `lib/financieras.ts`, `lib/buscar.ts`, `lib/busqueda.ts` |
 | Obra pública y país | `/obras`, `/pais`, mapa en `/provincias` | MapaInversiones; robos y armas (MIP), matrícula (MINERD), licencias (MIVHED); límites provinciales de la ONE (instantáneas) | `lib/obras.ts`, `lib/sociedad.ts`, `lib/mapa.ts` |
 | Gestión, control y datos | `/gestion`, `/auditorias`, `/documentos`, `/datos` | SISMAP; Contraloría y Cámara de Cuentas; bibliotecas WordPress de 22 instituciones; datos.gob.do (instantáneas) | `lib/sismap.ts`, `lib/auditorias.ts`, `lib/biblioteca.ts`, `lib/catalogo.ts` |
 | Indicadores del panorama | `/indicadores` (cuatro cifras en `/`), `/luz` | MICM, BCRD (CDN), SB (SIMBAD), Aduanas, OC (luz), mantenimientos de Edenorte y Edesur, INDOMET (alertas), OPSEVI (vías), en vivo | `lib/combustibles.ts`, `lib/tasa.ts`, `lib/macro.ts`, `lib/bcrd.ts`, `lib/banca.ts`, `lib/aduanas.ts`, `lib/energia.ts`, `lib/alertas.ts`, `lib/siniestralidad.ts`, `lib/cortes.ts` |
@@ -92,7 +92,7 @@ npm run dev      # http://localhost:3000
 npm run build    # build de producción — incluye el typecheck
 npx tsc --noEmit # solo typecheck
 
-# Instantáneas en public/data/: fiscal (SIGEF, ~5 min), nomina, deuda, normativa
+# Instantáneas en public/data/: fiscal (SIGEF, ~5 min), nomina, deuda, normativa y decretos
 # (semanal), instituciones (tras normativa), leyes, procesos, sentencias, congreso, busqueda (al final). Una por script:
 python3 scripts/build-<nombre>.py  # tras busqueda: node scripts/build-indice-busqueda.mjs
 ```

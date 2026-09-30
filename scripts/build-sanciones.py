@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Genera public/data/sanciones.json: las medidas de la DGCP sobre proveedores
-del Estado que son personas jurídicas, y las entidades de la lista SDN de la
+del Estado, empresas y personas físicas, y las entidades de la lista SDN de la
 OFAC ligadas a la República Dominicana.
 
 Cuatro descargas, sin clave (reconocimiento del 2026-09-29; docs/AUDITORIA.md
@@ -24,13 +24,17 @@ Cuatro descargas, sin clave (reconocimiento del 2026-09-29; docs/AUDITORIA.md
    y `…/ADD.CSV` (direcciones): responden 302 a una URL firmada de S3, que se
    sigue. Sin fila de cabecera; `-0-` es vacío.
 
-Posturas (decididas al construir; el dueño decide sobre la primera):
+Posturas:
 
-- **Solo personas jurídicas.** Las medidas sobre personas físicas (inscritas
-  con cédula) no se guardan: ni nombre ni documento; solo su número, para que
-  `/fuentes` diga cuántas quedan fuera. Dentro de los motivos que sí se
-  publican, los nombres y documentos de personas que firman una solicitud se
-  sustituyen por «[nombre omitido]» y «[documento omitido]» (`anonimizar()`).
+- **Las personas físicas, con su nombre y nunca con su cédula** (decisión del
+  dueño, 2026-09-30, docs/DECISIONES.md). Hasta entonces se contaban y no se
+  publicaban. Una medida sobre una persona física inscrita con cédula se
+  guarda con el nombre del registro y `fisica: true`; su documento no se
+  escribe ni en la instantánea, y tampoco el enlace a la constancia del RPE,
+  que lo muestra. Dentro de los motivos, los nombres y documentos de personas
+  que firman una solicitud se sustituyen por «[nombre omitido]» y
+  «[documento omitido]» (`anonimizar()`), y toda cédula escrita en el texto
+  por «[documento omitido]».
 - **Filas de prueba** del propio sistema («prueba», «Tipo Sanción») no se
   publican; filas repetidas que solo difieren en la hora de registro se
   publican una vez. Las dos cuentas quedan en los metadatos.
@@ -44,9 +48,10 @@ es inverosímil: menos de 1,500 medidas, un cruce con el registro por debajo del
 99 %, una lista SDN de menos de 10,000 entradas o ninguna entidad dominicana.
 
 Uso:
-    python3 scripts/build-sanciones.py              # descarga las cuatro fuentes
-    python3 scripts/build-sanciones.py --local DIR  # usa inhabilitados.csv,
-                                                    # proveedores.csv, sdn.csv y add.csv de DIR
+    python3 scripts/build-sanciones.py                # descarga las cuatro fuentes
+    python3 scripts/build-sanciones.py --guardar DIR  # y deja lo descargado en DIR
+    python3 scripts/build-sanciones.py --local DIR    # usa inhabilitados.csv,
+                                                      # proveedores.csv, sdn.csv y add.csv de DIR
 """
 import csv
 import datetime
@@ -350,6 +355,14 @@ def main() -> None:
         print("OFAC: SDN.CSV y ADD.CSV…")
         crudo_sdn, lm_sdn = bajar(URL_SDN, ("text/csv", "application/octet-stream"))
         crudo_add, _ = bajar(URL_ADD, ("text/csv", "application/octet-stream"))
+        if "--guardar" in sys.argv:
+            # Para rehacer sin volver a bajar 80 MB (`--local`). Fuera del
+            # repositorio: el registro entero trae teléfonos y correos.
+            destino = pathlib.Path(sys.argv[sys.argv.index("--guardar") + 1])
+            destino.mkdir(parents=True, exist_ok=True)
+            for nombre, crudo in (("inhabilitados.csv", crudo_inhab), ("proveedores.csv", crudo_rpe),
+                                  ("sdn.csv", crudo_sdn), ("add.csv", crudo_add)):
+                (destino / nombre).write_bytes(crudo)
 
     hoy = datetime.date.today().isoformat()
 
@@ -400,7 +413,8 @@ def main() -> None:
     if cruzados / max(1, len(rpes_tabla)) < MIN_CRUCE:
         sys.exit(f"Solo {cruzados} de {len(rpes_tabla)} RPE cruzan con el registro: no se escribe.")
 
-    # 3. Cada medida, clasificada; las personas físicas se cuentan y se sueltan.
+    # 3. Cada medida, clasificada. Las personas físicas se publican con su
+    #    nombre, sin documento ni constancia (la constancia muestra la cédula).
     vistos: set[tuple] = set()
     duplicadas = pruebas = eventos_fisicas = anonimizados = 0
     fisicas: set[str] = set()
@@ -425,10 +439,10 @@ def main() -> None:
         if not reg:
             sin_cruce.add(rpe)
             continue
-        if not reg["juridica"]:
+        fisica = not reg["juridica"]
+        if fisica:
             fisicas.add(rpe)
             eventos_fisicas += 1
-            continue
         publicado, cambio = anonimizar(motivo)
         anonimizados += cambio
         hasta = dia(f["FECHA_HABILITACION"])
@@ -444,15 +458,17 @@ def main() -> None:
         p = proveedores.setdefault(rpe, {
             "rpe": rpe,
             "razonSocial": reg["razonSocial"],
-            "rnc": reg["rnc"],
+            "rnc": None if fisica else reg["rnc"],
             "estadoRpe": reg["estadoRpe"],
             "certificacion": None,
+            **({"fisica": True} if fisica else {}),
             "eventos": [],
         })
         # La constancia del RPE es la misma en todas sus medidas (su
-        # `companyCode`): va una vez, en el proveedor.
+        # `companyCode`): va una vez, en el proveedor. La de una persona física
+        # no se enlaza: muestra su cédula.
         url = limpio(f["URL_CERTIFICACION_RPE"])
-        if re.search(r"companyCode=\d+$", url):
+        if not fisica and re.search(r"companyCode=\d+$", url):
             p["certificacion"] = url
         p["eventos"].append(evento)
 
@@ -462,6 +478,7 @@ def main() -> None:
         lista.append(p)
     lista.sort(key=lambda p: (p["eventos"][0]["fecha"] or "", p["rpe"]), reverse=True)
     publicados = sum(len(p["eventos"]) for p in lista)
+    juridicas = sum(1 for p in lista if not p.get("fisica"))
 
     # 4. La OFAC.
     entidades, entradas, ligadas, individuos = ofac(texto(crudo_sdn), texto(crudo_add), rnc_a_rpes)
@@ -491,7 +508,7 @@ def main() -> None:
                 "sinCruce": len(sin_cruce),
                 "personasFisicas": len(fisicas),
                 "eventosPersonasFisicas": eventos_fisicas,
-                "juridicas": len(lista),
+                "juridicas": juridicas,
                 "eventos": publicados,
                 "motivosAnonimizados": anonimizados,
             },
@@ -515,9 +532,8 @@ def main() -> None:
             por_tipo[e["tipo"]] = por_tipo.get(e["tipo"], 0) + 1
     print(f"{len(filas)} filas de la DGCP sobre {len(rpes_tabla)} RPE (hasta {corte}); "
           f"{duplicadas} repetidas y {pruebas} de prueba fuera; {len(sin_cruce)} sin cruce.")
-    print(f"Publicadas: {publicados} medidas sobre {len(lista)} personas jurídicas "
-          f"({anonimizados} motivos anonimizados). Fuera: {eventos_fisicas} medidas sobre "
-          f"{len(fisicas)} personas físicas.")
+    print(f"Publicadas: {publicados} medidas sobre {juridicas} personas jurídicas y {len(fisicas)} "
+          f"personas físicas ({eventos_fisicas} medidas, sin cédula); {anonimizados} motivos anonimizados.")
     for t in TIPOS:
         print(f"  {por_tipo.get(t, 0):5d}  {t}")
     print(f"OFAC ({fecha_sdn}): {entradas} entradas; {ligadas} ligadas al país; "
