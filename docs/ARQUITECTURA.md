@@ -1128,7 +1128,9 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
 - **Trazado**: la clave `/mcp` lleva el índice de búsqueda y las instantáneas
-  del grafo (~135 MB); cabe en el límite de una función.
+  del grafo. La función pesa ~166 MB, lo mismo que `/grafo/camino` (las
+  importaciones de `lib/grafo-rdf.ts` arrastran otras instantáneas): cabe en
+  el límite, con la misma deuda del arranque en frío.
 - **Verificado** el 30-09-2026 con los clientes oficiales: el SDK 1.x
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
