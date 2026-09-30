@@ -106,12 +106,15 @@ export const MENU: GrupoMenu[] = [
         ],
       },
       {
-        titulo: "Ejecutivo y altos tribunales",
+        // «Tribunales» y no «altos tribunales»: el rol de audiencias es de todos.
+        titulo: "Ejecutivo y tribunales",
         seccion: "normativa",
         enlaces: [
           { href: "/normativa", label: "Decretos y leyes", nota: "Lo que se promulga y se firma, por año", tarea: "leer" },
           { href: "/constitucional", label: "Tribunal Constitucional", nota: "Sus sentencias, año por año", tarea: "leer" },
           { href: "/tse", label: "Tribunal Superior Electoral", nota: "Sus sentencias desde 2021", tarea: "leer" },
+          { href: "/audiencias", label: "Audiencias de un caso", nota: "Cuándo es la próxima y qué pasó en las anteriores, por el número del caso", tarea: "buscar" },
+          { href: "/inmobiliario", label: "Registro Inmobiliario", nota: "En qué va un expediente de títulos o mensuras, por su número", tarea: "buscar" },
         ],
       },
       {

@@ -19,6 +19,8 @@ import { agujas, contieneTodas, plano } from "@/lib/raiz";
  *  · las **altas cortes y órganos**: Suprema Corte, Consejo del Poder
  *    Judicial, Tribunal Constitucional, Tribunal Superior Electoral (con sus
  *    gestiones anteriores), Junta Central Electoral y Defensor del Pueblo;
+ *  · la **Junta Monetaria**, de la página del Banco Central (el POST que hace
+ *    esa misma página, docs/AUDITORIA.md §H.13): nombre y cargo, nada más;
  *  · los **electos municipales de 2024** (JCE) y los **legisladores** del
  *    período (el SIL, sin red).
  *
@@ -59,7 +61,8 @@ export type OrigenCargo =
   | "jce-suplentes"
   | "defensor"
   | "jce2024"
-  | "congreso";
+  | "congreso"
+  | "bcrd";
 
 /** Un cargo, tal como lo registra su fuente (claves cortas en la instantánea). */
 interface CargoCrudo {
@@ -107,7 +110,8 @@ interface Instantanea {
       designacionesPdf: number;
       firmantes: number;
     };
-    organos: Record<string, { url: string; filas: number; modificado: string | null; error: string | null }>;
+    /** Por origen del cargo; `bcrd` (la Junta Monetaria) trae además el día de la lectura. */
+    organos: Record<string, { url: string; filas: number; modificado: string | null; error: string | null; leido?: string }>;
     electos2024: { url: string; filas: number; error: string | null };
     congreso: { filas: number; fuente: string };
   };
@@ -171,7 +175,7 @@ export const PODERES: Record<Poder, { etiqueta: string; nota: string }> = {
   ejecutivo: { etiqueta: "Poder Ejecutivo", nota: "Ministerios, direcciones, embajadas y empresas del Estado" },
   congreso: { etiqueta: "Congreso", nota: "Diputados y senadores del período" },
   justicia: { etiqueta: "Altas cortes", nota: "Suprema Corte, Consejo del Poder Judicial, TC y TSE" },
-  organos: { etiqueta: "Órganos constitucionales", nota: "Junta Central Electoral y Defensor del Pueblo" },
+  organos: { etiqueta: "Órganos constitucionales", nota: "Junta Central Electoral, Defensor del Pueblo y Junta Monetaria" },
   local: { etiqueta: "Gobiernos locales", nota: "Alcaldes, regidores y juntas de distrito" },
 };
 
@@ -187,6 +191,8 @@ const DE_ORIGEN: Record<OrigenCargo, Poder> = {
   defensor: "organos",
   jce2024: "local",
   congreso: "congreso",
+  // La Junta Monetaria es órgano constitucional (Constitución, art. 223), no del Poder Ejecutivo.
+  bcrd: "organos",
 };
 
 /** Los numerales de la Ley 311-14 que son de un gobierno local (alcaldes, regidores, juntas). */
@@ -703,4 +709,5 @@ export const ETIQUETA_ORIGEN: Record<OrigenCargo, string> = {
   defensor: "Defensor del Pueblo",
   jce2024: "JCE, elecciones municipales de 2024",
   congreso: "SIL de la Cámara de Diputados",
+  bcrd: "Banco Central (Junta Monetaria)",
 };
