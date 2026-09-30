@@ -1047,8 +1047,10 @@ class Registro:
     def __init__(self):
         self.personas: dict[str, dict] = {}
 
-    def persona(self, nombre: str) -> dict:
-        k = clave(nombre)
+    def persona(self, nombre: str, aparte: str | None = None) -> dict:
+        """El registro de un nombre. `aparte` separa a un tocayo que no es la
+        misma persona (un firmante de otra época): otra clave, mismo nombre."""
+        k = clave(nombre) + (f" #{aparte}" if aparte else "")
         p = self.personas.get(k)
         if not p:
             p = {"clave": k, "nombres": {}, "cargos": [], "firma": None, "legislador": None}
@@ -1069,6 +1071,27 @@ class Registro:
 
 
 NO_PERSONAS_FIRMANTES = re.compile(r"TRIUNVIRATO|JUNTA|CONGRESO|CONSEJO|GOBIERNO", re.I)
+
+# Más años que estos entre la firma y un cargo no caben en una vida pública.
+VIDA_PUBLICA = 70
+
+
+def otra_epoca(p: dict | None, firma: dict, hoy: str) -> bool:
+    """¿Los cargos de este registro son de un tocayo de otra época que el
+    firmante? Sí cuando todos los cargos con fecha (el vigente cuenta como
+    hoy) caen a más de VIDA_PUBLICA años de sus firmas; con uno cerca, o sin
+    fechas, es la misma persona."""
+    if not p or not p["cargos"]:
+        return False
+    anios = []
+    for c in p["cargos"]:
+        f = c.get("d") or (hoy if c.get("m") in ("vigente", "electo") else None)
+        if f:
+            anios.append(int(f[:4]))
+    if not anios:
+        return False
+    desde, hasta = int(firma["desde"][:4]), int(firma["hasta"][:4])
+    return all(a > hasta + VIDA_PUBLICA or a < desde - VIDA_PUBLICA for a in anios)
 
 
 def main() -> None:
@@ -1203,6 +1226,10 @@ def main() -> None:
         destino = None
         if presidente_map and set(clave(nombre).split()) <= set(presidente_map["clave"].split()) and s["hasta"] >= "2024-01-01":
             destino = presidente_map
+        elif otra_epoca(reg.personas.get(clave(nombre)), s, hoy):
+            # Un tocayo de otro siglo: el Gaspar Polanco que firmó en 1864 no es
+            # el director de 1996. El firmante va en un registro aparte.
+            destino = reg.persona(nombre, aparte="firmante")
         else:
             destino = reg.persona(nombre)
         destino["firma"] = {"como": en_titulo(firma), "clave": firma, "decretos": s["n"],
@@ -1300,7 +1327,9 @@ def main() -> None:
     # Salida: cada persona con su nombre más usado y sus cargos, del más reciente al más viejo.
     personas = []
     usados: dict[str, int] = {}
-    for p in reg.personas.values():
+    # Los firmantes primero: si un tocayo de otra época comparte el nombre, la
+    # dirección sin sufijo (la que ya enlaza la lista de sus decretos) es la suya.
+    for p in sorted(reg.personas.values(), key=lambda p: p["firma"] is None):
         if not p["cargos"] and not p["firma"]:
             continue
         nombre = max(p["nombres"].items(), key=lambda kv: (kv[1], sum(1 for c in kv[0] if ord(c) > 127)))[0]
