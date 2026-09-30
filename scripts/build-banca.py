@@ -8,13 +8,18 @@ con lo que publica de cada una quien la supervisa.
 Regenerar cuando la Superintendencia de Bancos actualice sus fichas (lo hace
 entidad por entidad, varias veces al mes):
 
-    python3 scripts/build-banca.py            # en vivo, ~20 minutos
-    python3 scripts/build-banca.py --cache D  # guarda/reusa las respuestas en D
+    python3 scripts/build-banca.py                    # en vivo, ~20 minutos
+    python3 scripts/build-banca.py --cache D          # guarda las respuestas en D
+    python3 scripts/build-banca.py --cache D --sin-red  # rehace desde D, sin red
 
-Si la SB responde con su desafío, el script para sin escribir y **no se
-insiste**: la instantánea anterior sigue en pie y la vía es pedirle a la SB que
-admita este User-Agent (Ley 200-04). Con `--cache` una corrida de otro día solo
-pide lo que faltó; nunca un bucle que reintente hasta que el desafío ceda.
+Si la SB responde con su desafío, el script **no le pide nada más a la SB**:
+ni esa categoría ni las que siguen. Escribe lo que ya leyó entero (si las
+entidades de intermediación pasan sus comprobaciones) y deja dicho en
+`resumen.sbNoLeidas` qué categorías quedaron fuera y por qué. Después de un
+desafío nadie vuelve a correr el script contra la SB hasta que ella admita
+este User-Agent (Ley 200-04): ni otro día ni por partes. `--cache` guarda las
+respuestas para rehacer la instantánea con `--sin-red` (otra regla de
+lectura, un arreglo del script) sin una sola petición.
 
 Mecánica verificada el 2026-09-29 con este User-Agent (docs/AUDITORIA.md §5.6,
 §5.7, §G.5 y §G.13; el reconocimiento de esta pasada va en el informe):
@@ -184,6 +189,17 @@ class Bloqueado(RuntimeError):
     """El origen respondió con un bloqueo (403/429/470/desafío): no se rodea."""
 
 
+class SinCache(RuntimeError):
+    """Con `--sin-red`, una respuesta que la caché no tiene: no se pide."""
+
+
+SIN_RED = False
+# Cuándo se bajó cada respuesta que salió de la caché: con `--sin-red`, la fecha
+# de la instantánea es la de los datos que entran, no la del día en que se rehízo
+# (lo leído de una categoría que queda fuera se descuenta).
+_LEIDOS: list[float] = []
+
+
 # ── Red ──────────────────────────────────────────────────────────────────────
 
 def get(url: str, tipos: tuple[str, ...]) -> tuple[bytes, dict[str, str]]:
@@ -193,10 +209,13 @@ def get(url: str, tipos: tuple[str, ...]) -> tuple[bytes, dict[str, str]]:
     if CACHE is not None:
         b, h = CACHE / f"{clave}.b", CACHE / f"{clave}.h"
         if b.exists() and h.exists():
+            _LEIDOS.append(b.stat().st_mtime)
             cab = json.loads(h.read_text())
             if not any(t in cab.get("content-type", "") for t in tipos):
                 raise RuntimeError(f"{url}: content-type inesperado {cab.get('content-type')!r} (caché)")
             return b.read_bytes(), cab
+    if SIN_RED:
+        raise SinCache(url)
     ultimo: Exception | None = None
     for _ in (1, 2):
         espera = PAUSA_HOST.get(host, PAUSA) - (time.monotonic() - _ultima.get(host, 0.0))
@@ -503,56 +522,84 @@ def tiene_calificacion(v: str | None) -> bool:
 def superintendencia_bancos() -> tuple[list[dict], dict]:
     robots_permite(SB, ["/supervisados/", "/media/"])
     entidades: list[dict] = []
+    no_leidas: list[dict] = []
+    desafio: str | None = None
     for categoria, tipos in CATEGORIAS_SB:
-        listado = f"{SB_SUPERVISADOS}/{categoria}/?page=1&size=100"
-        cards, total = tarjetas(texto_de(listado), categoria)
-        if total is not None and total != len(cards):
-            raise RuntimeError(f"{categoria}: la página dice {total} y trae {len(cards)} tarjetas")
-        print(f"SB {categoria}: {len(cards)} entidades", file=sys.stderr)
-        for card in cards:
-            tipo = sin_tildes(card["tipo"] or "").lower().strip()
-            sector = tipos.get(tipo) or (next(iter(tipos.values())) if len(set(tipos.values())) == 1 else None)
-            if not sector:
-                raise RuntimeError(f"{categoria}: tipo desconocido {card['tipo']!r} ({card['nombre']})")
-            f = ficha_sb(card["ficha"]) if card["ficha"] else {}
-            nombre = f.get("nombre") or card["nombre"]
-            base = card["ficha"].rstrip("/").rsplit("/", 1)[-1] if card["ficha"] else nombre
-            entidades.append({
-                "slug": slug(urllib.parse.unquote(base)),
-                "nombre": nombre,
-                "razonSocial": f.get("razonSocial"),
-                "rnc": f.get("rnc"),
-                "registroSb": f.get("registroSb"),
-                "sector": sector,
-                "tipo": f.get("tipo") or card["tipo"],
-                "supervisor": "sb",
-                "estatus": f.get("estatus") or card["estatus"],
-                "aviso": f.get("aviso") or card["aviso"],
-                "activosMillones": f.get("activos") if f.get("activos") is not None else card["activos"],
-                "activosAdministradosMillones": f.get("activosAdministrados") or card["activosAdministrados"],
-                "fideicomisos": f.get("fideicomisos") or card["fideicomisos"],
-                "participacion": f.get("participacion") if f.get("participacion") is not None else card["participacion"],
-                "empleados": f.get("empleados") if f.get("empleados") is not None else card["empleados"],
-                "oficinas": f.get("oficinas"),
-                "cajeros": f.get("cajeros"),
-                "subagentes": f.get("subagentes"),
-                "accionistas": f.get("accionistas"),
-                "calificacion": calificacion(f.get("calificacion")),
-                "calificadora": calificacion(f.get("calificadora")) if tiene_calificacion(f.get("calificacion")) else None,
-                "fechaCalificacion": f.get("fechaCalificacion") if tiene_calificacion(f.get("calificacion")) else None,
-                "servicios": f.get("servicios"),
-                "consejo": f.get("consejo"),
-                "funcionarios": f.get("funcionarios"),
-                "accionistasLista": f.get("accionistasLista"),
-                "web": f.get("web"),
-                "estadosFinancieros": f.get("estadosFinancieros"),
-                "memorias": f.get("memorias"),
-                "fechaRegistro": f.get("fechaRegistro"),
-                "fuente": card["ficha"] or listado,
-                "corte": f.get("corte"),
-            })
-    subagentes = subagentes_sb()
-    return entidades, {"subagentes": subagentes}
+        sectores = sorted(set(tipos.values()))
+        if desafio:
+            # Tras el primer desafío no se le pide nada más a la SB.
+            no_leidas.append({"categoria": categoria, "sectores": sectores, "motivo": "desafio", "total": None})
+            continue
+        visto: dict = {}
+        leidos_antes = len(_LEIDOS)
+        try:
+            entidades.extend(leer_categoria(categoria, tipos, visto))
+        except Bloqueado as err:
+            print(f"SB {categoria}: BLOQUEADO, no se insiste ni se sigue con la SB: {err}", file=sys.stderr)
+            desafio = str(err)
+            no_leidas.append({"categoria": categoria, "sectores": sectores, "motivo": "desafio",
+                              "total": visto.get("total")})
+        except SinCache as err:
+            del _LEIDOS[leidos_antes:]
+            print(f"SB {categoria}: falta en la caché ({err}); queda fuera", file=sys.stderr)
+            no_leidas.append({"categoria": categoria, "sectores": sectores, "motivo": "sin-cache",
+                              "total": visto.get("total")})
+    subagentes = None if desafio else subagentes_sb()
+    return entidades, {"subagentes": subagentes, "noLeidas": no_leidas}
+
+
+def leer_categoria(categoria: str, tipos: dict[str, str], visto: dict) -> list[dict]:
+    """Una categoría de `/supervisados/` entera, o una excepción: nunca a medias."""
+    entidades: list[dict] = []
+    listado = f"{SB_SUPERVISADOS}/{categoria}/?page=1&size=100"
+    cards, total = tarjetas(texto_de(listado), categoria)
+    if total is not None and total != len(cards):
+        raise RuntimeError(f"{categoria}: la página dice {total} y trae {len(cards)} tarjetas")
+    visto["total"] = len(cards)
+    print(f"SB {categoria}: {len(cards)} entidades", file=sys.stderr)
+    for card in cards:
+        tipo = sin_tildes(card["tipo"] or "").lower().strip()
+        sector = tipos.get(tipo) or (next(iter(tipos.values())) if len(set(tipos.values())) == 1 else None)
+        if not sector:
+            raise RuntimeError(f"{categoria}: tipo desconocido {card['tipo']!r} ({card['nombre']})")
+        f = ficha_sb(card["ficha"]) if card["ficha"] else {}
+        nombre = f.get("nombre") or card["nombre"]
+        base = card["ficha"].rstrip("/").rsplit("/", 1)[-1] if card["ficha"] else nombre
+        entidades.append({
+            "slug": slug(urllib.parse.unquote(base)),
+            "nombre": nombre,
+            "razonSocial": f.get("razonSocial"),
+            "rnc": f.get("rnc"),
+            "registroSb": f.get("registroSb"),
+            "sector": sector,
+            "tipo": f.get("tipo") or card["tipo"],
+            "supervisor": "sb",
+            "estatus": f.get("estatus") or card["estatus"],
+            "aviso": f.get("aviso") or card["aviso"],
+            "activosMillones": f.get("activos") if f.get("activos") is not None else card["activos"],
+            "activosAdministradosMillones": f.get("activosAdministrados") or card["activosAdministrados"],
+            "fideicomisos": f.get("fideicomisos") or card["fideicomisos"],
+            "participacion": f.get("participacion") if f.get("participacion") is not None else card["participacion"],
+            "empleados": f.get("empleados") if f.get("empleados") is not None else card["empleados"],
+            "oficinas": f.get("oficinas"),
+            "cajeros": f.get("cajeros"),
+            "subagentes": f.get("subagentes"),
+            "accionistas": f.get("accionistas"),
+            "calificacion": calificacion(f.get("calificacion")),
+            "calificadora": calificacion(f.get("calificadora")) if tiene_calificacion(f.get("calificacion")) else None,
+            "fechaCalificacion": f.get("fechaCalificacion") if tiene_calificacion(f.get("calificacion")) else None,
+            "servicios": f.get("servicios"),
+            "consejo": f.get("consejo"),
+            "funcionarios": f.get("funcionarios"),
+            "accionistasLista": f.get("accionistasLista"),
+            "web": f.get("web"),
+            "estadosFinancieros": f.get("estadosFinancieros"),
+            "memorias": f.get("memorias"),
+            "fechaRegistro": f.get("fechaRegistro"),
+            "fuente": card["ficha"] or listado,
+            "corte": f.get("corte"),
+        })
+    return entidades
 
 
 def subagentes_sb() -> dict | None:
@@ -856,9 +903,12 @@ PRIVACIDAD = [
 
 
 def main() -> None:
-    global CACHE
+    global CACHE, SIN_RED
     if "--cache" in sys.argv:
         CACHE = pathlib.Path(sys.argv[sys.argv.index("--cache") + 1])
+    SIN_RED = "--sin-red" in sys.argv
+    if SIN_RED and CACHE is None:
+        sys.exit("--sin-red necesita --cache: sin red, las respuestas salen de ahí")
     try:
         sb, extra_sb = superintendencia_bancos()
         registro, meta_registro = registro_mensual()
@@ -867,6 +917,9 @@ def main() -> None:
         cooperativas, meta_coop = idecoop()
     except Bloqueado as err:
         print(f"BLOQUEADO: no se rodea ni se escribe nada: {err}", file=sys.stderr)
+        sys.exit(2)
+    except SinCache as err:
+        print(f"Sin red y sin esa respuesta en la caché: no se escribe nada: {err}", file=sys.stderr)
         sys.exit(2)
 
     # Desde qué mes figura cada entidad en el registro mensual, con casamiento
@@ -923,8 +976,11 @@ def main() -> None:
     for e in entidades:
         por_sector[e["sector"]] = por_sector.get(e["sector"], 0) + 1
 
+    ahora = datetime.datetime.now(datetime.timezone.utc)
+    if SIN_RED and _LEIDOS:
+        ahora = datetime.datetime.fromtimestamp(max(_LEIDOS), datetime.timezone.utc)
     datos = {
-        "generado": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "generado": ahora.isoformat(timespec="seconds"),
         "fuentes": {
             "sb": f"{SB_SUPERVISADOS}/",
             "registroSb": SB_CSV,
@@ -944,6 +1000,7 @@ def main() -> None:
             "cooperativasIncluidas": meta_coop["incluidas"],
             "subagentes": extra_sb["subagentes"],
             "registroCasadas": casadas,
+            "sbNoLeidas": extra_sb["noLeidas"],
         },
         "entidades": [compactar(e) for e in entidades],
     }
