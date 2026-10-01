@@ -32,6 +32,7 @@
  * de lo que se construyen.
  */
 
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Tokenizer } from "@huggingface/tokenizers";
@@ -238,8 +239,8 @@ function partir(buf: Buffer, n: number, dim: number): [Int8Array, Float32Array] 
  * Lee el motor: el índice ya construido (por palabra y el corpus por
  * columnas), el modelo y los vectores. Es un `readFile` por archivo y unas
  * vistas sobre sus búferes; lo que más tarda es armar el tokenizador. Si el
- * índice falta o es de otra forma, lanza: el gate (`verificar.sh`) no deja
- * pasar uno que no sea de su `corpus.json`.
+ * índice falta, es de otra forma o no es de estos vectores, lanza: el gate
+ * (`verificar.sh`) no deja pasar uno que no sea de su `corpus.json`.
  */
 async function cargar(): Promise<Motor> {
   const [bufIndice, crudoTok, crudoMeta, bufModelo, bufVectores] = await Promise.all([
@@ -257,7 +258,12 @@ async function cargar(): Promise<Motor> {
   }
   const dim = meta.dimensiones;
   const vectorizados = corpus.vectorizados;
-  if (bufVectores.length !== vectorizados * (dim + 4)) {
+  // Vectores de otro corpus darían a cada entrada el tema de otra, sin error
+  // a la vista: el índice guarda la huella de los suyos (~13 ms de sha256).
+  if (
+    bufVectores.length !== vectorizados * (dim + 4) ||
+    createHash("sha256").update(bufVectores).digest("hex") !== corpus.huellaVectores
+  ) {
     throw new Error("índice y vectores no coinciden: vuelve a correr scripts/build-indice-busqueda.mjs");
   }
   const [tabla, escalaTabla] = partir(bufModelo, meta.piezas, dim);

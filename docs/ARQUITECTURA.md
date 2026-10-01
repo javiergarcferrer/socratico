@@ -477,7 +477,7 @@ El índice de toda la plataforma, sin base de datos ni clave: archivos
 versionados y dos bibliotecas abiertas (el tokenizador de Hugging Face y el
 lematizador de `@orama/stemmers`).
 
-- **Corpus** (`corpus.json`, ~47 MB; ~7.8 MB comprimido): ≈205 mil entradas de las instantáneas
+- **Corpus** (`corpus.json`, ~47 MB; ~8.4 MB en gzip): ≈205 mil entradas de las instantáneas
   —instituciones, legisladores, proveedores, procesos de compra, normativa
   reciente y **todas las leyes**, iniciativas del Congreso, sentencias del TC
   y del TSE, obras, documentos, datos abiertos y cargos de nómina (las
@@ -582,9 +582,10 @@ lematizador de `@orama/stemmers`).
   relativas (`<Antiguedad>`: publicado, depositada, dictada).
 - **Índice guardado** (`indice.bin`, ~64 MB; `lib/busqueda-esquema.ts`):
   «SIB2», una cabecera JSON con la etiqueta del corpus (fecha | huella |
-  entradas), lo que el corpus dice de sí (fechas de las instantáneas, el
-  modelo, hasta dónde hay vector) y cada sección con su tipo y su largo; y,
-  alineadas a ocho bytes, las secciones. Dos partes:
+  entradas), el sha256 de `vectores.bin` con que se construyó, lo que el
+  corpus dice de sí (fechas de las instantáneas, el modelo, hasta dónde hay
+  vector) y cada sección con su tipo y su largo; y, alineadas a ocho bytes,
+  las secciones. Dos partes:
   - *El índice por palabra*: los términos unidos por «\n» y las tablas
     `inicio`, `entrada`, `campoFrecuencia` y `largo` (~21 MB).
   - *El corpus por columnas* (~42 MB): cada campo de las entradas en su
@@ -598,15 +599,24 @@ lematizador de `@orama/stemmers`).
     candidatos, no de 205 mil. `resultadoPorHref` compara bytes
     (`Columnas.donde`) sin descodificar nada.
   El servidor lo lee con vistas sobre el búfer, sin `JSON.parse` (~70 ms
-  con el disco en caché); si falta o es de otra forma, el buscador no carga
-  y lo dice («no pudimos mirar»), y no hay reconstrucción en memoria: no
-  tiene el corpus del que hacerla. `scripts/build-indice-busqueda.mjs` lo
+  con el disco en caché), y comprueba que `vectores.bin` sea el suyo
+  (sha256, ~13 ms): vectores de otro corpus darían a cada entrada el tema
+  de otra sin error a la vista. Si falta, es de otra forma o de otros
+  vectores, el buscador no carga y lo dice («no pudimos mirar»), y no hay
+  reconstrucción en memoria: no tiene el corpus del que hacerla. `scripts/build-indice-busqueda.mjs` lo
   escribe y lo relee campo por campo y entrada por entrada contra el
   corpus antes de terminar; un campo del corpus sin columna, o un valor que
   no es de la suya, lo hace fallar. Reemplazó, el 2026-10-01, el índice
   «SIB1» más el `JSON.parse` de `corpus.json` en cada arranque (~0.65 s),
   que a su vez reemplazó el guardado de Orama (`indice.json.br`: 27 MB de
-  JSON que costaban ~1.3 s por arranque con 68 mil entradas).
+  JSON que costaban ~1.3 s por arranque con 68 mil entradas). ⚠️ **Techo**:
+  GitHub rechaza un archivo de más de 100 MiB, y `main` es lo que despliega;
+  el gate falla con cualquier archivo versionado de más de 90 MB. A 64 MB,
+  el índice aguanta ~40 % más de corpus antes de que el gate falle; antes de
+  llegar, las columnas van
+  a su propio archivo (~42 MB, con la misma etiqueta) y el índice por
+  palabra se queda en el suyo (~21 MB). Cada regeneración suma a la
+  historia ~16 MB en gzip más los ~8.4 MB de `corpus.json`.
 - **Por tema**: Model2Vec `potion-multilingual-128M` (MIT), un embedding
   **estático** —una tabla por pieza, sin red que ejecutar—, podado al español
   por `scripts/build-modelo-semantico.py` (72,837 piezas, PCA 256→128, int8:

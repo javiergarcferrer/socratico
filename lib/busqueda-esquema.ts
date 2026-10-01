@@ -245,9 +245,11 @@ function columnasDe(corpus: CorpusJson): Seccion[] {
   const { docs, origenes } = corpus;
   const n = docs.length;
   const conocidos = new Set<string>([...COLUMNAS_TEXTO, ...Object.keys(COLUMNAS_NUMERO)]);
-  for (const d of docs) {
+  docs.forEach((d, i) => {
     for (const k of Object.keys(d)) if (!conocidos.has(k)) throw new Error(`el campo «${k}» del corpus no tiene columna`);
-  }
+    // Toda entrada dice qué es y cómo se llama: sin ellos, el servidor la pintaría vacía.
+    if (typeof d.t !== "string" || typeof d.ti !== "string" || !d.ti) throw new Error(`a la entrada ${i} le falta su tipo o su título`);
+  });
   const enc = new TextEncoder();
   const secciones: Seccion[] = [];
   for (const campo of COLUMNAS_TEXTO) {
@@ -305,6 +307,8 @@ function columnasDe(corpus: CorpusJson): Seccion[] {
 
 interface Cabecera {
   etiqueta: string;
+  /** El sha256 de `vectores.bin` con que se construyó: ata el índice a sus vectores. */
+  vectores: string;
   generado: string;
   instantaneas: Record<string, string>;
   dimensiones: number;
@@ -336,6 +340,8 @@ interface ColumnaNumero {
  */
 export class Columnas {
   readonly entradas: number;
+  /** El sha256 de los vectores con que se construyó el índice. */
+  readonly huellaVectores: string;
   readonly generado: string;
   readonly instantaneas: Record<string, string>;
   readonly dimensiones: number;
@@ -348,6 +354,7 @@ export class Columnas {
 
   constructor(cab: Cabecera, tablas: Map<string, [Tipo, Tabla]>) {
     this.entradas = cab.entradas;
+    this.huellaVectores = cab.vectores;
     this.generado = cab.generado;
     this.instantaneas = cab.instantaneas;
     this.dimensiones = cab.dimensiones;
@@ -432,18 +439,22 @@ export class Columnas {
 
 /*
   `indice.bin`: «SIB2», un u32 con el largo de la cabecera JSON, la cabecera
-  (etiqueta, lo que el corpus dice de sí y cada sección con su tipo y su
-  largo, en orden) y, alineadas a ocho bytes, las secciones: los términos
+  (etiqueta, la huella de los vectores, lo que el corpus dice de sí y cada
+  sección con su tipo y su largo, en orden) y, alineadas a ocho bytes, las
+  secciones: los términos
   unidos por «\n», las tablas del índice (`inicio`, `entrada`,
   `campoFrecuencia`, `largo`) y las columnas del corpus. Los enteros, en el
   orden de bytes de la máquina (little-endian en x86 y ARM).
 */
 const MAGIA = "SIB2";
 
-const alinear = (n: number) => (n + 7) & ~7;
+const alinear = (n: number) => Math.ceil(n / 8) * 8;
 
-/** El archivo del índice: el índice por palabra de `ix` y las columnas de `corpus`. */
-export function serializarIndice(ix: IndicePalabras, corpus: CorpusJson): Uint8Array {
+/**
+ * El archivo del índice: el índice por palabra de `ix`, las columnas de
+ * `corpus` y la huella (sha256) de los vectores que van con ellas.
+ */
+export function serializarIndice(ix: IndicePalabras, corpus: CorpusJson, huellaVectores: string): Uint8Array {
   if (ix.largo.length !== corpus.docs.length * 3) throw new Error("el índice no es de este corpus");
   const enc = new TextEncoder();
   const secciones: Seccion[] = [
@@ -457,6 +468,7 @@ export function serializarIndice(ix: IndicePalabras, corpus: CorpusJson): Uint8A
   const cabecera = enc.encode(
     JSON.stringify({
       etiqueta: ix.etiqueta,
+      vectores: huellaVectores,
       generado: corpus.generado,
       instantaneas: corpus.instantaneas,
       dimensiones: corpus.dimensiones,

@@ -13,8 +13,9 @@
  * 2026-10-01). Esto se lee en decenas de milisegundos.
  *
  * La cabecera lleva la etiqueta del corpus (fecha, huella y número de
- * entradas): el gate (`verificar.sh`) la compara con la de `corpus.json`, y
- * no deja pasar un índice de otro corpus.
+ * entradas) y el sha256 de `vectores.bin`: el gate (`verificar.sh`) compara
+ * las dos con `corpus.json` y `vectores.bin`, y el servidor la de los
+ * vectores al cargar.
  *
  * El corte de palabras, las vacías y el lematizador vienen de
  * `lib/busqueda-esquema.ts`, el mismo módulo que usa el servidor: si
@@ -25,6 +26,7 @@
  * Uso:
  *     node --no-warnings scripts/build-indice-busqueda.mjs
  */
+import { createHash } from "node:crypto";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,7 +57,15 @@ let t = performance.now();
 const ix = construirIndice(corpus.docs, corpus.origenes, etiquetaCorpus(corpus));
 const msConstruir = performance.now() - t;
 
-const bin = serializarIndice(ix, corpus);
+// Los vectores van con este corpus (los escribió el mismo build-busqueda.py):
+// el índice guarda su huella, y el servidor no carga uno que no sea el suyo.
+const vectores = readFileSync(path.join(DIR, "vectores.bin"));
+if (vectores.length !== (corpus.vectorizados ?? corpus.docs.length) * (corpus.dimensiones + 4)) {
+  console.error("vectores.bin no es de este corpus: vuelve a correr scripts/build-busqueda.py");
+  process.exit(1);
+}
+const huellaVectores = createHash("sha256").update(vectores).digest("hex");
+const bin = serializarIndice(ix, corpus, huellaVectores);
 const destino = path.join(DIR, "indice.bin");
 writeFileSync(destino, bin);
 // El formato anterior (Orama en JSON), si quedara de otra versión.
@@ -76,6 +86,7 @@ const igualIndice =
   );
 if (!igualIndice) fallos.push("el índice por palabra");
 for (const k of ["generado", "dimensiones", "piezas"]) if (columnas[k] !== corpus[k]) fallos.push(k);
+if (columnas.huellaVectores !== huellaVectores) fallos.push("la huella de los vectores");
 if (columnas.vectorizados !== (corpus.vectorizados ?? corpus.docs.length)) fallos.push("vectorizados");
 if (columnas.entradas !== corpus.docs.length) fallos.push("entradas");
 if (JSON.stringify(columnas.instantaneas) !== JSON.stringify(corpus.instantaneas)) fallos.push("instantaneas");

@@ -86,9 +86,9 @@ if printf '%s\n' "$nuevos" | grep -qE '^lib/[a-z-]+\.ts$'; then
   else ok "new adapter is declared in /fuentes or CLAUDE.md"; fi
 fi
 
-# 5a. The search index belongs to its corpus: the server reads only
-#     indice.bin (word index + corpus by columns), so a stale one is not an
-#     error at runtime — it silently serves the previous corpus.
+# 5a. The search index belongs to its corpus and its vectors: the server
+#     reads only indice.bin (word index + corpus by columns), so a stale one
+#     is not an error at runtime — it silently serves the previous corpus.
 if [ -f public/data/busqueda/corpus.json ]; then
   if etq="$(node -e '
     const fs = require("fs");
@@ -98,12 +98,21 @@ if [ -f public/data/busqueda/corpus.json ]; then
     const cab = JSON.parse(b.subarray(8, 8 + b.readUInt32LE(4)).toString());
     const esperada = `${c.generado}|${c.huella ?? "sin-huella"}|${c.docs.length}`;
     if (cab.etiqueta !== esperada) console.log(`indice.bin ${cab.etiqueta} != corpus ${esperada}`);
+    const v = require("crypto").createHash("sha256").update(fs.readFileSync("public/data/busqueda/vectores.bin")).digest("hex");
+    if (cab.vectores !== v) console.log("indice.bin was built with another vectores.bin");
   ' 2>&1)" && [ -z "$etq" ]; then
-    ok "search: indice.bin matches corpus.json"
+    ok "search: indice.bin matches corpus.json and vectores.bin"
   else
     mal "search index out of date — node scripts/build-indice-busqueda.mjs"; printf '%s\n' "$etq" | sed 's/^/       /'
   fi
 fi
+
+# 5a'. GitHub refuses a file over 100 MiB, and main is what deploys: a
+#      snapshot that grows past it stops every deploy. Fail with headroom.
+grandes="$(git ls-files -z 2>/dev/null | xargs -0 stat -c '%s %n' 2>/dev/null \
+           | awk '{s=$1; $1=""; if (s > 90000000) printf "%s (%.1f MB)\n", substr($0, 2), s/1e6}')"
+if [ -z "$grandes" ]; then ok "size: every tracked file under 90 MB (GitHub refuses 100 MiB)"
+else mal "tracked file over 90 MB — split it before GitHub refuses the push (docs/ARQUITECTURA.md, Búsqueda)"; printf '%s\n' "$grandes" | sed 's/^/       /'; fi
 
 # 5b. The harness's own claims (ceiling, paths, rule ownership, frontmatter).
 if arn="$("$(dirname "$0")/harness.sh" "$ROOT" 2>&1)" && [ -z "$arn" ]; then
