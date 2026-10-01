@@ -20,7 +20,8 @@ Una carpeta `socratico/` con dos archivos.
 #
 # Todo https://w3id.org/socratico/<ruta> va a https://socratico.vercel.app/<ruta>,
 # que resuelve /def/core, /def/do (el vocabulario, por Accept: HTML, Turtle,
-# JSON-LD o N-Triples), /def/formas (SHACL) y, más adelante, /id/… (cada nodo).
+# JSON-LD o N-Triples), /def/formas (SHACL), /def/fabric (perfil para Fabric IQ)
+# y, más adelante, /id/… (cada nodo).
 # Si el sitio cambia de dominio, solo cambia esta línea.
 Options +FollowSymLinks
 RewriteEngine on
@@ -40,6 +41,7 @@ unofficial platform over public data of the Dominican Republic.
 - Vocabulary: https://w3id.org/socratico/def/core (country-neutral core, `soc:`)
   and https://w3id.org/socratico/def/do (Dominican Republic module, `do:`)
 - SHACL shapes: https://w3id.org/socratico/def/formas
+- Microsoft Fabric IQ profile: https://w3id.org/socratico/def/fabric
 - Instances (planned): https://w3id.org/socratico/id/…
 
 All paths redirect to https://socratico.vercel.app/<path>.
@@ -53,6 +55,6 @@ Maintainer: Javier García Ferrer (GitHub: @javiergarcferrer)
 2. Crear la carpeta `socratico/` con los dos archivos de arriba, tal cual.
 3. Abrir el *pull request* con el título `Add socratico` y, en la descripción, una línea: «Persistent identifiers for the Socrático.do knowledge graph (vocabulary at /def/, instances at /id/). Maintainer: @javiergarcferrer.»
 4. Cuando lo acepten (suele tardar de días a un par de semanas), comprobar:
-   - `curl -sI https://w3id.org/socratico/def/core` → 302 a `https://socratico.vercel.app/def/core`, que a su vez da 303 a `/ontologia`;
-   - `curl -sI -H "Accept: text/turtle" https://w3id.org/socratico/def/do` → termina en `/ontologia.ttl`.
-5. Anotar en este archivo y en `docs/gestiones/README.md` la fecha de aceptación, y quitar el aviso de `docs/ARQUITECTURA.md` §Ontología que dice que los IRIs aún no resuelven.
+   - `curl -sIL https://w3id.org/socratico/def/core` → 302 a `https://socratico.vercel.app/def/core`, luego 303 a `/ontologia` y 200;
+   - `curl -sIL -H "Accept: text/turtle" https://w3id.org/socratico/def/do` → termina en `/ontologia.ttl` (200, `text/turtle`).
+5. Anotar en este archivo y en `docs/gestiones/README.md` la fecha de aceptación, y quitar los avisos de que los IRIs aún no resuelven: `docs/ARQUITECTURA.md` §Grafo semántico y la página `/ontologia` (`app/ontologia/page.tsx`).

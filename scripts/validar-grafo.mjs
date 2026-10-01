@@ -16,9 +16,13 @@
  *    subclases, y los conceptos de las listas cerradas están ahí.
  *
  * Una forma con `sh:class` falla cuando el nodo de llegada no tiene ese
- * tipo. Si no tiene **ningún** tipo, es que la muestra no lo describe (una
- * persona fuera de la muestra, un decreto que no se pidió): eso se cuenta
- * aparte, no es un error del grafo. Un nodo con otro tipo sí lo es.
+ * tipo. Si es una persona o un decreto sin **ningún** tipo, es que la
+ * muestra no lo describe (el volcado no los trae y solo se piden algunos):
+ * eso se cuenta aparte. Cualquier otro nodo sin tipo es una arista colgando
+ * —el volcado sí trae todo lo demás— y cuenta como violación.
+ *
+ * Y ningún IRI del espacio de la versión 1 (`ESPACIO_V1` de `lib/rdf.ts`):
+ * el grafo emite solo los de ahora.
  *
  * Uso:
  *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300]
@@ -42,6 +46,9 @@ const N_PERSONAS = Number(arg("personas", "300"));
 const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
 const SOC = `${W3ID}/def/core#`;
 const DO = `${W3ID}/def/do#`;
+const V1 = /ESPACIO_V1 = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
+// Lo que la muestra puede no describir: personas y decretos (el volcado no los trae).
+const SOLO_EN_MUESTRA = /\/(funcionarios|normativa\/decreto)\//;
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const CLASE_SH = "http://www.w3.org/ns/shacl#ClassConstraintComponent";
 
@@ -91,9 +98,13 @@ await enLotes([...decretos].slice(0, N_PERSONAS), 8, async (n) => {
 });
 const msLeer = performance.now() - t0;
 
-// Los términos del grafo que la ontología no declara.
+// Los términos del grafo que la ontología no declara, y los de la v1.
 const sinDeclarar = new Map();
+const deV1 = new Map();
 for (const q of [...volcado, ...qPersonas]) {
+  for (const termino of [q.subject.value, q.predicate.value, q.object.value]) {
+    if (termino.startsWith(V1)) deV1.set(termino, (deV1.get(termino) ?? 0) + 1);
+  }
   for (const termino of [q.predicate.value, q.predicate.value === RDF_TYPE ? q.object.value : null]) {
     if (!termino || !(termino.startsWith(SOC) || termino.startsWith(DO)) || declarados.has(termino)) continue;
     sinDeclarar.set(termino, (sinDeclarar.get(termino) ?? 0) + 1);
@@ -115,7 +126,7 @@ const grupos = new Map();
 let fueraDeMuestra = 0;
 for (const r of informe.results) {
   const componente = r.sourceConstraintComponent?.value ?? "";
-  if (componente === CLASE_SH && r.value && !conTipo.has(r.value.value)) {
+  if (componente === CLASE_SH && r.value && !conTipo.has(r.value.value) && SOLO_EN_MUESTRA.test(r.value.value)) {
     fueraDeMuestra++;
     continue;
   }
@@ -133,13 +144,15 @@ console.log(
     `leer ${Math.round(msLeer / 1000)} s, validar ${Math.round(msValidar / 1000)} s`,
 );
 for (const [termino, n] of sinDeclarar) console.log(`SIN DECLARAR ${termino} (${n} veces)`);
+for (const [termino, n] of deV1) console.log(`DE LA V1 ${termino} (${n} veces)`);
 for (const [k, g] of [...grupos].sort((a, b) => b[1].n - a[1].n)) {
   console.log(`VIOLA ${k}: ${g.n.toLocaleString("en-US")}`);
   for (const e of g.ejemplos) console.log(`      ${e}`);
 }
+const conforme = grupos.size === 0 && sinDeclarar.size === 0 && deV1.size === 0;
 console.log(
-  `${grupos.size === 0 && sinDeclarar.size === 0 ? "conforme" : "no conforme"}: ` +
+  `${conforme ? "conforme" : "no conforme"}: ` +
     `${[...grupos.values()].reduce((s, g) => s + g.n, 0).toLocaleString("en-US")} violaciones, ${sinDeclarar.size} términos sin declarar, ` +
-    `${fueraDeMuestra.toLocaleString("en-US")} enlaces a nodos fuera de la muestra`,
+    `${deV1.size} IRIs de la v1, ${fueraDeMuestra.toLocaleString("en-US")} enlaces a personas o decretos fuera de la muestra`,
 );
-process.exit(grupos.size === 0 && sinDeclarar.size === 0 ? 0 : 1);
+process.exit(conforme ? 0 : 1);

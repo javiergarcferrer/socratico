@@ -145,7 +145,8 @@ const nextConfig: NextConfig = {
         Los IRIs persistentes del vocabulario (`lib/rdf.ts`, W3ID): w3id.org
         manda `https://w3id.org/socratico/<ruta>` a `<este sitio>/<ruta>`, y
         aquí se resuelve. El núcleo y el módulo dominicano (con su versión o
-        sin ella) son el mismo documento; las formas SHACL, el suyo.
+        sin ella) son el mismo documento y se sirven por `Accept`; las formas
+        SHACL y el perfil de Fabric IQ, siempre en Turtle.
       */
       ...formatos.map(({ formato, acepta }) => ({
         source: "/def/:modulo(core|do)/:version?",
@@ -155,6 +156,7 @@ const nextConfig: NextConfig = {
       })),
       { source: "/def/:modulo(core|do)/:version?", destination: "/ontologia", statusCode: 303 as const },
       { source: "/def/formas", destination: "/ontologia.shacl.ttl", statusCode: 303 as const },
+      { source: "/def/fabric", destination: "/ontologia.fabric.ttl", statusCode: 303 as const },
     ];
   },
   async headers() {

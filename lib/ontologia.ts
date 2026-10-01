@@ -80,8 +80,15 @@ export interface Clase {
   wikidata?: { qid: string; relacion: "closeMatch" | "broadMatch"; nombre: string }[];
   /** El esquema de FollowTheMoney (OpenSanctions, Aleph) al que corresponde. */
   ftm?: string;
-  /** Las propiedades que identifican a una instancia sin dudas (`owl:hasKey`). */
+  /**
+   * Las propiedades que identifican a una instancia sin dudas (`owl:hasKey`).
+   * Las de hoy son del módulo dominicano (RNC, RPE): ese axioma es de `do:`
+   * aunque hable de una clase del núcleo, y va a su documento cuando los
+   * módulos se sirvan por separado (F8).
+   */
   clave?: string[];
+  /** Un nombre corto para el perfil de Fabric IQ, si el `id` no cabe en sus 26 caracteres o en un nombre compuesto. */
+  corto?: string;
   estado: Estado;
   /**
    * ¿Existía en la versión 1? Su IRI de entonces se declara caso del de ahora
@@ -146,6 +153,7 @@ export const CLASES: Clase[] = [
       "Quien ocupa, o ocupó en los últimos tres años, un puesto obligado a declarar patrimonio. Qué puestos lo son lo dice la ley de cada país (en la República Dominicana, la Ley 155-17, art. 2, num. 19, que remite al art. 2 de la Ley 311-14: `do:numeralLey311`). Es una categoría legal, no una acusación.",
     padre: "soc:Persona",
     subClaseDe: [],
+    corto: "PEP",
     wikidata: [{ qid: "Q106155", relacion: "closeMatch", nombre: "persona expuesta políticamente" }],
     ftm: "Person",
     estado: "en-uso",
@@ -158,6 +166,7 @@ export const CLASES: Clase[] = [
     comentario:
       "Cualquier organización del grafo: una institución del Estado, una entidad financiera, una persona jurídica, un partido. Una organización puede contener a otras (`soc:subOrganizacionDe`): un ministerio y sus viceministerios son un subgrafo.",
     subClaseDe: ["org:Organization", "schema:Organization"],
+    corto: "Org",
     ftm: "Organization",
     estado: "en-uso",
   },
@@ -385,6 +394,7 @@ export const CLASES: Clase[] = [
     sinonimos: ["licitación", "proceso de compra"],
     comentario: "Un proceso de compra de una institución, desde su convocatoria: su objeto, su modalidad, su valor estimado y su estado.",
     subClaseDe: ["epo:Procedure"],
+    corto: "Proceso",
     ftm: "Contract",
     estado: "definido",
   },
@@ -443,6 +453,7 @@ export const CLASES: Clase[] = [
     etiqueta: "Proyecto de inversión pública",
     etiquetaEn: "Public investment project",
     sinonimos: ["obra pública"],
+    corto: "Proyecto",
     comentario: "Una obra o proyecto de inversión pública con su código (en la República Dominicana, el SNIP), quien lo ejecuta, su valor y su avance.",
     subClaseDe: [],
     ftm: "Project",
@@ -514,9 +525,10 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "objeto",
     etiqueta: "ocupa u ocupó",
     etiquetaEn: "holds or held",
-    comentario: "De una persona a cada cargo que las fuentes le registran.",
+    comentario:
+      "De una persona a cada cargo que las fuentes le registran, a cada ocupación de un puesto y a cada membresía. Inversa de `soc:titular`, así que su rango es el dominio de aquella: si no, una ocupación con titular se inferiría `soc:Cargo`.",
     dominio: ["soc:Persona"],
-    rango: ["soc:Cargo"],
+    rango: ["soc:Cargo", "soc:Ocupacion", "soc:Membresia"],
     subPropiedadDe: ["org:hasMembership"],
     inversa: "titular",
     estado: "en-uso",
@@ -1443,7 +1455,9 @@ function cabeceras(): Triple[] {
         "es",
       ),
     ),
-    t(ONTOLOGIA_DO, "owl:imports", iri(ONTOLOGIA)),
+    // Usa el núcleo; no lo importa (`owl:imports`): los dos van en el mismo
+    // documento, y un editor OWL lo cargaría dos veces.
+    t(ONTOLOGIA_DO, "dct:requires", iri(ONTOLOGIA)),
   ];
 }
 
@@ -1467,7 +1481,7 @@ export function triplesOntologia(): Triple[] {
     for (const sup of c.subClaseDe) x.push(t(s, "rdfs:subClassOf", iri(sup)));
     for (const w of c.wikidata ?? []) x.push(t(s, `skos:${w.relacion}`, iri(`wd:${w.qid}`)));
     if (c.clave?.length) x.push(...lista(s, "owl:hasKey", c.clave.map((k) => iri(k)), `clave-${c.id}`));
-    if (c.v1) x.push(...anterior(ESPACIO_V1 + c.id, "rdfs:subClassOf", s));
+    if (c.v1) x.push(...anterior(ESPACIO_V1 + c.id, "owl:Class", "rdfs:subClassOf", s));
   }
   for (const p of PROPIEDADES) {
     const s = curie(p);
@@ -1490,7 +1504,7 @@ export function triplesOntologia(): Triple[] {
     }
     for (const sup of p.subPropiedadDe ?? []) x.push(t(s, "rdfs:subPropertyOf", iri(sup)));
     if (p.inversa) x.push(t(s, "owl:inverseOf", iri(`soc:${p.inversa}`)));
-    if (p.v1) x.push(...anterior(ESPACIO_V1 + p.id, "rdfs:subPropertyOf", s));
+    if (p.v1) x.push(...anterior(ESPACIO_V1 + p.id, p.tipo === "objeto" ? "owl:ObjectProperty" : "owl:DatatypeProperty", "rdfs:subPropertyOf", s));
   }
   for (const e of esquemas()) {
     const s = curie(e);
@@ -1515,9 +1529,13 @@ export function triplesOntologia(): Triple[] {
   return x;
 }
 
-/** El término de la v1: caso del de ahora y obsoleto. */
-function anterior(v1: string, pred: string, ahora: string): Triple[] {
-  return [t(v1, pred, iri(ahora)), t(v1, "owl:deprecated", { tipo: "literal", valor: "true", datatype: PREFIJOS.xsd + "boolean" })];
+/** El término de la v1: declarado con su tipo (OWL 2 DL lo exige), caso del de ahora y obsoleto. */
+function anterior(v1: string, tipo: string, pred: string, ahora: string): Triple[] {
+  return [
+    t(v1, "rdf:type", iri(tipo)),
+    t(v1, pred, iri(ahora)),
+    t(v1, "owl:deprecated", { tipo: "literal", valor: "true", datatype: PREFIJOS.xsd + "boolean" }),
+  ];
 }
 
 /** Una lista RDF (`rdf:first`/`rdf:rest`) colgada de `s` por `pred`, con nodos en blanco de nombre estable. */
@@ -1606,58 +1624,92 @@ export function triplesFormas(): Triple[] {
 
 /* ------------------------------------------------------------- Fabric IQ */
 
+/** Un nombre que Fabric IQ admite para un tipo de entidad: de 1 a 26 caracteres, letras, cifras, `-` o `_`. */
+const NOMBRE_FABRIC = /^[A-Za-z0-9_-]{1,26}$/;
+
 /**
  * El perfil para Microsoft Fabric IQ: lo que su importador de RDF/OWL
  * representa, según su documentación (learn.microsoft.com, «Import and export
- * ontologies», revisada el 2026-10-01). Cada clase es un tipo de entidad
- * (`rdfs:label` → nombre, `rdfs:comment` → descripción, `skos:altLabel` →
- * sinónimos) con **un solo padre** de aquí —Fabric conserva solo el primero—;
- * cada propiedad de dato, una propiedad con un solo dominio; cada propiedad
- * de objeto, una relación entre dos tipos. Una propiedad con varios dominios
- * o rangos se parte en una por par (`fecha_Norma`, `fecha_Cargo`), con el
- * mismo nombre visible; una que apunta a un concepto SKOS pasa a ser un dato
- * de texto, porque Fabric no tiene listas cerradas; una unión de tipos de
- * dato, texto. Lo de fuera (schema.org, ORG, Wikidata) no viaja: Fabric no lo
- * importa. ⚠️ Sin una importación real verificada (docs/PLAN-GRAFO.md, F6).
+ * ontologies», «Create entity types», «Create relationship types», revisada
+ * el 2026-10-01). Va en **su propio espacio** (`fabric:`,
+ * `https://w3id.org/socratico/def/fabric#`): sus términos no son los del
+ * núcleo —una relación partida o un concepto vuelto texto no son la propiedad
+ * de `soc:`— y cada uno remite al suyo con `rdfs:seeAlso`.
+ *
+ *  · Cada clase es un tipo de entidad con **un solo padre** de aquí —Fabric
+ *    conserva solo el primero—.
+ *  · El **nombre** (`rdfs:label`, que Fabric toma como nombre visible) es el
+ *    mismo que la parte local del IRI, por si el importador toma uno u otro:
+ *    letras, cifras y `_`, hasta 26 caracteres, único (Fabric pide nombres de
+ *    relación únicos). El nombre en llano va de sinónimo (`skos:altLabel`) y
+ *    de descripción (`rdfs:comment`).
+ *  · Una propiedad con varios dominios o rangos se parte en una por par
+ *    (`fecha_Norma`, `posibleReferencia_Org`); una que apunta a un concepto
+ *    SKOS pasa a ser un dato de texto (Fabric no tiene listas cerradas); una
+ *    unión de tipos de dato o un texto con idioma, texto.
+ *  · Lo de fuera (schema.org, ORG, Wikidata) no viaja: Fabric no lo importa.
+ *
+ * Lanza si un nombre no cabe: el build falla antes de publicar un perfil que
+ * Fabric rechazaría. ⚠️ Sin una importación real verificada
+ * (docs/PLAN-GRAFO.md, F6).
  */
 export function triplesFabric(): Triple[] {
-  const o = `${ONTOLOGIA}/fabric`;
+  const o = PREFIJOS.fabric.slice(0, -1);
   const x: Triple[] = [
     t(o, "rdf:type", iri("owl:Ontology")),
-    t(o, "rdfs:label", lit("Socrático.do", "es")),
+    t(o, "rdfs:label", lit("Socratico", "es")),
     t(o, "rdfs:comment", lit("Perfil de la ontología de Socrático.do para Microsoft Fabric IQ: tipos de entidad, propiedades y relaciones.", "es")),
     t(o, "owl:versionInfo", lit(VERSION)),
     t(o, "rdfs:seeAlso", iri(ONTOLOGIA)),
   ];
-  const internas = new Set(CLASES.map(curie));
+  const porCurie = new Map(CLASES.map((c) => [curie(c), c]));
+  const nombreDe = (c: Clase) => (c.id.length <= 26 ? c.id : (c.corto ?? c.id));
+  const cortoDe = (cur: string) => {
+    const c = porCurie.get(cur);
+    return c ? (c.corto ?? c.id) : cur.split(":")[1];
+  };
+  const usados = new Set<string>();
+  const nombre = (n: string) => {
+    if (!NOMBRE_FABRIC.test(n)) throw new Error(`«${n}» no es un nombre que Fabric IQ admita (1–26 caracteres, letras, cifras, - o _)`);
+    if (usados.has(n)) throw new Error(`el perfil de Fabric repite el nombre «${n}»`);
+    usados.add(n);
+    return `fabric:${n}`;
+  };
+  const enFabric = new Map<string, string>();
+  for (const c of CLASES) enFabric.set(curie(c), nombre(nombreDe(c)));
   for (const c of CLASES) {
-    const s = curie(c);
+    const s = enFabric.get(curie(c))!;
     x.push(
       t(s, "rdf:type", iri("owl:Class")),
-      t(s, "rdfs:label", lit(c.etiqueta, "es")),
+      t(s, "rdfs:label", lit(s.slice("fabric:".length))),
       t(s, "rdfs:comment", lit(c.comentario, "es")),
+      t(s, "skos:altLabel", lit(c.etiqueta, "es")),
       t(s, "skos:altLabel", lit(c.etiquetaEn, "en")),
+      t(s, "rdfs:seeAlso", iri(curie(c))),
     );
     for (const sin of c.sinonimos ?? []) x.push(t(s, "skos:altLabel", lit(sin, "es")));
-    if (c.padre) x.push(t(s, "rdfs:subClassOf", iri(c.padre)));
+    if (c.padre) x.push(t(s, "rdfs:subClassOf", iri(enFabric.get(c.padre)!)));
   }
   for (const p of PROPIEDADES) {
-    const aConcepto = p.tipo === "objeto" && p.rango.every((r) => !internas.has(r));
+    const aConcepto = p.tipo === "objeto" && p.rango.every((r) => !porCurie.has(r));
     const esDeDato = p.tipo === "dato" || aConcepto;
     // Fabric no tiene textos con idioma: uno de una sola clase de XML Schema pasa tal cual; lo demás, texto.
     const rangos = esDeDato ? [p.rango.length === 1 && p.rango[0].startsWith("xsd:") ? p.rango[0] : "xsd:string"] : p.rango;
-    const pares = p.dominio.flatMap((d) => rangos.map((r) => [d, r] as const));
-    const local = (termino: string) => `_${termino.split(":")[1]}`;
-    for (const [d, r] of pares) {
-      const s = `${curie(p)}${p.dominio.length > 1 ? local(d) : ""}${rangos.length > 1 ? local(r) : ""}`;
-      x.push(
-        t(s, "rdf:type", iri(esDeDato ? "owl:DatatypeProperty" : "owl:ObjectProperty")),
-        t(s, "rdfs:label", lit(p.etiqueta, "es")),
-        t(s, "rdfs:comment", lit(p.comentario, "es")),
-        t(s, "skos:altLabel", lit(p.etiquetaEn, "en")),
-        t(s, "rdfs:domain", iri(d)),
-        t(s, "rdfs:range", iri(r)),
-      );
+    for (const d of p.dominio) {
+      for (const r of rangos) {
+        const n = `${p.id}${p.dominio.length > 1 ? `_${cortoDe(d)}` : ""}${rangos.length > 1 ? `_${cortoDe(r)}` : ""}`;
+        const s = nombre(n);
+        x.push(
+          t(s, "rdf:type", iri(esDeDato ? "owl:DatatypeProperty" : "owl:ObjectProperty")),
+          t(s, "rdfs:label", lit(n)),
+          t(s, "rdfs:comment", lit(p.comentario, "es")),
+          t(s, "skos:altLabel", lit(p.etiqueta, "es")),
+          t(s, "skos:altLabel", lit(p.etiquetaEn, "en")),
+          t(s, "rdfs:seeAlso", iri(curie(p))),
+          t(s, "rdfs:domain", iri(enFabric.get(d)!)),
+          t(s, "rdfs:range", iri(esDeDato ? r : enFabric.get(r)!)),
+        );
+      }
     }
   }
   return x;

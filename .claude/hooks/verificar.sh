@@ -173,7 +173,9 @@ if [ "$construido" = 1 ]; then
     ok "graph: $(printf '%s\n' "$shacl" | tail -1)"
   else
     mal "graph: scripts/validar-grafo.mjs (SHACL against lib/ontologia.ts)"
-    printf '%s\n' "$shacl" | grep -E 'VIOLA|SIN DECLARAR|conforme|volcado' | head -12 | sed 's/^/       /'
+    # A crash (a 500 from the server, a timeout, out of memory) matches none of
+    # the report lines: show its last lines instead.
+    { printf '%s\n' "$shacl" | grep -E 'VIOLA|SIN DECLARAR|DE LA V1|conforme|volcado' || printf '%s\n' "$shacl" | tail -3; } | head -12 | sed 's/^/       /'
   fi
   kill "$srv" 2>/dev/null; wait "$srv" 2>/dev/null; trap - EXIT
 fi

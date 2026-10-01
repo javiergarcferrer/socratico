@@ -1054,15 +1054,24 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
     `do:MedidaDGCP`). ⚠️ **Hasta que w3id.org acepte el pull request**
     (`docs/gestiones/w3id.md`) esos IRIs no resuelven; cuando lo acepte,
     w3id manda `…/socratico/<ruta>` a `<sitio>/<ruta>` y `next.config.ts`
-    resuelve `/def/core`, `/def/do` (con versión o sin ella) y `/def/formas`
-    por `Accept`. Los nombres locales son únicos entre los dos módulos (se
-    comprueba al cargar), así que los dos llevan a `/ontologia#<nombre>`.
+    resuelve `/def/core` y `/def/do` (con versión o sin ella) por `Accept`
+    —HTML, Turtle, JSON-LD o N-Triples—, y `/def/formas` y `/def/fabric`
+    siempre a su Turtle. Los nombres locales son únicos entre los dos
+    módulos (se comprueba al cargar), así que los dos llevan a
+    `/ontologia#<nombre>`. Los dos módulos van en un mismo documento: `do:`
+    declara que usa el núcleo (`dct:requires`), no lo importa
+    (`owl:imports` haría que un editor OWL cargara el documento dos veces).
   - **La v1** (`https://socratico.vercel.app/ontologia#`, 30-09-2026) no se
     rompe: cada término suyo se declara `rdfs:subClassOf` o
     `rdfs:subPropertyOf` del de ahora, y obsoleto (`owl:deprecated`); sus
-    conceptos, `skos:exactMatch`. **No** `owl:equivalent…`: la equivalencia
+    conceptos, `skos:exactMatch`; cada término de la v1 se declara con su
+    tipo (OWL 2 DL lo exige). **No** `owl:equivalent…`: la equivalencia
     pasaría los dominios más estrechos de la v1 a la v2 (con la v1 cargada,
-    toda `soc:Ocupacion` con titular sería un `soc:Cargo`).
+    toda `soc:Ocupacion` con titular sería un `soc:Cargo`). Por la misma
+    razón `soc:ocupa`, inversa de `soc:titular`, tiene por rango el dominio
+    de aquella (cargo, ocupación o membresía). `ESPACIO_V1` va escrito tal
+    cual, no derivado de `SITIO`: si el sitio cambia de dominio, los IRIs de
+    la v1 siguen siendo los publicados.
   - **Estado de cada término** (`vs:term_status`): 35 clases y 65
     propiedades, en 7 listas con 74 conceptos. «En uso» si el grafo tiene
     instancias: 17 clases —las 14 de la v1 menos `soc:Ley`, que nadie tipa,
@@ -1096,9 +1105,11 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
     entero más una muestra de personas y de los decretos que las nombran
     con `rdf-validate-shacl` (Zazuko; dependencia de desarrollo, no viaja
     en ninguna función), y exige además que todo término `soc:`/`do:` que
-    el grafo usa esté declarado. Un `sh:class` cuyo nodo no tiene ningún
-    tipo en la muestra se cuenta aparte («fuera de la muestra»), no como
-    error. Corre en el gate completo, sobre el mismo `next start` que la
+    el grafo usa esté declarado y que no quede ningún IRI de la v1. Un
+    `sh:class` cuyo nodo de llegada es una persona o un decreto sin ningún
+    tipo se cuenta aparte («fuera de la muestra»: el volcado no los trae);
+    cualquier otro nodo sin tipo es una arista colgando y cuenta como
+    violación. Corre en el gate completo, sobre el mismo `next start` que la
     evaluación del MCP (~1 min con 300 personas). ✅ 01-10-2026, con 600
     personas y 204 decretos: 856,216 triples de 126,850 nodos, **conforme**
     (0 violaciones, 0 términos sin declarar, 0 enlaces fuera de la
@@ -1110,13 +1121,25 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
     `rdf:langString`), y un decreto tipaba a su firmante solo como
     `schema:Person` (ahora también `soc:Persona`, y a quien designa).
   - **Fabric IQ** (su documentación, «Import and export ontologies»,
-    revisada el 01-10-2026): importa TTL, RDF/RDFS u OWL en un ítem vacío;
+    «Create entity types», «Create relationship types», revisada el
+    01-10-2026): importa TTL, RDF/RDFS u OWL en un ítem vacío;
     `rdfs:label` → nombre, `rdfs:comment` → descripción, `skos:altLabel` →
     sinónimo; con varios padres conserva el primero; lo que no representa lo
-    salta. El perfil lleva solo clases de aquí con un padre, y parte cada
-    propiedad con varios dominios o rangos en una por par (`fecha_Norma`,
-    `titular_Ocupacion`…); lo que apunta a un concepto SKOS pasa a texto.
-    ⚠️ Sin una importación real: es lo que dice su documentación.
+    salta; los nombres de tipo van de 1 a 26 caracteres (letras, cifras,
+    `-`, `_`) y los de relación tienen que ser únicos. El perfil va **en su
+    propio espacio** (`fabric:`, `…/def/fabric#`), no en el núcleo: una
+    relación partida o un concepto vuelto texto no son la propiedad de
+    `soc:`, y cada término remite al suyo (`rdfs:seeAlso`). Lleva solo
+    clases de aquí con un padre; el nombre es la parte local del IRI y
+    también la etiqueta (por si el importador toma uno u otro), y el nombre
+    en llano va de sinónimo y de descripción; cada propiedad con varios
+    dominios o rangos se parte en una por par con un nombre único
+    (`fecha_Norma`, `posibleReferencia_Org`: `corto` da el nombre breve de
+    una clase); lo que apunta a un concepto SKOS, un texto con idioma o una
+    unión de tipos de dato pasan a texto. Si un nombre no cabe o se repite,
+    `triplesFabric` lanza y el build falla. 35 tipos y 92 propiedades y
+    relaciones. ⚠️ Sin una importación real: es lo que dice su
+    documentación.
 - **`lib/grafo-rdf.ts`** — `describir(nodo, ligero)`: los triples de un nodo
   con el vecindario que hace falta para leerlo (cada vecino con su
   `rdfs:label`). Topes que la descripción declara en su `nota`: una

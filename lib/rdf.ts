@@ -45,8 +45,15 @@ export const ONTOLOGIA = `${W3ID}/def/core`;
 export const ONTOLOGIA_DO = `${W3ID}/def/do`;
 /** La página donde se lee la ontología y sus descargas: adonde lleva el IRI. */
 export const PAGINA_ONTOLOGIA = `${SITIO}/ontologia`;
-/** El espacio de nombres de la versión 1 (2026-09-30), en el dominio del despliegue: sus términos se declaran equivalentes. */
-export const ESPACIO_V1 = `${SITIO}/ontologia#`;
+/**
+ * El espacio de nombres de la versión 1 (2026-09-30), en el dominio del
+ * despliegue. Escrito tal cual y no de `SITIO`: si el sitio cambia de
+ * dominio, los IRIs de la v1 siguen siendo los que se publicaron. Cada
+ * término suyo se declara caso del de ahora y obsoleto (`lib/ontologia.ts`).
+ */
+export const ESPACIO_V1 = "https://socratico.vercel.app/ontologia#";
+/** El perfil de la ontología para Microsoft Fabric IQ, en su propio espacio: sus términos no son los del núcleo. */
+export const ONTOLOGIA_FABRIC = `${W3ID}/def/fabric`;
 
 /** Los vocabularios que usa el grafo, con su prefijo de siempre. */
 export const PREFIJOS = {
@@ -71,6 +78,7 @@ export const PREFIJOS = {
   adms: "http://www.w3.org/ns/adms#",
   epo: "http://data.europa.eu/a4g/ontology#",
   sh: "http://www.w3.org/ns/shacl#",
+  fabric: `${W3ID}/def/fabric#`,
   wd: "http://www.wikidata.org/entity/",
 } as const;
 

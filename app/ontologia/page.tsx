@@ -141,6 +141,10 @@ export default function OntologiaPage() {
           .
         </p>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
+          Los IRIs de w3id.org resolverán cuando w3id acepte el registro de Socrático; mientras tanto, cada término
+          está aquí, en su ancla.
+        </p>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
           Cada término dice si el grafo ya lo usa o si está definido para lo que viene —el tiempo de cada cargo,
           los eventos que lo cambian, las menciones en documentos, la contratación proceso a proceso— y todavía no
           tiene datos.
