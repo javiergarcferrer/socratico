@@ -310,7 +310,9 @@ Del buscador, la revisión del 2026-09-27 (`docs/ARQUITECTURA.md` §Búsqueda):
   ⚠️ `retrieve` con un nombre que el grafo no ata exacto sigue en 1.0–1.3 s
   por las instantáneas en JSON de proveedores, funcionarios y procesos
   (ARQUITECTURA, el servidor MCP): el siguiente paso es el mismo, por
-  columnas.
+  columnas. ⚠️ En Vercel, en frío, `search` pasa de 2.76 s a 1.71 s y
+  `retrieve` de 2.06 s a 1.33 s: allí no baja del segundo; manda la CPU y
+  luego el disco frío (el tokenizador, ~0.14 s aquí, es lo siguiente).
 - ✅ **Cobertura**: todas las leyes desde 1844 (12,130; `leyes.json`),
   los procesos de compra de los últimos 12 meses (77,790; `procesos.json`),
   sentencias del TC y del TSE (12,106; `sentencias.json`) y el Congreso

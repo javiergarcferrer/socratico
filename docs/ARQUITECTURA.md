@@ -1392,6 +1392,15 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   el nodo, procesos— y la recolección de basura que dejan, no el índice; el
   arreglo es el mismo: tablas por columnas. Después, 20–190 ms. Con el disco
   frío, el índice sube a varios segundos.
+- ⚠️ **En Vercel la primera llamada cuesta más que aquí** (01-10-2026, un
+  preview recién desplegado contra producción con el código anterior, la
+  misma secuencia, ~0,22 s de ida y vuelta incluidos): `search` 1,71 s contra
+  2,76 s; `retrieve` del MINERD tras esa búsqueda, 1,33 s contra 2,06 s;
+  «Viamar», 1,39 s. El recorte en Vercel (~1 s) es ~2,7 veces el de esta
+  máquina (~0,38 s) con los mismos bytes leídos, así que allí manda la CPU,
+  más lenta, y luego el disco frío (~97 MB de índice, vectores y modelo). El
+  siguiente recorte: armar el tokenizador (~0,14 s aquí, el mayor costo que
+  queda en la carga del motor) y leer menos bytes.
 - **Verificado** el 30-09-2026 con los clientes oficiales: el SDK 1.x
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.
