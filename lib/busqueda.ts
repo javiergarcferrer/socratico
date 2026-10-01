@@ -24,27 +24,26 @@
  * palabras están, o solo su tema se parece. Lo segundo se declara en la
  * interfaz; no se hace pasar por una coincidencia.
  *
- * Nada de esto es una base de datos (CLAUDE.md, la invariante): el corpus,
- * los vectores, el modelo y el índice por palabra ya construido
- * (`indice.bin`, de `scripts/build-indice-busqueda.mjs`) son archivos
- * versionados en `public/data/busqueda`, leídos una vez por instancia y
- * guardados en memoria.
+ * Nada de esto es una base de datos (CLAUDE.md, la invariante): los
+ * vectores, el modelo y el índice ya construido (`indice.bin`, de
+ * `scripts/build-indice-busqueda.mjs`: el índice por palabra y el corpus por
+ * columnas) son archivos versionados en `public/data/busqueda`, leídos una
+ * vez por instancia y guardados en memoria. `corpus.json` no se lee aquí: es
+ * de lo que se construyen.
  */
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { Tokenizer } from "@huggingface/tokenizers";
 import {
-  construirIndice,
   entradasDe,
   esVacia,
-  etiquetaCorpus,
   leerIndice,
   palabrasDe,
   puntuar,
   raizDe,
-  resolverFrases,
   terminosQueCasan,
+  type Columnas,
   type IndicePalabras,
 } from "@/lib/busqueda-esquema";
 import { agujas, plano as planoConsulta, pruebas, sinTildes } from "@/lib/raiz";
@@ -96,47 +95,79 @@ export function esTipoResultado(v: string | undefined | null): v is TipoResultad
   return TIPOS_RESULTADO.some((t) => t.clave === v);
 }
 
-/** Una entrada del corpus tal como la escribe `scripts/build-busqueda.py`. */
-interface Entrada {
-  t: TipoResultado;
-  ti: string;
-  x?: string;
-  d?: string;
-  o?: number;
-  h?: string;
-  f?: string;
-  v?: number;
-  n?: number;
-  m?: number;
-  p?: number;
-  e?: 1;
+/**
+ * Una entrada del corpus tal como la escribe `scripts/build-busqueda.py`,
+ * leída de sus columnas: cada campo se descodifica al pedirlo, y solo el que
+ * se pide. La fusión mira el título de miles de candidatos; la ficha entera,
+ * solo la de los que se enseñan.
+ */
+class Entrada {
+  readonly t: TipoResultado;
+  private readonly col: Columnas;
+  private readonly i: number;
+  constructor(m: Motor, i: number) {
+    this.col = m.corpus;
+    this.i = i;
+    this.t = m.tipos[i];
+  }
+  get ti(): string {
+    return this.col.texto("ti", this.i) ?? "";
+  }
+  get x(): string | undefined {
+    return this.col.texto("x", this.i);
+  }
+  get d(): string | undefined {
+    return this.col.texto("d", this.i);
+  }
+  /** Quién publica o ejecuta. */
+  get o(): string | undefined {
+    return this.col.texto("o", this.i);
+  }
+  get h(): string | undefined {
+    return this.col.texto("h", this.i);
+  }
+  get f(): string | undefined {
+    return this.col.texto("f", this.i);
+  }
+  get v(): number | undefined {
+    return this.col.numero("v", this.i);
+  }
+  get n(): number | undefined {
+    return this.col.numero("n", this.i);
+  }
+  get m(): number | undefined {
+    return this.col.numero("m", this.i);
+  }
+  get p(): number | undefined {
+    return this.col.numero("p", this.i);
+  }
+  get e(): number | undefined {
+    return this.col.numero("e", this.i);
+  }
   /**
    * El identificador del que se deriva la ficha: el RPE de un proveedor, el
    * código de un proceso. Se busca como texto auxiliar.
    */
-  r?: string;
+  get r(): string | undefined {
+    return this.col.texto("r", this.i);
+  }
   /** Proveedores: RNC (si el cruce con la DGII lo trae), contratos y años. */
-  c?: string;
-  k?: number;
-  a?: [number, number];
+  get c(): string | undefined {
+    return this.col.texto("c", this.i);
+  }
+  get k(): number | undefined {
+    return this.col.numero("k", this.i);
+  }
+  get a(): number[] | undefined {
+    return this.col.cifras("a", this.i);
+  }
   /** Cargos: sueldo de sus plazas en el percentil 10, la mediana y el 90. */
-  s?: [number, number, number];
+  get s(): number[] | undefined {
+    return this.col.cifras("s", this.i);
+  }
 }
 
-interface Corpus {
-  generado: string;
-  /** Huella de las entradas: ata el índice guardado a este corpus. */
-  huella?: string;
-  instantaneas: Partial<Record<TipoResultado | "ley", string>>;
-  dimensiones: number;
-  piezas: number;
-  /** Las primeras `vectorizados` entradas llevan vector; las demás, no. */
-  vectorizados?: number;
-  origenes: string[];
-  /** Detalles y textos auxiliares repetidos; ver `resolverFrases`. */
-  frases?: string[];
-  docs: Entrada[];
-}
+const entrada = (m: Motor, i: number) => new Entrada(m, i);
 
 /** Cómo se encontró un resultado. */
 export type Via = "palabra" | "tema" | "ambas";
@@ -177,7 +208,9 @@ export interface Resultado {
 const DIR = path.join(process.cwd(), "public", "data", "busqueda");
 
 interface Motor {
-  corpus: Corpus;
+  corpus: Columnas;
+  /** El tipo de cada entrada: lo primero que mira cada barrido. */
+  tipos: TipoResultado[];
   indice: IndicePalabras;
   tokenizer: Tokenizer;
   especiales: Set<number>;
@@ -202,53 +235,38 @@ function partir(buf: Buffer, n: number, dim: number): [Int8Array, Float32Array] 
 }
 
 /**
- * El índice por palabra: el guardado si es de este corpus, o construido aquí.
- * Leer el guardado es un `readFile` y unas vistas sobre el búfer (decenas de
- * milisegundos); construirlo, segundos. Si falta, está roto o su etiqueta no
- * es la del corpus —alguien regeneró el corpus y no el índice—, se
- * construye: más lento, nunca distinto.
+ * Lee el motor: el índice ya construido (por palabra y el corpus por
+ * columnas), el modelo y los vectores. Es un `readFile` por archivo y unas
+ * vistas sobre sus búferes; lo que más tarda es armar el tokenizador. Si el
+ * índice falta o es de otra forma, lanza: el gate (`verificar.sh`) no deja
+ * pasar uno que no sea de su `corpus.json`.
  */
-async function indicePorPalabra(corpus: Corpus): Promise<IndicePalabras> {
-  const etiqueta = etiquetaCorpus(corpus);
-  const guardado = await readFile(path.join(DIR, "indice.bin")).catch(() => null);
-  if (guardado) {
-    try {
-      const ix = leerIndice(guardado);
-      if (ix.etiqueta === etiqueta) return ix;
-      console.warn("[busqueda] indice.bin es de otro corpus: se construye en memoria (corre scripts/build-indice-busqueda.mjs)");
-    } catch (err) {
-      console.warn(`[busqueda] indice.bin no se pudo leer: se construye en memoria (${String(err)})`);
-    }
-  }
-  return construirIndice(corpus.docs, corpus.origenes, etiqueta);
-}
-
 async function cargar(): Promise<Motor> {
-  const [crudoCorpus, crudoTok, crudoMeta, bufModelo, bufVectores] = await Promise.all([
-    readFile(path.join(DIR, "corpus.json"), "utf8"),
+  const [bufIndice, crudoTok, crudoMeta, bufModelo, bufVectores] = await Promise.all([
+    readFile(path.join(DIR, "indice.bin")),
     readFile(path.join(DIR, "tokenizer.json"), "utf8"),
     readFile(path.join(DIR, "modelo.json"), "utf8"),
     readFile(path.join(DIR, "modelo.bin")),
     readFile(path.join(DIR, "vectores.bin")),
   ]);
-  const corpus = JSON.parse(crudoCorpus) as Corpus;
-  resolverFrases(corpus);
+  const { indice, corpus } = leerIndice(bufIndice);
   const meta = JSON.parse(crudoMeta) as { piezas: number; dimensiones: number; especiales: number[] };
   if (meta.piezas !== corpus.piezas || meta.dimensiones !== corpus.dimensiones) {
     // Vectores de otro modelo: compararlos daría ruido con apariencia de tema.
     throw new Error("corpus y modelo no coinciden: vuelve a correr scripts/build-busqueda.py");
   }
   const dim = meta.dimensiones;
-  const vectorizados = corpus.vectorizados ?? corpus.docs.length;
+  const vectorizados = corpus.vectorizados;
   if (bufVectores.length !== vectorizados * (dim + 4)) {
-    throw new Error("corpus y vectores no coinciden: vuelve a correr scripts/build-busqueda.py");
+    throw new Error("índice y vectores no coinciden: vuelve a correr scripts/build-indice-busqueda.mjs");
   }
   const [tabla, escalaTabla] = partir(bufModelo, meta.piezas, dim);
   const [vectores, escalaVectores] = partir(bufVectores, vectorizados, dim);
 
   return {
     corpus,
-    indice: await indicePorPalabra(corpus),
+    tipos: corpus.columna("t") as TipoResultado[],
+    indice,
     tokenizer: new Tokenizer(JSON.parse(crudoTok), {}),
     especiales: new Set(meta.especiales),
     dim,
@@ -302,12 +320,11 @@ const VECINOS = 150;
 
 function porTema(m: Motor, v: Float32Array | null, tipo?: TipoResultado): { i: number; s: number }[] {
   if (!v) return [];
-  const docs = m.corpus.docs;
   const mejores: { i: number; s: number }[] = [];
   let piso = UMBRAL_TEMA;
   // Legisladores y proveedores van al final y sin vector: el tema no los alcanza.
   for (let i = 0; i < m.vectorizados; i++) {
-    if (tipo && docs[i].t !== tipo) continue;
+    if (tipo && m.tipos[i] !== tipo) continue;
     const base = i * m.dim;
     let s = 0;
     for (let k = 0; k < m.dim; k++) s += v[k] * m.vectores[base + k];
@@ -479,13 +496,12 @@ function porPalabra(m: Motor, c: Consulta, tipo?: TipoResultado, tolerancia?: nu
   const conTolerancia = (t: number): PorPalabra => {
     const vacio = { ids: [], total: 0, tolerancia: t, todos: new Set<number>() };
     if (c.requeridas.length === 0) return vacio;
-    const docs = m.corpus.docs;
     const terminos = c.requeridas.map((w, n) =>
       terminosDe(m, w, t, c.ultimaAbierta && n === c.requeridas.length - 1),
     );
     // Se cruza desde la más rara: el conjunto más chico manda.
     const conjuntos = terminos.map((ks) => entradasDe(m.indice, ks)).sort((a, b) => a.size - b.size);
-    let todas = [...conjuntos[0]].filter((i) => (!tipo || docs[i].t === tipo) && conjuntos.every((s) => s.has(i)));
+    let todas = [...conjuntos[0]].filter((i) => (!tipo || m.tipos[i] === tipo) && conjuntos.every((s) => s.has(i)));
     if (todas.length === 0) return vacio;
     const admitidas = new Set(todas);
     const puntos = new Map<number, number>();
@@ -610,8 +626,10 @@ const sitioDe = (url: string) => /^https?:\/\/([^/]+)/i.exec(url)?.[1] ?? "";
  * «Tomo-1» y «Tomo-2» se titulan distinto y no se juntan; dos «Informe» de
  * fechas distintas, tampoco.
  */
-function clavesDeCopia(d: Entrada): string[] {
-  if (d.t !== "documento" || !d.h) return [];
+function clavesDeCopia(m: Motor, i: number): string[] {
+  if (m.tipos[i] !== "documento") return [];
+  const d = entrada(m, i);
+  if (!d.h) return [];
   const sitio = sitioDe(d.h);
   const nombre = (d.h.split("/").pop() ?? "")
     .replace(/\.[a-z0-9]{2,5}$/i, "")
@@ -623,7 +641,6 @@ function clavesDeCopia(d: Entrada): string[] {
 }
 
 function fundir(m: Motor, c: Consulta, palabra: PorPalabra, tema: { i: number }[]): Fusion {
-  const docs = m.corpus.docs;
   const puntos = new Map<number, number>();
   const via = new Map<number, Via>();
   palabra.ids.forEach((i, rango) => {
@@ -638,7 +655,7 @@ function fundir(m: Motor, c: Consulta, palabra: PorPalabra, tema: { i: number }[
   const exactas = new Set([plano(c.texto), c.nucleo].filter(Boolean));
   const cita = sinGuiones(c.texto);
   for (const [i, p] of puntos) {
-    const d = docs[i];
+    const d = entrada(m, i);
     // Lo tecleado es el nombre, las siglas o la cita exactas («Ley 80-25»,
     // «Ministro» en «salario ministro»): eso va primero.
     const nombrado =
@@ -666,19 +683,22 @@ function fundir(m: Motor, c: Consulta, palabra: PorPalabra, tema: { i: number }[
   const copias = new Map<number, number>();
   const primero = new Map<string, number>();
   for (const i of [...puntos.keys()].sort((a, b) => puntos.get(b)! - puntos.get(a)! || a - b)) {
-    const d = docs[i];
-    const claves = clavesDeCopia(d);
+    const claves = clavesDeCopia(m, i);
     const ya = claves.map((k) => primero.get(k)).find((x) => x !== undefined);
     if (ya === undefined) {
       for (const k of claves) primero.set(k, i);
       orden.push(i);
-      if (d.t === "documento" && d.d) formatos.set(i, [d.d]);
+      if (m.tipos[i] === "documento") {
+        const formato = entrada(m, i).d;
+        if (formato) formatos.set(i, [formato]);
+      }
       continue;
     }
     for (const k of claves) if (!primero.has(k)) primero.set(k, ya);
     copias.set(ya, (copias.get(ya) ?? 1) + 1);
     const f = formatos.get(ya);
-    if (f && d.d && !f.includes(d.d)) f.push(d.d);
+    const formato = entrada(m, i).d;
+    if (f && formato && !f.includes(formato)) f.push(formato);
     if (via.get(i) !== via.get(ya)) via.set(ya, "ambas");
   }
   return { orden, via, formatos, copias };
@@ -698,7 +718,6 @@ export async function buscarEnTodo(
 ): Promise<Hallazgos | null> {
   try {
     const m = await motor();
-    const docs = m.corpus.docs;
     // A una persona no se la busca por su número. El índice guarda títulos
     // oficiales que traían una cédula, y encontrarlos por ella diría de quién
     // es aunque el título ya no la enseñe. Quien pinta la búsqueda explica el
@@ -739,7 +758,7 @@ export async function buscarEnTodo(
     const tema = porTema(m, vector);
     const todo = fundir(m, c, palabra, tema);
     const porTipo = Object.fromEntries(TIPOS_RESULTADO.map((t) => [t.clave, 0])) as Record<TipoResultado, number>;
-    for (const i of todo.orden) porTipo[docs[i].t] += 1;
+    for (const i of todo.orden) porTipo[m.tipos[i]] += 1;
     let truncado = palabra.total > palabra.ids.length;
     if (truncado) {
       // Más allá del tope de la fusión se cuenta, no se ordena: todos los que
@@ -749,10 +768,10 @@ export async function buscarEnTodo(
       const vistas = new Set<string>();
       for (const t of TIPOS_RESULTADO) porTipo[t.clave] = 0;
       const contar = (i: number) => {
-        const claves = clavesDeCopia(docs[i]);
+        const claves = clavesDeCopia(m, i);
         if (claves.some((k) => vistas.has(k))) return;
         for (const k of claves) vistas.add(k);
-        porTipo[docs[i].t] += 1;
+        porTipo[m.tipos[i]] += 1;
       };
       for (const i of palabra.todos) contar(i);
       for (const i of todo.orden) if (todo.via.get(i) === "tema") contar(i);
@@ -765,18 +784,17 @@ export async function buscarEnTodo(
     if (opts.tipo) {
       const soloTipo = porPalabra(m, c, opts.tipo, palabra.tolerancia);
       truncado = soloTipo.total > soloTipo.ids.length;
-      lista = fundir(m, c, soloTipo, tema.filter(({ i }) => docs[i].t === opts.tipo));
+      lista = fundir(m, c, soloTipo, tema.filter(({ i }) => m.tipos[i] === opts.tipo));
     }
 
-    const aplicar = (f: Fusion) => (i: number) =>
-      aResultado(m.corpus, docs[i], f.via.get(i)!, f.formatos.get(i), f.copias.get(i));
+    const aplicar = (f: Fusion) => (i: number) => aResultado(entrada(m, i), f.via.get(i)!, f.formatos.get(i), f.copias.get(i));
     const porPagina = opts.porPagina ?? POR_PAGINA;
     const paginas = Math.max(1, Math.ceil(lista.orden.length / porPagina));
     const pagina = Math.min(Math.max(1, opts.pagina ?? 1), paginas);
 
     const grupos: Grupo[] = [];
     for (const i of todo.orden) {
-      const t = docs[i].t;
+      const t = m.tipos[i];
       let g = grupos.find((x) => x.tipo === t);
       if (!g) grupos.push((g = { tipo: t, total: porTipo[t], resultados: [] }));
       if (g.resultados.length < POR_GRUPO) g.resultados.push(aplicar(todo)(i));
@@ -808,31 +826,48 @@ export async function buscarEnTodo(
  * plataforma, el archivo de fuera o la biblioteca que junta sus copias, tal
  * como lo da `href`—, con la fecha de la instantánea de su tipo; `null` si
  * ninguno lleva ahí. Lo usa el servidor MCP (`lib/mcp.ts`) para leer un
- * resultado que no es un nodo del grafo. Un recorrido lineal: una lectura por
- * dirección exacta, no una búsqueda. Si el índice no carga, lanza: «no
- * pudimos mirar» no es «no está».
+ * resultado que no es un nodo del grafo. Una lectura por dirección exacta,
+ * no una búsqueda: solo se miran las entradas que llevan esa dirección, ese
+ * título o ese identificador. Si el índice no carga, lanza: «no pudimos
+ * mirar» no es «no está».
  */
 export async function resultadoPorHref(href: string): Promise<{ resultado: Resultado; corte: string | null } | null> {
-  const { corpus } = await motor();
+  const m = await motor();
+  const { corpus } = m;
   // La biblioteca que junta las copias de un documento: sus archivos con el
-  // mismo título y del mismo sitio, contados, con sus formatos.
+  // mismo título y del mismo sitio, contados, con sus formatos. Todos llevan
+  // el título que la dirección nombra.
   if (href.startsWith("/documentos?")) {
+    const titulo = new URLSearchParams(href.slice("/documentos?".length)).get("q");
     let primero: Entrada | null = null;
     let copias = 0;
     const formatos: string[] = [];
-    for (const d of corpus.docs) {
+    for (const i of titulo === null ? [] : corpus.donde("ti", titulo)) {
+      const d = entrada(m, i);
       if (d.t !== "documento" || !d.h || hrefCopias(d) !== href) continue;
       primero ??= d;
       copias++;
       if (d.d && !formatos.includes(d.d)) formatos.push(d.d);
     }
     if (!primero) return null;
-    return { resultado: aResultado(corpus, primero, "palabra", formatos, copias), corte: corpus.instantaneas.documento ?? null };
+    return { resultado: aResultado(primero, "palabra", formatos, copias), corte: corpus.instantaneas.documento ?? null };
   }
-  for (const d of corpus.docs) {
+  // La ficha de un proveedor o de un proceso sale de su identificador (que
+  // `scripts/build-indice-busqueda.mjs` exige recortado, como lo deja
+  // `enlace`); la de los demás, de su dirección.
+  const id = /^\/(?:proveedores|procesos)\/(.+)$/.exec(href)?.[1];
+  let identificador: string | null = null;
+  try {
+    identificador = id === undefined ? null : decodeURIComponent(id);
+  } catch {
+    // Una dirección mal escapada no es la de ninguna ficha.
+  }
+  const candidatos = [...corpus.donde("h", href), ...(identificador === null ? [] : corpus.donde("r", identificador))];
+  for (const i of candidatos.sort((a, b) => a - b)) {
+    const d = entrada(m, i);
     const propio =
       d.t === "proveedor" && d.r ? enlace.proveedor(d.r) : d.t === "proceso" && d.r ? enlace.proceso(d.r) : (d.h ?? null);
-    if (propio === href) return { resultado: aResultado(corpus, d, "palabra"), corte: corpus.instantaneas[d.t] ?? null };
+    if (propio === href) return { resultado: aResultado(d, "palabra"), corte: corpus.instantaneas[d.t] ?? null };
   }
   return null;
 }
@@ -959,7 +994,7 @@ function hrefCopias(d: Entrada): string {
   return `/documentos?${u.toString()}`;
 }
 
-function aResultado(c: Corpus, d: Entrada, via: Via, formatos?: string[], copias?: number): Resultado {
+function aResultado(d: Entrada, via: Via, formatos?: string[], copias?: number): Resultado {
   const proveedor = d.t === "proveedor";
   const archivos = copias && copias > 1 ? copias : null;
   const detalle = formatos
@@ -976,7 +1011,7 @@ function aResultado(c: Corpus, d: Entrada, via: Via, formatos?: string[], copias
     // Un título oficial puede traer la cédula de una persona: no se enseña.
     titulo: sinCedula(d.ti),
     detalle: detalle ? sinCedula(detalle) : null,
-    origen: d.o === undefined ? null : c.origenes[d.o],
+    origen: d.o ?? null,
     href,
     externo: d.e === 1 && !archivos,
     fecha: d.f ?? null,

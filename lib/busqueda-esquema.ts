@@ -1,5 +1,5 @@
 /**
- * La forma del índice por palabra del buscador, en un solo sitio: la usan
+ * La forma del índice del buscador, en un solo sitio: la usan
  * `lib/busqueda.ts` (en el servidor, para leerlo) y
  * `scripts/build-indice-busqueda.mjs` (en build, para escribirlo). Si
  * discreparan —otro lematizador, otra lista de palabras vacías, otro corte
@@ -7,13 +7,21 @@
  * buscaría en silencio peor. Por eso ninguno de los dos la escribe por su
  * cuenta.
  *
- * Es un índice invertido propio, binario, y no el de Orama que lo precedió:
- * el de Orama se guardaba como JSON (27 MB sin comprimir) y cada arranque en
- * frío pagaba descomprimirlo, `JSON.parse` y reconstruir su árbol —~1,3 s con
- * 68 mil entradas, y crecía con el corpus—. Este se lee con un `readFile` y
- * vistas sobre el mismo búfer: la lista de términos ordenada (búsqueda
- * binaria, prefijos y erratas) y, por término, sus apariciones (entrada,
- * campo, frecuencia), que alimentan el mismo BM25.
+ * El archivo (`indice.bin`) guarda dos cosas, y el servidor no lee nada más
+ * del corpus:
+ *
+ *  1. **El índice por palabra**: invertido, propio, y no el de Orama que lo
+ *     precedió (27 MB de JSON, ~1,3 s por arranque en frío con 68 mil
+ *     entradas). La lista de términos ordenada (búsqueda binaria, prefijos y
+ *     erratas) y, por término, sus apariciones (entrada, campo, frecuencia),
+ *     que alimentan el BM25.
+ *  2. **El corpus por columnas**: cada campo de las entradas en su propia
+ *     tabla —el texto como diccionario de valores distintos, el número en el
+ *     entero más chico que lo guarda—. El `corpus.json` del que sale pesa
+ *     47 MB, y su `JSON.parse` con 205 mil entradas era más de la mitad del
+ *     arranque en frío (~0,65 s, medido el 2026-10-01). Las columnas se leen
+ *     con vistas sobre el mismo búfer, y un texto se descodifica la primera
+ *     vez que se pide: una búsqueda mira miles de títulos, no 205 mil.
  *
  * Sin alias `@/` y con la extensión en el import: `node` lo carga tal cual
  * (quita los tipos), sin compilar.
@@ -97,7 +105,8 @@ export function resolverFrases(c: { frases?: string[]; docs: { d?: string | numb
  * La etiqueta que ata un índice a su corpus: la huella que
  * `scripts/build-busqueda.py` calcula sobre las entradas, su fecha y
  * cuántas son. Si el corpus cambia y el índice no se regenera, no coinciden
- * y el servidor construye el índice en memoria.
+ * y el gate (`verificar.sh`) no deja pasar el cambio: el servidor lee solo
+ * el índice, y serviría el corpus de antes.
  */
 export function etiquetaCorpus(c: { generado: string; huella?: string; docs: unknown[] }): string {
   return `${c.generado}|${c.huella ?? "sin-huella"}|${c.docs.length}`;
@@ -170,79 +179,353 @@ function medios(largo: Uint16Array): [number, number, number] {
   return [suma[0] / n || 1, suma[1] / n || 1, suma[2] / n || 1];
 }
 
-/*
-  El archivo: «SIB1», un u32 con el largo de la cabecera JSON, la cabecera
-  (etiqueta y cuentas), los términos unidos por «\n», y alineadas a cuatro
-  bytes las tablas `inicio`, `entrada`, `campoFrecuencia` y `largo`.
-*/
-const MAGIA = "SIB1";
+/* ------------------------------------------------- el corpus por columnas */
 
-const alinear = (n: number) => (n + 3) & ~3;
+/**
+ * Las columnas del corpus: un campo de las entradas que escribe
+ * `scripts/build-busqueda.py`, cada uno en su tabla. Las de texto se guardan
+ * como diccionario —cada valor distinto una vez y, por entrada, su número—:
+ * «Compra menor al umbral · Adjudicado» se repite en 40 mil procesos, y
+ * quien publica, en miles. `o`, que en el corpus es el número de su origen,
+ * aquí es ya su nombre. Las de número llevan su aridad: los años de un
+ * proveedor son dos; el sueldo de un cargo, tres.
+ */
+export const COLUMNAS_TEXTO = ["t", "ti", "x", "d", "o", "h", "f", "r", "c"] as const;
+export const COLUMNAS_NUMERO = { v: 1, n: 1, m: 1, p: 1, e: 1, k: 1, a: 2, s: 3 } as const;
+export type CampoTexto = (typeof COLUMNAS_TEXTO)[number];
+export type CampoNumero = keyof typeof COLUMNAS_NUMERO;
 
-export function serializarIndice(ix: IndicePalabras): Uint8Array {
+/** El corpus como lo escribe `scripts/build-busqueda.py`, con sus frases ya resueltas. */
+export interface CorpusJson {
+  generado: string;
+  huella?: string;
+  instantaneas: Record<string, string>;
+  dimensiones: number;
+  piezas: number;
+  vectorizados?: number;
+  origenes: string[];
+  docs: Record<string, unknown>[];
+}
+
+type Tipo = "u8" | "u16" | "u32" | "f64";
+type Tabla = Uint8Array | Uint16Array | Uint32Array | Float64Array;
+/** «No hay» en una columna: el máximo de su entero, o NaN. */
+const AUSENTE: Record<Tipo, number> = { u8: 0xff, u16: 0xffff, u32: 0xffffffff, f64: NaN };
+const BYTES: Record<Tipo, number> = { u8: 1, u16: 2, u32: 4, f64: 8 };
+
+/** El entero sin signo más chico que guarda de 0 a `tope` y deja libre su máximo para «no hay». */
+function enteroPara(tope: number): Tipo {
+  if (tope >= 0xffffffff) throw new Error(`${tope} no cabe en una columna de enteros`);
+  return tope < 0xff ? "u8" : tope < 0xffff ? "u16" : "u32";
+}
+
+function crearTabla(tipo: Tipo, n: number): Tabla {
+  return tipo === "u8" ? new Uint8Array(n) : tipo === "u16" ? new Uint16Array(n) : tipo === "u32" ? new Uint32Array(n) : new Float64Array(n);
+}
+
+function vistaTabla(tipo: Tipo, buffer: ArrayBufferLike, desde: number, n: number): Tabla {
+  return tipo === "u8"
+    ? new Uint8Array(buffer, desde, n)
+    : tipo === "u16"
+      ? new Uint16Array(buffer, desde, n)
+      : tipo === "u32"
+        ? new Uint32Array(buffer, desde, n)
+        : new Float64Array(buffer, desde, n);
+}
+
+/** Una sección del archivo: su nombre, su tipo y sus valores. */
+type Seccion = [nombre: string, tipo: Tipo, valores: Tabla];
+
+/**
+ * Las columnas de un corpus. Lanza si una entrada trae un campo que no tiene
+ * columna o un valor que no es de la suya: perderlo en silencio sería
+ * servir un corpus distinto del que se construyó.
+ */
+function columnasDe(corpus: CorpusJson): Seccion[] {
+  const { docs, origenes } = corpus;
+  const n = docs.length;
+  const conocidos = new Set<string>([...COLUMNAS_TEXTO, ...Object.keys(COLUMNAS_NUMERO)]);
+  for (const d of docs) {
+    for (const k of Object.keys(d)) if (!conocidos.has(k)) throw new Error(`el campo «${k}» del corpus no tiene columna`);
+  }
   const enc = new TextEncoder();
-  const terminos = enc.encode(ix.terminos.join("\n"));
+  const secciones: Seccion[] = [];
+  for (const campo of COLUMNAS_TEXTO) {
+    const valores: string[] = [];
+    const numero = new Map<string, number>();
+    const cual = new Array<number>(n).fill(-1);
+    docs.forEach((d, i) => {
+      let v = d[campo];
+      if (v === undefined) return;
+      if (campo === "o") {
+        if (typeof v !== "number" || origenes[v] === undefined) throw new Error(`la entrada ${i} nombra un origen que no existe (${String(v)})`);
+        v = origenes[v];
+      }
+      if (typeof v !== "string") throw new Error(`«${campo}» de la entrada ${i} no es texto`);
+      let k = numero.get(v);
+      if (k === undefined) numero.set(v, (k = valores.push(v) - 1));
+      cual[i] = k;
+    });
+    const bytes = valores.map((v) => enc.encode(v));
+    const bordes = new Uint32Array(valores.length + 1);
+    bytes.forEach((b, k) => (bordes[k + 1] = bordes[k] + b.length));
+    const texto = new Uint8Array(bordes[valores.length]);
+    bytes.forEach((b, k) => texto.set(b, bordes[k]));
+    const tipo = enteroPara(valores.length - 1);
+    const indices = crearTabla(tipo, n);
+    cual.forEach((k, i) => (indices[i] = k < 0 ? AUSENTE[tipo] : k));
+    secciones.push([`${campo}.texto`, "u8", texto], [`${campo}.bordes`, "u32", bordes], [`${campo}.cual`, tipo, indices]);
+  }
+  for (const [campo, aridad] of Object.entries(COLUMNAS_NUMERO)) {
+    const plano = new Array<number | undefined>(n * aridad).fill(undefined);
+    let entero = true;
+    let tope = 0;
+    docs.forEach((d, i) => {
+      const v = d[campo];
+      if (v === undefined) return;
+      const cifras = aridad === 1 ? [v] : v;
+      if (!Array.isArray(cifras) || cifras.length !== aridad || !cifras.every((x) => typeof x === "number" && Number.isFinite(x))) {
+        throw new Error(`«${campo}» de la entrada ${i} no son ${aridad} números`);
+      }
+      cifras.forEach((x: number, j) => {
+        plano[i * aridad + j] = x;
+        if (Number.isInteger(x) && x >= 0) tope = Math.max(tope, x);
+        else entero = false;
+      });
+    });
+    const tipo = entero && tope < 0xffffffff ? enteroPara(tope) : "f64";
+    const tabla = crearTabla(tipo, n * aridad).fill(AUSENTE[tipo]);
+    plano.forEach((x, j) => {
+      if (x !== undefined) tabla[j] = x;
+    });
+    secciones.push([campo, tipo, tabla]);
+  }
+  return secciones;
+}
+
+interface Cabecera {
+  etiqueta: string;
+  generado: string;
+  instantaneas: Record<string, string>;
+  dimensiones: number;
+  piezas: number;
+  vectorizados: number;
+  entradas: number;
+  secciones: [nombre: string, tipo: Tipo, largo: number][];
+}
+
+interface ColumnaTexto {
+  bytes: Uint8Array;
+  bordes: Uint32Array;
+  cual: Tabla;
+  ausente: number;
+  /** Los valores ya descodificados, por su número; se crea al primer uso. */
+  hechos: (string | undefined)[] | null;
+}
+
+interface ColumnaNumero {
+  valores: Tabla;
+  aridad: number;
+  ausente: number;
+}
+
+/**
+ * El corpus por columnas: lo que el servidor sabe de cada entrada. Un texto
+ * se descodifica la primera vez que se pide y se guarda; los números son
+ * vistas sobre el búfer del archivo.
+ */
+export class Columnas {
+  readonly entradas: number;
+  readonly generado: string;
+  readonly instantaneas: Record<string, string>;
+  readonly dimensiones: number;
+  readonly piezas: number;
+  /** Las primeras `vectorizados` entradas llevan vector; las demás, no. */
+  readonly vectorizados: number;
+  private readonly textos: Record<string, ColumnaTexto> = {};
+  private readonly numeros: Record<string, ColumnaNumero> = {};
+  private readonly dec = new TextDecoder();
+
+  constructor(cab: Cabecera, tablas: Map<string, [Tipo, Tabla]>) {
+    this.entradas = cab.entradas;
+    this.generado = cab.generado;
+    this.instantaneas = cab.instantaneas;
+    this.dimensiones = cab.dimensiones;
+    this.piezas = cab.piezas;
+    this.vectorizados = cab.vectorizados;
+    const tomar = (nombre: string, largo: number): [Tipo, Tabla] => {
+      const t = tablas.get(nombre);
+      if (!t) throw new Error(`al índice le falta la columna «${nombre}»`);
+      if (largo >= 0 && t[1].length !== largo) throw new Error(`la columna «${nombre}» no tiene una fila por entrada`);
+      return t;
+    };
+    for (const campo of COLUMNAS_TEXTO) {
+      const [tipo, cual] = tomar(`${campo}.cual`, cab.entradas);
+      this.textos[campo] = {
+        bytes: tomar(`${campo}.texto`, -1)[1] as Uint8Array,
+        bordes: tomar(`${campo}.bordes`, -1)[1] as Uint32Array,
+        cual,
+        ausente: AUSENTE[tipo],
+        hechos: null,
+      };
+    }
+    for (const [campo, aridad] of Object.entries(COLUMNAS_NUMERO)) {
+      const [tipo, valores] = tomar(campo, cab.entradas * aridad);
+      this.numeros[campo] = { valores, aridad, ausente: AUSENTE[tipo] };
+    }
+  }
+
+  /** El texto de un campo de la entrada `i`, o `undefined` si no lo lleva. */
+  texto(campo: CampoTexto, i: number): string | undefined {
+    const c = this.textos[campo];
+    const k = c.cual[i];
+    if (k === c.ausente) return undefined;
+    const hechos = (c.hechos ??= new Array<string | undefined>(c.bordes.length - 1).fill(undefined));
+    return (hechos[k] ??= this.dec.decode(c.bytes.subarray(c.bordes[k], c.bordes[k + 1])));
+  }
+
+  /** La primera cifra de un campo de número de la entrada `i`, o `undefined`. */
+  numero(campo: CampoNumero, i: number): number | undefined {
+    const c = this.numeros[campo];
+    const x = c.valores[i * c.aridad];
+    return x === c.ausente || Number.isNaN(x) ? undefined : x;
+  }
+
+  /** Todas las cifras de un campo (los años de un proveedor), o `undefined`. */
+  cifras(campo: CampoNumero, i: number): number[] | undefined {
+    const c = this.numeros[campo];
+    const desde = i * c.aridad;
+    const x = c.valores[desde];
+    return x === c.ausente || Number.isNaN(x) ? undefined : Array.from(c.valores.subarray(desde, desde + c.aridad));
+  }
+
+  /** El campo de todas las entradas, de una vez: el tipo, que cada barrido mira. */
+  columna(campo: CampoTexto): (string | undefined)[] {
+    const salida = new Array<string | undefined>(this.entradas);
+    for (let i = 0; i < this.entradas; i++) salida[i] = this.texto(campo, i);
+    return salida;
+  }
+
+  /**
+   * Las entradas cuyo campo es exactamente `valor`, en su orden. Compara
+   * bytes sin descodificar nada: es una lectura por dirección, no una
+   * búsqueda.
+   */
+  donde(campo: CampoTexto, valor: string): number[] {
+    const c = this.textos[campo];
+    const buscado = new TextEncoder().encode(valor);
+    let k = -1;
+    for (let j = 0; j + 1 < c.bordes.length && k < 0; j++) {
+      const desde = c.bordes[j];
+      if (c.bordes[j + 1] - desde !== buscado.length) continue;
+      let igual = true;
+      for (let b = 0; b < buscado.length && igual; b++) igual = c.bytes[desde + b] === buscado[b];
+      if (igual) k = j;
+    }
+    const salida: number[] = [];
+    if (k >= 0) for (let i = 0; i < c.cual.length; i++) if (c.cual[i] === k) salida.push(i);
+    return salida;
+  }
+}
+
+/* -------------------------------------------------------------- el archivo */
+
+/*
+  `indice.bin`: «SIB2», un u32 con el largo de la cabecera JSON, la cabecera
+  (etiqueta, lo que el corpus dice de sí y cada sección con su tipo y su
+  largo, en orden) y, alineadas a ocho bytes, las secciones: los términos
+  unidos por «\n», las tablas del índice (`inicio`, `entrada`,
+  `campoFrecuencia`, `largo`) y las columnas del corpus. Los enteros, en el
+  orden de bytes de la máquina (little-endian en x86 y ARM).
+*/
+const MAGIA = "SIB2";
+
+const alinear = (n: number) => (n + 7) & ~7;
+
+/** El archivo del índice: el índice por palabra de `ix` y las columnas de `corpus`. */
+export function serializarIndice(ix: IndicePalabras, corpus: CorpusJson): Uint8Array {
+  if (ix.largo.length !== corpus.docs.length * 3) throw new Error("el índice no es de este corpus");
+  const enc = new TextEncoder();
+  const secciones: Seccion[] = [
+    ["terminos", "u8", enc.encode(ix.terminos.join("\n"))],
+    ["inicio", "u32", ix.inicio],
+    ["entrada", "u32", ix.entrada],
+    ["campoFrecuencia", "u8", ix.campoFrecuencia],
+    ["largo", "u16", ix.largo],
+    ...columnasDe(corpus),
+  ];
   const cabecera = enc.encode(
     JSON.stringify({
       etiqueta: ix.etiqueta,
-      terminos: ix.terminos.length,
-      bytesTerminos: terminos.length,
-      apariciones: ix.entrada.length,
-      entradas: ix.largo.length / 3,
-    }),
+      generado: corpus.generado,
+      instantaneas: corpus.instantaneas,
+      dimensiones: corpus.dimensiones,
+      piezas: corpus.piezas,
+      vectorizados: corpus.vectorizados ?? corpus.docs.length,
+      entradas: corpus.docs.length,
+      secciones: secciones.map(([nombre, tipo, v]): [string, Tipo, number] => [nombre, tipo, v.length]),
+    } satisfies Cabecera),
   );
-  const partes: Uint8Array[] = [
-    new Uint8Array(ix.inicio.buffer, ix.inicio.byteOffset, ix.inicio.byteLength),
-    new Uint8Array(ix.entrada.buffer, ix.entrada.byteOffset, ix.entrada.byteLength),
-    ix.campoFrecuencia,
-    new Uint8Array(ix.largo.buffer, ix.largo.byteOffset, ix.largo.byteLength),
-  ];
-  let pos = alinear(8 + cabecera.length + terminos.length);
-  const posiciones = partes.map((p) => {
+  let pos = alinear(8 + cabecera.length);
+  const posiciones = secciones.map(([, , v]) => {
     const aqui = pos;
-    pos = alinear(pos + p.length);
+    pos = alinear(pos + v.byteLength);
     return aqui;
   });
   const salida = new Uint8Array(pos);
   salida.set(enc.encode(MAGIA), 0);
   new DataView(salida.buffer).setUint32(4, cabecera.length, true);
   salida.set(cabecera, 8);
-  salida.set(terminos, 8 + cabecera.length);
-  partes.forEach((p, n) => salida.set(p, posiciones[n]));
+  secciones.forEach(([, , v], k) => salida.set(new Uint8Array(v.buffer, v.byteOffset, v.byteLength), posiciones[k]));
   return salida;
+}
+
+/** Lo que guarda `indice.bin`. */
+export interface IndiceGuardado {
+  indice: IndicePalabras;
+  corpus: Columnas;
 }
 
 /**
  * Lee el archivo sin copiar las tablas: son vistas sobre el mismo búfer.
  * Lanza si no es un índice de esta forma.
  */
-export function leerIndice(buf: Uint8Array): IndicePalabras {
+export function leerIndice(buf: Uint8Array): IndiceGuardado {
   const dec = new TextDecoder();
-  if (dec.decode(buf.subarray(0, 4)) !== MAGIA) throw new Error("no es un índice SIB1");
-  // Una copia alineada: `Uint32Array` exige desplazamiento múltiplo de 4, y
+  if (dec.decode(buf.subarray(0, 4)) !== MAGIA) throw new Error(`no es un índice ${MAGIA}: corre scripts/build-indice-busqueda.mjs`);
+  // Una copia alineada: `Float64Array` exige desplazamiento múltiplo de 8, y
   // un `Buffer` de Node puede venir de un fondo compartido desalineado.
-  const b = buf.byteOffset % 4 === 0 ? buf : new Uint8Array(buf);
+  const b = buf.byteOffset % 8 === 0 ? buf : new Uint8Array(buf);
   const largoCabecera = new DataView(b.buffer, b.byteOffset).getUint32(4, true);
-  const cab = JSON.parse(dec.decode(b.subarray(8, 8 + largoCabecera))) as {
-    etiqueta: string;
-    terminos: number;
-    bytesTerminos: number;
-    apariciones: number;
-    entradas: number;
+  const cab = JSON.parse(dec.decode(b.subarray(8, 8 + largoCabecera))) as Cabecera;
+  const tablas = new Map<string, [Tipo, Tabla]>();
+  let pos = alinear(8 + largoCabecera);
+  for (const [nombre, tipo, largo] of cab.secciones) {
+    tablas.set(nombre, [tipo, vistaTabla(tipo, b.buffer, b.byteOffset + pos, largo)]);
+    pos = alinear(pos + largo * BYTES[tipo]);
+  }
+  const tabla = <T extends Tabla>(nombre: string): T => {
+    const t = tablas.get(nombre);
+    if (!t) throw new Error(`al índice le falta la sección «${nombre}»`);
+    return t[1] as T;
   };
-  const desde = 8 + largoCabecera;
-  const terminos = cab.terminos ? dec.decode(b.subarray(desde, desde + cab.bytesTerminos)).split("\n") : [];
-  let pos = alinear(desde + cab.bytesTerminos);
-  const tomar = <T>(hacer: (off: number, n: number) => T, n: number, bytes: number): T => {
-    const v = hacer(b.byteOffset + pos, n);
-    pos = alinear(pos + n * bytes);
-    return v;
+  const inicio = tabla<Uint32Array>("inicio");
+  const bytesTerminos = tabla<Uint8Array>("terminos");
+  const terminos = inicio.length > 1 ? dec.decode(bytesTerminos).split("\n") : [];
+  const largo = tabla<Uint16Array>("largo");
+  if (largo.length !== cab.entradas * 3) throw new Error("el índice y sus columnas no tienen las mismas entradas");
+  return {
+    indice: {
+      etiqueta: cab.etiqueta,
+      terminos,
+      inicio,
+      entrada: tabla<Uint32Array>("entrada"),
+      campoFrecuencia: tabla<Uint8Array>("campoFrecuencia"),
+      largo,
+      medio: medios(largo),
+    },
+    corpus: new Columnas(cab, tablas),
   };
-  const inicio = tomar((o, n) => new Uint32Array(b.buffer, o, n), cab.terminos + 1, 4);
-  const entrada = tomar((o, n) => new Uint32Array(b.buffer, o, n), cab.apariciones, 4);
-  const campoFrecuencia = tomar((o, n) => new Uint8Array(b.buffer, o, n), cab.apariciones, 1);
-  const largo = tomar((o, n) => new Uint16Array(b.buffer, o, n), cab.entradas * 3, 2);
-  return { etiqueta: cab.etiqueta, terminos, inicio, entrada, campoFrecuencia, largo, medio: medios(largo) };
 }
 
 /* ------------------------------------------------------------- consultas */

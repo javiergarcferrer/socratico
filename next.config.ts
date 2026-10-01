@@ -11,11 +11,12 @@ import type { NextConfig } from "next";
     con un despliegue: el navegador las guarda una hora y las renueva en
     segundo plano una vez pasada.
   · Sin cabecera `x-powered-by`: no aporta nada y pesa en cada respuesta.
-  · El índice del buscador (`public/data/busqueda`: corpus, vectores, modelo
-    e índice por palabra ya construido, ~98 MB) se lee con `fs` desde
-    `lib/busqueda.ts`. Se declara aquí para que
-    el trazado de archivos lo meta en la función de las tres rutas que lo usan
-    y solo en ellas, sin depender de que adivine la ruta.
+  · El índice del buscador (`public/data/busqueda`: el índice ya construido
+    con el corpus por columnas, vectores y modelo, ~97 MB) se lee con `fs`
+    desde `lib/busqueda.ts`. Se declara aquí para que el trazado de archivos
+    lo meta en la función de las rutas que lo usan y solo en ellas, sin
+    depender de que adivine la ruta. `corpus.json` (47 MB) no viaja: es de lo
+    que se construye el índice, y el servidor no lo lee.
 */
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -75,12 +76,13 @@ const nextConfig: NextConfig = {
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus (los procesos, además,
-  // en `/mcp`, que los incluye arriba). El volcado del grafo tampoco: se sirve
-  // como archivo, de la CDN.
+  // en `/mcp`, que los incluye arriba). Tampoco el corpus mismo, que ya está
+  // en `indice.bin`, ni el volcado del grafo: se sirven como archivo, de la
+  // CDN.
   // Las claves casan como subcadena: «/proveedores» también es
   // «/proveedores/[rpe]» y «/api/proveedores», que no usan el índice.
   outputFileTracingExcludes: {
-    "*": ["./public/data/{congreso,sentencias}.json", "./public/data/grafo/grafo.nt.gz"],
+    "*": ["./public/data/{congreso,sentencias}.json", "./public/data/busqueda/corpus.json", "./public/data/grafo/grafo.nt.gz"],
     // Vercel corre sobre glibc: la versión musl de DuckDB (~74 MB) sobra.
     "/api/sql": ["./node_modules/@duckdb/node-bindings-linux-x64-musl/**"],
     // Las fichas del grafo leen instantáneas por nombre variable y el trazado

@@ -300,6 +300,17 @@ Del buscador, la revisión del 2026-09-27 (`docs/ARQUITECTURA.md` §Búsqueda):
   palabra en título, archivo y origen no hace más pertinente. El índice de
   Orama guardado (`indice.json.br`) y la dependencia `@orama/orama` se van;
   quedan `@orama/stemmers` y `@orama/stopwords`.
+- ✅ **Corpus por columnas** (2026-10-01): `indice.bin` guarda también cada
+  campo del corpus en su columna, y el servidor ya no hace `JSON.parse` de
+  `corpus.json` (47 MB, ≈205 mil entradas). Primera consulta ~0.7 s → ~0.32 s
+  en node; en el servidor MCP, `search` 0.72–0.85 s → 0.34–0.42 s y
+  `retrieve` 1.16–1.48 s → 0.35–0.82 s (este, además, sin leer las tablas de
+  compras que la pregunta no pide). Mismos resultados: 590 búsquedas, 3,375
+  lecturas por dirección y 160 llamadas MCP idénticas antes y después.
+  ⚠️ `retrieve` con un nombre que el grafo no ata exacto sigue en 1.0–1.3 s
+  por las instantáneas en JSON de proveedores, funcionarios y procesos
+  (ARQUITECTURA, el servidor MCP): el siguiente paso es el mismo, por
+  columnas.
 - ✅ **Cobertura**: todas las leyes desde 1844 (12,130; `leyes.json`),
   los procesos de compra de los últimos 12 meses (77,790; `procesos.json`),
   sentencias del TC y del TSE (12,106; `sentencias.json`) y el Congreso

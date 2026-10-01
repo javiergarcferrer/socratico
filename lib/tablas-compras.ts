@@ -7,9 +7,10 @@ import { sinCedula } from "@/lib/padron";
  * Las dos tablas enteras que ordena el servidor MCP (`procurement`,
  * `contracting_history`, `retrieve`): los procesos de compra de los últimos
  * doce meses y los proveedores del Estado desde 2015. Se leen de sus propias
- * instantáneas, tipadas, y no del índice del buscador: el buscador carga 47 MB
- * para rankear texto, y ordenar por monto o fecha no lo necesita (medido en
- * frío: ~1,5 s y ~185 MB por el índice contra ~0,1 s y ~45 MB por la tabla).
+ * instantáneas, tipadas, y no del índice del buscador: ordenar por monto o
+ * fecha no necesita rankear texto, y cuando el índice cargaba su corpus de
+ * 47 MB en JSON costaba en frío ~1,5 s y ~185 MB, contra ~0,1 s y ~45 MB por
+ * la tabla.
  *
  *  - `public/data/procesos.json` (`scripts/build-procesos.py`): la tabla de
  *    procesos de la DGCP, con unidades, modalidades, estados y objetos

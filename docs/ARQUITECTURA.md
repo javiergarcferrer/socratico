@@ -477,7 +477,7 @@ El índice de toda la plataforma, sin base de datos ni clave: archivos
 versionados y dos bibliotecas abiertas (el tokenizador de Hugging Face y el
 lematizador de `@orama/stemmers`).
 
-- **Corpus** (`corpus.json`, ~44 MB; ~7.8 MB comprimido): ≈188 mil entradas de las instantáneas
+- **Corpus** (`corpus.json`, ~47 MB; ~7.8 MB comprimido): ≈205 mil entradas de las instantáneas
   —instituciones, legisladores, proveedores, procesos de compra, normativa
   reciente y **todas las leyes**, iniciativas del Congreso, sentencias del TC
   y del TSE, obras, documentos, datos abiertos y cargos de nómina (las
@@ -489,7 +489,10 @@ lematizador de `@orama/stemmers`).
   cualquiera de ellas, y lleva una `huella` (sha256 de las entradas) que
   ata a él el índice guardado. Las fuentes nuevas traen su lector de
   entradas (`scripts/busqueda_{leyes,procesos,sentencias,congreso}.py`,
-  `entradas(datos)`), que da quién publica por nombre (`on`).
+  `entradas(datos)`), que da quién publica por nombre (`on`). **El servidor
+  no lo lee**: lee sus columnas de `indice.bin` (abajo), y `next.config.ts`
+  lo deja fuera de toda función. Lo leen el armado del índice, la
+  evaluación del MCP (su oráculo) y el gate.
 - **Qué hay de cada fuente**:
   - *Leyes* (`leyes.json`, `scripts/build-leyes.py`): el histórico completo
     de la Consultoría, 12,130 desde 1844 (AUDITORIA §G.15). Se deduplican
@@ -577,14 +580,33 @@ lematizador de `@orama/stemmers`).
   al 25 sep 2026» en la fila y en la paleta: «Abierto a ofertas» ese día puede
   estar cerrado hoy, y el vigente está en su ficha. Las fechas de fila son
   relativas (`<Antiguedad>`: publicado, depositada, dictada).
-- **Índice guardado** (`indice.bin`, ~21 MB): «SIB1», una cabecera JSON
-  con la etiqueta del corpus (fecha | huella | entradas), los términos
-  unidos por «\n» y, alineadas, las tablas `inicio`, `entrada`,
-  `campoFrecuencia` y `largo`. El servidor lo lee con vistas sobre el búfer,
-  sin `JSON.parse` (~20 ms); si falta, está roto o es de otro corpus, lo
-  construye en memoria (~5 s), más lento y nunca distinto. Reemplazó el
-  guardado de Orama (`indice.json.br`: 27 MB de JSON que costaban ~1.3 s por
-  arranque con 68 mil entradas, más `load` de su árbol).
+- **Índice guardado** (`indice.bin`, ~64 MB; `lib/busqueda-esquema.ts`):
+  «SIB2», una cabecera JSON con la etiqueta del corpus (fecha | huella |
+  entradas), lo que el corpus dice de sí (fechas de las instantáneas, el
+  modelo, hasta dónde hay vector) y cada sección con su tipo y su largo; y,
+  alineadas a ocho bytes, las secciones. Dos partes:
+  - *El índice por palabra*: los términos unidos por «\n» y las tablas
+    `inicio`, `entrada`, `campoFrecuencia` y `largo` (~21 MB).
+  - *El corpus por columnas* (~42 MB): cada campo de las entradas en su
+    tabla. El texto (`t`, `ti`, `x`, `d`, `o` —ya el nombre de quien
+    publica—, `h`, `f`, `r`, `c`) como diccionario: sus valores distintos
+    una vez, en UTF-8 con sus bordes, y por entrada su número en el entero
+    más chico que lo guarda; el número (`v`, `n`, `m`, `p`, `e`, `k`, `a`,
+    `s`, con su aridad) en el entero más chico que cabe, o `f64`. «No hay»
+    es el máximo del entero, o NaN. Un texto se descodifica la primera vez
+    que se pide y se guarda: la fusión mira el título de miles de
+    candidatos, no de 205 mil. `resultadoPorHref` compara bytes
+    (`Columnas.donde`) sin descodificar nada.
+  El servidor lo lee con vistas sobre el búfer, sin `JSON.parse` (~70 ms
+  con el disco en caché); si falta o es de otra forma, el buscador no carga
+  y lo dice («no pudimos mirar»), y no hay reconstrucción en memoria: no
+  tiene el corpus del que hacerla. `scripts/build-indice-busqueda.mjs` lo
+  escribe y lo relee campo por campo y entrada por entrada contra el
+  corpus antes de terminar; un campo del corpus sin columna, o un valor que
+  no es de la suya, lo hace fallar. Reemplazó, el 2026-10-01, el índice
+  «SIB1» más el `JSON.parse` de `corpus.json` en cada arranque (~0.65 s),
+  que a su vez reemplazó el guardado de Orama (`indice.json.br`: 27 MB de
+  JSON que costaban ~1.3 s por arranque con 68 mil entradas).
 - **Por tema**: Model2Vec `potion-multilingual-128M` (MIT), un embedding
   **estático** —una tabla por pieza, sin red que ejecutar—, podado al español
   por `scripts/build-modelo-semantico.py` (72,837 piezas, PCA 256→128, int8:
@@ -605,11 +627,12 @@ lematizador de `@orama/stemmers`).
   exequátur», dos obras homónimas con distinto SNIP o dos «Informe» de
   fechas distintas son filas distintas. Cada resultado dice su vía: `palabra`, `tema` o `ambas`; la
   interfaz marca «Por tema» lo que no lleva todas las palabras.
-- **Coste**: carga del motor por instancia ~0.8–0.9 s con ≈188 mil entradas
-  (medido el 2026-09-27 en node: casi todo es `JSON.parse` del corpus y el
-  tokenizador; el índice, ~20 ms), contra ~1.3 s del índice de Orama con 68
-  mil; ~430 MB de memoria residente; 25–120 ms por consulta en caliente (el
-  barrido por tema recorre ~155 mil vectores). `/buscar` pone los resultados en un
+- **Coste**: carga del motor y primera consulta ~0.32 s con ≈205 mil
+  entradas (medido el 2026-10-01 en node, el disco en caché; antes de las
+  columnas, ~0.7 s, casi todo `JSON.parse` del corpus): lo que más tarda es
+  armar el tokenizador (~0.14 s). ~325 MB de memoria residente (~71 MB de
+  montón, contra ~139 MB con el corpus en objetos); 30–190 ms por consulta
+  en caliente (el barrido por tema recorre ~155 mil vectores). `/buscar` pone los resultados en un
   `Suspense` para que la caja no espere; la paleta no muestra nada mientras
   tanto (y «Toda la plataforma» sigue ahí), y si `/api/buscar` falla lo dice
   en una línea: «no respondió» no es «no hay nada». `next.config.ts` declara los
@@ -620,7 +643,8 @@ lematizador de `@orama/stemmers`).
   trazado meta `public/data` entero en cada función que la importa: así
   cargaban ~146 MB ocho páginas por `lib/obras.ts`, que ahora escribe cada
   ruta entera. El gate comprueba que `indice.bin` sea de su `corpus.json`:
-  si no, cada arranque en frío lo reconstruye (~6 s, ~535 MB).
+  el servidor lee solo el índice, y uno viejo serviría el corpus de antes
+  sin aviso.
 - **Pantallas** (G4, `lib/pantallas.ts`): cada destino de `lib/indice.ts`
   con lo que ofrece y las preguntas que contesta. `buscarPantallas` las pasa
   por el mismo modelo al cargar (~40 pantallas, ~150 frases; no hay archivo
@@ -1331,8 +1355,9 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
 - **`lib/mcp-herramientas.ts`**: la dirección y la tabla de herramientas
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
-- **Trazado** (medido sobre cada `route.js.nft.json` el 30-09-2026): `/mcp`
-  pesa ~177 MB —el índice de búsqueda, las instantáneas del grafo,
+- **Trazado** (medido sobre cada `route.js.nft.json` el 01-10-2026): `/mcp`
+  pesa ~172 MB —el índice de búsqueda (sin `corpus.json`, que ya está en
+  `indice.bin`), las instantáneas del grafo,
   `historico/`, `rnc/` y `procesos.json`, que se incluye aquí y se excluye de
   las fichas del grafo, que lo arrastraban sin leerlo—; `/api/sql`, ~77 MB
   —DuckDB, sin la versión musl, que Vercel no usa, y las tablas—. El límite
@@ -1342,11 +1367,21 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
 - **Primera llamada de cada herramienta** (`next start` recién arrancado, el
   disco en caché, 30-09-2026): `ontology` 0,07 s, `query` 0,23, `procurement`
   0,28, `signed_decrees` 0,30, `contracting_history` 0,39, `fetch` con
-  `group` 0,50, `path` 0,58, `fetch` de una institución 0,69, `search` 0,92,
-  **`retrieve` ~1,6 s** (carga el índice y el grafo; la mitad es recolección
-  de basura y descodificar el corpus de 47 MB: bajarlo exige un corpus por
-  columnas). Después, 20–130 ms. Con el disco frío, el índice sube a varios
-  segundos.
+  `group` 0,50, `path` 0,58, `fetch` de una institución 0,69. Con el corpus
+  por columnas (01-10-2026, tres arranques por caso, la misma máquina antes
+  y después): **`search` 0,34–0,42 s** (antes 0,72–0,85) y **`retrieve`
+  0,35–0,82 s** (antes 1,16–1,48) —«la compra más grande de 2026» 0,63–0,75,
+  «¿quién dirige el MINERD?» 0,76–0,82—. `retrieve` lee la tabla de
+  proveedores solo si la pregunta nombra a alguien que el grafo no ata
+  exacto, y la de procesos solo si dice un año (las fichas que trae leen lo
+  suyo): leerlas siempre costaba en frío ~0,28 s y ~0,15 s. ⚠️ Con un
+  nombre así sigue por encima del segundo: «Viamar» 1,03–1,09 s (antes
+  1,45–1,57), «Ministerio de Educación Superior» 1,20–1,29 (antes
+  1,61–1,72). Lo pagan las instantáneas en JSON que lee entonces
+  —proveedores (`historico/`, `rnc/`, ~0,28 s), funcionarios para buscar
+  el nodo, procesos— y la recolección de basura que dejan, no el índice; el
+  arreglo es el mismo: tablas por columnas. Después, 20–190 ms. Con el disco
+  frío, el índice sube a varios segundos.
 - **Verificado** el 30-09-2026 con los clientes oficiales: el SDK 1.x
   (revisión 2025-06-18, la de Claude y ChatGPT hoy) y el 2.x fijado a
   2026-07-28, cada herramienta con sus casos de error.

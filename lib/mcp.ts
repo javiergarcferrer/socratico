@@ -1922,12 +1922,13 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
   const mayusculas = new Set(q.split(/[^\p{L}\d]+/u).filter((w) => w.length >= 3 && w === w.toLocaleUpperCase("es") && /\p{L}/u.test(w)));
   const nombradas = INSTITUCIONES.filter((i) => i.acronimo && mayusculas.has(i.acronimo.toLocaleUpperCase("es")) && mayusculas.has(i.acronimo));
   const nombres = nombresPropios(q, new Set(nombradas.map((i) => plano(i.acronimo).trim())));
-  const [h, pantallas, porNombre, { proveedores }, { procesos }] = await Promise.all([
+  // Las tablas de proveedores y de procesos se leen solo si la pregunta las
+  // necesita (un nombre que el grafo no ata; un año): leerlas siempre
+  // costaba en frío ~0,28 s y ~0,15 s (medido el 2026-10-01).
+  const [h, pantallas, porNombre] = await Promise.all([
     buscarEnTodo(q, { porPagina: 20 }),
     buscarPantallas(q, 3),
     Promise.all(nombres.map(async (n) => ({ nombre: n, nodos: await buscarNodos(n), indice: await buscarEnTodo(n, { porPagina: 5 }) }))),
-    todosLosProveedores(),
-    todosLosProcesos(),
   ]);
   if (!h) throw new Aviso("El índice de búsqueda no cargó. Intenta de nuevo en un momento.");
 
@@ -1951,8 +1952,12 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
   let proveedorNombrado: ProveedorIndexado | null = null;
   const notasEnlace: string[] = [];
   const sinAtar: string[] = [];
-  const clave = (x: string) =>
-    plano(x)
+  // El nombre en `plano()`, sin la forma jurídica. El de cada proveedor sale
+  // de su forma plana ya guardada (`planoNombre`), y solo se compara el de
+  // los que llevan la primera palabra: rehacer los 32 mil en cada llamada
+  // costaba ~70 ms.
+  const sinForma = (enPlano: string) =>
+    enPlano
       .trim()
       .split(" ")
       .filter((w) => !FORMAS_JURIDICAS.has(w))
@@ -1963,7 +1968,11 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
       sumarNodo(exacto.nodo, `la pregunta lo nombra: «${nombre}»`, true);
       continue;
     }
-    const iguales = proveedores.filter((x) => clave(x.nombre) === clave(nombre));
+    const buscada = sinForma(plano(nombre));
+    const primera = ` ${buscada.split(" ")[0]} `;
+    const iguales = (await todosLosProveedores()).proveedores.filter(
+      (x) => (!buscada || planoNombre(x).includes(primera)) && sinForma(planoNombre(x)) === buscada,
+    );
     if (iguales.length === 1) {
       const elegido = iguales[0];
       proveedorNombrado ??= elegido;
@@ -2003,6 +2012,8 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
   const notasRuta: string[] = [];
   const instFuerte = nodos.find((x) => x.fuerte && x.n.tipo === "institucion")?.n;
   const institucionPedida = instFuerte ? institucionPorId(instFuerte.id) : null;
+  // La cobertura de la tabla de procesos solo cuenta si la pregunta dice un año.
+  const procesos = Number.isFinite(anio) ? (await todosLosProcesos()).procesos : [];
   const cobertura = procesos.length ? coberturaDe(procesos) : null;
   const antesDeLaInstantanea = Number.isFinite(anio) && cobertura != null && anio < Number(cobertura.desde.slice(0, 4));
   if (antesDeLaInstantanea && pide.compras) {
