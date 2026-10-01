@@ -50,7 +50,7 @@ Function. Ningún dato del Estado entra a la DB: una ficha no la lee, pinta un c
 | ¿Cómo se lee el **Congreso**? | `docs/RECON.md` — mecánica verificada del SIL, el consultante, cadenas de documentos |
 | ¿Y **cualquier otra fuente** del Estado? | `docs/AUDITORIA.md` — estado ✅/⚠️/❌, familias de acceso, bloqueos y su desbloqueo institucional |
 | ¿Cómo funcionan las **excepciones** de la DB? | `docs/PLAN-DEMOCRACIA.md` (voto, Cuenta Única §9) y `docs/PLAN-ESPACIOS.md` (cuentas, proyectos, alertas) |
-| ¿Qué se construye **después**? | `docs/PLAN-ACCESO.md` — plan de acceso: horizontes, orden, criterio de hecho |
+| ¿Qué se construye **después**? | `docs/PLAN-ACCESO.md` — plan de acceso: horizontes, orden, criterio de hecho; `docs/PLAN-GRAFO.md` — el grafo como modelo de todo: ontología, identidad, tiempo, subgrafos, exportaciones |
 | ¿Qué archivos **moldean una sesión**? | `docs/HARNESS.md` — inventario, orden de carga, dónde va una regla nueva |
 
 Los `.claude/rules/*.md` se cargan solos al tocar rutas que coinciden y condensan la página que nombran en su cabecera; nunca la sustituyen.

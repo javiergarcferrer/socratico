@@ -84,6 +84,7 @@ decisiones del dueño vivían dentro del archivo de arranque.
 | `docs/AUDITORIA.md` | «¿Y cualquier otra fuente?» | Estado ✅/⚠️/❌ por fuente, familias de acceso, bloqueos y su desbloqueo institucional. | mantener |
 | `docs/PLAN-DEMOCRACIA.md` | «¿Cómo funciona la excepción?» | Esquema, RLS, RPCs, medidas de seguridad, Cuenta Única. | mantener |
 | `docs/PLAN-ACCESO.md` | «¿Qué se construye después?» | Diagnóstico de acceso y plan en cuatro horizontes, con criterio de hecho. | **nuevo** |
+| `docs/PLAN-GRAFO.md` | «¿Qué se construye después?» (segunda página de la fila) | El grafo como modelo de todo: paradigmas que se rompen, ontología, identidad, tiempo, subgrafos, exportaciones, fases. Lleva línea de estado (propuesto). | **nuevo** |
 | `docs/HARNESS.md` | «¿Qué moldea una sesión?» | Esta página. | **nuevo** |
 | `README.md` | — | Descripción pública y lista de funciones. | mantener |
 | `.claude/skills/verificar/SKILL.md` | `/verificar` | Corre el gate completo y qué hacer con cada tipo de rojo. | mantener |

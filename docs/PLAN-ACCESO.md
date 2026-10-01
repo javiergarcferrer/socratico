@@ -355,6 +355,10 @@ Del buscador, la revisión del 2026-09-27 (`docs/ARQUITECTURA.md` §Búsqueda):
 
 ## 6 ter. Horizonte 5 — el grafo
 
+> El paso siguiente —el grafo como modelo de toda la plataforma, compilado,
+> con ontología, tiempo, subgrafos y exportaciones— está en
+> `docs/PLAN-GRAFO.md` (propuesto el 2026-10-01).
+
 La plataforma pasa de un conjunto de verticales a **un grafo**: todo lo que se
 ve es un nodo que se puede pulsar e investigar, cada ficha dice con qué está
 conectada, los números se dibujan con un solo sistema de visualización, y
