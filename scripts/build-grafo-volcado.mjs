@@ -45,7 +45,10 @@ const SALIDA = path.join(DATOS, "grafo");
 const leer = (ruta) => JSON.parse(readFileSync(path.join(DATOS, ruta), "utf8"));
 const SITIO = /SITIO = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "sitio.ts"), "utf8"))[1];
 const CONSULTORIA_PDF = /CONSULTORIA_PDF = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "decretos.ts"), "utf8"))[1];
-const SOC = `${SITIO}/ontologia#`;
+// Los espacios de nombres de la ontología (lib/rdf.ts): el núcleo y el módulo dominicano.
+const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
+const SOC = `${W3ID}/def/core#`;
+const DO = `${W3ID}/def/do#`;
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const CONCURRENCIA = 8;
 
@@ -209,7 +212,12 @@ if (quads.length !== lineas.length) throw new Error(`se escribieron ${lineas.len
 const personales = quads.filter((q) => [q.subject, q.object].some((x) => x.termType === "NamedNode" && x.value.startsWith(`${SITIO}/funcionarios/`)));
 if (personales.length) throw new Error(`${personales.length} triples tocan a una persona`);
 const clases = {};
-for (const q of quads) if (q.predicate.value === RDF_TYPE && q.object.value.startsWith(SOC)) clases[q.object.value.slice(SOC.length)] = (clases[q.object.value.slice(SOC.length)] ?? 0) + 1;
+// Por su nombre local, único entre los dos módulos (lib/ontologia.ts).
+for (const q of quads) {
+  if (q.predicate.value !== RDF_TYPE) continue;
+  const ns = [SOC, DO].find((n) => q.object.value.startsWith(n));
+  if (ns) clases[q.object.value.slice(ns.length)] = (clases[q.object.value.slice(ns.length)] ?? 0) + 1;
+}
 
 mkdirSync(SALIDA, { recursive: true });
 const gz = gzipSync(nt, { level: 9 });

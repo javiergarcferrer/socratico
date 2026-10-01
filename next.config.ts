@@ -141,6 +141,20 @@ const nextConfig: NextConfig = {
         destination: `/ontologia.${formato}`,
         statusCode: 303 as const,
       })),
+      /*
+        Los IRIs persistentes del vocabulario (`lib/rdf.ts`, W3ID): w3id.org
+        manda `https://w3id.org/socratico/<ruta>` a `<este sitio>/<ruta>`, y
+        aquí se resuelve. El núcleo y el módulo dominicano (con su versión o
+        sin ella) son el mismo documento; las formas SHACL, el suyo.
+      */
+      ...formatos.map(({ formato, acepta }) => ({
+        source: "/def/:modulo(core|do)/:version?",
+        has: [{ type: "header" as const, key: "accept", value: acepta }],
+        destination: `/ontologia.${formato}`,
+        statusCode: 303 as const,
+      })),
+      { source: "/def/:modulo(core|do)/:version?", destination: "/ontologia", statusCode: 303 as const },
+      { source: "/def/formas", destination: "/ontologia.shacl.ttl", statusCode: 303 as const },
     ];
   },
   async headers() {

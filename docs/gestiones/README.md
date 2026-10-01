@@ -45,6 +45,12 @@ Cada archivo abre con un bloque (Para, Vía, Fundamento, Estado) y, bajo la raya
 | 26 | OGTIC | Cliente OAuth2 público de Cuenta Única para `/democracia` | Canal de la OGTIC para integrar Cuenta Única | [ogtic-cuenta-unica.md](ogtic-cuenta-unica.md) | borrador, sin enviar | AUDITORIA §F.8; PLAN-ACCESO §5; PLAN-DEMOCRACIA §9.4, §9.5 |
 | 27 | OGTIC (datos.gob.do) | Que su robots.txt permita leer la API del catálogo, o una exportación periódica del catálogo | Canal del portal datos.gob.do o la OAI de la OGTIC | [ogtic-datos-abiertos.md](ogtic-datos-abiertos.md) | borrador, sin enviar | AUDITORIA §8 |
 
+## Infraestructura
+
+| # | Destinatario | Qué se pide | Vía de envío | Borrador | Estado | Origen en los docs |
+|---|---|---|---|---|---|---|
+| 28 | w3id.org (W3C Permanent Identifier CG) | Que `https://w3id.org/socratico/…` redirija al sitio: los IRIs persistentes del grafo | *Pull request* a github.com/perma-id/w3id.org desde la cuenta del dueño | [w3id.md](w3id.md) | preparado, sin enviar; la ontología 2.0.0 ya usa estos IRIs | PLAN-GRAFO §4.1 |
+
 ## Avisos de seguridad
 
 Cinco avisos de divulgación responsable (CCPSD, CNZFE, Superintendencia de Bancos, CAASD y OGTIC por el portal 311) están redactados, pero **no viven en este repositorio, que es público**: cada uno describe un fallo que sigue abierto. Se le entregan al dueño aparte, para mandarlos solos y por un canal privado. Cuando una institución lo corrija, el qué y el dónde se escriben en `docs/AUDITORIA.md`.

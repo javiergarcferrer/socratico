@@ -165,6 +165,16 @@ if [ "$construido" = 1 ]; then
     if [ "$listo" = 1 ]; then printf '%s\n' "$eval_mcp" | grep -E 'FAIL|casos' | head -15 | sed 's/^/       /'
     else echo "       next start did not answer in 60 s:"; tail -5 "$SLOG" | sed 's/^/       /'; fi
   fi
+  # 6c. The graph conforms to its ontology (docs/PLAN-GRAFO.md, F0): the dump
+  #     plus a sample of people and decrees against the SHACL shapes generated
+  #     from lib/ontologia.ts, and every soc:/do: term the graph uses declared.
+  #     Same server, ~1 min.
+  if [ "$listo" = 1 ] && shacl="$(timeout 300 node scripts/validar-grafo.mjs --url "http://localhost:$puerto" --personas 300 2>&1)"; then
+    ok "graph: $(printf '%s\n' "$shacl" | tail -1)"
+  else
+    mal "graph: scripts/validar-grafo.mjs (SHACL against lib/ontologia.ts)"
+    printf '%s\n' "$shacl" | grep -E 'VIOLA|SIN DECLARAR|conforme|volcado' | head -12 | sed 's/^/       /'
+  fi
   kill "$srv" 2>/dev/null; wait "$srv" 2>/dev/null; trap - EXIT
 fi
 

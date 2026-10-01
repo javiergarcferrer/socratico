@@ -1040,15 +1040,83 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   validó con un analizador independiente (rdflib 7.6): las tres salidas de
   nueve nodos de muestra y de la ontología son isomorfas, y todo término
   `soc:` que usan las descripciones está declarado en la ontología.
-- **`lib/ontologia.ts`** es la ontología `soc:` en OWL 2 y RDFS: clases,
-  propiedades con dominio y rango (la unión en OWL cuando son varios) y los
-  esquemas SKOS, que salen de las mismas tablas que usa la interfaz
-  (materias, movimientos, sectores, familias PEP, tipos de medida). Se alinea
-  hacia fuera sin afirmar de más: `rdfs:subClassOf`/`subPropertyOf` hacia
-  schema.org, W3C ORG, FOAF, ELI y ROV; `skos:closeMatch`/`broadMatch` hacia
-  las clases de Wikidata. Es la fuente de `/ontologia` (HTML, un ancla por
-  término, así que `…/ontologia#Persona` abre su definición) y de
-  `/ontologia.ttl`, `.jsonld` y `.nt` (estáticas).
+- **`lib/ontologia.ts`** es la ontología, versión 2.0.0 (01-10-2026, F0 de
+  `docs/PLAN-GRAFO.md`): **una sola definición** de la que salen el OWL 2 y
+  RDFS (`/ontologia.ttl`, `.jsonld`, `.nt`), las formas SHACL
+  (`/ontologia.shacl.ttl`, `triplesFormas`), el perfil para Microsoft
+  Fabric IQ (`/ontologia.fabric.ttl`, `triplesFabric`), la página
+  `/ontologia` y la herramienta `ontology` del MCP.
+  - **Dos módulos con IRIs persistentes** (`lib/rdf.ts`, `W3ID`): el
+    núcleo, neutral de país, `https://w3id.org/socratico/def/core#`
+    (`soc:`), y el dominicano, `…/def/do#` (`do:`: RNC, RPE, SNIP, la regla
+    PEP de la Ley 311-14 en `do:numeralLey311` y las familias, las
+    clasificaciones de DIGEPRES, del MAP, de la Consultoría y de la DGCP,
+    `do:MedidaDGCP`). ⚠️ **Hasta que w3id.org acepte el pull request**
+    (`docs/gestiones/w3id.md`) esos IRIs no resuelven; cuando lo acepte,
+    w3id manda `…/socratico/<ruta>` a `<sitio>/<ruta>` y `next.config.ts`
+    resuelve `/def/core`, `/def/do` (con versión o sin ella) y `/def/formas`
+    por `Accept`. Los nombres locales son únicos entre los dos módulos (se
+    comprueba al cargar), así que los dos llevan a `/ontologia#<nombre>`.
+  - **La v1** (`https://socratico.vercel.app/ontologia#`, 30-09-2026) no se
+    rompe: cada término suyo se declara `rdfs:subClassOf` o
+    `rdfs:subPropertyOf` del de ahora, y obsoleto (`owl:deprecated`); sus
+    conceptos, `skos:exactMatch`. **No** `owl:equivalent…`: la equivalencia
+    pasaría los dominios más estrechos de la v1 a la v2 (con la v1 cargada,
+    toda `soc:Ocupacion` con titular sería un `soc:Cargo`).
+  - **Estado de cada término** (`vs:term_status`): 35 clases y 65
+    propiedades, en 7 listas con 74 conceptos. «En uso» si el grafo tiene
+    instancias: 17 clases —las 14 de la v1 menos `soc:Ley`, que nadie tipa,
+    más `Organizacion`, `Documento`, `Lugar` y `Sancion`, que las tienen por
+    sus subclases— y las 33 propiedades de la v1;
+    «definido» si es el modelo de una fase que viene —`Puesto`, `Ocupacion`
+    con `desde`/`hasta`, `Evento` (abre y cierra ocupaciones, con su
+    `prueba`), `Membresia`, `Partido`, `Mencion` (`refiereA` solo con un
+    candidato corroborado, `posibleReferencia` si no), `Identificador`,
+    `Instantanea` (PROV-O), la cadena `ProcesoDeContratacion` →
+    `Adjudicacion` → `Contrato` (ePO), `Iniciativa`, `Votacion`,
+    `Sentencia`, `ProyectoDeInversion`, `PartidaPresupuestaria`,
+    `Municipio`, `subOrganizacionDe`—. `soc:Cargo` sigue siendo el registro
+    de un movimiento tal como lo da su fuente; de esos registros saldrán las
+    ocupaciones con intervalo (F4).
+  - **Herencia**: cada clase tiene a lo sumo un padre de aquí (`padre`:
+    Institución, Empresa, Entidad financiera y Partido son
+    `soc:Organizacion`; Decreto y Ley, `soc:Norma`; Provincia y Municipio,
+    `soc:Lugar`), que es la herencia que Fabric IQ conserva; las
+    alineaciones de fuera van aparte (`subClaseDe`). Cada clase dice su
+    esquema de FollowTheMoney (`ftm`, comprobado en followthemoney.tech:
+    `Occupancy` para la ocupación, como modela OpenSanctions a un PEP) y,
+    si la tiene, su clave (`owl:hasKey`: el RNC de una empresa, el RPE de
+    un proveedor; el número de una norma no lo es, el origen lo repite).
+  - **SHACL**: una `sh:NodeShape` por clase; por cada propiedad de su
+    dominio, su tipo de dato o su clase de llegada (`sh:or` si son varios),
+    `sh:maxCount 1` si es funcional, `sh:minCount 1` donde la clase la
+    exige (`obligatoriaEn`). Abiertas. Validan el grafo **unido con la
+    ontología** (SHACL lee las subclases del grafo de datos):
+    `node scripts/validar-grafo.mjs --url <servidor>` valida el volcado
+    entero más una muestra de personas y de los decretos que las nombran
+    con `rdf-validate-shacl` (Zazuko; dependencia de desarrollo, no viaja
+    en ninguna función), y exige además que todo término `soc:`/`do:` que
+    el grafo usa esté declarado. Un `sh:class` cuyo nodo no tiene ningún
+    tipo en la muestra se cuenta aparte («fuera de la muestra»), no como
+    error. Corre en el gate completo, sobre el mismo `next start` que la
+    evaluación del MCP (~1 min con 300 personas). ✅ 01-10-2026, con 600
+    personas y 204 decretos: 856,216 triples de 126,850 nodos, **conforme**
+    (0 violaciones, 0 términos sin declarar, 0 enlaces fuera de la
+    muestra); un barrido aparte, por texto, da los 67 términos usados entre
+    los 181 declarados y ningún IRI de la v1 en el volcado. La primera
+    corrida halló dos desajustes de la v1 que nadie había comprobado:
+    `soc:estado` y `do:etiquetaConsultoria` declaraban `xsd:string` y el
+    grafo siempre emitió texto con idioma (`"ACTIVO"@es`; el rango es ahora
+    `rdf:langString`), y un decreto tipaba a su firmante solo como
+    `schema:Person` (ahora también `soc:Persona`, y a quien designa).
+  - **Fabric IQ** (su documentación, «Import and export ontologies»,
+    revisada el 01-10-2026): importa TTL, RDF/RDFS u OWL en un ítem vacío;
+    `rdfs:label` → nombre, `rdfs:comment` → descripción, `skos:altLabel` →
+    sinónimo; con varios padres conserva el primero; lo que no representa lo
+    salta. El perfil lleva solo clases de aquí con un padre, y parte cada
+    propiedad con varios dominios o rangos en una por par (`fecha_Norma`,
+    `titular_Ocupacion`…); lo que apunta a un concepto SKOS pasa a texto.
+    ⚠️ Sin una importación real: es lo que dice su documentación.
 - **`lib/grafo-rdf.ts`** — `describir(nodo, ligero)`: los triples de un nodo
   con el vecindario que hace falta para leerlo (cada vecino con su
   `rdfs:label`). Topes que la descripción declara en su `nota`: una
@@ -1126,7 +1194,7 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   sobre `Accept`): quien pide una ficha en `text/turtle`,
   `application/ld+json` o `application/n-triples` **y sin `text/html`**
   recibe un 303 a `/api/grafo` («Cool URIs for the Semantic Web»);
-  `/ontologia`, a su archivo. Es una regla del enrutador: no despierta
+  `/ontologia` y `/def/core`, `/def/do`, a su archivo. Es una regla del enrutador: no despierta
   ninguna función ni toca la caché de la página, y un navegador nunca entra.
 - **Rastreo**: la portada del grafo se indexa y está en el sitemap (sale de
   `lib/menu.ts`); la vista de un nodo es `noindex` y `robots.ts` veta

@@ -103,7 +103,7 @@ const LISTADO_DE_CLASE: Record<string, string> = {
   "soc:Empresa": "/empresas",
   "soc:Provincia": "/provincias",
   "soc:DeclaracionJurada": "/auditorias",
-  "soc:MedidaDGCP": "/proveedores/inhabilitados",
+  "do:MedidaDGCP": "/proveedores/inhabilitados",
   "soc:Proveedor": "/historico",
   "soc:Contratacion": "/historico",
 };

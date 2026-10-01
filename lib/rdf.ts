@@ -31,11 +31,27 @@ export interface Triple {
 
 /** La base de los IRI de la plataforma: la ficha más `#id` es la cosa; sin él, la página. */
 export const BASE = SITIO;
-export const ONTOLOGIA = `${SITIO}/ontologia`;
+
+/**
+ * Los IRIs persistentes: w3id.org redirige `https://w3id.org/socratico/…` a
+ * este sitio, donde esté, y un IRI publicado no depende del dominio del
+ * despliegue (docs/PLAN-GRAFO.md §4.1). `def/` es el vocabulario: el núcleo,
+ * neutral de país (`soc:`), y el módulo dominicano (`do:`).
+ */
+export const W3ID = "https://w3id.org/socratico";
+/** La ontología del núcleo: su IRI y el de su espacio de nombres (con `#`). */
+export const ONTOLOGIA = `${W3ID}/def/core`;
+/** El módulo de la República Dominicana: identificadores, clasificaciones y la regla PEP de la Ley 311-14. */
+export const ONTOLOGIA_DO = `${W3ID}/def/do`;
+/** La página donde se lee la ontología y sus descargas: adonde lleva el IRI. */
+export const PAGINA_ONTOLOGIA = `${SITIO}/ontologia`;
+/** El espacio de nombres de la versión 1 (2026-09-30), en el dominio del despliegue: sus términos se declaran equivalentes. */
+export const ESPACIO_V1 = `${SITIO}/ontologia#`;
 
 /** Los vocabularios que usa el grafo, con su prefijo de siempre. */
 export const PREFIJOS = {
   soc: `${ONTOLOGIA}#`,
+  do: `${ONTOLOGIA_DO}#`,
   rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
   rdfs: "http://www.w3.org/2000/01/rdf-schema#",
   owl: "http://www.w3.org/2002/07/owl#",
@@ -49,6 +65,12 @@ export const PREFIJOS = {
   eli: "http://data.europa.eu/eli/ontology#",
   void: "http://rdfs.org/ns/void#",
   vann: "http://purl.org/vocab/vann/",
+  vs: "http://www.w3.org/2003/06/sw-vocab-status/ns#",
+  prov: "http://www.w3.org/ns/prov#",
+  oa: "http://www.w3.org/ns/oa#",
+  adms: "http://www.w3.org/ns/adms#",
+  epo: "http://data.europa.eu/a4g/ontology#",
+  sh: "http://www.w3.org/ns/shacl#",
   wd: "http://www.wikidata.org/entity/",
 } as const;
 

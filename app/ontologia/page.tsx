@@ -5,14 +5,16 @@ import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
 import { formatFecha } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
 import { PREFIJOS, expandir } from "@/lib/rdf";
-import { CLASES, PROPIEDADES, PUBLICADA, VERSION, esquemas, resumenOntologia } from "@/lib/ontologia";
+import { CLASES, PROPIEDADES, PUBLICADA, VERSION, curie, esquemas, resumenOntologia, type Estado } from "@/lib/ontologia";
 import { hrefWikidata } from "@/lib/wikidata";
 
 /**
  * La ontología en llano: la página que abre un navegador cuando sigue un
- * término `soc:` (`…/ontologia#Persona`). Cada clase, propiedad y esquema
- * tiene su ancla con el nombre local del término. Sale de `lib/ontologia.ts`,
- * la misma fuente que `/ontologia.ttl` y `/ontologia.jsonld`: no puede
+ * término (`https://w3id.org/socratico/def/core#Persona` → w3id.org →
+ * `/def/core` → aquí, `#Persona`). Cada clase, propiedad y esquema, de los
+ * dos módulos, tiene su ancla con el nombre local del término, que es único
+ * entre ellos. Sale de `lib/ontologia.ts`, la misma fuente que el Turtle, el
+ * JSON-LD, las formas SHACL y el perfil para Fabric IQ: no puede
  * desalinearse. Una máquina que pide esta dirección con `Accept: text/turtle`
  * recibe el Turtle (`next.config.ts`).
  */
@@ -20,7 +22,7 @@ import { hrefWikidata } from "@/lib/wikidata";
 export const metadata: Metadata = {
   title: "Ontología",
   description:
-    "Las clases y relaciones del grafo de Socrático.do en OWL y RDFS: personas con cargo, instituciones, decretos, entidades financieras, empresas y provincias, alineadas con schema.org, W3C ORG, FOAF, ELI y Wikidata.",
+    "Las clases y relaciones del grafo de Socrático.do en OWL, RDFS y SHACL: un núcleo neutral de país (personas, organizaciones, puestos y ocupaciones con intervalo, eventos, normas, contratación, menciones) y el módulo de la República Dominicana, alineados con schema.org, W3C ORG, ELI, PROV-O, ePO, FollowTheMoney y Wikidata.",
   alternates: {
     canonical: "/ontologia",
     types: { "text/turtle": "/ontologia.ttl", "application/ld+json": "/ontologia.jsonld" },
@@ -36,12 +38,20 @@ const ALINEADOS: { prefijo: keyof typeof PREFIJOS; nombre: string; para: string 
   { prefijo: "rov", nombre: "Organizaciones Registradas (W3C ROV)", para: "Personas jurídicas con su número de registro." },
   { prefijo: "skos", nombre: "SKOS", para: "Listas cerradas (materias, movimientos, sectores) y la correspondencia con Wikidata." },
   { prefijo: "dct", nombre: "Dublin Core (DCTerms)", para: "Títulos, fuentes y fechas." },
+  { prefijo: "prov", nombre: "PROV-O (W3C)", para: "La procedencia: de qué instantánea sale cada dato y qué evento lo cambió." },
+  { prefijo: "epo", nombre: "Ontología de contratación pública de la UE (ePO)", para: "Procesos de compra, adjudicaciones y contratos." },
+  { prefijo: "oa", nombre: "Web Annotation (W3C)", para: "Menciones: un nombre en un documento y a quién se refiere." },
+  { prefijo: "adms", nombre: "ADMS (W3C)", para: "Identificadores con el registro que los emite." },
   { prefijo: "wd", nombre: "Wikidata", para: "El identificador universal de una clase o de una ficha, solo cuando la correspondencia no tiene dudas." },
 ];
 
+/** El estado de un término, en llano. */
+const ESTADO: Record<Estado, string> = { "en-uso": "en uso", definido: "definido, sin datos todavía" };
+
 /** Adónde lleva un término: su ancla aquí, o su definición en el vocabulario que lo define. */
 function destino(curie: string): string | null {
-  if (curie.startsWith("soc:")) return `#${curie.slice(4)}`;
+  const local = /^(?:soc|do):(.+)$/.exec(curie)?.[1];
+  if (local) return `#${local}`;
   if (curie.startsWith("xsd:")) return null;
   const completo = expandir(curie);
   return completo === curie ? null : completo;
@@ -102,8 +112,12 @@ export default function OntologiaPage() {
           alinea con los vocabularios que el mundo ya usa y, donde lo hay, con su elemento de Wikidata.
         </p>
         <p className="mt-3 text-sm text-ink-soft">
-          Espacio de nombres <code className="break-all font-mono text-[13px] text-ink">{PREFIJOS.soc}</code>, prefijo{" "}
-          <code className="font-mono text-[13px] text-ink">soc:</code> · versión {VERSION} del {formatFecha(PUBLICADA)} ·
+          Dos módulos: el núcleo, que sirve para cualquier país,{" "}
+          <code className="break-all font-mono text-[13px] text-ink">{PREFIJOS.soc}</code> (
+          <code className="font-mono text-[13px] text-ink">soc:</code>), y el de la República Dominicana —sus
+          registros, sus clasificaciones y la regla PEP de la Ley 311-14—,{" "}
+          <code className="break-all font-mono text-[13px] text-ink">{PREFIJOS.do}</code> (
+          <code className="font-mono text-[13px] text-ink">do:</code>). Versión {VERSION} del {formatFecha(PUBLICADA)} ·
           descargar en{" "}
           <a href="/ontologia.ttl" className="text-brand-700 underline">
             Turtle
@@ -116,13 +130,26 @@ export default function OntologiaPage() {
           <a href="/ontologia.nt" className="text-brand-700 underline">
             N-Triples
           </a>
+          ; las formas que valida cada dato, en{" "}
+          <a href="/ontologia.shacl.ttl" className="text-brand-700 underline">
+            SHACL
+          </a>
+          ; y el perfil para{" "}
+          <a href="/ontologia.fabric.ttl" className="text-brand-700 underline">
+            Microsoft Fabric IQ
+          </a>
           .
+        </p>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
+          Cada término dice si el grafo ya lo usa o si está definido para lo que viene —el tiempo de cada cargo,
+          los eventos que lo cambian, las menciones en documentos, la contratación proceso a proceso— y todavía no
+          tiene datos.
         </p>
       </header>
 
       <TiraDeCifras>
-        <Cifra etiqueta="Clases" valor={resumen.clases} nota="OWL 2" />
-        <Cifra etiqueta="Relaciones y datos" valor={resumen.propiedades} nota="Con dominio y rango" />
+        <Cifra etiqueta="Clases" valor={resumen.clases} nota={`${resumen.clasesEnUso} en uso`} />
+        <Cifra etiqueta="Relaciones y datos" valor={resumen.propiedades} nota={`${resumen.propiedadesEnUso} en uso`} />
         <Cifra etiqueta="Listas cerradas" valor={resumen.esquemas} nota={`${resumen.conceptos} conceptos en SKOS`} />
       </TiraDeCifras>
 
@@ -133,14 +160,31 @@ export default function OntologiaPage() {
         {CLASES.map((c) => (
           <Card as="article" key={c.id} id={c.id} className="scroll-mt-24 px-5 py-4 sm:px-6">
             <CardTitle as="h3">{c.etiqueta}</CardTitle>
-            <p className="mt-0.5 font-mono text-xs text-ink-soft">soc:{c.id}</p>
+            <p className="mt-0.5 font-mono text-xs text-ink-soft">
+              {curie(c)} · {ESTADO[c.estado]}
+            </p>
             <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{c.comentario}</p>
             <dl className="mt-3 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[9rem_1fr]">
-              {c.subClaseDe.length > 0 && (
+              {(c.padre || c.subClaseDe.length > 0) && (
                 <div className="contents">
                   <dt className="text-ink-soft">Es una</dt>
                   <dd>
-                    <Lista terminos={c.subClaseDe} conjuncion="y" />
+                    <Lista terminos={[...(c.padre ? [c.padre] : []), ...c.subClaseDe]} conjuncion="y" />
+                  </dd>
+                </div>
+              )}
+              {c.ftm && (
+                <div className="contents">
+                  <dt className="text-ink-soft">En FollowTheMoney</dt>
+                  <dd>
+                    <a
+                      href={`https://followthemoney.tech/explorer/schemata/${c.ftm}/`}
+                      className="text-brand-700 underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <code className="font-mono text-[13px]">{c.ftm}</code>
+                    </a>
                   </dd>
                 </div>
               )}
@@ -177,8 +221,8 @@ export default function OntologiaPage() {
                 <p className="text-[15px] font-medium text-ink">
                   {p.etiqueta}{" "}
                   <span className="font-mono text-xs font-normal text-ink-soft">
-                    soc:{p.id} · {p.tipo === "objeto" ? "relación" : "dato"}
-                    {p.funcional ? " · uno solo" : ""}
+                    {curie(p)} · {p.tipo === "objeto" ? "relación" : "dato"}
+                    {p.funcional ? " · uno solo" : ""} · {ESTADO[p.estado]}
                   </span>
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-ink-soft">{p.comentario}</p>
@@ -216,14 +260,16 @@ export default function OntologiaPage() {
             </div>
             {/*
               Abiertas y no en un Plegable: cada concepto es el destino de su
-              IRI (`…/ontologia#movimiento-designa`), y un Plegable cerrado no
+              IRI (`…/def/do#movimiento-designa`), y un Plegable cerrado no
               monta sus anclas.
             */}
             <ul className="grid grid-cols-1 gap-x-6 border-t border-hairline px-5 py-2 sm:grid-cols-2 sm:px-6">
               {e.conceptos.map((c) => (
                 <li key={c.id} id={c.id} className="scroll-mt-24 py-1.5 text-sm">
                   <span className="text-ink">{c.etiqueta}</span>{" "}
-                  <span className="font-mono text-xs text-ink-soft">soc:{c.id}</span>
+                  <span className="font-mono text-xs text-ink-soft">
+                    {e.modulo ?? "soc"}:{c.id}
+                  </span>
                   {c.definicion && <span className="block text-xs leading-relaxed text-ink-soft">{c.definicion}</span>}
                 </li>
               ))}

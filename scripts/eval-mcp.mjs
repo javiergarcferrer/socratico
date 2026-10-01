@@ -39,6 +39,10 @@ const i = process.argv.indexOf("--url");
 const URL_MCP = i > 0 ? process.argv[i + 1] : "http://localhost:3000/mcp";
 const leer = (ruta) => JSON.parse(readFileSync(path.join(DATOS, ruta), "utf8"));
 const SITIO = /SITIO = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "sitio.ts"), "utf8"))[1];
+// Los espacios de nombres de la ontología (lib/rdf.ts): el núcleo y el módulo dominicano.
+const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
+const SOC = `${W3ID}/def/core#`;
+const DO = `${W3ID}/def/do#`;
 
 /* ---------------------------------------------------------------- cliente */
 
@@ -478,13 +482,20 @@ const CASOS = [
     },
   },
   {
-    pregunta: "La ontología 1.1 declara la contratación",
+    pregunta: "La ontología declara la contratación, en sus dos módulos, con sus formas SHACL y su perfil para Fabric",
     async correr() {
       const { datos, error } = await llamar("ontology", {});
       exigir(!error, error);
-      exigir(datos.clases.some((c) => c.id === "soc:Contratacion"), "no declara soc:Contratacion");
-      for (const p of ["soc:contratante", "soc:contratista", "soc:montoContratado", "soc:numeroDeContratos"]) {
+      exigir(datos.espacio === SOC && datos.espacioDominicano === DO, `espacios ${datos.espacio} y ${datos.espacioDominicano}`);
+      exigir(datos.clases.some((c) => c.id === "soc:Contratacion" && c.estado === "en-uso"), "no declara soc:Contratacion en uso");
+      exigir(datos.clases.some((c) => c.id === "do:MedidaDGCP"), "no declara do:MedidaDGCP");
+      for (const p of ["soc:contratante", "soc:contratista", "soc:montoContratado", "soc:numeroDeContratos", "do:rpe", "do:rnc"]) {
         exigir(datos.propiedades.some((x) => x.id === p), `no declara ${p}`);
+      }
+      for (const url of [datos.descargas.shacl, datos.descargas.fabric]) {
+        const r = await fetch(url.replace(SITIO, URL_MCP.replace(/\/mcp$/, "")), { signal: AbortSignal.timeout(30_000) });
+        exigir(r.ok && /turtle/.test(r.headers.get("content-type") ?? ""), `${url} responde ${r.status}`);
+        exigir((await r.text()).includes(SOC), `${url} no usa el núcleo`);
       }
       return `versión ${datos.version}`;
     },
@@ -627,10 +638,10 @@ const CASOS = [
       const lineas = nt.split("\n").filter(Boolean);
       exigir(lineas.length === meta.triples, `${lineas.length} triples; meta.json dice ${meta.triples}`);
       exigir(!nt.includes(`${SITIO}/funcionarios/`), "toca a una persona con cargo");
-      exigir(!nt.includes("ontologia#DeclaracionJurada"), "trae declaraciones juradas");
+      exigir(!nt.includes(`${SOC}DeclaracionJurada`), "trae declaraciones juradas");
       exigir(!nt.includes(`${SITIO}/normativa/decreto/`), "trae decretos");
       const [rpe, , , monto] = topMinerd[0];
-      const arista = `<${SITIO}/proveedores/${rpe}#contratacion-${MINERD.id}> <${SITIO}/ontologia#montoContratado> "${monto}"`;
+      const arista = `<${SITIO}/proveedores/${rpe}#contratacion-${MINERD.id}> <${SOC}montoContratado> "${monto}"`;
       if (rncDe[rpe]) exigir(nt.includes(arista), "no trae la mayor contratación del MINERD");
       const { datos, error } = await llamar("ontology", {});
       exigir(!error, error);

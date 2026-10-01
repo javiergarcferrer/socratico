@@ -54,7 +54,10 @@ const P = {
   pagina: "http://xmlns.com/foaf/0.1/page",
   mismo: "http://www.w3.org/2002/07/owl#sameAs",
 };
-const SOC = `${SITIO}/ontologia#`;
+// Los espacios de nombres de la ontología (lib/rdf.ts): el núcleo y el módulo dominicano.
+const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
+const SOC = `${W3ID}/def/core#`;
+const DO = `${W3ID}/def/do#`;
 
 /* ------------------------------------------------------------ la cédula */
 
@@ -83,7 +86,7 @@ for (const q of quads) {
   ps.get(p)?.push(q.object) ?? ps.set(p, [q.object]);
 }
 const uno = (s, p) => S.get(s)?.get(p)?.[0]?.value ?? null;
-const deTipo = (clase) => [...S].filter(([, ps]) => ps.get(P.tipo)?.some((o) => o.value === `${SOC}${clase}`)).map(([s]) => s);
+const deTipo = (clase, ns = SOC) => [...S].filter(([, ps]) => ps.get(P.tipo)?.some((o) => o.value === `${ns}${clase}`)).map(([s]) => s);
 /** `https://…/instituciones/1#id` → `1`; el segmento tras el tipo. */
 const clave = (iri, tipo) => new RegExp(`^${SITIO.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/${tipo}/([^#/]+)`).exec(iri ?? "")?.[1] ?? null;
 const rutaDe = (iri) => (iri.startsWith(SITIO) ? iri.slice(SITIO.length).split("#")[0] : iri);
@@ -124,7 +127,7 @@ function tabla(nombre, descripcion, fuente, corte, columnas, filas) {
       id: Number(id),
       nombre,
       siglas: uno(s, P.alterno),
-      sector: uno(s, `${SOC}sector`)?.replace(`${SOC}sector-`, "") ?? null,
+      sector: uno(s, `${SOC}sector`)?.replace(`${DO}sector-`, "") ?? null,
       capitulo: instituciones.get(id)?.capitulo ?? null,
       contratos: contratos > 0 ? contratos : null,
       monto_contratado: contratos > 0 ? serie.reduce((t, f) => t + f[2], 0) : null,
@@ -186,7 +189,7 @@ const rncDeProveedor = new Map();
 // proveedores
 {
   const filas = deTipo("Proveedor").map((s) => {
-    const rpe = uno(s, `${SOC}rpe`) ?? clave(s, "proveedores");
+    const rpe = uno(s, `${DO}rpe`) ?? clave(s, "proveedores");
     const h = provHist[rpe];
     return {
       rpe,
@@ -243,9 +246,9 @@ const rncDeProveedor = new Map();
 
 // medidas
 {
-  const filas = deTipo("MedidaDGCP").map((s) => ({
+  const filas = deTipo("MedidaDGCP", DO).map((s) => ({
     proveedor_rpe: clave(s, "proveedores"),
-    tipo: uno(s, `${SOC}tipoDeMedida`)?.replace(`${SOC}medida-`, "") ?? null,
+    tipo: uno(s, `${DO}tipoDeMedida`)?.replace(`${DO}medida-`, "") ?? null,
     fecha: uno(s, `${SOC}fecha`),
     titulo: uno(s, P.etiqueta),
     descripcion: uno(s, P.dctDescripcion),

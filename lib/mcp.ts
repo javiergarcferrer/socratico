@@ -42,7 +42,7 @@ import { AVISO_DECRETO, decretoPorNumero, decretosDeFirmante, hrefDecreto, indic
 import { MATERIAS } from "@/lib/materias-decreto";
 import { filtrarPersonas, getFuncionarios, personaPorId, type Persona } from "@/lib/funcionarios";
 import { PROVINCIAS } from "@/lib/provincias";
-import { CLASES, PROPIEDADES, PUBLICADA, VERSION as VERSION_ONTOLOGIA, esquemas, triplesOntologia } from "@/lib/ontologia";
+import { CLASES, PROPIEDADES, PUBLICADA, VERSION as VERSION_ONTOLOGIA, concepto, curie, esquemas, triplesOntologia } from "@/lib/ontologia";
 import { PREFIJOS, aNTriples, compactar, expandir, type Triple } from "@/lib/rdf";
 import { desdeMayusculas } from "@/lib/congreso";
 import { agujas, contieneTodas, palabrasDeContenido, plano } from "@/lib/raiz";
@@ -263,7 +263,7 @@ async function cortePadron(): Promise<string | null> {
 
 /* ------------------------------------------------------------------ datos */
 
-const ETIQUETA_PROPIEDAD = new Map(PROPIEDADES.map((p) => [`soc:${p.id}`, mayuscula(p.etiqueta)]));
+const ETIQUETA_PROPIEDAD = new Map(PROPIEDADES.map((p) => [curie(p), mayuscula(p.etiqueta)]));
 
 /** Las propiedades de fuera que se leen en llano. */
 const ETIQUETA_EXTERNA: Record<string, string> = {
@@ -293,7 +293,7 @@ let conceptos: Map<string, string> | null = null;
 
 /** La etiqueta de cada concepto de la ontología (materias, sectores, movimientos, familias PEP, medidas), por su IRI. */
 function conceptoDe(valor: string): string | undefined {
-  conceptos ??= new Map(esquemas().flatMap((e) => e.conceptos.map((c) => [expandir(`soc:${c.id}`), c.etiqueta] as const)));
+  conceptos ??= new Map(esquemas().flatMap((e) => e.conceptos.map((c) => [expandir(concepto(c.id)), c.etiqueta] as const)));
   return conceptos.get(valor);
 }
 
@@ -312,8 +312,8 @@ function datosDe(triples: Triple[], sujeto: string): { dato: string; valor: stri
     if (x.o.tipo === "literal") {
       if (x.o.datatype === BOOLEANO) valor = x.o.valor === "true" ? "sí" : "no";
       else if (x.o.datatype === ENTERO_XSD) valor = ENTERO.format(Number(x.o.valor));
-      else if (p === "dct:title" || p === "schema:description" || p === "soc:etiquetaConsultoria") valor = desdeMayusculas(x.o.valor);
-      else if (p === "soc:aviso") valor = AVISO_DECRETO[x.o.valor as AvisoDecreto]?.llano ?? x.o.valor;
+      else if (p === "dct:title" || p === "schema:description" || p === "do:etiquetaConsultoria") valor = desdeMayusculas(x.o.valor);
+      else if (p === "do:aviso") valor = AVISO_DECRETO[x.o.valor as AvisoDecreto]?.llano ?? x.o.valor;
       else valor = x.o.valor;
       if (p === "soc:pepVigente" && valor === "sí") {
         valor = "sí (ocupa, u ocupó en los últimos tres años, un cargo obligado a declarar patrimonio: Ley 155-17, art. 2, num. 19; es una categoría legal, no una acusación)";
@@ -341,7 +341,7 @@ function medidasDe(triples: Triple[]): { fecha: string | null; tipo: string | nu
     if (x.p !== tiene || x.o.tipo !== "iri" || vistas.has(x.o.valor)) continue;
     vistas.add(x.o.valor);
     const m = x.o.valor;
-    const tipo = de(m, "soc:tipoDeMedida");
+    const tipo = de(m, "do:tipoDeMedida");
     salida.push({
       fecha: de(m, "soc:fecha"),
       tipo: tipo ? (conceptoDe(tipo) ?? null) : null,
@@ -2271,18 +2271,32 @@ async function consultarTablas(sql: string): Promise<z.infer<typeof ResultadoSql
 
 /* -------------------------------------------------------------- ontology */
 
+const ESTADO_TERMINO = z
+  .enum(["en-uso", "definido"])
+  .describe("«en-uso»: el grafo ya tiene instancias. «definido»: el modelo de una fase que viene, todavía sin datos.");
+
 const Ontologia = z.object({
   version: z.string(),
   publicada: z.string(),
-  espacio: z.string(),
+  espacio: z.string().describe("El núcleo, neutral de país (soc:)."),
+  espacioDominicano: z.string().describe("El módulo de la República Dominicana (do:): identificadores, clasificaciones y la regla PEP de la Ley 311-14."),
   clases: z.array(
-    z.object({ id: z.string(), etiqueta: z.string(), comentario: z.string(), subClaseDe: z.array(z.string()), wikidata: z.array(z.string()) }),
+    z.object({
+      id: z.string(),
+      etiqueta: z.string(),
+      comentario: z.string(),
+      estado: ESTADO_TERMINO,
+      subClaseDe: z.array(z.string()),
+      wikidata: z.array(z.string()),
+      followTheMoney: z.string().nullable(),
+    }),
   ),
   propiedades: z.array(
     z.object({
       id: z.string(),
       etiqueta: z.string(),
       comentario: z.string(),
+      estado: ESTADO_TERMINO,
       dominio: z.array(z.string()),
       rango: z.array(z.string()),
       inversa: z.string().nullable(),
@@ -2293,6 +2307,8 @@ const Ontologia = z.object({
     turtle: z.string(),
     jsonld: z.string(),
     ntriples: z.string(),
+    shacl: z.string().describe("Las formas SHACL que valida cada instancia del grafo (unido con la ontología)."),
+    fabric: z.string().describe("El perfil para Microsoft Fabric IQ, para importar en un ítem de ontología vacío."),
     pagina: z.string(),
     grafo: z
       .object({ url: z.string(), triples: z.number(), generado: z.string(), excluye: z.string() })
@@ -2311,26 +2327,32 @@ async function ontologia(): Promise<z.infer<typeof Ontologia>> {
     version: VERSION_ONTOLOGIA,
     publicada: PUBLICADA,
     espacio: PREFIJOS.soc,
+    espacioDominicano: PREFIJOS.do,
     clases: CLASES.map((c) => ({
-      id: `soc:${c.id}`,
+      id: curie(c),
       etiqueta: c.etiqueta,
       comentario: c.comentario,
-      subClaseDe: c.subClaseDe,
+      estado: c.estado,
+      subClaseDe: [...(c.padre ? [c.padre] : []), ...c.subClaseDe],
       wikidata: (c.wikidata ?? []).map((w) => `wd:${w.qid} (${w.relacion}, ${w.nombre})`),
+      followTheMoney: c.ftm ?? null,
     })),
     propiedades: PROPIEDADES.map((p) => ({
-      id: `soc:${p.id}`,
+      id: curie(p),
       etiqueta: p.etiqueta,
       comentario: p.comentario,
+      estado: p.estado,
       dominio: p.dominio,
       rango: p.rango,
       inversa: p.inversa ? `soc:${p.inversa}` : null,
     })),
-    esquemas: esquemas().map((e) => ({ id: `soc:${e.id}`, etiqueta: e.etiqueta, conceptos: e.conceptos.map((c) => c.etiqueta) })),
+    esquemas: esquemas().map((e) => ({ id: curie(e), etiqueta: e.etiqueta, conceptos: e.conceptos.map((c) => c.etiqueta) })),
     descargas: {
       turtle: `${SITIO}/ontologia.ttl`,
       jsonld: `${SITIO}/ontologia.jsonld`,
       ntriples: `${SITIO}/ontologia.nt`,
+      shacl: `${SITIO}/ontologia.shacl.ttl`,
+      fabric: `${SITIO}/ontologia.fabric.ttl`,
       pagina: `${SITIO}/ontologia`,
       grafo: volcado ? { url: volcado.url, triples: volcado.triples, generado: volcado.generado, excluye: volcado.excluye } : null,
       tablas: {
@@ -2541,7 +2563,7 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
     {
       title: tituloHerramienta("ontology"),
       description:
-        "Las clases, relaciones y vocabularios controlados del grafo de Socrático.do (OWL y RDFS, alineados con schema.org, W3C ORG, ELI, FOAF y Wikidata): qué es cada tipo de nodo y qué quiere decir cada relación; y dónde descargar el grafo (N-Triples) y sus tablas (Parquet).",
+        "Las clases, relaciones y vocabularios controlados del grafo de Socrático.do (OWL, RDFS y SHACL; un núcleo neutral de país, soc:, y el módulo dominicano, do:; alineados con schema.org, W3C ORG, ELI, PROV-O, ePO, FollowTheMoney y Wikidata): qué es cada tipo de nodo, qué quiere decir cada relación y si el grafo ya tiene datos de ella; y dónde descargar la ontología (también en SHACL y para Fabric IQ), el grafo (N-Triples) y sus tablas (Parquet).",
       // Sin argumentos, y sin exigir que no lleguen: hay clientes que le ponen uno de relleno a una herramienta vacía.
       inputSchema: z.object({}),
       outputSchema: Ontologia,

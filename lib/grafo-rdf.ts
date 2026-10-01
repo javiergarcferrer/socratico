@@ -148,13 +148,13 @@ async function triplesCargo(persona: Persona, c: Cargo, x: Triple[]): Promise<st
     t(cIri, "schema:roleName", lit(c.titulo, "es")),
     t(cIri, "soc:titular", iri(pIri)),
     t(cIri, "org:member", iri(pIri)),
-    t(cIri, "soc:movimiento", iri(`soc:movimiento-${c.movimiento}`)),
+    t(cIri, "soc:movimiento", iri(`do:movimiento-${c.movimiento}`)),
     t(cIri, "dct:source", lit(ETIQUETA_ORIGEN[c.origen], "es")),
     t(pIri, "soc:ocupa", iri(cIri)),
   );
   if (c.fecha) x.push(t(cIri, "soc:fecha", fecha(c.fecha)));
   if (c.periodo) x.push(t(cIri, "schema:description", lit(`Período ${c.periodo}`, "es")));
-  if (c.numeral311 != null) x.push(t(cIri, "soc:numeralLey311", entero(c.numeral311)));
+  if (c.numeral311 != null) x.push(t(cIri, "do:numeralLey311", entero(c.numeral311)));
   if (c.url) x.push(t(cIri, "dct:source", iri(c.url)));
   if (c.institucionId != null) {
     const inst = institucionPorId(c.institucionId);
@@ -277,7 +277,7 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
     t(s, "rdf:type", iri("org:FormalOrganization")),
     t(s, "rdfs:label", lit(inst.nombre, "es")),
     t(s, "schema:name", lit(inst.nombre, "es")),
-    t(s, "soc:sector", iri(`soc:sector-${inst.sector}`)),
+    t(s, "soc:sector", iri(`do:sector-${inst.sector}`)),
     t(s, "foaf:page", iri(`${SITIO}${enlace.institucion(inst.id, inst.acronimo || inst.nombre)}`)),
   ];
   if (inst.acronimo) x.push(t(s, "schema:alternateName", lit(inst.acronimo)), t(s, "skos:altLabel", lit(inst.acronimo)));
@@ -348,7 +348,7 @@ async function describirFinanciera(slug: string): Promise<Descripcion | null> {
     if (inst) x.push(t(DE(sup), "rdfs:label", lit(inst.nombre, "es")));
   }
   if (e.rnc) {
-    x.push(t(s, "soc:rnc", lit(e.rnc)), t(s, "schema:taxID", lit(e.rnc)));
+    x.push(t(s, "do:rnc", lit(e.rnc)), t(s, "schema:taxID", lit(e.rnc)));
     const emp = await empresaPorRnc(e.rnc);
     if (emp) {
       const em = iriDe({ tipo: "empresa", id: e.rnc });
@@ -374,7 +374,7 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
     t(s, "rdf:type", iri("rov:RegisteredOrganization")),
     t(s, "rdfs:label", lit(e.razonSocial)),
     t(s, "schema:legalName", lit(e.razonSocial)),
-    t(s, "soc:rnc", lit(e.rnc)),
+    t(s, "do:rnc", lit(e.rnc)),
     t(s, "schema:taxID", lit(e.rnc)),
     t(s, "soc:estado", lit(e.estado, "es")),
     t(s, "foaf:page", iri(`${SITIO}${enlace.empresa(e.rnc)}`)),
@@ -386,17 +386,17 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
     const pr = `${SITIO}${enlace.proveedor(rpe)}#id`;
     // Su nombre en el registro de proveedores si tiene contratos; si no, su número.
     const nombre = ligero ? null : ((await historiaDeProveedor(rpe))?.historia.nombre ?? null);
-    x.push(t(s, "soc:inscritaComo", iri(pr)), t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "soc:rpe", lit(rpe)), t(pr, "rdfs:label", lit(nombre ?? `RPE ${rpe}`)));
+    x.push(t(s, "soc:inscritaComo", iri(pr)), t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "do:rpe", lit(rpe)), t(pr, "rdfs:label", lit(nombre ?? `RPE ${rpe}`)));
   }
   for (const p of ligero ? [] : await medidasDeRnc(e.rnc)) {
     const pr = `${SITIO}${enlace.proveedor(p.rpe)}#id`;
-    x.push(t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "soc:rpe", lit(p.rpe)));
+    x.push(t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "do:rpe", lit(p.rpe)));
     for (const m of p.eventos) {
       const mIri = `${SITIO}${enlace.proveedor(p.rpe)}#medida-${huella([m.fecha, m.tipo, m.resolucion ?? "", m.motivo].join("|"))}`;
       x.push(
         t(pr, "soc:tieneMedida", iri(mIri)),
-        t(mIri, "rdf:type", iri("soc:MedidaDGCP")),
-        t(mIri, "soc:tipoDeMedida", iri(`soc:medida-${m.tipo}`)),
+        t(mIri, "rdf:type", iri("do:MedidaDGCP")),
+        t(mIri, "do:tipoDeMedida", iri(`do:medida-${m.tipo}`)),
         t(mIri, "soc:fecha", fecha(m.fecha)),
         t(mIri, "dct:description", lit(m.motivo, "es")),
       );
@@ -449,7 +449,7 @@ async function triplesContratacion(
     t(k, "soc:numeroDeContratos", entero(c.contratos)),
     t(k, "dct:source", iri(FUENTE_CONTRATOS)),
     t(pr, "rdf:type", iri("soc:Proveedor")),
-    t(pr, "soc:rpe", lit(c.rpe)),
+    t(pr, "do:rpe", lit(c.rpe)),
     t(pr, "rdfs:label", lit(c.proveedor)),
   );
   if (c.institucion) x.push(t(DE(c.uc), "rdfs:label", lit(c.institucion, "es")));
@@ -483,14 +483,14 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
     t(s, "schema:legislationIdentifier", lit(nombreDecreto(d.numero), "es")),
     t(s, "schema:legislationType", lit("Decreto", "es")),
     t(s, "schema:inLanguage", lit("es")),
-    t(s, "soc:materia", iri(`soc:materia-${d.materia.slug}`)),
+    t(s, "soc:materia", iri(`do:materia-${d.materia.slug}`)),
     t(s, "foaf:page", iri(`${SITIO}${enlace.norma("decreto", d.numero)}`)),
   ];
   if (d.fecha) {
     x.push(t(s, "soc:fecha", fecha(d.fecha)), t(s, "eli:date_document", fecha(d.fecha)), t(s, "schema:legislationDate", fecha(d.fecha)));
   }
-  if (d.aviso) x.push(t(s, "soc:aviso", lit(d.aviso)));
-  if (d.institucion) x.push(t(s, "soc:etiquetaConsultoria", lit(d.institucion, "es")));
+  if (d.aviso) x.push(t(s, "do:aviso", lit(d.aviso)));
+  if (d.institucion) x.push(t(s, "do:etiquetaConsultoria", lit(d.institucion, "es")));
   if (d.docId != null) {
     const pdf = `${CONSULTORIA_PDF}${d.docId}`;
     x.push(t(s, "schema:encoding", iri(pdf)), t(s, "eli:is_realized_by", iri(pdf)));
@@ -504,6 +504,8 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
         t(s, "soc:firmadoPor", iri(pIri)),
         t(s, "eli:passed_by", iri(pIri)),
         t(s, "schema:legislationPassedBy", iri(pIri)),
+        // Tipada también en el núcleo: un decreto leído solo dice qué es su firmante (SHACL, `soc:firmadoPor`).
+        t(pIri, "rdf:type", iri("soc:Persona")),
         t(pIri, "rdf:type", iri("schema:Person")),
         t(pIri, "rdfs:label", lit(p.nombre)),
       );
@@ -515,7 +517,7 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
     for (const { persona, cargo } of personasDelDecreto(f, d.numero)) {
       const pIri = iriDe({ tipo: "funcionario", id: persona.id });
       await triplesCargo(persona, cargo, x);
-      x.push(t(s, "soc:designa", iri(pIri)), t(pIri, "rdfs:label", lit(persona.nombre)));
+      x.push(t(s, "soc:designa", iri(pIri)), t(pIri, "rdf:type", iri("soc:Persona")), t(pIri, "rdfs:label", lit(persona.nombre)));
     }
   }
   return { triples: x, titulo: nombreDecreto(d.numero) };
@@ -594,7 +596,7 @@ export async function inventario(): Promise<ClaseContada[]> {
     { clase: "soc:Empresa", etiqueta: "Personas jurídicas", n: padron?.empresas ?? 0, fuente: "Padrón de la DGII", corte: padron?.corteDgii ?? padron?.generado ?? null },
     { clase: "soc:Provincia", etiqueta: "Provincias", n: PROVINCIAS.length, fuente: "ONE", corte: null },
     { clase: "soc:DeclaracionJurada", etiqueta: "Declaraciones juradas publicadas", n: dj?.declaraciones.length ?? 0, fuente: "Portales de transparencia", corte: dj?.generado ?? null },
-    { clase: "soc:MedidaDGCP", etiqueta: "Medidas sobre proveedores", n: medidas, fuente: "DGCP", corte: sanc?.generado ?? null },
+    { clase: "do:MedidaDGCP", etiqueta: "Medidas sobre proveedores", n: medidas, fuente: "DGCP", corte: sanc?.generado ?? null },
     {
       clase: "soc:Proveedor",
       etiqueta: "Proveedores con contrataciones en el grafo",

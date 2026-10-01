@@ -3,7 +3,7 @@ import { enlace } from "@/lib/grafo";
 import { enlacesWikidata, inventario, volcadoDelGrafo } from "@/lib/grafo-rdf";
 import { getFuncionarios } from "@/lib/funcionarios";
 import { VERSION } from "@/lib/ontologia";
-import { ONTOLOGIA, PREFIJOS, TIPO_MIME, aTurtle, entero, fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
+import { ONTOLOGIA, ONTOLOGIA_DO, PAGINA_ONTOLOGIA, PREFIJOS, TIPO_MIME, aTurtle, entero, fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
 
 // Los censos salen de las instantáneas, que cambian solo con un despliegue.
 export const dynamic = "force-static";
@@ -42,8 +42,11 @@ export async function GET() {
     t(ds, "void:feature", iri("http://www.w3.org/ns/formats/JSON-LD")),
     t(ds, "void:feature", iri("http://www.w3.org/ns/formats/N-Triples")),
     t(ds, "void:vocabulary", iri(ONTOLOGIA)),
+    t(ds, "void:vocabulary", iri(ONTOLOGIA_DO)),
     t(ds, "dct:conformsTo", iri(ONTOLOGIA)),
-    t(ds, "rdfs:seeAlso", iri(`${ONTOLOGIA}.ttl`)),
+    t(ds, "dct:conformsTo", iri(ONTOLOGIA_DO)),
+    t(ds, "rdfs:seeAlso", iri(`${PAGINA_ONTOLOGIA}.ttl`)),
+    t(ds, "rdfs:seeAlso", iri(`${PAGINA_ONTOLOGIA}.shacl.ttl`)),
     t(ds, "void:subset", iri(ls)),
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.funcionario("luis-rodolfo-abinader-corona")}#id`)),
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.institucion(4)}#id`)),

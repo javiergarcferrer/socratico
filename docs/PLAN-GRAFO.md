@@ -1,6 +1,9 @@
 # Plan del grafo — Socrático como módulo de conocimiento
 
-> **Estado (2026-10-01): propuesto, nada construido.** Dirección del dueño:
+> **Estado (2026-10-01): aprobado; F0 en curso** (ontología 2.0.0 con
+> núcleo y módulo dominicano en w3id, SHACL, perfil para Fabric IQ y el
+> validador; falta la importación real en Fabric). §4.1 decidido: w3id.
+> Dirección del dueño:
 > Socrático deja de ser una plataforma con verticales que además tiene un grafo
 > y pasa a ser **un grafo de conocimiento con ontología** del que las páginas,
 > el buscador, el SQL, el MCP y las exportaciones son vistas. Este plan dice
@@ -282,12 +285,11 @@ adaptadores:
 
 ## 4. Decisiones del dueño (lo que esta sesión no decide)
 
-1. **El espacio de nombres de los IRIs.** Un IRI publicado es para siempre;
-   `socratico.vercel.app` no debe serlo. Opciones: (a) comprar y apuntar un
-   dominio propio (`socratico.do`, si está libre: cuesta dinero); (b)
-   `w3id.org/socratico` —identificadores persistentes gratuitos que redirigen
-   a donde esté el sitio, pedidos por un pull request al repositorio de
-   w3id—. Recomendación: (b) para los IRIs, sea cual sea el dominio del sitio.
+1. ✅ **El espacio de nombres de los IRIs: w3id** (decidido el 2026-10-01).
+   `https://w3id.org/socratico/def/…` para el vocabulario (ya en uso desde la
+   ontología 2.0.0) y `…/id/…` para los nodos (F1). Un solo redireccionamiento
+   en w3id hacia el sitio; las reglas viven en `next.config.ts`. El pull
+   request a w3id lo abre el dueño: `docs/gestiones/w3id.md`.
 2. **Personas en el volcado masivo.** Hoy el volcado excluye a toda persona
    natural, por decisión registrada. La visión de PEP enlazados exige al
    menos **ocupaciones de puestos públicos** (persona, puesto, desde, hasta,
@@ -328,7 +330,7 @@ Cada fase deja todo funcionando y se comprueba contra la anterior.
 
 | Fase | Qué | Criterio de hecho |
 |---|---|---|
-| **F0 · Ontología 2.0** | Una sola definición en TypeScript de clases, propiedades, esquemas e identificadores (`lib/ontologia.ts` crece): de ella salen OWL, SHACL, zod, el esquema Parquet y las correspondencias FtM/Fabric. Entran Puesto, Ocupacion con intervalo, Evento, Mencion, Identificador, PROV-O, OWL-Time, jerarquía ORG, `soc:`/`do:`. | La ontología publicada valida con SHACL las instancias de hoy; un informe de importación de Fabric IQ (lo que preservó, ajustó y no admite) queda en este archivo. |
+| **F0 · Ontología 2.0** ⚠️ en curso | ✅ Una sola definición (`lib/ontologia.ts`) de la que salen OWL, SHACL, el perfil de Fabric IQ y la correspondencia con FtM; núcleo `soc:` y módulo `do:` en w3id; Puesto, Ocupacion con intervalo, Evento, Membresia, Mencion, Identificador, Instantanea (PROV-O), jerarquía ORG, cadena de contratación (ePO). ✅ `scripts/validar-grafo.mjs`. Pendiente: el esquema zod y Parquet salen todavía de su propio código, no de la definición. | ✅ El grafo de hoy es conforme a sus formas SHACL (856 mil triples, 0 violaciones; ARQUITECTURA §Grafo semántico) y el gate completo lo comprueba en cada entrega. ❌ Falta el informe de una importación real en Fabric IQ: exige un espacio de Fabric con capacidad, que esta sesión no tiene. |
 | **F1 · Identidad** | IRIs de §3.7 (tras la decisión §4.1); registro de ids de personas solo de adición; `sameAs` de los IRIs viejos. | Dos builds seguidos con datos nuevos no cambian ningún id existente (el gate lo comprueba). |
 | **F2 · El compilador** | Los adaptadores de los 6 tipos actuales afirman en vez de pintar; `build-grafo.mjs` produce TriG, tablas por clase y relación, y adyacencia; `describir()` lee el compilado. | Mismos triples que hoy para cada nodo (comprobado nodo a nodo, como el índice); `fetch` de una institución en frío < 0,2 s; la función de una ficha sin los ~167 MB. |
 | **F3 · Todo adentro** | Procesos (OCDS), normas (ELI, con vigencia y derogaciones), Congreso (Popolo), obras (SNIP), partidas de SIGEF, jerarquía de DIGEPRES y capítulos, municipios. | Cada vertical de `lib/secciones.ts` tiene sus clases en el grafo; `inventario()` las cuenta. |
