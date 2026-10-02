@@ -1548,7 +1548,13 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   **0,21 s**: su descripción cuesta 4 ms, y casi todo lo demás (~0,17 s) es
   la tabla de procesos (`procesos.json`, 11 MB) de su sección de compras,
   que entra al grafo con F3. Cotejo: 323 descripciones por `/api/grafo` y
-  el JSON-LD de 40 fichas, idénticos entre los dos builds.
+  el JSON-LD de 40 fichas, idénticos entre los dos builds. **En Vercel**
+  (02-10-2026: el preview de F2 contra producción con el código anterior, primera
+  llamada a cada función y ida y vuelta incluida): `/api/grafo` de una
+  institución 1,42 → **0,74 s**, `fetch` de una institución 1,67 → **0,93
+  s**, `path` 0,40 → 0,30; una persona, un decreto o una empresa,
+  0,07–0,29 → 0,08–0,14 s. Las funciones de producción pudieron no estar igual
+  de frías: es una comparación de una pasada, no un banco de pruebas.
 - ⚠️ **En Vercel la primera llamada cuesta más que aquí** (01-10-2026, un
   preview recién desplegado contra producción con el código anterior, la
   misma secuencia, ~0,22 s de ida y vuelta incluidos): `search` 1,71 s contra
