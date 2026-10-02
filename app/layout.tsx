@@ -18,6 +18,7 @@ import { SECCIONES } from "@/lib/secciones";
 import { Logotipo, Sello } from "@/components/marca";
 import { Card } from "@/components/ui/card";
 import { IconArrowRight } from "@/components/icons";
+import { Analytics } from "@vercel/analytics/next";
 
 /*
   Tres familias, tres oficios (ver app/globals.css):
@@ -339,6 +340,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </footer>
         </ProveedorConsultas>
         </NuqsAdapter>
+        <Analytics />
       </body>
     </html>
   );
