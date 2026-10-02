@@ -7,3 +7,8 @@ project_id = "amuyclnyjyhigeyhuufs"
 # que acepta las claves publicables nuevas; la puerta de enlace no.
 [functions.vincular-cuenta-unica]
 verify_jwt = false
+
+# Igual para el uso de la plataforma: la sesión y el correo se comprueban
+# dentro de la función (docs/INFRAESTRUCTURA.md §10.12).
+[functions.metricas-uso]
+verify_jwt = false

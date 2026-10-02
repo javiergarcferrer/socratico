@@ -33,6 +33,7 @@ import { Rotulo } from "@/components/papel";
 import { IconArrowRight, IconBell, IconFolder, IconPlus, IconTrash, IconUser } from "@/components/icons";
 import { Cerrado, EnlaceRegistro, MarcaTipo, SinSesion, useUsuario } from "./comun";
 import { AvisoDeshacer, type Deshacible } from "./deshacer";
+import Uso from "./uso";
 
 const ROL: Record<ProyectoConCuenta["rol"], string> = { dueno: "Tuyo", editor: "Editas", lector: "Lees" };
 
@@ -121,6 +122,13 @@ function Espacio({ u }: { u: Usuario }) {
           <Guardado sueltas={sueltas} proyectos={proyectos} onCambio={cargar} />
         </>
       )}
+
+      {/*
+        Solo para quien lleva la plataforma; a cualquier otra cuenta no le pinta
+        nada. `key`: si la sesión cambia de cuenta sin pasar por «fuera» (otra
+        pestaña), el panel se monta de nuevo y no le quedan las cifras de la anterior.
+      */}
+      <Uso key={u.id} />
     </div>
   );
 }

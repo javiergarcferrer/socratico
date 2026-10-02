@@ -13,10 +13,11 @@ paths:
   - "supabase/migrations/*caso*"
   - "lib/ftm.ts"
   - "supabase/pruebas/**"
+  - "supabase/functions/metricas-uso/**"
 ---
 # The reader's account and spaces — the second exception
 
-docs/INFRAESTRUCTURA.md §10 records it as it is (§10.5–10.6, §10.8–10.11);
+docs/INFRAESTRUCTURA.md §10 records it as it is (§10.5–10.6, §10.8–10.12);
 read it before changing anything here.
 
 ## Boundary
@@ -39,6 +40,11 @@ read it before changing anything here.
 - `anon` has no table grants: a published project is read server-side through
   `espacios.publicado(slug)` over HTTP (`lib/espacios.ts`), which returns no
   user ids and no emails.
+- The usage panel (`components/espacios/uso.tsx`, §10.12) is the one read that
+  is not the schema: Edge Function `metricas-uso` holds the Vercel token and
+  answers figures only to a **verified** email in its `METRICAS_CORREOS`
+  secret; the panel renders nothing unless the body says `autorizado: true`.
+  Touching its reader: `node supabase/pruebas/metricas_uso.cjs`, `FALLOS: 0`.
 
 ## The conversation (§10.6)
 - Threads, comments, votes and reports live in `espacios`; nobody writes a

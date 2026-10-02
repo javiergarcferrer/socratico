@@ -24,7 +24,7 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/INFR
 | Gestión, control y datos | `/gestion`, `/auditorias`, `/documentos`, `/datos` | SISMAP; Contraloría y Cámara de Cuentas; bibliotecas WordPress de 22 instituciones; datos.gob.do (instantáneas) | `lib/sismap.ts`, `lib/auditorias.ts`, `lib/biblioteca.ts`, `lib/catalogo.ts` |
 | Indicadores del panorama | `/indicadores` (cuatro cifras en `/`), `/luz` | MICM, BCRD (CDN), SB (SIMBAD), Aduanas, OC (luz), mantenimientos de Edenorte y Edesur, INDOMET (alertas), OPSEVI (vías), en vivo | `lib/combustibles.ts`, `lib/tasa.ts`, `lib/macro.ts`, `lib/bcrd.ts`, `lib/banca.ts`, `lib/aduanas.ts`, `lib/energia.ts`, `lib/alertas.ts`, `lib/siniestralidad.ts`, `lib/cortes.ts` |
 | Democracia | `/democracia` | Supabase, esquema `democracia` — **excepción** | `lib/democracia.ts`, `lib/supabase.ts` |
-| Tu espacio | `/cuenta`, `/espacio`, `/p/[slug]`, `/comunidad` | Supabase, esquema `espacios` — **excepción**: lo guardado, proyectos, notas, alertas, conversación | `lib/espacios.ts`, `lib/espacios-cliente.ts`, `lib/sesion.ts`, `lib/ftm.ts` |
+| Tu espacio | `/cuenta`, `/espacio`, `/p/[slug]`, `/comunidad` | Supabase, esquema `espacios` — **excepción**: lo guardado, proyectos, notas, alertas, conversación; el uso de la plataforma para el dueño (Edge Function `metricas-uso`) | `lib/espacios.ts`, `lib/espacios-cliente.ts`, `lib/sesion.ts`, `lib/ftm.ts` |
 
 `lib/secciones.ts` es la fuente única de verticales; `lib/indice.ts` (de `lib/menu.ts`) la de destinos y su tarea. `/` es la portada (misión, hoy, el mapa); `/indicadores` el panorama; `/fuentes` declara
 qué alimenta la plataforma, qué está bloqueado y con qué límites de cobertura — mantenerlo cierto es parte de tocar una fuente. Toda lectura pasa por `lib/pedir.ts` (el contrato, con `zod`); la del navegador a una ruta propia, por TanStack Query (`lib/consultas.ts`); HTML por `lib/html.ts`, XLSX por `lib/xlsx.ts`; todo enlace a una entidad sale de `lib/grafo.ts` (y `lib/grafo-servidor.ts`).
@@ -38,8 +38,8 @@ normativa, deuda, el panorama, `/fuentes` ni el servidor MCP.
 
 **Dos excepciones, ambas de lo que es del lector y no del Estado:** `/democracia` (voto,
 esquema `democracia`) y la cuenta con sus espacios (`/cuenta`, `/espacio`, `/p`, `/comunidad`; esquema
-`espacios`). Supabase, solo claves **publicables**; lo sensible vive en Postgres y en una Edge
-Function. Ningún dato del Estado entra a la DB: una ficha no la lee, pinta un componente de
+`espacios`). Supabase, solo claves **publicables**; lo sensible vive en Postgres y en Edge
+Functions (`metricas-uso` guarda el token de Vercel). Ningún dato del Estado entra a la DB: una ficha no la lee, pinta un componente de
 `components/espacios/`. Los hooks lo impiden antes de que se escriba.
 
 ## Qué documento responde a qué

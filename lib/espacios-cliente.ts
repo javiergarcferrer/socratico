@@ -3,16 +3,19 @@
 /**
  * El espacio del lector desde el navegador: la sesión, lo guardado, los
  * proyectos con sus enlaces y notas, quién colabora y lo que sigue
- * (docs/INFRAESTRUCTURA.md §10). Todo pasa por RLS en el esquema `espacios`: aquí no
+ * (docs/INFRAESTRUCTURA.md §10). Todo pasa por RLS en el esquema `espacios` —salvo
+ * el uso de la plataforma, que decide la Edge Function `metricas-uso`—: aquí no
  * se decide quién puede qué, solo se pide y se traduce la respuesta.
  *
- * Cada llamada devuelve `Hecho<T>` y nunca lanza: una pantalla tiene que
+ * Cada llamada devuelve `Hecho<T>` (salvo `usoDePlataforma`, que dice su
+ * propio estado) y nunca lanza: una pantalla tiene que
  * distinguir «no hay nada» de «no se pudo mirar» (docs/INFRAESTRUCTURA.md §11), y un
  * tercer caso que solo existe hasta que el dueño abra el esquema en el API
  * —`cerrado`—, que se dice como tal y no como un fallo.
  */
 
 import type { Session } from "@supabase/supabase-js";
+import * as z from "zod/mini";
 import { espacios, supabase } from "@/lib/supabase";
 import {
   rutaPropia,
@@ -822,4 +825,63 @@ export async function retitular(clave: string, titulo: string, nota: string): Pr
 /** Días > 0 suspende; 0 levanta la suspensión (de la cuenta y de su cédula). */
 export async function suspender(usuario: string, dias: number, motivo: string): Promise<Hecho<boolean>> {
   return hecho<boolean>(espacios().rpc("suspender", { p_usuario: usuario, p_dias: dias, p_motivo: motivo }));
+}
+
+/* ------------------------------------------- el uso de la plataforma */
+
+/*
+  Vercel Web Analytics para quien lleva la plataforma (docs/INFRAESTRUCTURA.md
+  §10.12). No pasa por el esquema: lo lee la Edge Function `metricas-uso`, que
+  guarda el token de Vercel y decide por el correo verificado quién lo ve.
+  Aquí solo se pide y se valida la forma.
+*/
+const TOTAL_USO = z.object({ paginas: z.number(), visitantes: z.number() });
+const FILA_USO = z.object({ clave: z.string(), paginas: z.number(), visitantes: z.number() });
+const USO = z.object({
+  desde: z.string(),
+  hasta: z.string(),
+  consultado: z.string(),
+  semana: TOTAL_USO,
+  mes: TOTAL_USO,
+  dias: z.array(FILA_USO),
+  rutas: z.array(FILA_USO),
+  referentes: z.array(FILA_USO),
+  paises: z.array(FILA_USO),
+});
+
+export type DatosUso = z.infer<typeof USO>;
+export type FilaUso = z.infer<typeof FILA_USO>;
+
+export const FALLOS_USO = ["sin_datos", "token_no_configurado", "token_rechazado", "vercel_rechazo", "vercel_caida", "forma"] as const;
+export type FalloUso = (typeof FALLOS_USO)[number];
+
+/**
+ * `ajeno`: el cuerpo no dice `autorizado: true` —otra cuenta, la función sin
+ * desplegar, sin red—. No se pinta nada: a otra cuenta no se le muestra ni un
+ * esqueleto, y a quien sí puede verlo, sin red, tampoco (es el precio de no
+ * mostrarlo a nadie más).
+ */
+export type UsoPlataforma = { estado: "ajeno" } | { estado: "ok"; datos: DatosUso } | { estado: "fallo"; error: FalloUso };
+
+export async function usoDePlataforma(): Promise<UsoPlataforma> {
+  try {
+    const { data, error } = await supabase().functions.invoke("metricas-uso", { method: "POST" });
+    // Con un estado que no es 2xx, supabase-js deja `data` vacío y la
+    // respuesta en `error.context`: el cuerpo dice si quien pregunta está autorizado.
+    let cuerpo: unknown = data;
+    if (error) {
+      const respuesta = (error as { context?: unknown }).context;
+      cuerpo = respuesta instanceof Response ? await respuesta.json().catch(() => null) : null;
+    }
+    const r = cuerpo && typeof cuerpo === "object" ? (cuerpo as { ok?: unknown; autorizado?: unknown; error?: unknown }) : null;
+    if (r?.autorizado !== true) return { estado: "ajeno" };
+    if (r.ok === true) {
+      const leido = USO.safeParse(cuerpo);
+      return leido.success ? { estado: "ok", datos: leido.data } : { estado: "fallo", error: "forma" };
+    }
+    const codigo = FALLOS_USO.find((f) => f === r.error);
+    return { estado: "fallo", error: codigo ?? "vercel_caida" };
+  } catch {
+    return { estado: "ajeno" };
+  }
 }
