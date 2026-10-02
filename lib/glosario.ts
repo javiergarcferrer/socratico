@@ -361,7 +361,7 @@ export const GLOSARIO = {
   valoresBcrd: {
     termino: "Valores del Banco Central",
     llano:
-      "Títulos que vende el propio Banco Central (certificados, notas, letras): quien los compra le entrega pesos hoy y cobra intereses. Así el Banco Central saca pesos de la economía. Son deuda del Banco Central, no del Gobierno.",
+      "Títulos que vende el propio Banco Central (certificados, notas, letras): quien los compra le entrega pesos hoy y cobra intereses. Así el Banco Central saca pesos de la economía. Son deuda del Banco Central, que no entra en la del sector público no financiero; Hacienda le cubre parte de sus pérdidas con bonos de recapitalización (Ley 167-07).",
     guia: GUIA_DINERO,
   },
   baseMonetaria: {
@@ -379,7 +379,7 @@ export const GLOSARIO = {
   m2: {
     termino: "Oferta monetaria ampliada (M2)",
     llano:
-      "M1 más los ahorros y depósitos a plazo en pesos: todo el dinero en pesos que la gente y las empresas tienen en el sistema.",
+      "M1 más los ahorros, los depósitos a plazo y otros valores en pesos: casi todo el dinero en pesos que la gente y las empresas tienen en el sistema.",
     guia: GUIA_DINERO,
   },
   reservasInternacionales: {
@@ -421,7 +421,7 @@ export const GLOSARIO = {
   bonoGlobal: {
     termino: "Bono global",
     llano:
-      "Un bono que el Estado vende en los mercados internacionales, casi siempre en dólares. Sus tenedores son en su mayoría fondos e inversionistas de fuera, y Crédito Público no publica quiénes son.",
+      "Un bono que el Estado vende en los mercados internacionales, casi siempre en dólares. Crédito Público no publica quiénes lo tienen.",
     guia: GUIA_DINERO,
   },
   multilateral: {

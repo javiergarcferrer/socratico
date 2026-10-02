@@ -133,7 +133,11 @@ export default async function BancoCentralPage() {
         }
       >
         <PortadaCifras>
-          <PortadaCifra destacar etiqueta="Su tasa de política monetaria" valor={porciento(politica?.vigente.tpm)} />
+          <PortadaCifra
+            destacar
+            etiqueta={politica?.cambios[0] ? `Su tasa de política monetaria, desde ${mesLargo(politica.cambios[0].periodo)}` : "Su tasa de política monetaria"}
+            valor={porciento(politica?.vigente.tpm)}
+          />
           <PortadaCifra
             etiqueta={reservas ? `Reservas internacionales, ${reservas.cuando}` : "Reservas internacionales"}
             valor={reservas ? formatMagnitud(reservas.valor) : SIN_DATO}

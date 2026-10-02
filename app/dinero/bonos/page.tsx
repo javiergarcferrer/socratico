@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   getTenedores,
   GRUPOS,
+  nombreCorte,
   repartoDelMes,
   serieDeGrupo,
   type Acreedores,
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/dinero/bonos" },
   title: "Quién compra los bonos del Estado",
   description:
-    "Quién tiene los bonos internos del Estado dominicano —fondos de pensiones, bancos, aseguradoras, personas, inversionistas del exterior— mes a mes desde 2011, a quién le debe todo el sector público y a qué tasa se endeuda en pesos, según Crédito Público.",
+    "Quién tiene los bonos internos del Estado dominicano —fondos de pensiones, bancos, aseguradoras, personas, inversionistas del exterior— mes a mes desde 2011, a quién le debe el sector público no financiero y a qué tasa se endeuda en pesos, según Crédito Público.",
 };
 
 export const revalidate = 86400;
@@ -70,7 +71,7 @@ function Acreedores({ a }: { a: Acreedores }) {
   const externa = de("total deuda externa")[i] ?? 0;
   const oficial = de("total deuda oficial")[i] ?? 0;
   const bonosExterior = de("bonos")[i] ?? 0;
-  const etiquetaCorte = corte.etiqueta.replace("*", "").trim();
+  const etiquetaCorte = nombreCorte(corte);
   const resumen = [
     { nombre: "Organismos multilaterales", fila: "total deuda multilateral" },
     { nombre: "Otros gobiernos", fila: "total deuda bilateral" },
@@ -80,16 +81,16 @@ function Acreedores({ a }: { a: Acreedores }) {
 
   return (
     <Card as="section" className="p-5 sm:p-6">
-      <CardTitle>¿A quién le debe todo el sector público?</CardTitle>
+      <CardTitle>¿A quién le debe el sector público?</CardTitle>
       <p className="mt-1 max-w-3xl text-sm leading-relaxed text-ink-soft">
-        La deuda del <Termino clave="spnf">sector público no financiero</Termino> sumaba {formatMagnitud(total)} a{" "}
+        La deuda del <Termino clave="spnf">sector público no financiero</Termino> sumaba {formatMagnitud(total)} en{" "}
         {etiquetaCorte}{corte.preliminar ? ", cifra preliminar" : ""}. El {parte(externa / total)} se debe afuera:{" "}
         {formatMagnitud(oficial)} a organismos y a otros gobiernos, y {formatMagnitud(bonosExterior)} en{" "}
         <Termino clave="bonoGlobal">bonos vendidos en el exterior</Termino>, cuyos tenedores Crédito Público no
         publica.
       </p>
       <BarrasHorizontales
-        etiqueta={`Deuda del sector público por acreedor a ${etiquetaCorte}, en millones de dólares`}
+        etiqueta={`Deuda del sector público no financiero por acreedor, ${etiquetaCorte}, en millones de dólares`}
         filas
         className="-mx-5 mt-4 border-y border-hairline sm:-mx-6"
         barras={detalle.map((f) => ({
@@ -232,7 +233,7 @@ export default async function BonosPage() {
           <>
             Cuando el Estado gasta más de lo que cobra, toma prestado: vende{" "}
             <Termino clave="bono">bonos</Termino> en el país y afuera, y pide préstamos a organismos como el BID.
-            Aquí está quién tiene los bonos en pesos, a quién le debe todo el sector público y a qué tasa se
+            Aquí está quién tiene los bonos en pesos, a quién le debe el sector público no financiero y a qué tasa se
             endeuda.
           </>
         }
@@ -243,7 +244,7 @@ export default async function BonosPage() {
           {pensiones && <PortadaCifra etiqueta="De fondos de pensiones" valor={parte(pensiones.parte)} />}
           {bancos && <PortadaCifra etiqueta="De bancos" valor={parte(bancos.parte)} />}
           <PortadaCifra
-            etiqueta={`Deuda del sector público, ${a.cortes.at(-1)!.etiqueta.replace("*", "").trim()}`}
+            etiqueta={`Deuda del sector público no financiero, ${nombreCorte(a.cortes.at(-1)!)}`}
             valor={formatMagnitud(a.total.at(-1)!)}
           />
         </PortadaCifras>
@@ -327,14 +328,16 @@ export default async function BonosPage() {
         <Card as="section" className="p-5 sm:p-6">
           <CardTitle>¿Y la deuda del Banco Central?</CardTitle>
           <p className="mt-1 max-w-3xl text-sm leading-relaxed text-ink-soft">
-            El Banco Central también vende sus propios títulos —certificados, notas, letras—, no para gastar sino para
-            sacar pesos de la economía. Tenía{" "}
+            El Banco Central también vende sus propios títulos —certificados, notas, letras— para sacar pesos de la
+            economía. Tenía{" "}
             <span className="font-mono font-semibold text-ink">
               {pesosDeMillones(valores.dia?.valor ?? valores.meses.at(-1)!.valor)}
             </span>{" "}
             en circulación {valores.dia ? `al ${formatFecha(valores.dia.fecha)}` : `en ${mesLargo(valores.meses.at(-1)!.periodo)}`}. Es
-            deuda del Banco Central, no del Gobierno, y no está en ninguna de las cifras de arriba. Los archivos del
-            Banco Central que leemos no dicen quién tiene esos títulos.
+            deuda del Banco Central y no está en las cifras de arriba, que son las del sector público no financiero.
+            Lo que sí está arriba son los bonos que Hacienda le entregó al Banco Central para cubrir parte de sus
+            pérdidas (Ley 167-07, la recapitalización). Los archivos del Banco Central que leemos no dicen quién tiene
+            sus títulos.
           </p>
           <div className="mt-4">
             <Button asChild variant="outline">

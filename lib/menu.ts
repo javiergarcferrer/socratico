@@ -85,7 +85,7 @@ export const MENU: GrupoMenu[] = [
         titulo: "Banco Central y banca",
         seccion: "dinero",
         enlaces: [
-          { href: "/dinero", label: "El costo del dinero", nota: "La tasa del Banco Central y lo que cobran y pagan los bancos, hoy", tarea: "vigilar" },
+          { href: "/dinero", label: "El costo del dinero", nota: "La tasa del Banco Central y lo que cobran y pagan los bancos, con su fecha", tarea: "vigilar" },
           { href: "/dinero/tasas", label: "Tasas de interés", nota: "Préstamos, ahorros y la tasa de referencia, mes a mes desde 2017", tarea: "comparar" },
           { href: "/dinero/bonos", label: "Quién compra los bonos", nota: "Quién tiene los bonos del Estado y a quién le debe", tarea: "comparar" },
           { href: "/dinero/banco-central", label: "El Banco Central por dentro", nota: "Reservas, billetes, sus propios títulos y lo que hace cada día", tarea: "comparar" },

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { MESES } from "@/lib/format";
 
 /**
  * Quién tiene los bonos internos del Estado y a quién le debe el sector
@@ -134,6 +135,11 @@ export interface DatosTenedores {
   fuente: string;
   tenedores: Tenedores;
   acreedores: Acreedores;
+}
+
+/** Un corte del archivo de acreedores en palabras: «cierre de 2025», «agosto 2026». */
+export function nombreCorte(c: Acreedores["cortes"][number]): string {
+  return /^\d{4}$/.test(c.etiqueta.trim()) ? `cierre de ${c.anio}` : `${MESES[c.mes - 1]} ${c.anio}`;
 }
 
 let memo: Promise<DatosTenedores | null> | null = null;

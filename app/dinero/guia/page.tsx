@@ -107,8 +107,9 @@ export default function GuiaDineroPage() {
           </li>
         </ul>
         <p>
-          Por eso el Banco Central tiene deuda propia: sus títulos en circulación. No es deuda del Gobierno, y no
-          aparece en la deuda pública que publica Crédito Público. Sus intereses son un costo del Banco Central.
+          Por eso el Banco Central tiene deuda propia: sus títulos en circulación. No aparece en la deuda del sector
+          público no financiero que publica Crédito Público, y sus intereses son un costo del Banco Central. Parte de
+          sus pérdidas las cubre Hacienda con bonos de recapitalización (Ley 167-07), que sí están en esa deuda.
         </p>
       </Paso>
 
@@ -178,13 +179,13 @@ export default function GuiaDineroPage() {
       </Paso>
 
       <Alert role="note" variant="neutro" className="p-5 sm:p-6">
-        <p className="text-[15px] font-semibold text-ink">Dónde verlo con cifras de hoy</p>
+        <p className="text-[15px] font-semibold text-ink">Dónde verlo con las cifras más recientes</p>
         <p className="mt-1 text-sm leading-relaxed text-ink-soft">
           Cada página dice de qué archivo sale cada cifra y de qué fecha es.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button asChild>
-            <Link href="/dinero">El costo del dinero hoy</Link>
+            <Link href="/dinero">El costo del dinero</Link>
           </Button>
           <Button asChild variant="secondary">
             <Link href="/dinero/bonos">Quién compra los bonos</Link>

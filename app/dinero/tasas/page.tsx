@@ -175,7 +175,11 @@ export default async function TasasPage() {
         }
       >
         <PortadaCifras>
-          <PortadaCifra destacar etiqueta="Tasa del Banco Central, hoy" valor={porciento(politica?.vigente.tpm)} />
+          <PortadaCifra
+            destacar
+            etiqueta={politica?.cambios[0] ? `Tasa del Banco Central desde ${mesLargo(politica.cambios[0].periodo)}` : "Tasa del Banco Central"}
+            valor={porciento(politica?.vigente.tpm)}
+          />
           <PortadaCifra etiqueta={activa ? `Por prestar, ${formatMes(activa.periodo)}` : "Por prestar"} valor={porciento(activa?.valor)} />
           <PortadaCifra etiqueta={pasiva ? `Por un depósito, ${formatMes(pasiva.periodo)}` : "Por un depósito"} valor={porciento(pasiva?.valor)} />
           <PortadaCifra
@@ -198,7 +202,7 @@ export default async function TasasPage() {
           <CardTitle>¿Cómo se ha movido la tasa del Banco Central?</CardTitle>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-soft">
             Mes a mes desde {mesLargo(politica.serie[0].periodo)}, cuando pasó a ser la tasa de referencia que es
-            hoy. La cambió {politica.cambios.length} veces; la última, en {mesLargo(politica.cambios[0]?.periodo ?? politica.vigente.periodo)}
+            hoy. Cambió en {politica.cambios.length} meses distintos; la última vez, en {mesLargo(politica.cambios[0]?.periodo ?? politica.vigente.periodo)}
             {politica.cambios[0] ? `, de ${porciento(politica.cambios[0].antes)} a ${porciento(politica.cambios[0].despues)}` : ""}.
           </p>
           <SerieTemporal

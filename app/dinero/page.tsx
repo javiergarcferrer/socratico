@@ -10,7 +10,7 @@ import {
   ultimaTasa,
 } from "@/lib/banco-central";
 import { getBcrd, mesEnPalabras } from "@/lib/bcrd";
-import { getTenedores, GRUPOS, repartoDelMes } from "@/lib/tenedores";
+import { getTenedores, GRUPOS, nombreCorte, repartoDelMes } from "@/lib/tenedores";
 import { formatFecha, formatMagnitud, formatMes, SIN_DATO } from "@/lib/format";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,7 +78,9 @@ export default async function DineroPage() {
   const deudaTotal = tenedores?.acreedores.total.at(-1);
   const corteAcreedores = tenedores?.acreedores.cortes.at(-1);
 
-  const pasivaReal = pasiva && ipc ? pasiva.valor - ipc[2] : null;
+  // La tasa real: el depósito y la inflación del mismo mes, o no se calcula.
+  const ipcMesPasiva = pasiva ? bcrd?.ipc.serie.find((m) => m[0] === pasiva.periodo) ?? null : null;
+  const pasivaReal = pasiva && ipcMesPasiva ? pasiva.valor - ipcMesPasiva[2] : null;
 
   return (
     <div className="space-y-5">
@@ -87,9 +89,9 @@ export default async function DineroPage() {
         titulo="¿Cuánto cuesta el dinero en la República Dominicana?"
         descripcion={
           <>
-            El Banco Central fija una tasa de referencia; los bancos cobran más que eso por prestar y pagan menos
-            por guardar tu dinero; y el Estado, cuando le falta, vende bonos a quien quiera prestarle. Aquí están
-            las tres cosas con sus cifras de hoy y de dónde salen.
+            El Banco Central fija una tasa de referencia; los bancos cobran más por prestar de lo que pagan por
+            guardar tu dinero; y el Estado, cuando le falta, vende bonos a quien quiera prestarle. Aquí están las
+            tres cosas con sus cifras más recientes, su fecha y de dónde salen.
           </>
         }
       >
@@ -124,12 +126,14 @@ export default async function DineroPage() {
             lo que te cobra. La diferencia es su negocio.
           </p>
           <EscaleraTasas politica={politica} activas={activas} pasivas={pasivas} />
-          {pasivaReal !== null && ipc && (
+          {pasivaReal !== null && ipcMesPasiva && pasiva && (
             <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-              Con los precios subiendo {porciento(ipc[2])} al año ({mesEnPalabras(ipc[0])}), un depósito a plazo
-              al {porciento(pasiva!.valor)} gana más o menos {decimal(pasivaReal, 1)} puntos por encima de la
-              inflación: es su <Termino clave="tasaReal">tasa real</Termino>, una resta aproximada que hace
-              Socrático.
+              En {mesEnPalabras(pasiva.periodo)}, con los precios subiendo {porciento(ipcMesPasiva[2])} al año, un
+              depósito a plazo al {porciento(pasiva.valor)}{" "}
+              {Math.abs(pasivaReal) < 0.05
+                ? "apenas igualaba la inflación"
+                : `quedaba más o menos ${decimal(Math.abs(pasivaReal), 1)} puntos ${pasivaReal > 0 ? "por encima" : "por debajo"} de la inflación`}
+              : es su <Termino clave="tasaReal">tasa real</Termino>, una resta aproximada que hace Socrático.
             </p>
           )}
           <div className="mt-4">
@@ -160,8 +164,8 @@ export default async function DineroPage() {
               Instantánea del {formatFecha(tenedores!.generado)}.
               {deudaTotal != null && corteAcreedores && (
                 <>
-                  {" "}Toda la deuda del sector público, interna y externa, sumaba{" "}
-                  {formatMagnitud(deudaTotal)} a {corteAcreedores.etiqueta.replace("*", "")}.
+                  {" "}La deuda del sector público no financiero, interna y externa, sumaba{" "}
+                  {formatMagnitud(deudaTotal)} en {nombreCorte(corteAcreedores)}.
                 </>
               )}
             </p>

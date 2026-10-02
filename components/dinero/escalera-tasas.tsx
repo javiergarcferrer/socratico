@@ -106,7 +106,8 @@ export function EscaleraTasas({
     .map((f) => ({ ...f, cifra: porciento(f.valor), titulo: `${f.etiqueta}: ${porciento(f.valor)}` }));
 
   const margen = act.ponderado !== undefined && pas.ponderado !== undefined ? act.ponderado - pas.ponderado : null;
-  const tpmCambio = politica && tpm && politica.vigente.periodo > mes && politica.vigente.tpm !== tpm.valor;
+  const ultimoCambio = politica?.cambios[0] ?? null;
+  const tpmCambio = politica && tpm && ultimoCambio && ultimoCambio.periodo > mes && politica.vigente.tpm !== tpm.valor;
 
   return (
     <div>
@@ -126,7 +127,7 @@ export function EscaleraTasas({
         )}
         {tpmCambio && (
           <p>
-            Desde {mesLargo(politica.vigente.periodo)} la tasa del Banco Central es{" "}
+            Desde {mesLargo(ultimoCambio.periodo)} la tasa del Banco Central es{" "}
             {porciento(politica.vigente.tpm)}; las de los bancos de ese mes todavía no se publican cerradas.
           </p>
         )}
