@@ -322,6 +322,11 @@ export function getFinancieras(): Promise<Financieras | null> {
 let indice: { porSlug: Map<string, EntidadFinanciera>; porRnc: Map<string, EntidadFinanciera>; planos: Map<string, string> } | null = null;
 let indiceDe: Financieras | null = null;
 
+/** El texto en que se busca una entidad: su nombre, razón social, siglas, nombre anterior y tipo, sin tildes. */
+export function planoDeEntidad(e: EntidadFinanciera): string {
+  return plano([e.nombre, e.razonSocial, e.siglas, e.antes, e.tipo].filter(Boolean).join(" "));
+}
+
 function indices(d: Financieras) {
   if (indice && indiceDe === d) return indice;
   const porSlug = new Map<string, EntidadFinanciera>();
@@ -330,7 +335,7 @@ function indices(d: Financieras) {
   for (const e of d.entidades) {
     porSlug.set(e.slug, e);
     if (e.rnc && !porRnc.has(e.rnc)) porRnc.set(e.rnc, e);
-    planos.set(e.slug, plano([e.nombre, e.razonSocial, e.siglas, e.antes, e.tipo].filter(Boolean).join(" ")));
+    planos.set(e.slug, planoDeEntidad(e));
   }
   indice = { porSlug, porRnc, planos };
   indiceDe = d;

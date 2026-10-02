@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
+import { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP } from "@/lib/cargos";
+
+// Las etiquetas viven en `lib/cargos.ts` (sin leer nada); se siguen exportando desde aquí.
+export { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP };
 
 /**
  * Personas con cargo público — quién ocupa cada cargo y qué cargos ha ocupado
@@ -367,22 +371,6 @@ export function poderesDe(p: Persona): Set<Poder> {
   return salida;
 }
 
-/**
- * Los numerales del art. 2 de la Ley 311-14 agrupados en familias de cargo, para
- * filtrar a las personas expuestas políticamente por tipo. Cada familia dice sus
- * numerales; ninguno queda en dos.
- */
-export const FAMILIAS_PEP: { clave: string; etiqueta: string; numerales: number[] }[] = [
-  { clave: "presidencia", etiqueta: "Presidencia", numerales: [1] },
-  { clave: "congreso", etiqueta: "Congreso", numerales: [2] },
-  { clave: "justicia", etiqueta: "Jueces y Ministerio Público", numerales: [3, 4, 5, 6] },
-  { clave: "gobierno", etiqueta: "Ministerios y direcciones", numerales: [7, 18, 19, 29, 32] },
-  { clave: "control", etiqueta: "Órganos de control y electorales", numerales: [8, 10, 11, 12] },
-  { clave: "autonomos", etiqueta: "Banca, empresas y entes autónomos", numerales: [9, 13, 20, 21, 30, 31] },
-  { clave: "territorio", etiqueta: "Provincias y municipios", numerales: [14, 15, 22] },
-  { clave: "exterior", etiqueta: "Servicio exterior", numerales: [17] },
-  { clave: "seguridad", etiqueta: "Fuerzas Armadas y Policía", numerales: [23, 24, 26] },
-];
 
 export interface FiltroFuncionarios {
   q?: string;
@@ -469,7 +457,8 @@ export function cargoEnInstitucion(p: Persona, institucionId: number): Cargo | n
   );
 }
 
-function puntaje(p: Persona): number {
+/** Cuánto pesa una persona en una búsqueda por nombre: lo compila también `scripts/build-grafo.mjs` (`lib/grafo-compilado.ts`). */
+export function puntaje(p: Persona): number {
   const c = cargoPrincipal(p);
   let s = 0;
   if (c && esActual(c)) s += 100;
@@ -692,18 +681,6 @@ export function parecidos(f: Funcionarios, p: Persona, limite = 5): Persona[] {
     .slice(0, limite);
 }
 
-/** Qué dice el movimiento, en llano, para la línea de un cargo. */
-export const ETIQUETA_MOVIMIENTO: Record<Movimiento, string> = {
-  vigente: "En el cargo",
-  designa: "Designación",
-  confirma: "Confirmación",
-  cesa: "Deja el cargo",
-  renuncia: "Renuncia aceptada",
-  sustituido: "Sustitución",
-  asciende: "Ascenso",
-  electo: "Elección",
-  anterior: "Gestión anterior",
-};
 
 /** De dónde sale cada cargo, en llano. */
 export const ETIQUETA_ORIGEN: Record<OrigenCargo, string> = {

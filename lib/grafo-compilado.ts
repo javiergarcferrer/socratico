@@ -4,13 +4,17 @@ import { brotliDecompressSync } from "node:zlib";
 import type { NodoRdf, TipoNodoRdf } from "@/lib/grafo";
 import { SITIO } from "@/lib/sitio";
 import type { ComprasPublicadas } from "@/lib/tablas-compras";
-import { fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
+import { PREFIJOS, fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
+import { agujas, contieneTodas } from "@/lib/raiz";
+import { MATERIAS, type Materia } from "@/lib/materias-decreto";
+import type { AvisoDecreto } from "@/lib/decretos-base";
 import {
   FORMATO_GRAFO,
   archivoFragmento,
   claveCompilada,
   decodificarTermino,
   fragmentoDe,
+  iriDe,
   grafosDe,
   triplesDe,
   type ClaveGrafo,
@@ -72,6 +76,8 @@ export interface MetaGrafo {
   /** Empresas del padrón que no tienen registro: las describe su fila (`describirEmpresaSola`). */
   empresasSolas: number;
   triples: number;
+  /** Las firmas del registro de decretos, en el orden de sus archivos en `firmados/`. */
+  firmantes: string[];
   /** sha256 de los fragmentos: cambia con cualquier cambio del grafo (la clave de caché de los caminos). */
   huella: string;
   inventario: ClaseContada[];
@@ -259,4 +265,159 @@ export function comprasPublicadas(): Promise<ComprasPublicadas | null> {
       return null;
     });
   return comprasMemo;
+}
+
+/* ---------------------------------------------------- nombres y firmas */
+
+/**
+ * El índice de nombres (`datos/grafo/nombres.json.br`): lo que hace falta para
+ * buscar una persona o una entidad financiera por su nombre sin abrir
+ * `funcionarios.json` ni `banca.json` —su texto buscable ya plano, su peso en
+ * el orden, su cargo principal y su firma—, en el orden de su instantánea.
+ */
+interface Nombres {
+  /** `[id, nombre, texto plano, puntaje, cargo principal, firma]` */
+  personas: [string, string, string, number, string | null, [string, string, number, string, string] | null][];
+  /** `[slug, nombre, tipo, rnc, texto plano]` */
+  financieras: [string, string, string | null, string | null, string][];
+}
+
+/** Una persona del índice de nombres. */
+export interface PersonaCompilada {
+  id: string;
+  nombre: string;
+  /** El título de su cargo principal (`cargoPrincipal`). */
+  cargo: string | null;
+  firma: { como: string; clave: string; decretos: number; desde: string; hasta: string } | null;
+}
+
+/** Una entidad financiera del índice de nombres. */
+export interface FinancieraCompilada {
+  slug: string;
+  nombre: string;
+  tipo: string | null;
+  rnc: string | null;
+}
+
+let nombresMemo: Promise<(Nombres & { porId: Map<string, Nombres["personas"][number]> }) | null> | null = null;
+
+function nombres() {
+  nombresMemo ??= readFile(join(process.cwd(), "datos", "grafo", "nombres.json.br"))
+    .then((b) => {
+      const n = JSON.parse(brotliDecompressSync(b).toString("utf8")) as Nombres;
+      return { ...n, porId: new Map(n.personas.map((p) => [p[0], p])) };
+    })
+    .catch((err) => {
+      console.error("[grafo-compilado] nombres.json.br:", err);
+      nombresMemo = null;
+      return null;
+    });
+  return nombresMemo;
+}
+
+const persona = ([id, nombre, , , cargo, f]: Nombres["personas"][number]): PersonaCompilada => ({
+  id,
+  nombre,
+  cargo,
+  firma: f ? { como: f[0], clave: f[1], decretos: f[2], desde: f[3], hasta: f[4] } : null,
+});
+
+const COLADOR = new Intl.Collator("es");
+
+/**
+ * Las personas que se llaman así: todas las palabras, en cualquier orden,
+ * sobre el nombre y sus grafías; primero quien pesa más, luego por nombre.
+ * Lo mismo que `filtrarPersonas(f, { q })` de `lib/funcionarios.ts` (el
+ * compilador lo coteja). `null` si el índice no está.
+ */
+export async function buscarPersonas(q: string): Promise<PersonaCompilada[] | null> {
+  const n = await nombres();
+  if (!n) return null;
+  const a = q.trim() ? agujas(q) : null;
+  return n.personas
+    .filter((p) => !a || contieneTodas(p[2], a))
+    .sort((x, y) => y[3] - x[3] || COLADOR.compare(x[1], y[1]))
+    .map(persona);
+}
+
+/** La persona con ese id, del índice de nombres. */
+export async function personaCompilada(id: string): Promise<PersonaCompilada | null> {
+  const p = (await nombres())?.porId.get(id);
+  return p ? persona(p) : null;
+}
+
+/**
+ * Las entidades financieras que se llaman así (o con ese RNC), en el orden
+ * de su instantánea: lo mismo que `filtrarEntidades(d, { q })` de
+ * `lib/financieras.ts` (el compilador lo coteja). `null` si el índice no está.
+ */
+export async function buscarFinancieras(q: string): Promise<FinancieraCompilada[] | null> {
+  const n = await nombres();
+  if (!n) return null;
+  const texto = q.trim();
+  const cifras = texto.replace(/\D/g, "");
+  const esRnc = texto !== "" && !/\p{L}/u.test(texto) && (cifras.length === 9 || cifras.length === 11);
+  const aguja = texto && !esRnc ? agujas(texto) : null;
+  return n.financieras
+    .filter(([, , , rnc, p]) => (esRnc ? rnc === cifras : aguja ? contieneTodas(p, aguja) : true))
+    .map(([slug, nombre, tipo, rnc]) => ({ slug, nombre, tipo, rnc }));
+}
+
+/** Un decreto que firmó una persona, como lo da el registro de la Consultoría (`decretosDeFirmante`). */
+export interface DecretoFirmado {
+  numero: string | null;
+  fecha: string | null;
+  titulo: string;
+  materia: Materia;
+  institucion: string | null;
+  aviso: AvisoDecreto | null;
+  anio: number | null;
+  ficha: boolean;
+  docId: number | null;
+}
+
+/** `[numero, fecha, titulo, materia, institucion, aviso, anio, ficha, docId]` */
+type FilaFirmada = [string | null, string | null, string, string, string | null, AvisoDecreto | null, number | null, 0 | 1, number | null];
+
+const materias = new Map(MATERIAS.map((m) => [m.slug, m]));
+
+/**
+ * Todos los decretos que el registro atribuye a una firma (`clave`), en el
+ * orden de `decretosDeFirmante`: la arista `soc:firmo` entera, que la
+ * descripción de la persona corta en los veinte más recientes. Compilados
+ * por firmante (`datos/grafo/firmados/`), así quien los lista no abre el
+ * registro (~13 MB). `null` si esa firma no está.
+ */
+export async function decretosFirmados(clave: string): Promise<DecretoFirmado[] | null> {
+  const meta = await metaGrafo();
+  const i = meta?.firmantes.indexOf(clave) ?? -1;
+  if (i < 0) return null;
+  const b = await readFile(join(process.cwd(), "datos", "grafo", "firmados", archivoFragmento(i)));
+  const filas = JSON.parse(brotliDecompressSync(b).toString("utf8")) as FilaFirmada[];
+  return filas.map(([numero, fecha, titulo, materia, institucion, aviso, anio, ficha, docId]) => ({
+    numero,
+    fecha,
+    titulo,
+    materia: materias.get(materia)!,
+    institucion,
+    aviso,
+    anio,
+    ficha: ficha === 1,
+    docId,
+  }));
+}
+
+/** Lo que dice de sí un decreto con ficha, de su descripción compilada: su número, su título, su fecha y su aviso. */
+export async function decretoCompilado(numero: string): Promise<{ numero: string; titulo: string; fecha: string | null; aviso: AvisoDecreto | null } | null> {
+  const n: NodoRdf = { tipo: "decreto", id: numero.trim() };
+  const d = await leerDescripcion(n);
+  if (!d) return null;
+  const s = iriDe(n);
+  const valor = (p: string) => d.triples.find((x) => x.s.valor === s && x.p === p)?.o.valor ?? null;
+  return {
+    numero: n.id,
+    titulo: valor(`${PREFIJOS.dct}title`) ?? "",
+    fecha: valor(`${PREFIJOS.soc}fecha`),
+    aviso: valor(`${PREFIJOS.do}aviso`) as AvisoDecreto | null,
+  };
 }

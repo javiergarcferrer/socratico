@@ -12,6 +12,8 @@
  *   datos/grafo/ld/meta.json               la primera clave de cada fragmento de schema.org
  *   datos/grafo/vecinos/<tipo>/NNN.json.br las aristas de cada nodo hacia otros (lo que recorre `camino()`)
  *   datos/grafo/compras.json               lo publicado por cada institución en la tabla de procesos
+ *   datos/grafo/nombres.json.br            personas y entidades financieras, para buscarlas por nombre
+ *   datos/grafo/firmados/NNN.json.br       los decretos de cada firma (la arista soc:firmo entera)
  *
  * Los nodos de cada tipo se reparten en fragmentos en orden de clave, como
  * las filas del padrón; `meta.json` guarda la primera clave de cada uno, así
@@ -43,7 +45,7 @@ import { availableParallelism } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { brotliCompress, constants, gunzipSync } from "node:zlib";
+import { brotliCompress, brotliDecompressSync, constants, gunzipSync } from "node:zlib";
 import { registrarTs } from "./cargador-ts.mjs";
 
 registrarTs();
@@ -77,6 +79,7 @@ const GC = await lib("grafo-compilado");
 const T = await lib("tablas-compras");
 const ESQ = await lib("ontologia-esquemas");
 const O = await lib("ontologia");
+const RZ = await lib("raiz");
 
 const t0 = performance.now();
 const segundos = () => `${Math.round((performance.now() - t0) / 1000)} s`;
@@ -132,6 +135,37 @@ function diferencia(a, b) {
     if (x.p !== y.p || !mismoTermino(x.s, y.s) || !mismoTermino(x.o, y.o)) return `triple ${i}: <${x.s.valor}> <${x.p}> «${x.o.valor}» ≠ <${y.s.valor}> <${y.p}> «${y.o.valor}»`;
   }
   return null;
+}
+
+/* ---------------------------------------------------- nombres y firmas */
+
+/** El índice de nombres: personas y entidades financieras, con lo que pide su búsqueda (`lib/grafo-compilado.ts`). */
+async function indiceDeNombres() {
+  const [f, fin] = await Promise.all([F.getFuncionarios(), B.getFinancieras()]);
+  return {
+    personas: f.personas.map((p) => [
+      p.id,
+      p.nombre,
+      RZ.plano([p.nombre, ...p.alias].join(" ")),
+      F.puntaje(p),
+      F.cargoPrincipal(p)?.titulo ?? null,
+      p.firma ? [p.firma.como, p.firma.clave, p.firma.decretos, p.firma.desde, p.firma.hasta] : null,
+    ]),
+    financieras: fin.entidades.map((e) => [e.slug, e.nombre, e.tipo ?? null, e.rnc ?? null, B.planoDeEntidad(e)]),
+  };
+}
+
+/** Las firmas del registro, en orden, y los decretos de cada una como los da `decretosDeFirmante`. */
+async function firmados() {
+  const ind = await D.indiceDecretos();
+  const claves = ind.firmantes.map((x) => x.clave);
+  const listas = [];
+  for (const clave of claves) {
+    listas.push(
+      (await D.decretosDeFirmante(clave)).map((d) => [d.numero, d.fecha, d.titulo, d.materia.slug, d.institucion, d.aviso, d.anio, d.ficha ? 1 : 0, d.docId]),
+    );
+  }
+  return { claves, listas };
 }
 
 /* ---------------------------------------------------- contra la ontología */
@@ -359,6 +393,7 @@ async function compilar(todas) {
     generado,
     aFecha: f?.generado ?? null,
     grafos,
+    firmantes: (await D.indiceDecretos()).firmantes.map((x) => x.clave),
     tipos,
     empresasSolas,
     triples: triplesTotal,
@@ -367,6 +402,13 @@ async function compilar(todas) {
     wikidata: await C.enlacesWikidataEnVivo(),
   };
   writeFileSync(path.join(SALIDA, "ld", "meta.json"), `${JSON.stringify({ formato: N.FORMATO_GRAFO, limites: limitesLd })}\n`);
+  // El índice de nombres y los decretos de cada firma: lo que buscan `buscarNodos` y `signed_decrees` sin abrir las instantáneas.
+  writeFileSync(path.join(SALIDA, "nombres.json.br"), await brotli(JSON.stringify(await indiceDeNombres())));
+  const firmas = await firmados();
+  escribirDirectorio(
+    path.join(SALIDA, "firmados"),
+    await Promise.all(firmas.listas.map(async (l, i) => [N.archivoFragmento(i), await brotli(JSON.stringify(l))])),
+  );
   // Lo publicado por cada institución en la tabla de procesos: lo que dice `fetch` (`lib/mcp.ts`).
   writeFileSync(path.join(SALIDA, "compras.json"), `${JSON.stringify(await T.publicadoPorInstitucion(I.INSTITUCIONES))}\n`);
   writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify(meta)}\n`);
@@ -428,11 +470,62 @@ async function comprobar(todas) {
   if (JSON.stringify(conIri(await C.grafosEnVivo(), meta.generado)) !== JSON.stringify(meta.grafos)) anotar("grafos", "las fuentes o los cortes de los grafos con nombre cambiaron");
   const compras = JSON.parse(readFileSync(path.join(SALIDA, "compras.json"), "utf8"));
   if (JSON.stringify(compras) !== JSON.stringify(await T.publicadoPorInstitucion(I.INSTITUCIONES))) anotar("compras", "lo publicado por institución cambió");
+  await comprobarNombresYFirmas(meta, anotar);
   if (JSON.stringify(wikidata) !== JSON.stringify(meta.wikidata)) anotar("wikidata", "los enlaces a Wikidata cambiaron");
   return { malos: malos.length, nodos, fichas, triples: meta.triples };
 }
 
+/**
+ * El índice de nombres, los decretos de cada firma y cada decreto por su
+ * número, contra lo que dan los módulos que leen las instantáneas: campo a
+ * campo, y una batería de búsquedas con los dos (las mismas personas y
+ * entidades, en el mismo orden).
+ */
+async function comprobarNombresYFirmas(meta, anotar) {
+  const leido = (ruta) => JSON.parse(brotliDecompressSync(readFileSync(path.join(SALIDA, ruta))).toString("utf8"));
+  if (JSON.stringify(leido("nombres.json.br")) !== JSON.stringify(await indiceDeNombres())) anotar("nombres", "el índice de nombres cambió");
+  const firmas = await firmados();
+  if (JSON.stringify(firmas.claves) !== JSON.stringify(meta.firmantes)) anotar("firmantes", "las firmas del registro cambiaron");
+  for (const [i, clave] of firmas.claves.entries()) {
+    const compilado = await GC.decretosFirmados(clave);
+    const vivo = (await D.decretosDeFirmante(clave)).map((d) => ({ ...d, materia: { slug: d.materia.slug, nombre: d.materia.nombre } }));
+    const forma = (xs) => JSON.stringify(xs?.map((d) => [d.numero, d.fecha, d.titulo, d.materia.slug, d.materia.nombre, d.institucion, d.aviso, d.anio, d.ficha, d.docId]));
+    if (forma(compilado) !== forma(vivo)) anotar(`firmados:${clave}`, "los decretos de la firma difieren");
+    if (JSON.stringify(leido(`firmados/${N.archivoFragmento(i)}`)) !== JSON.stringify(firmas.listas[i])) anotar(`firmados:${clave}`, "el archivo difiere");
+  }
+  // Cada decreto por su número, como lo busca `search`.
+  for (const numero of todasLasClaves.decreto) {
+    const vivo = await D.decretoPorNumero(numero);
+    const c = await GC.decretoCompilado(numero);
+    const a = vivo && { numero: vivo.numero, titulo: vivo.titulo, fecha: vivo.fecha, aviso: vivo.aviso };
+    if (JSON.stringify(a) !== JSON.stringify(c)) anotar(`decreto:${numero} (número)`, `${JSON.stringify(a)?.slice(0, 120)} ≠ ${JSON.stringify(c)?.slice(0, 120)}`);
+  }
+  // Las búsquedas por nombre: palabras sueltas y pares de los nombres mismos, y algunas que no casan.
+  const [f, fin] = await Promise.all([F.getFuncionarios(), B.getFinancieras()]);
+  const preguntas = new Set(["maria", "jose", "luis abinader", "perez", "de la", "ministro", "zzzz", "ana", "banco", "popular", "cooperativa", "seguros", "101010628", "  "]);
+  f.personas.forEach((p, i) => {
+    if (i % 97 !== 0) return;
+    const w = p.nombre.split(/\s+/);
+    preguntas.add(w[0]).add(w.at(-1)).add(`${w.at(-1)} ${w[0]}`);
+  });
+  fin.entidades.forEach((e, i) => {
+    if (i % 13 !== 0) return;
+    preguntas.add(e.nombre.split(/\s+/)[0]);
+    if (e.rnc) preguntas.add(e.rnc);
+  });
+  for (const q of preguntas) {
+    const personas = (await GC.buscarPersonas(q)).map((p) => p.id).join(",");
+    const vivas = F.filtrarPersonas(f, { q }).map((p) => p.id).join(",");
+    if (personas !== vivas) anotar(`buscar personas «${q}»`, "otras personas u otro orden");
+    const entidades = (await GC.buscarFinancieras(q)).map((e) => e.slug).join(",");
+    const vivasE = B.filtrarEntidades(fin, { q }).map((e) => e.slug).join(",");
+    if (entidades !== vivasE) anotar(`buscar entidades «${q}»`, "otras entidades u otro orden");
+  }
+  console.log(`comprobados nombres (${preguntas.size} búsquedas), ${firmas.claves.length} firmas y ${todasLasClaves.decreto.length} decretos por número · ${segundos()}`);
+}
+
 const todas = await claves();
+const todasLasClaves = todas;
 if (!COMPROBAR) {
   await compilar(todas);
 } else if (!existsSync(path.join(SALIDA, "meta.json"))) {

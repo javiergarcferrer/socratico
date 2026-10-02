@@ -1224,6 +1224,20 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
     procesos publicó cada una en la ventana de la tabla de procesos y por
     cuánto (`publicadoPorInstitucion`, `lib/tablas-compras.ts`). Lo lee
     `fetch` del MCP, que antes abría la tabla entera (11 MB) para dos cifras.
+  - **El índice de nombres** (`datos/grafo/nombres.json.br`, ~0,4 MB): cada
+    persona con su texto buscable ya plano, su peso en el orden
+    (`puntaje`), su cargo principal y su firma, y cada entidad financiera
+    con el suyo. `buscarPersonas` y `buscarFinancieras` repiten
+    `filtrarPersonas(f, { q })` y `filtrarEntidades(d, { q })` sobre él:
+    `buscarNodos` y `signed_decrees` ya no abren `funcionarios.json` ni
+    `banca.json`. El compilador coteja las dos búsquedas con las de las
+    instantáneas en ~440 consultas (las mismas, en el mismo orden).
+  - **Los decretos de cada firma** (`datos/grafo/firmados/`, ~2 MB): la arista
+    `soc:firmo` entera, que la descripción de la persona corta en veinte, como
+    la da `decretosDeFirmante`; y cada decreto por su número sale de su nodo
+    (`decretoCompilado`). `signed_decrees` y la búsqueda por número ya no
+    abren el registro (~13 MB). Cotejados las 49 firmas y los 27 544
+    decretos.
   - **Contra la ontología, todo**: el compilador pasa cada sujeto con un tipo
     de aquí, en los 536 196 nodos, por el esquema zod de su clase
     (`esquemaClase`, `lib/ontologia-esquemas.ts`, de la misma definición que
@@ -1321,9 +1335,9 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   de Wikidata veta `/sparql` en su robots (docs/AUDITORIA.md §H.14).
 - **Trazado de archivos** (medido sobre cada `*.nft.json` el 02-10-2026):
   `/grafo` (la clave casa con `/grafo/camino` y `/api/grafo`) lleva el
-  compilado (`datos/grafo/nodos/`, ~19 MB, y `vecinos/`, ~3,6 MB) y lo que
-  pide la búsqueda de nodos —funcionarios, banca, decretos y el padrón, que
-  también describe la empresa que el compilado no trae—: ~61 MB por función. Cada ficha que es un
+  compilado (`datos/grafo/nodos/`, ~19 MB, `vecinos/`, ~4 MB, y el índice de
+  nombres) y el padrón, que busca una empresa por RNC y describe la que el
+  compilado no trae: ~44 MB por función. Cada ficha que es un
   nodo lleva solo `datos/grafo/ld/` (~2,5 MB) además de sus propios datos.
   ✅ **La deuda de ~167 MB por ficha, saldada** (F2): la causaba
   `huellaDatos()`, que miraba las instantáneas con un nombre en una variable
@@ -1333,7 +1347,7 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   ficha importa `lib/grafo-ld.ts`, que no lee instantáneas. Antes y después:
   persona 162 → 24 MB, institución 162 → 46, provincia 163 → 16, banca
   162 → 11, decreto 163 → 28, empresa 162 → 22, `/api/grafo` y `/grafo`
-  161–162 → 61.
+  161–162 → 44.
 - **Las tablas** (`scripts/build-grafo-tablas.mjs` → `public/tablas/`: nueve
   Parquet con zstd, ~4 MB, y su `meta.json`; servidas por la CDN en
   `/tablas/`). El mismo grafo del volcado, sin personas naturales, en tablas
@@ -1553,12 +1567,18 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
 - **Trazado** (medido sobre cada `route.js.nft.json` el 02-10-2026): `/mcp`
-  pesa ~195 MB —el índice de búsqueda (sin `corpus.json`, que ya está en
-  `indice.bin`), el grafo compilado con su índice de vecinos (~23 MB, que se
-  sumó con F2), las
-  instantáneas que leen sus herramientas,
-  `historico/`, `rnc/` y `procesos.json`, que se incluye aquí y se excluye de
-  las fichas del grafo, que lo arrastraban sin leerlo—; `/api/sql`, ~77 MB
+  pesa ~163 MB —el índice de búsqueda (97 MB, sin `corpus.json`, que ya está
+  en `indice.bin`), el grafo compilado con sus índices (~25 MB), el padrón
+  (16 MB: empresas por nombre o RNC), `procesos.json` (11 MB, que se incluye
+  aquí y se excluye de las fichas del grafo, que lo arrastraban sin leerlo),
+  `historico/` y `rnc/`—. Bajó de ~195 MB al leer del compilado lo que antes
+  leía de las instantáneas: personas y bancos (índice de nombres), decretos
+  (sus firmas y su nodo), y al dejar de llevar ~16 MB de instantáneas que no
+  lee —nóminas, obras, leyes—: `lib/tablas-compras.ts` armaba sus rutas con
+  un nombre en una variable y el trazado metía `public/data` entero, y la
+  ontología importaba etiquetas de módulos que leen instantáneas (ahora en
+  `lib/cargos.ts`, `lib/medidas.ts` y `lib/decretos-base.ts`, que no leen
+  nada; los módulos de siempre las siguen exportando). `/api/sql`, ~77 MB
   —DuckDB, sin la versión musl, que Vercel no usa, y las tablas—. El límite
   de Vercel es 250 MB por función. Una exclusión le gana a una inclusión
   (`collect-build-traces` de Next las aplica después), y las claves casan como
@@ -1591,7 +1611,9 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   procesos (`procesos.json`, 11 MB) de su sección de compras. Con lo
   publicado por institución compilado y `path` sobre el índice de vecinos
   (el mismo día, las mismas respuestas): **`fetch` de una institución 0,06–0,07
-  s**, **`path` 0,09–0,11 s**. Cotejo: 323 descripciones por `/api/grafo` y
+  s**, **`path` 0,09–0,11 s**; leyendo personas, bancos y decretos del
+  compilado, `signed_decrees` de quien más firmó 0,13–0,14 s, con 14 llamadas
+  de seis herramientas idénticas byte a byte a producción. Cotejo: 323 descripciones por `/api/grafo` y
   el JSON-LD de 40 fichas, idénticos entre los dos builds. **En Vercel**
   (02-10-2026: el preview de F2 contra producción con el código anterior, primera
   llamada a cada función y ida y vuelta incluida): `/api/grafo` de una

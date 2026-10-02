@@ -1,7 +1,7 @@
 import { MATERIAS } from "@/lib/materias-decreto";
-import { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP } from "@/lib/funcionarios";
+import { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP } from "@/lib/cargos";
 import { SECTORES } from "@/lib/instituciones";
-import { TIPOS_MEDIDA } from "@/lib/sanciones";
+import { TIPOS_MEDIDA } from "@/lib/medidas";
 import {
   ESPACIO_V1,
   ONTOLOGIA,

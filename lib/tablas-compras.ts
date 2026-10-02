@@ -25,8 +25,6 @@ import { sinCedula } from "@/lib/padron";
  * nota: calcula sus respuestas de las mismas instantáneas.
  */
 
-const DATOS = path.join(process.cwd(), "public", "data");
-
 /** El literal de la DGCP, dicho corto (el mismo que `scripts/busqueda_procesos.py`). */
 const ETAPA: Record<string, string> = {
   "Proceso publicado": "Abierto a ofertas",
@@ -91,7 +89,13 @@ interface RncJson {
   filas: Record<string, [string, ...unknown[]]>;
 }
 
-const leer = async <T>(ruta: string): Promise<T> => JSON.parse(await readFile(path.join(DATOS, ruta), "utf8")) as T;
+/*
+  Cada ruta se escribe con sus carpetas literales: el trazado de archivos de
+  Next lee la expresión de `readFile` y, con el nombre en una variable bajo
+  `public/data`, metía la carpeta entera (nóminas, obras, leyes…) en la
+  función del servidor MCP, que no la lee.
+*/
+const leer = async <T>(texto: Promise<string>): Promise<T> => JSON.parse(await texto) as T;
 
 let procesosMemo: Promise<{ procesos: ProcesoIndexado[]; corte: string | null }> | null = null;
 
@@ -102,7 +106,7 @@ let procesosMemo: Promise<{ procesos: ProcesoIndexado[]; corte: string | null }>
  * «no hay».
  */
 export function todosLosProcesos(): Promise<{ procesos: ProcesoIndexado[]; corte: string | null }> {
-  procesosMemo ??= leer<ProcesosJson>("procesos.json").then((t) => {
+  procesosMemo ??= leer<ProcesosJson>(readFile(path.join(process.cwd(), "public", "data", "procesos.json"), "utf8")).then((t) => {
     const procesos = t.filas.map(([codigo, iu, im, ie, io, caratula, fecha, monto]): ProcesoIndexado => {
       const titulo = sinCedula(caratula);
       const modalidad = t.modalidades[im] ?? "";
@@ -132,7 +136,10 @@ let proveedoresMemo: Promise<{ proveedores: ProveedorIndexado[]; corte: string |
 export function todosLosProveedores(): Promise<{ proveedores: ProveedorIndexado[]; corte: string | null }> {
   proveedoresMemo ??= Promise.all(
     Array.from({ length: 10 }, (_, n) =>
-      Promise.all([leer<ProveedoresJson>(`historico/proveedores/${n}.json`), leer<RncJson>(`rnc/${n}.json`)]),
+      Promise.all([
+        leer<ProveedoresJson>(readFile(path.join(process.cwd(), "public", "data", "historico", "proveedores", `${n}.json`), "utf8")),
+        leer<RncJson>(readFile(path.join(process.cwd(), "public", "data", "rnc", `${n}.json`), "utf8")),
+      ]),
     ),
   ).then((partes) => {
     const proveedores: ProveedorIndexado[] = [];

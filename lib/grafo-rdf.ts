@@ -4,17 +4,26 @@ import { unstable_cache } from "next/cache";
 import { SITIO } from "@/lib/sitio";
 import { nodoDeRuta, numeroCanonico, rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo";
 import { PREFIJOS, expandir, type Cuadruple, type Termino, type Triple } from "@/lib/rdf";
-import { ETIQUETA_MOVIMIENTO, cargoPrincipal, filtrarPersonas, getFuncionarios, type Movimiento } from "@/lib/funcionarios";
+import { ETIQUETA_MOVIMIENTO } from "@/lib/cargos";
+import type { Movimiento } from "@/lib/funcionarios";
 import { buscarInstituciones } from "@/lib/instituciones";
-import { decretoPorNumero } from "@/lib/decretos";
-import { filtrarEntidades, getFinancieras } from "@/lib/financieras";
 import { empresaPorRnc } from "@/lib/empresas";
 import { PROVINCIAS } from "@/lib/provincias";
 import { hrefWikidata } from "@/lib/wikidata";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
 import { desdeMayusculas } from "@/lib/congreso";
 import { describirEmpresaSola, iriDe, nombreDecreto, type Descripcion } from "@/lib/grafo-nodo";
-import { leerDescripcion, leerVecinos, metaGrafo, triplesDeGrafos, type ClaseContada, type Vecino } from "@/lib/grafo-compilado";
+import {
+  buscarFinancieras,
+  buscarPersonas,
+  decretoCompilado,
+  leerDescripcion,
+  leerVecinos,
+  metaGrafo,
+  triplesDeGrafos,
+  type ClaseContada,
+  type Vecino,
+} from "@/lib/grafo-compilado";
 
 /**
  * El grafo semántico de la plataforma, nodo a nodo (docs/ARQUITECTURA.md,
@@ -608,10 +617,9 @@ export async function buscarNodos(q: string): Promise<Candidatos> {
   const salida: Candidato[] = [];
   const numero = /^(?:decreto\s+(?:n[oú]m?\.?\s*)?)?(\d{1,4}-\d{2,4})$/i.exec(texto)?.[1];
   if (numero) {
-    const d = await decretoPorNumero(numeroCanonico("decreto", numero));
-    if (d?.numero && d.ficha) {
-      salida.push({ nodo: { tipo: "decreto", id: d.numero }, nombre: nombreDecreto(d.numero), clase: CLASE_DE_TIPO.decreto, detalle: desdeMayusculas(d.titulo) });
-    }
+    // Un decreto con ficha es un nodo compilado: su número y su título salen de ahí.
+    const d = await decretoCompilado(numeroCanonico("decreto", numero));
+    if (d) salida.push({ nodo: { tipo: "decreto", id: d.numero }, nombre: nombreDecreto(d.numero), clase: CLASE_DE_TIPO.decreto, detalle: desdeMayusculas(d.titulo) });
   }
   const cifras = texto.replace(/[\s.\-]/g, "");
   if (/^\d{9}$/.test(cifras)) {
@@ -622,12 +630,12 @@ export async function buscarNodos(q: string): Promise<Candidatos> {
 
   let truncado = false;
   const a = agujas(texto);
-  const f = await getFuncionarios();
-  if (f) {
-    const personas = filtrarPersonas(f, { q: texto });
+  // Personas y entidades financieras, del índice de nombres compilado (la misma búsqueda que sus fichas).
+  const personas = await buscarPersonas(texto);
+  if (personas) {
     truncado ||= personas.length > TOPE_CANDIDATOS.personas;
     for (const p of personas.slice(0, TOPE_CANDIDATOS.personas)) {
-      salida.push({ nodo: { tipo: "funcionario", id: p.id }, nombre: p.nombre, clase: CLASE_DE_TIPO.funcionario, detalle: cargoPrincipal(p)?.titulo ?? null });
+      salida.push({ nodo: { tipo: "funcionario", id: p.id }, nombre: p.nombre, clase: CLASE_DE_TIPO.funcionario, detalle: p.cargo });
     }
   }
   const instituciones = buscarInstituciones(texto, TOPE_CANDIDATOS.instituciones + 1);
@@ -635,9 +643,8 @@ export async function buscarNodos(q: string): Promise<Candidatos> {
   for (const i of instituciones.slice(0, TOPE_CANDIDATOS.instituciones)) {
     salida.push({ nodo: { tipo: "institucion", id: String(i.id) }, nombre: i.nombre, clase: CLASE_DE_TIPO.institucion, detalle: i.acronimo || null });
   }
-  const fin = await getFinancieras();
-  if (fin) {
-    const entidades = filtrarEntidades(fin, { q: texto });
+  const entidades = await buscarFinancieras(texto);
+  if (entidades) {
     truncado ||= entidades.length > TOPE_CANDIDATOS.financieras;
     for (const e of entidades.slice(0, TOPE_CANDIDATOS.financieras)) {
       salida.push({ nodo: { tipo: "entidad-financiera", id: e.slug }, nombre: e.nombre, clase: CLASE_DE_TIPO["entidad-financiera"], detalle: e.tipo ?? null });

@@ -36,13 +36,20 @@ import {
   type ProcesoIndexado,
   type ProveedorIndexado,
 } from "@/lib/tablas-compras";
-import { comprasPublicadas } from "@/lib/grafo-compilado";
+import {
+  buscarPersonas,
+  comprasPublicadas,
+  decretoCompilado,
+  decretosFirmados as decretosFirmadosCompilados,
+  metaGrafo,
+  personaCompilada,
+  type PersonaCompilada,
+} from "@/lib/grafo-compilado";
 import { getResumenHistorico, historiaDeInstitucion, historiaDeProveedor, prefijoSinAsignar } from "@/lib/historico";
 import { FUENTES_DEL_CRUCE, INSTITUCIONES, institucionPorId, type Institucion } from "@/lib/instituciones";
 import { buscarEmpresas, empresaPorRnc, padronEmpresas, type Empresa } from "@/lib/empresas";
-import { AVISO_DECRETO, decretoPorNumero, decretosDeFirmante, hrefDecreto, indiceDecretos, type AvisoDecreto } from "@/lib/decretos";
+import { AVISO_DECRETO, hrefDecreto, type AvisoDecreto } from "@/lib/decretos-base";
 import { MATERIAS } from "@/lib/materias-decreto";
-import { filtrarPersonas, getFuncionarios, personaPorId, type Persona } from "@/lib/funcionarios";
 import { PROVINCIAS } from "@/lib/provincias";
 import { CLASES, PROPIEDADES, PUBLICADA, VERSION as VERSION_ONTOLOGIA, concepto, curie, esquemas, triplesOntologia } from "@/lib/ontologia";
 import { PREFIJOS, aNTriples, compactar, expandir, type Triple } from "@/lib/rdf";
@@ -428,9 +435,11 @@ async function buscar(query: string, opciones: { tipo?: TipoResultado; pagina?: 
   // Lo que se nombra exacto va primero: un decreto por su número, una empresa por su RNC.
   const decreto = soloIndice ? null : (DECRETO.exec(q) ?? /^(\d{1,4}-\d{2})$/.exec(q))?.[1];
   if (decreto) {
-    const [d, indice] = await Promise.all([decretoPorNumero(numeroCanonico("decreto", decreto)), indiceDecretos()]);
-    const ruta = d?.numero ? enlace.norma("decreto", d.numero) : null;
-    if (d?.numero && d.ficha && ruta) {
+    // Un decreto con ficha es un nodo del grafo compilado; el corte, el del registro de donde sale.
+    const [d, meta] = await Promise.all([decretoCompilado(numeroCanonico("decreto", decreto)), metaGrafo()]);
+    const corte = meta?.grafos.find((g) => g.clave === "decretos")?.corte ?? null;
+    const ruta = d ? enlace.norma("decreto", d.numero) : null;
+    if (d && ruta) {
       sumar({
         id: ruta,
         title: `Decreto ${d.numero}`,
@@ -439,7 +448,7 @@ async function buscar(query: string, opciones: { tipo?: TipoResultado; pagina?: 
           "Decreto",
           d.fecha && !d.aviso ? d.fecha : null,
           recortar(desdeMayusculas(d.titulo), 200),
-          indice && `registro de la Consultoría Jurídica del ${indice.generado.slice(0, 10)}`,
+          corte && `registro de la Consultoría Jurídica del ${corte}`,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -875,18 +884,18 @@ const Firmados = z.object({
 
 const MATERIA_SLUGS = MATERIAS.map((m) => m.slug) as [string, ...string[]];
 
-/** La persona que firma, por su id o por su nombre; si el nombre es de varias, el aviso las nombra. */
-async function firmanteDe(texto: string): Promise<Persona> {
+/** La persona que firma, por su id o por su nombre (del índice de nombres compilado); si el nombre es de varias, el aviso las nombra. */
+async function firmanteDe(texto: string): Promise<PersonaCompilada> {
   const d = resolver(texto);
   if (d?.clase === "nodo" && d.nodo.tipo === "funcionario") {
-    const p = await personaPorId(d.nodo.id);
+    const p = await personaCompilada(d.nodo.id);
     if (!p) throw new Aviso(`No encontramos a «${recortar(texto, 120)}» entre las personas con cargo público.`);
     if (!p.firma) throw new Aviso(`El registro de decretos de la Consultoría Jurídica no atribuye decretos a ${p.nombre}.`);
     return p;
   }
-  const f = await getFuncionarios();
-  if (!f) throw new Error("funcionarios.json no cargó");
-  const candidatos = filtrarPersonas(f, { q: texto.slice(0, 120) }).filter((p) => p.firma);
+  const personas = await buscarPersonas(texto.slice(0, 120));
+  if (!personas) throw new Error("el índice de nombres del grafo compilado no cargó");
+  const candidatos = personas.filter((p) => p.firma);
   const exacta = candidatos.filter((p) => plano(p.nombre) === plano(texto));
   if (candidatos.length === 1) return candidatos[0];
   if (exacta.length === 1) return exacta[0];
@@ -907,8 +916,10 @@ async function decretosFirmados(
   sinBuscarPorCedula(persona, filtros.texto);
   const p = await firmanteDe(persona);
   const firma = p.firma!;
-  const [todos, indice] = await Promise.all([decretosDeFirmante(firma.clave), indiceDecretos()]);
-  if (!indice) throw new Error("decretos/indice.json no cargó");
+  // Los decretos de la firma, compilados con el grafo (`datos/grafo/firmados/`): sin abrir el registro entero.
+  const [todos, meta] = await Promise.all([decretosFirmadosCompilados(firma.clave), metaGrafo()]);
+  const corte = meta?.grafos.find((g) => g.clave === "decretos")?.corte;
+  if (!todos || !corte) throw new Error("los decretos firmados del grafo compilado no cargaron");
   const texto = filtros.texto?.trim().slice(0, 120) || null;
   const a = texto ? agujas(texto) : null;
   const lista = todos.filter(
@@ -945,7 +956,7 @@ async function decretosFirmados(
       };
     }),
     fuente: "Registro de decretos de la Consultoría Jurídica del Poder Ejecutivo",
-    corte: indice.generado.slice(0, 10),
+    corte,
     lista: absoluta(consulta.toString() ? `${base}?${consulta.toString()}` : base),
     aviso: AVISO,
   };

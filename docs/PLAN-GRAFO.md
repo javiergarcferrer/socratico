@@ -285,6 +285,10 @@ adaptadores:
   entero (F7) bastará un índice global de nodos sobre él.
 - ✅ Lo publicado por cada institución en la tabla de procesos, compilado
   (`compras.json`): `fetch` ya no abre la tabla entera.
+- ✅ El índice de nombres y los decretos de cada firma, compilados: la
+  búsqueda de nodos, `signed_decrees` y la búsqueda por número de decreto
+  leen el grafo y no `funcionarios.json`, `banca.json` ni el registro de
+  decretos; la función del servidor MCP bajó de ~195 a ~163 MB.
 - Las tablas por clase y relación salen del volcado, que lee el compilado
   sin servidor (34 s, antes 226), con sus columnas y tipos de la ontología.
 

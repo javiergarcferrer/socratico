@@ -42,23 +42,26 @@ const nextConfig: NextConfig = {
     "/funcionarios": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/normativa": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
     // El grafo semántico lee cada nodo del grafo compilado (`datos/grafo/`,
-    // `lib/grafo-compilado.ts`), no las instantáneas de las que sale. Lo
-    // demás es la búsqueda de nodos por nombre, por número de decreto o por
-    // RNC (personas, bancos, decretos, el padrón), y el padrón describe
-    // también la empresa que el compilado no trae; un camino recorre el índice
-    // de vecinos. La clave casa también con «/grafo/camino» y «/api/grafo».
+    // `lib/grafo-compilado.ts`), no las instantáneas de las que sale; busca
+    // personas y bancos en su índice de nombres, y un camino recorre su índice
+    // de vecinos. Del resto solo lleva el padrón: busca una empresa por RNC y
+    // describe la que el compilado no trae. La clave casa también con
+    // «/grafo/camino» y «/api/grafo».
     "/grafo": [
       "./datos/grafo/meta.json",
       "./datos/grafo/nodos/**",
       "./datos/grafo/vecinos/**",
-      "./public/data/decretos/**",
+      "./datos/grafo/nombres.json.br",
       "./public/data/empresas/**",
-      "./public/data/{funcionarios,banca,wikidata}.json",
+      "./public/data/wikidata.json",
     ],
     // VoID cuenta las clases del grafo y sus enlaces a Wikidata: los cuenta el compilador.
     "/.well-known": ["./datos/grafo/meta.json"],
-    // El servidor MCP (`lib/mcp.ts`) busca en el índice y describe nodos del
-    // grafo: lleva lo de `/buscar` y lo de `/grafo`, la historia de las
+    // El servidor MCP (`lib/mcp.ts`) busca en el índice y lee el grafo
+    // compilado: los nodos, sus vecinos, lo publicado por institución, el
+    // índice de nombres y los decretos de cada firma —de ahí y no de
+    // `funcionarios.json`, `banca.json` ni del registro de decretos—. Lleva
+    // además el padrón (empresas por nombre o RNC), la historia de las
     // compras desde 2015 (`lib/historico.ts`, que abre un archivo por el
     // último dígito del RPE) y las dos tablas que ordena
     // (`lib/tablas-compras.ts`: los procesos y el cruce de proveedores con
@@ -68,13 +71,14 @@ const nextConfig: NextConfig = {
       "./public/data/rnc/**",
       "./public/data/busqueda/**",
       "./public/data/historico/**",
-      "./public/data/decretos/**",
       "./public/data/empresas/**",
-      "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
+      "./public/data/wikidata.json",
       "./datos/grafo/meta.json",
       "./datos/grafo/nodos/**",
       "./datos/grafo/vecinos/**",
       "./datos/grafo/compras.json",
+      "./datos/grafo/nombres.json.br",
+      "./datos/grafo/firmados/**",
     ],
     // SQL sobre las tablas del grafo (`lib/grafo-sql.ts`): el proceso hijo que
     // corre el motor (se carga de disco, sin empaquetar), los Parquet y la
