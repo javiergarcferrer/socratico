@@ -227,7 +227,13 @@ export default function MobileTabBar() {
                 Estado, cada destino con una línea que dice qué hay.
               </DrawerDescription>
             </DrawerHeader>
-            <DrawerBody className="px-2 py-2">
+            {/*
+              Sin relleno arriba: una cabecera `sticky` se pega al borde del
+              contenido, no al del cuerpo, y con `py-2` dejaba una franja de 8 px
+              por donde se veía pasar el texto de las filas. El aire de arriba lo
+              pone el campo de búsqueda.
+            */}
+            <DrawerBody className="px-2 pb-2 pt-0">
               {/*
                 Buscar encabeza la hoja: quien abre «Más» sin saber en qué
                 grupo vive lo que busca no tiene que recorrer veinte filas para
@@ -235,7 +241,7 @@ export default function MobileTabBar() {
                 que la tarjeta destacada del megamenú, con su alcance debajo.
               */}
               <CampoBusqueda
-                className="px-2 pb-2 pt-1"
+                className="px-2 pb-2 pt-3"
                 valor={texto}
                 onValor={setTexto}
                 onLimpiar={() => setTexto("")}
@@ -250,36 +256,49 @@ export default function MobileTabBar() {
               />
               {/*
                 El mismo `lib/menu` que el megamenú de escritorio: en el teléfono
-                no hay panel ancho, así que los tres grupos se apilan y cada
-                destino es una fila de 48 px con su línea de explicación.
+                no hay panel ancho, así que los tres grupos se apilan, cada uno
+                con sus columnas, y cada destino es una fila de 48 px con su
+                línea de explicación.
+
+                Cada columna lleva su cabecera —«Compras públicas», «Banco
+                Central y banca»…— como en el escritorio. Antes se aplanaban en
+                una sola lista bajo el rótulo del grupo y de la columna solo
+                quedaba el color de un punto: ocho filas más abajo ya no se
+                sabía en qué sección se estaba. La cabecera queda fija arriba
+                (`sticky`) mientras se recorren las filas de su columna y la
+                empuja la siguiente; lleva fondo opaco para que las filas no se
+                lean por debajo, y el punto de la vertical pasa de cada fila a
+                ella, donde se dice una sola vez.
               */}
               {MENU.map((grupo) => (
                 <section key={grupo.id} aria-label={grupo.label} className="mb-3">
                   <h2 className="rotulo px-3 pb-1 pt-2 text-ink-soft">{grupo.label}</h2>
-                  <ul>
-                    {grupo.columnas.flatMap((col) =>
-                      col.enlaces.map((e) => (
-                        <li key={e.href}>
-                          <Link
-                            href={e.href}
-                            onClick={() => setHojaAbierta(false)}
-                            aria-current={destino?.href === e.href ? "page" : undefined}
-                            className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-canvas/70 active:bg-canvas/70 aria-[current=page]:bg-canvas"
-                          >
-                            <span
-                              aria-hidden
-                              className={cn("h-1.5 w-1.5 shrink-0 rounded-full", puntoDe(col))}
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold text-ink">{e.label}</span>
-                              <span className="block truncate text-xs text-ink-soft">{e.nota}</span>
-                            </span>
-                            <IconChevronRight className="h-4 w-4 shrink-0 text-ink-soft" />
-                          </Link>
-                        </li>
-                      )),
-                    )}
-                  </ul>
+                  {grupo.columnas.map((col) => (
+                    <section key={col.titulo} aria-label={col.titulo} className="mt-1">
+                      <h3 className="sticky top-0 z-10 flex items-center gap-2 border-b border-hairline bg-surface px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink">
+                        <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", puntoDe(col))} />
+                        {col.titulo}
+                      </h3>
+                      <ul>
+                        {col.enlaces.map((e) => (
+                          <li key={e.href}>
+                            <Link
+                              href={e.href}
+                              onClick={() => setHojaAbierta(false)}
+                              aria-current={destino?.href === e.href ? "page" : undefined}
+                              className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-canvas/70 active:bg-canvas/70 aria-[current=page]:bg-canvas"
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-sm font-semibold text-ink">{e.label}</span>
+                                <span className="block truncate text-xs text-ink-soft">{e.nota}</span>
+                              </span>
+                              <IconChevronRight className="h-4 w-4 shrink-0 text-ink-soft" />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
                 </section>
               ))}
             </DrawerBody>

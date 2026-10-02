@@ -589,7 +589,11 @@ estas tiene dueño:
 Toda la plataforma se ordena en dos ejes, y los dos salen de un solo archivo:
 
 - **Tema** — de qué trata: el dinero, las leyes, el Estado, y dentro sus
-  columnas. Es como se **explora**: el megamenú y la hoja «Más».
+  columnas. Es como se **explora**: el megamenú y la hoja «Más». Los dos
+  rotulan cada columna con su nombre y el punto de su vertical; en la hoja la
+  cabecera queda fija mientras se recorren sus filas. Aplanar las columnas en
+  una sola lista bajo el grupo —como estuvo la hoja— deja al lector sin saber
+  en qué sección está a las pocas filas.
 - **Tarea** — qué viene a hacer el lector: *ver qué pasa ahora*, *encontrar a
   alguien*, *medir y comparar*, *leer lo decidido*, *seguir y opinar*,
   *entender cómo funciona*. Es como se **llega con prisa**: la paleta agrupa
