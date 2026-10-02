@@ -49,7 +49,7 @@ Cada archivo abre con un bloque (Para, Vía, Fundamento, Estado) y, bajo la raya
 
 | # | Destinatario | Qué se pide | Vía de envío | Borrador | Estado | Origen en los docs |
 |---|---|---|---|---|---|---|
-| 28 | w3id.org (W3C Permanent Identifier CG) | Que `https://w3id.org/socratico/…` redirija al sitio: los IRIs persistentes del grafo | *Pull request* a github.com/perma-id/w3id.org desde la cuenta del dueño | [w3id.md](w3id.md) | preparado, sin enviar; la ontología 2.0.0 ya usa estos IRIs | PLAN-GRAFO §4.1 |
+| 28 | w3id.org (W3C Permanent Identifier CG) | Que `https://w3id.org/socratico/…` redirija al sitio: los IRIs persistentes del grafo | *Pull request* a github.com/perma-id/w3id.org (carpeta `ids/socratico/`) desde la cuenta del dueño, en el navegador | [w3id.md](w3id.md) | preparado, sin enviar; la ontología 2.0.0 ya usa estos IRIs | PLAN-GRAFO §4.1 |
 
 ## Avisos de seguridad
 
