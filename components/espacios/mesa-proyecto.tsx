@@ -51,7 +51,7 @@ import ExportarFtm from "./exportar-ftm";
 /**
  * La mesa de una investigación: el caso —tablero, línea de tiempo, evidencia
  * y narración (`./caso.tsx`)—, quién trabaja en ella, cómo se lleva a otras
- * herramientas y si se publica (docs/PLAN-ESPACIOS.md §3 y §7).
+ * herramientas y si se publica (docs/INFRAESTRUCTURA.md §10).
  *
  * Cada registro enlaza a su ficha viva: aquí no hay cifras del Estado, solo lo
  * que el lector eligió, cómo lo ordenó y qué anotó. Quien solo lee
@@ -386,7 +386,7 @@ function Colaboran({ p, u }: { p: ProyectoConCuenta; u: Usuario }) {
   const [quitando, setQuitando] = useState(false);
   const [yendose, setYendose] = useState(false);
   // Retirar una invitación sí se deshace entero: se vuelve a invitar al mismo
-  // correo con el mismo rol (docs/DESIGN.md §4.1).
+  // correo con el mismo rol (docs/INFRAESTRUCTURA.md §11).
   const [deshacible, setDeshacible] = useState<Deshacible | null>(null);
   const [retirando, setRetirando] = useState<string | null>(null);
 

@@ -1,7 +1,7 @@
 /**
  * Comercio exterior y recaudación de la Dirección General de Aduanas (DGA).
  *
- * Mecánica verificada el 2026-09-24 (docs/AUDITORIA.md §G.5):
+ * Mecánica verificada el 2026-09-24 (docs/INFRAESTRUCTURA.md §5.4):
  *
  *   GET https://www.aduanas.gob.do/umbraco/api/searcher/getpageofdocuments?id=3442
  *

@@ -2,7 +2,7 @@
  * Generación eléctrica del sistema interconectado — Organismo Coordinador del
  * Sistema Eléctrico Nacional Interconectado (OC).
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.8 (2026-09-24): la portada del OC
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.4 (2026-09-24): la portada del OC
  * pinta sus gráficos con un servicio JSON público, sin clave, que acepta una
  * fecha (`MM/DD/YYYY`) y responde también días pasados:
  *

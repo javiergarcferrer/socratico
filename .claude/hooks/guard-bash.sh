@@ -77,7 +77,7 @@ printf '%s' "$cmd" | grep -qE '\brm -[a-zA-Z]*r[a-zA-Z]* ' \
 # Secrets and statelessness (CLAUDE.md: no env vars, no secrets in the app).
 printf '%s' "$cmd" | grep -qE '(>|tee)[[:space:]]*\.env(\.|[[:space:]]|$)' \
   && ! printf '%s' "$cmd" | grep -qE '(>|tee)[[:space:]]*\.env\.example' \
-  && negar "never write .env files; the app carries no secrets (docs/PLAN-DEMOCRACIA.md §2)."
+  && negar "never write .env files; the app carries no secrets (CLAUDE.md §"La invariante")."
 printf '%s' "$cmd" | grep -qE 'vercel env (add|rm|pull)|supabase secrets' \
   && negar "environment/secret changes are the owner's decision; report them instead."
 

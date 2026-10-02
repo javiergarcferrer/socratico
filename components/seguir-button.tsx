@@ -46,7 +46,7 @@ export default function SeguirButton({
 
   const [seguido, setSeguido] = useState(false);
   // La estampa cae solo cuando el lector acaba de seguir, nunca al cargar una
-  // pieza que ya seguía (docs/IDENTIDAD.md §Movimiento).
+  // pieza que ya seguía (docs/INFRAESTRUCTURA.md §11).
   const [recien, setRecien] = useState(false);
   useEffect(() => {
     const sync = () => setSeguido(estaSeguido(tipo, id));

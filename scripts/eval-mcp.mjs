@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * La evaluación del servidor MCP (`/mcp`, `lib/mcp.ts`): docs/PLAN-ACCESO.md
- * §6 sexies, M5.
+ * La evaluación del servidor MCP (`/mcp`, `lib/mcp.ts`): docs/INFRAESTRUCTURA.md
+ * §9.5.
  *
  * Cada caso es una pregunta que le hace a Socrático quien investiga —«la
  * compra más grande de 2026», «las licitaciones de mobiliario abiertas»,
@@ -14,7 +14,7 @@
  * `lib/busqueda.ts` vuelve a separar, deja su caso en rojo.
  *
  * Además de lo que pide cada caso, toda respuesta se revisa por las reglas
- * que no se relajan (docs/ARQUITECTURA.md, el servidor MCP): ninguna cadena
+ * que no se relajan (docs/INFRAESTRUCTURA.md §9): ninguna cadena
  * con forma de cédula, y el aviso de herramienta independiente y no oficial
  * en cada respuesta que no es de `search`, cuyos resultados dicen cada uno la
  * fecha de su instantánea.

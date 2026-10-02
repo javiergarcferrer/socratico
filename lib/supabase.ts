@@ -35,7 +35,7 @@ export function db() {
   return supabase().schema("democracia");
 }
 
-/** Acceso al esquema del espacio del lector (`docs/PLAN-ESPACIOS.md`). */
+/** Acceso al esquema del espacio del lector (`docs/INFRAESTRUCTURA.md` §10). */
 export function espacios() {
   return supabase().schema("espacios");
 }

@@ -1,7 +1,7 @@
 /**
  * Cuenta Única (OGTIC) — cliente **público** OpenID Connect con PKCE S256.
  *
- * Identidad v2 de `/democracia` (docs/PLAN-DEMOCRACIA.md §9). El emisor y sus
+ * Identidad v2 de `/democracia` (docs/INFRAESTRUCTURA.md §10). El emisor y sus
  * endpoints se verificaron el 2026-09-02 en su documento de descubrimiento:
  * Ory Hydra, JWKS RS256, `code_challenge_methods_supported: [S256]` y
  * `token_endpoint_auth_methods_supported` con `none`, así que este cliente

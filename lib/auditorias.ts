@@ -8,7 +8,7 @@ import { institucionPorId } from "@/lib/instituciones";
  * control del Estado: la **Contraloría General** (control interno, dentro del
  * Ejecutivo) y la **Cámara de Cuentas** (control externo, rinde al Congreso).
  *
- * Mecánica verificada en docs/AUDITORIA.md §4.2, §4.3, §G.6 y §G.12
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.10
  * (2026-09-24). `scripts/build-auditorias.py` lee, con robots primero y a lo
  * sumo 8 peticiones por host, y escribe `public/data/auditorias.json`:
  *  · Contraloría (WordPress): las 38 fichas de `/informes-de-auditorias/`

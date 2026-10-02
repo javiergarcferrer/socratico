@@ -6,7 +6,7 @@ import { MESES } from "@/lib/format";
  * Quién tiene los bonos internos del Estado y a quién le debe el sector
  * público: dos archivos de la Dirección General de Crédito Público.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.17 (2026-10-02). El servidor de
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.3 (2026-10-02). El servidor de
  * Crédito Público no responde al egreso de Vercel (§3.3), así que
  * `scripts/build-tenedores.py` los lee en build y este módulo sirve
  * `public/data/tenedores.json`; la interfaz dice que es una instantánea, con

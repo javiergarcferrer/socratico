@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** El espacio del lector (docs/PLAN-ESPACIOS.md): privado, se pinta en el navegador. */
+/** El espacio del lector (docs/INFRAESTRUCTURA.md §10): privado, se pinta en el navegador. */
 export default function EspacioPage() {
   return (
     <div className="mx-auto max-w-4xl">

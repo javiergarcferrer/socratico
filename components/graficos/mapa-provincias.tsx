@@ -12,7 +12,7 @@ import { formatearValor, type FormatoValor } from "./formato";
  * ONE (`lib/mapa.ts`), pintado en el servidor como SVG: sin teselas, sin clave
  * y sin librería.
  *
- * Reglas que trae puestas (docs/IDENTIDAD.md §Gráficos):
+ * Reglas que trae puestas (docs/INFRAESTRUCTURA.md §11):
  *  - color **ordinal** en tramos de la secuencial, pasos 3 a 6 (los que el
  *    validador deja pasar como tramos); el paso 1 es «ninguno» y casi se funde
  *    con el papel a propósito;

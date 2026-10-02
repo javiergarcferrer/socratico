@@ -9,7 +9,7 @@
  *  - `grafo.trig.gz`: TriG, los mismos triples, cada uno en el grafo con
  *    nombre de la fuente y el corte que lo dice, o de la regla de Socrático
  *    que lo deriva; en el grafo por omisión, lo que se dice de cada grafo en
- *    PROV-O (docs/PLAN-GRAFO.md §3.5 y §3.8).
+ *    PROV-O (docs/INFRAESTRUCTURA.md §7).
  *  - `meta.json`: cuántos, de cuándo, qué excluye.
  *
  * Cada triple sale del grafo compilado (`datos/grafo/`, de

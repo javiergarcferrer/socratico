@@ -1,6 +1,6 @@
 /**
  * El grafo de la plataforma: qué es un nodo, dónde vive su ficha y cómo se le
- * reconoce en un texto (docs/PLAN-ACCESO.md §6 ter, G1).
+ * reconoce en un texto (docs/INFRAESTRUCTURA.md §7).
  *
  * La regla del horizonte es que todo lo que se ve se puede pulsar e
  * investigar. Para eso cada tipo de nodo tiene **una** dirección, escrita aquí

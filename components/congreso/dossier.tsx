@@ -184,7 +184,7 @@ export default async function Dossier({
                   {/*
                     El sello rojo solo para lo que **deroga**: es una de las
                     cuatro cosas de la plataforma a las que la identidad les
-                    reserva la marca (docs/IDENTIDAD.md §Color).
+                    reserva la marca (docs/INFRAESTRUCTURA.md §11).
                   */}
                   <Badge
                     variant={

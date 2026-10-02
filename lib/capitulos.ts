@@ -6,7 +6,7 @@
  * código de capítulo y pertenece a una sección institucional. Se extrajo del
  * propio formulario del Portal de Transparencia Fiscal —la única forma en que
  * Hacienda publica esta taxonomía— y se verificó contra respuestas reales
- * (docs/AUDITORIA.md §A.1).
+ * (docs/INFRAESTRUCTURA.md §5.2).
  *
  * Los nombres se guardan **como los escribe el Estado** (mayúsculas incluidas)
  * para que el código sea reconciliable con la fuente; `titulizar` los pone en

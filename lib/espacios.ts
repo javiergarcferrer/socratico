@@ -1,7 +1,7 @@
 /**
  * El espacio del lector — lo que sirve a los dos lados: los tipos de registro
  * que se guardan, cómo se llaman, y la lectura de un proyecto **publicado**,
- * que la página `/p/[slug]` hace en el servidor (docs/PLAN-ESPACIOS.md).
+ * que la página `/p/[slug]` hace en el servidor (docs/INFRAESTRUCTURA.md §10).
  *
  * No importa el cliente de Supabase: el servidor no lleva sesión y un
  * proyecto publicado es público. Lo lee por HTTP, con la clave publicable,
@@ -112,7 +112,7 @@ function seLee(href: string): boolean {
 
 /**
  * Qué une a dos registros: un verbo de un vocabulario cerrado, el mismo
- * `check` de `espacios.enlaces.tipo` (docs/PLAN-ESPACIOS.md §7). Se lee de
+ * `check` de `espacios.enlaces.tipo` (docs/INFRAESTRUCTURA.md §10). Se lee de
  * `desde` hacia `hasta`: «INAPA — adjudicó a → Constructora X». Inspirado en
  * las relaciones de FollowTheMoney, al que se exporta (`lib/ftm.ts`).
  */
@@ -375,7 +375,7 @@ export type Lectura<T> = { estado: "ok"; datos: T } | { estado: "cerrado" } | { 
 /**
  * Una función pública de `espacios` por HTTP, con la clave publicable: sin
  * supabase-js, para que quien solo lee no lo descargue. `PGRST106` es el
- * esquema aún no abierto en el API (PLAN-ESPACIOS §5, paso 2).
+ * esquema aún no abierto en el API (docs/INFRAESTRUCTURA.md §10, paso 2).
  */
 async function rpcPublica<T>(fn: string, cuerpo: object, cache: RequestInit & { next?: { revalidate: number } }): Promise<Lectura<T>> {
   try {

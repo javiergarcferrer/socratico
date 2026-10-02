@@ -979,7 +979,7 @@ export async function getHistorialProveedor(rpe: string): Promise<HistorialProve
  * registros) responde a `proceso`, igual que `/contratos`, así que la
  * competencia de un proceso concreto **no es una muestra**: es el registro.
  *
- * Advertencia de campo (docs/AUDITORIA.md §A.3): `estado_evaluacion` viene
+ * Advertencia de campo (docs/INFRAESTRUCTURA.md §5.1): `estado_evaluacion` viene
  * mayoritariamente en «Pendiente» o vacío incluso en procesos ya adjudicados.
  * Esta capa expone quién ofertó y por cuánto; **quién ganó lo dicen los
  * contratos**, no la evaluación.
@@ -1088,7 +1088,7 @@ export async function getCompetencia(codigoProceso: string): Promise<Competencia
  * nombre del contacto comercial. **Este tipo los omite a propósito**: son
  * públicos por registro, pero replicarlos convertiría la plataforma en un
  * directorio de contactos, que no es lo que hace falta para vigilar al Estado
- * (docs/AUDITORIA.md §A.3). Lo que sí importa es la identidad institucional: quién
+ * (docs/INFRAESTRUCTURA.md §5.1). Lo que sí importa es la identidad institucional: quién
  * es, desde cuándo existe y en qué condición está inscrito.
  */
 export interface ProveedorRegistro {
@@ -1189,7 +1189,7 @@ async function fichaPorRpe(rpe: string): Promise<ProveedorRegistro | null> {
 /**
  * Ficha por número de documento — el RNC de una empresa o la cédula de una
  * persona física. `numero_documento` es, junto a `rpe`, el **único** otro
- * filtro que la API honra (docs/AUDITORIA.md §A.12), y es exacto: no admite
+ * filtro que la API honra (docs/INFRAESTRUCTURA.md §5.1), y es exacto: no admite
  * prefijos.
  *
  * Por eso se normaliza lo que teclea el usuario. Un RNC se escribe con guiones
@@ -1314,7 +1314,7 @@ const MIN_LETRAS_NOMBRE = 3;
  *    filtros que la API honra.
  *  - **Nombre** — la API no busca por razón social, y el registro **no se
  *    puede barrer**: hay páginas que devuelven 500 de forma permanente
- *    (docs/AUDITORIA.md §A.12). Así que un nombre solo se puede buscar dentro
+ *    (docs/INFRAESTRUCTURA.md §5.1). Así que un nombre solo se puede buscar dentro
  *    de la ventana de contratos recientes: quien no haya ganado nada
  *    últimamente no aparece, y `contratosEscaneados` obliga a declararlo.
  *

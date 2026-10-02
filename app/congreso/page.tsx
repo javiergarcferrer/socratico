@@ -235,7 +235,7 @@ const NOMBRE_TIPO: Record<TipoIniciativa, string> = {
   Tema, tipo y estado: exactamente lo que el SIL sabe filtrar, y nada más.
 
   El listado del SIL solo corta por tipo y por perimidas **dentro de un tema**
-  (docs/RECON.md §2.2): no existe «los proyectos de ley de todos los temas», y
+  (docs/INFRAESTRUCTURA.md §5.5): no existe «los proyectos de ley de todos los temas», y
   fabricarlo filtrando la página de diez del registro entero daría páginas de
   tres filas y un recuento que no corresponde a nada. Así lo hacía antes el
   tema, y por eso se quitó. Sin tema, tipo y estado se ven apagados y dicen por

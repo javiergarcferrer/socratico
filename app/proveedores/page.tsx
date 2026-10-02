@@ -133,7 +133,7 @@ export default async function ProveedoresPage({
 /**
  * La tira dice **una sola cosa**: cómo está la ventana de contratos recientes.
  *
- * El censo del RPE estaba aquí y salió: `docs/IDENTIDAD.md` prohíbe mezclar un
+ * El censo del RPE estaba aquí y salió: `docs/INFRAESTRUCTURA.md` §11 prohíbe mezclar un
  * censo con una muestra en la misma fila de tarjetas, porque invita a dividir
  * una por otra —«solo el 2 % de los inscritos gana algo» sería falso, la
  * ventana ve el 0.8 % de los contratos—. El censo va debajo, en prosa y con su
@@ -303,7 +303,7 @@ async function RankingPorMonto() {
  * a la vista y en un teléfono son cinco pantallas de desplazamiento por algo
  * que se mira para saber **quién encabeza**. La revelación progresiva de la
  * casa lo resuelve sin perder nada, y su botón dice cuántas quedan
- * (docs/IDENTIDAD.md §5).
+ * (docs/INFRAESTRUCTURA.md §11).
  */
 function RankingPlegado({ filas, cabeza = 8 }: { filas: ReactNode[]; cabeza?: number }) {
   const primeras = filas.slice(0, cabeza);

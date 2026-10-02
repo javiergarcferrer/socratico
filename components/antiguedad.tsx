@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 /**
  * La antigüedad de algo, calculada aquí y no en la cabeza del lector.
  *
- * `docs/IDENTIDAD.md` §3 lo pide por su nombre: «una fecha absoluta obliga a
+ * `docs/INFRAESTRUCTURA.md` §11 lo pide por su nombre: «una fecha absoluta obliga a
  * restar; en una lista de veinte, nadie resta y se deja de comparar». La
  * plataforma tenía `hace()` desde hace tiempo y lo usaba **solo en las
  * fichas** —donde hay una fecha y sobra el espacio para pensarla—; las filas

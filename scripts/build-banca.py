@@ -21,8 +21,8 @@ este User-Agent (Ley 200-04): ni otro día ni por partes. `--cache` guarda las
 respuestas para rehacer la instantánea con `--sin-red` (otra regla de
 lectura, un arreglo del script) sin una sola petición.
 
-Mecánica verificada el 2026-09-29 con este User-Agent (docs/AUDITORIA.md §5.6,
-§5.7, §G.5 y §G.13; el reconocimiento de esta pasada va en el informe):
+Mecánica verificada el 2026-09-29 con este User-Agent (docs/INFRAESTRUCTURA.md §5.4
+y §5.7):
 
 Superintendencia de Bancos (`sb.gob.do`, Umbraco tras Sucuri; robots solo veta
 `/umbraco/`, que **nunca** se pide). A un segundo entre peticiones, Sucuri

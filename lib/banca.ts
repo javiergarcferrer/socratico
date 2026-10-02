@@ -3,8 +3,7 @@
  * morosidad, cartera de créditos, índice de solvencia y la tasa de los
  * préstamos nuevos.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.13 (SIMBAD, 2026-09-24; primer
- * registro en §G.5): el tablero público de la portada de SIMBAD
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.4 (SIMBAD, 2026-09-24): el tablero público de la portada de SIMBAD
  * (`simbad.sb.gob.do`) es un Apache Superset abierto sin sesión, y cada una de
  * sus tarjetas se lee con
  *
@@ -13,7 +12,7 @@
  *     `data` = `[{ __timestamp: <ms UTC del día 1 del mes>, <métrica>: n }]`.
  *
  * **Nota de seguridad.** Hay un hallazgo de seguridad en ese tablero, que se
- * notifica aparte a la SB (AUDITORIA §G.5, §H.10). Esta capa lee **solo** los
+ * notifica aparte a la SB (docs/INFRAESTRUCTURA.md §5.4). Esta capa lee **solo** los
  * endpoints de datos de las tarjetas que el propio tablero pinta, con
  * `type=results`, y no registra ni guarda ningún otro campo.
  *

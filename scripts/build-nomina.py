@@ -64,7 +64,7 @@ MANIFEST = {
             "https://jac.gob.do/wp-content/uploads/2026/04/Nomina-personal-fijo-y-contratado-2026.csv"),
     "ICM": ("Instituto Cartográfico Militar",
             "https://datos.gob.do/dataset/de850f20-9770-4409-88d6-32d78fe1098b/resource/9847ec68-e7c4-40af-acbf-2c95206eabec/download/nomina-fija-icm-202"),
-    # Ampliación del 2026-09-23 (PLAN-ACCESO §4.3, AUDITORIA §A.8): enlaces
+    # Ampliación del 2026-09-23 (docs/INFRAESTRUCTURA.md §5.8): enlaces
     # directos sacados de las fichas HTML de datos.gob.do (su /api/ lo veta el
     # robots), bajados con el UA de arriba. Probados y descartados ese día:
     # Migración y Ayuntamiento de Santiago (403), UNADE (202 con página HTML),
@@ -94,7 +94,7 @@ MANIFEST = {
                  "https://digepres.gob.do/transparencia/wp-content/uploads/2026/09/NOMINA-DATOS-ABIERTOS-2018-2026.xlsxf_.csv"),
     "LOTERIA": ("Lotería Nacional",
                 "https://loterianacional.gob.do/transparencia/archivos/datos-abiertos/archivo/Nomina%20de%20Empleados,%20Agosto%202026.csv"),
-    # Ampliación del 2026-09-24 (AUDITORIA §A.8): 64 fuentes más, del catálogo
+    # Ampliación del 2026-09-24 (docs/INFRAESTRUCTURA.md §5.8): 64 fuentes más, del catálogo
     # completo de datos.gob.do (public/data/catalogo.json: 1,065 conjuntos, 126
     # candidatos de nómina fuera de los ya integrados) y de sus fichas HTML, con
     # el robots respetado. Cada archivo se leyó fila a fila (área, cargo,
@@ -138,7 +138,7 @@ MANIFEST = {
     # La «Nómina Pública General del Estado» del MAP (492,488 plazas de 129
     # instituciones en julio de 2026, siete CSV mensuales) no entra aquí: foto
     # de ese tamaño cambia el contrato de nomina.json, que el explorador baja
-    # entero. Decisión pendiente, AUDITORIA §A.8.
+    # entero. Decisión pendiente, docs/INFRAESTRUCTURA.md §5.8.
     "MA": ("Ministerio de Agricultura",
            "http://agricultura.gob.do/transparencia/wp-content/uploads/2026/09/Nomina-Empleados-Enero-2017-Agosto-2026_comprimida.zip"),
     "DAEH": ("Dirección de Servicios de Atención a Emergencias Extrahospitalarias (DAEH)",

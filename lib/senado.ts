@@ -5,7 +5,7 @@
  * plugin de seguridad, y su SIL (`sil.senadord.gob.do`) es un gestor documental
  * ASP.NET WebForms («FileMaster») cuyo modo **consultante** es la interfaz de
  * consulta ciudadana que la propia web oficial enlaza. Esta capa lee ese modo
- * consultante y nada más. El reconocimiento completo está en `docs/RECON.md` §12.
+ * consultante y nada más. El reconocimiento completo está en `docs/INFRAESTRUCTURA.md` §5.5.
  *
  * Reglas que impone el origen, en paridad con `lib/congreso.ts`:
  *
@@ -746,7 +746,7 @@ export async function buscarExpedientesSenado(
   }
 }
 
-/** Cuántas formas con tilde se prueban como mucho: el Senado pide ritmo muy bajo (RECON §12.1). */
+/** Cuántas formas con tilde se prueban como mucho: el Senado pide ritmo muy bajo (docs/INFRAESTRUCTURA.md §5.5). */
 const MAX_FORMAS_SENADO = 3;
 
 /**
@@ -863,7 +863,7 @@ export interface GemeloSenado {
  * Así que se busca en el consultante una frase del título, en el cuatrienio de
  * la cita de Diputados, y se abren como mucho tres fichas: solo se acepta la
  * que **declara** esa misma cita, o la que se promulgó con el **mismo número
- * de ley** que la pieza de Diputados (RECON §14: el Senado deja el campo de
+ * de ley** que la pieza de Diputados (docs/INFRAESTRUCTURA.md §5.5: el Senado deja el campo de
  * cruce vacío en piezas que sí pasaron por ambas cámaras). Un título parecido
  * no basta, porque el Congreso reintroduce piezas con el mismo enunciado.
  *

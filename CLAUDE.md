@@ -5,8 +5,8 @@ Herramienta **independiente y no oficial**: el pie y los metadatos lo dicen y
 eso no se toca. Todo el texto de cara al usuario va en es-DO.
 
 Este archivo se inyecta entero en cada turno, así que es el presupuesto más caro
-del repositorio: **una línea por regla, y el enlace a la página que la explica.**
-Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/`.
+del repositorio: **una línea por regla, y el enlace a la sección que describe lo que rige.**
+Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/INFRAESTRUCTURA.md`.
 
 ## Qué es
 
@@ -15,7 +15,7 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/`.
 | Compras públicas | `/licitaciones`, `/historico`, `/proveedores/inhabilitados` | API abierta de la DGCP + tablas completas desde 2015, medidas sobre proveedores, lista SDN de la OFAC y padrón RNC (instantáneas) | `lib/dgcp.ts`, `lib/historico.ts`, `lib/rnc.ts`, `lib/sanciones.ts` (con `medidas`) |
 | Finanzas públicas | `/finanzas` | SIGEF: ejecución y subsidio eléctrico (instantáneas) | `lib/fiscal.ts`, `lib/capitulos.ts`, `lib/subsidio.ts` |
 | Congreso Nacional | `/congreso` | SIL Diputados + consultante del Senado | `lib/congreso.ts`, `lib/senado.ts` |
-| Normativa y justicia | `/normativa`, `/constitucional`, `/tse`, `/audiencias`, `/inmobiliario`, tarjeta en `/` | Consultoría Jurídica (API JSON + instantánea; registro completo de decretos con su firmante, por año); TC y TSE (HTML); boletín del Poder Judicial (instantánea); rol de audiencias del PJ y expedientes del Registro Inmobiliario (POST en vivo, solo por número exacto) | `lib/normativa.ts`, `lib/decretos.ts` (con `decretos-base`), `lib/tc.ts`, `lib/tse.ts`, `lib/justicia.ts`, `lib/audiencias.ts`, `lib/inmobiliario.ts` |
+| Normativa y justicia | `/normativa`, `/constitucional`, `/tse`, `/audiencias`, `/inmobiliario`; decretos en `/`, boletín del PJ en `/indicadores` | Consultoría Jurídica (API JSON + instantánea; registro completo de decretos con su firmante, por año); TC y TSE (HTML); boletín del Poder Judicial (instantánea); rol de audiencias del PJ y expedientes del Registro Inmobiliario (POST en vivo, solo por número exacto) | `lib/normativa.ts`, `lib/decretos.ts` (con `decretos-base`), `lib/tc.ts`, `lib/tse.ts`, `lib/justicia.ts`, `lib/audiencias.ts`, `lib/inmobiliario.ts` |
 | Nómina estatal | `/nomina`, `/nomina/general` | Instantánea de 86 instituciones + nómina general del MAP (492 mil plazas, agregada) | `lib/nomina.ts`, `lib/nomina-server.ts`, `lib/nomina-general.ts` |
 | Deuda pública | `/deuda` y tarjeta en `/` | Crédito Público (XLSX + instantánea con serie; subastas de bonos) | `lib/deuda.ts`, `lib/subastas.ts` |
 | Entidades y personas (transversal) | `/instituciones`, `/funcionarios`, `/empresas`, `/buscar`, `/grafo`, `/ontologia`, `/mcp` (con `/conectar`) | Clasificador de DIGEPRES (894 entidades) cruzado DGCP ↔ SIGEF ↔ nómina ↔ Consultoría; funcionarios del MAP, decretos, cortes, JCE y Junta Monetaria (PEP por la Ley 311-14) y las declaraciones juradas que publican las instituciones; personas jurídicas del padrón DGII; supervisados de SB, SIPEN, SIS e IDECOOP; índice de búsqueda por palabra y por tema sobre las instantáneas; el grafo en RDF (OWL, schema.org), compilado y comprobado nodo a nodo, con QID de Wikidata vía QLever; el índice y el grafo (con las contrataciones), servidos a asistentes de IA por MCP, con recuperación para RAG y SQL sobre sus tablas | `lib/instituciones.ts`, `lib/funcionarios.ts` (con `cargos`), `lib/declaraciones.ts`, `lib/empresas.ts`, `lib/padron.ts`, `lib/financieras.ts`, `lib/buscar.ts`, `lib/busqueda.ts`, `lib/grafo-rdf.ts` (lee `datos/grafo/` por `grafo-compilado` y `grafo-ld`; con `rdf`, `ontologia` y sus esquemas, `wikidata`), `lib/mcp.ts`, `lib/grafo-sql.ts`, `lib/tablas-compras.ts` |
@@ -44,17 +44,19 @@ Function. Ningún dato del Estado entra a la DB: una ficha no la lee, pinta un c
 
 ## Qué documento responde a qué
 
-| La pregunta | La página |
-|---|---|
-| ¿Cómo debe **verse**, sonar y **comportarse**? ¿Qué primitiva uso? | `docs/IDENTIDAD.md` (cómo se ve) y `docs/DESIGN.md` (cómo se comporta) — si la interfaz los contradice, la interfaz está mal |
-| ¿Dónde vive **X**? ¿Por qué está escrito así? | `docs/ARQUITECTURA.md` — capas, rutas de API, páginas, rendimiento percibido |
-| ¿Cómo se lee el **Congreso**? | `docs/RECON.md` — mecánica verificada del SIL, el consultante, cadenas de documentos |
-| ¿Y **cualquier otra fuente** del Estado? | `docs/AUDITORIA.md` — estado ✅/⚠️/❌, familias de acceso, bloqueos y su desbloqueo institucional |
-| ¿Cómo funcionan las **excepciones** de la DB? | `docs/PLAN-DEMOCRACIA.md` (voto, Cuenta Única §9) y `docs/PLAN-ESPACIOS.md` (cuentas, proyectos, alertas) |
-| ¿Qué se construye **después**? | `docs/PLAN-ACCESO.md` — plan de acceso: horizontes, orden, criterio de hecho; `docs/PLAN-GRAFO.md` — el grafo como modelo de todo: ontología, identidad, tiempo, subgrafos, exportaciones |
-| ¿Qué archivos **moldean una sesión**? | `docs/HARNESS.md` — inventario, orden de carga, dónde va una regla nueva |
+Un solo documento, `docs/INFRAESTRUCTURA.md`: la infraestructura tal como está, con fecha en cada medida. Ningún plan, pendiente, evaluación ni historia entra en él (el porqué va al commit); lo que cambia en el código cambia ahí en el mismo commit. No se crea otro `.md` en `docs/`.
 
-Los `.claude/rules/*.md` se cargan solos al tocar rutas que coinciden y condensan la página que nombran en su cabecera; nunca la sustituyen.
+| La pregunta | La sección |
+|---|---|
+| ¿Qué stack, qué despliegue, cuánto pesa cada función? | §1 |
+| ¿Dónde vive **X**? ¿Qué ruta, qué módulo? | §2 Repositorio, §3 Rutas |
+| ¿Cómo se lee una **fuente** del Estado y en qué estado está? | §4, §5 (✅/⚠️/❌), §6 Instantáneas |
+| ¿Cómo funcionan el **grafo**, la **búsqueda** y el **MCP**? | §7, §8, §9 |
+| ¿Cómo funcionan las **excepciones** de la DB? | §10 |
+| ¿Qué tokens y primitivas tiene la **interfaz**? | §11; sus reglas, `.claude/rules/identidad.md` |
+| ¿Qué archivos **moldean una sesión**? | §12 |
+
+Los `.claude/rules/*.md` se cargan solos al tocar rutas que coinciden: son las reglas de esa zona y nombran en su cabecera la sección que la describe.
 
 ## Cómo opera una sesión
 
@@ -69,9 +71,9 @@ Las sesiones terminan trabajo; no devuelven preguntas.
 2. **Verifica antes de afirmar.** Una fuente «funciona» solo tras una respuesta
    real con el User-Agent identificable; un cambio está «hecho» solo cuando
    `./.claude/hooks/verificar.sh --completo` imprime `RESULT: clean`.
-3. **La documentación es la memoria.** Lo que la próxima sesión tendría que
-   redescubrir va a la página que lo posee, con la convención ✅/⚠️/❌, y a
-   `/fuentes` cuando toca una fuente. El chat no es memoria.
+3. **El documento es la memoria.** Lo que la próxima sesión tendría que redescubrir va a la
+   sección de `docs/INFRAESTRUCTURA.md` que lo describe —lo que es, no lo que será—, ✅/⚠️/❌
+   para el estado de una fuente, y a `/fuentes` cuando toca una fuente. El chat no es memoria.
 4. **Se entrega a `main`.** Cada push a `main` despliega a producción. Rebase
    sobre `origin/main` (otras sesiones también empujan), gate completo **sobre
    el árbol ya rebasado** —estampa el commit y el guard exige esa estampa en
@@ -97,15 +99,13 @@ npx tsc --noEmit # solo typecheck
 python3 scripts/build-<nombre>.py  # tras busqueda: node scripts/build-indice-busqueda.mjs
 ```
 
-No hay suite de pruebas ni ESLint: `next build` es el gate real, envuelto por
-`./.claude/hooks/verificar.sh --completo` (typecheck, identidad, controles sin
+No hay suite de pruebas ni ESLint: `next build` es el gate real, envuelto por `./.claude/hooks/verificar.sh --completo` (typecheck, identidad, controles sin
 efecto, statelessness, secretos, harness, build, la evaluación del MCP, el grafo compilado contra sus constructores y contra su ontología en SHACL). El lockfile fija **Next 15**;
 se compila contra él (`npm ci`) — Turbopack en 16 tolera cosas que webpack en 15
 rechaza, como un import `node:` llegando a un bundle de cliente.
 
 Habilidades: `/verificar` (el gate), `/entregar` (docs → gate → commit → push), `/nueva-fuente` (QRSPI de una fuente del Estado). Agentes: `recon` (reconocimiento
-de campo con la higiene de la plataforma), `revisor` (revisión de solo lectura
-contra todas las reglas de arriba).
+de campo con la higiene de la plataforma), `revisor` (revisión de solo lectura contra todas las reglas de arriba).
 
 ## Convenciones
 
@@ -113,7 +113,7 @@ Next.js 15 **App Router** + React 19 + TypeScript + Tailwind CSS 4 (plugin
 `@tailwindcss/postcss`; los tokens y utilidades viven en `app/globals.css`). La
 interfaz se compone con **shadcn/ui** en `components/ui/` —código del
 repositorio, Radix por debajo— vestido con los tokens de la identidad; encima
-van las primitivas de la casa (`docs/IDENTIDAD.md` §8). Nada de markup a mano
+van las primitivas de la casa (`docs/INFRAESTRUCTURA.md` §11.9). Nada de markup a mano
 para una superficie, un botón, una marca o una capa que abre. El alias `@/*`
 resuelve a la **raíz del repositorio** — este proyecto no usa `src/`.
 Los mensajes de commit van en español, sujeto imperativo, cuerpo en prosa que

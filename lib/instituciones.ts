@@ -14,12 +14,12 @@
  * el Poder Judicial, el Banco Central, la mayoría de las juntas de distrito—
  * es una institución más, con id `900000 + capítulo` y `dgcp: false`: su ficha
  * no consulta la DGCP, porque no hay nada suyo que consultar. El clasificador
- * da a todas su sector (`SECTORES`). Mecánica verificada en docs/AUDITORIA.md
+ * da a todas su sector (`SECTORES`). Mecánica verificada en docs/INFRAESTRUCTURA.md §5.7
  * (DIGEPRES, 2026-09-29) y en la cabecera del script.
  *
  * Este módulo solo lee el cruce y compone; cada dato sigue viniendo de su
  * capa (`lib/dgcp.ts`, `lib/fiscal.ts`, `lib/nomina-server.ts`,
- * `lib/normativa.ts`). Ver docs/PLAN-ACCESO.md §2 (1.1) y §3 (2.3).
+ * `lib/normativa.ts`). Ver docs/INFRAESTRUCTURA.md §5.7.
  */
 
 import datos from "@/public/data/instituciones.json";

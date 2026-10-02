@@ -1,7 +1,7 @@
 /**
  * Precios de los combustibles — Ministerio de Industria, Comercio y Mipymes.
  *
- * Mecánica en docs/AUDITORIA.md §A.5, re-verificada el 2026-09-23: el robots
+ * Mecánica en docs/INFRAESTRUCTURA.md §5.4, re-verificada el 2026-09-23: el robots
  * de `micm.gob.do` es Yoast abierto; el aviso semanal tiene el cuerpo vacío y
  * su `wp-json` está cerrado, así que la **portada** es la única lectura por
  * máquina. Hoy trae seis precios —antes cuatro— y la frase de vigencia

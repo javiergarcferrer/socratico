@@ -5,7 +5,7 @@ import { join } from "node:path";
  * Subastas de bonos en pesos del Ministerio de Hacienda y Economía: a qué tasa
  * se endeuda el Estado en el mercado local y cuánta demanda encuentra.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.5 (Crédito Público, 2026-09-24):
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.3 (Crédito Público, 2026-09-24):
  * la Dirección General de Crédito Público publica **un consolidado por año**
  * (`/Content/subastas/consolidados/AAAA/…`), XLSX en 2026 y `.xls` viejo en
  * 2025, que se reescribe con cada subasta. `scripts/build-subastas.py` los lee

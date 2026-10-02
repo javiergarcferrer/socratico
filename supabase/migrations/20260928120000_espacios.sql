@@ -1,5 +1,5 @@
 -- Espacios del lector: cuenta, lo guardado, proyectos de investigación con sus
--- enlaces y notas, colaboración, publicación y lo que sigue (docs/PLAN-ESPACIOS.md).
+-- enlaces y notas, colaboración, publicación y lo que sigue (docs/INFRAESTRUCTURA.md §10).
 --
 -- Contrato (CLAUDE.md, la invariante):
 --  · ningún dato del Estado entra aquí: una entrada es una REFERENCIA (tipo,

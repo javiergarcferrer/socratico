@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
  * Estaba escrito tres veces (licitaciones, proveedores, congreso) con tres
  * alturas, dos radios y dos azules distintos en el botón, y solo uno de los
  * tres ofrecía borrar lo tecleado. Es el patrón de dilución que documenta
- * `docs/IDENTIDAD.md` §8: donde no hay primitiva compartida, la idea se
+ * `docs/INFRAESTRUCTURA.md` §11: donde no hay primitiva compartida, la idea se
  * reimplementa en cada sitio y cada copia se desvía un poco.
  *
  * Dos decisiones son de la casa y viajan con la pieza:
@@ -28,7 +28,7 @@ import { cn } from "@/lib/cn";
  *
  * Una búsqueda que solo acepta una forma —un número de caso, un número de
  * expediente— dice por qué no vale **junto al campo** (`error`, con
- * `ErrorCampo`, `aria-invalid` y `aria-describedby`: docs/DESIGN.md §1.2), no en
+ * `ErrorCampo`, `aria-invalid` y `aria-describedby`: docs/INFRAESTRUCTURA.md §11), no en
  * una pantalla de «sin resultados» que haría creer que se buscó.
  */
 export function CampoBusqueda({

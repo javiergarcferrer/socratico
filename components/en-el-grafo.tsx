@@ -6,8 +6,8 @@ import { schemaOrgDe } from "@/lib/grafo-ld";
 import type { Empresa } from "@/lib/empresas";
 
 /**
- * El pie de una ficha que es un nodo del grafo (docs/ARQUITECTURA.md, el
- * grafo semántico): su descripción en schema.org incrustada como JSON-LD
+ * El pie de una ficha que es un nodo del grafo (docs/INFRAESTRUCTURA.md
+ * §7): su descripción en schema.org incrustada como JSON-LD
  * —lo que leen los buscadores; sale de los mismos triples que `/api/grafo`,
  * en su forma ligera, ya compilada (`lib/grafo-ld.ts`)— y el camino a su red
  * en el explorador y a su RDF. La ficha de una empresa pasa la fila del

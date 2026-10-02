@@ -25,7 +25,7 @@ const BANDEJA = "__bandeja__";
 
 /**
  * «Guardar» en una ficha: en la bandeja o directo a una o varias
- * investigaciones (docs/PLAN-ESPACIOS.md). Es la única pieza de una ficha que
+ * investigaciones (docs/INFRAESTRUCTURA.md §10). Es la única pieza de una ficha que
  * habla con la base, y la ficha no lo sabe: importa este componente, no el
  * cliente de Supabase. El cliente se carga **al abrir**, no al pintar la
  * ficha: la mayoría de las visitas no tiene cuenta y no tiene por qué

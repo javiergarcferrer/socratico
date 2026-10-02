@@ -2,7 +2,7 @@
 """Genera public/data/nomina-general.json: la Nómina Pública General del
 Estado que publica el Ministerio de Administración Pública (MAP), agregada.
 
-Mecánica verificada en docs/AUDITORIA.md §A.8 y §G.10 (2026-09-24):
+Mecánica verificada en docs/INFRAESTRUCTURA.md §5.8 (2026-09-24):
 
     GET https://map.gob.do/datosabiertos/data/nomina_publica_general_estado/csv?year=2026&month=7
     → 200 text/csv, ~62 MB, 492,488 filas: Nombre_del_empleado, Institución,

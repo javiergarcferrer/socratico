@@ -1,5 +1,5 @@
 {
-  "descripcion": "Sesenta y cinco preguntas en llano y la pantalla que las contesta (docs/PLAN-ACCESO.md §6 ter, G4). Hecho cuando cada una llega a su pantalla entre los tres primeros resultados de buscarPantallas. Se corre con: node scripts/probar-pantallas.mjs",
+  "descripcion": "Sesenta y cinco preguntas en llano y la pantalla que las contesta (docs/INFRAESTRUCTURA.md §8.7). Pasa cuando cada una llega a su pantalla entre los tres primeros resultados de buscarPantallas. Se corre con: node scripts/probar-pantallas.mjs",
   "preguntas": [
     ["precio del dólar", "/indicadores"],
     ["cuánto está la gasolina premium", "/indicadores"],

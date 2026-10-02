@@ -1,7 +1,7 @@
 /**
  * Mantenimientos programados de las distribuidoras — Edenorte y Edesur.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.11 (recon del 2026-09-24, con
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.4 (recon del 2026-09-24, con
  * este User-Agent y `robots.txt` leído antes en cada host: ambos permiten `/`).
  * Responde a «¿me van a quitar la luz esta semana?» con lo único que las
  * empresas publican **por adelantado**: los cortes por trabajos en la red. Las

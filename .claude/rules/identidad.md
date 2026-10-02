@@ -5,15 +5,15 @@ paths:
 ---
 # «El Contrasello» — what the UI may and may not do
 
-docs/IDENTIDAD.md is the source of truth: if the interface contradicts it, the
-interface is wrong. Read it in full before any visual work. The rules below
-are enforced by `.claude/hooks/guard-edit.sh` and `verificar.sh`.
+These are the rules for the interface; docs/INFRAESTRUCTURA.md §11 records the
+tokens, primitives and checks as they are. The rules below are enforced by
+`.claude/hooks/guard-edit.sh` and `verificar.sh`.
 
-## Prohibitions (the 215 violations that were once cleaned up)
+## Prohibitions
 1. No gradients, no blur washes (`bg-gradient-*`, `blur-3xl`). Dark panels are flat ink.
 2. No glass shadows. Surfaces you **read** separate with the hairline
    (`border-hairline`); `shadow-card`/`shadow-soft` only for what truly floats.
-   Depth is semantic (docs/IDENTIDAD.md §Relieve): flat = read, `relieve`
+   Depth is semantic (docs/INFRAESTRUCTURA.md §11.5): flat = read, `relieve`
    (grain + 2 px canto) = press, sunk = on (`aria-current`/`aria-pressed`/
    `data-state=on`), `shadow-pop` = overlays. A stretched link is `estira`
    inside a `relative` container, which then gets relief or row response.
@@ -28,7 +28,7 @@ are enforced by `.claude/hooks/guard-edit.sh` and `verificar.sh`.
    `white` — the `Button` primitive already decided this.
 7. No mute controls: a `hover:` whose value repeats what the element already
    has changes nothing, and a ring colour with no ring width never paints.
-8. Motion only through its tokens (docs/IDENTIDAD.md §Movimiento): `ease-firma`
+8. Motion only through its tokens (docs/INFRAESTRUCTURA.md §11.4): `ease-firma`
    /`sello`/`salida`/`estampa`, `--dur-toque…--dur-trazo`; nothing animates on
    load, numbers never count up, exits faster than entries, reduced motion
    keeps the meaning. The gate rejects hand-written curves and >300 ms.
@@ -36,7 +36,7 @@ are enforced by `.claude/hooks/guard-edit.sh` and `verificar.sh`.
    `FUERA_DEL_INDICE` (`lib/indice.ts`) with a reason — gate-checked.
 
 ## Use the primitives, not hand-rolled markup
-Two layers (docs/IDENTIDAD.md §8). **Never hand-roll a surface, a button, a
+Two layers (docs/INFRAESTRUCTURA.md §11.8–11.9). **Never hand-roll a surface, a button, a
 badge, a field or a layer that opens** — there is a primitive for each.
 
 `components/ui/*` is **shadcn/ui, restyled with our tokens**: Card (no shadow,
@@ -76,7 +76,7 @@ percentage deltas in points), `lib/glosario.ts` + `components/termino.tsx`
 definition on tap), `components/esqueleto.tsx` (the silhouette a page shows while
 a source answers: every `loading.tsx` and `Suspense` fallback composes it,
 same heights and grids as the content so nothing jumps), `components/graficos/*`
-(every chart — docs/IDENTIDAD.md §Gráficos: `BarrasHorizontales`/`FilaBarra`/
+(every chart — docs/INFRAESTRUCTURA.md §11.11: `BarrasHorizontales`/`FilaBarra`/
 `MarcaBarra` for a ranking, `MapaProvincias` for where (province choropleth or locator), `SerieTemporal` columns for a flow and line for a
 stock or rate, one axis only, `BarraApilada`, `MatrizMensual`, `Multiples`,
 `Leyenda`, `VerComoTabla`, `RedVecinos` for who a node links to (one mark,
@@ -100,7 +100,7 @@ registers the finding instead of fixing it.
   Instrument Serif (`font-marca`) is the wordmark only.
 - The dot is always seal red (`.punto-sello`). No exception.
 
-## Voice and cognitive ergonomics (docs/IDENTIDAD.md §Ergonomía)
+## Voice and cognitive ergonomics
 - Headlines are questions; data answers; the reader concludes.
 - Cite the source and date next to every figure, or do not show the figure.
   What the source denies is declared denied. Snapshots and samples say so
@@ -111,7 +111,7 @@ registers the finding instead of fixing it.
   the text → vote. Aggregates are never shown before the reader answers.
 - Defaults are visible as chips; disabled controls explain why before the tap;
   "no results" and "the source did not answer" are two different screens.
-- Mobile first (docs/IDENTIDAD.md §8, all of it inherited from the primitives):
+- Mobile first (all of it inherited from the primitives, docs/INFRAESTRUCTURA.md §11.9):
   44 px is the touch target on a phone (40 from `sm`); fields are 16 px or iOS
   zooms on focus; a card or listing row that leads to one place stretches its
   link over the whole sheet with `::after` (anything else inside goes `z-10`);

@@ -66,8 +66,8 @@ import { NOMBRES_TABLAS, TABLAS_GENERADAS, TABLAS_GRAFO, esquemaCompacto } from 
  * mismas capas que pintan las fichas (`lib/busqueda.ts`, `lib/grafo-rdf.ts`,
  * `lib/decretos.ts`), así que responde lo mismo que la página y con las mismas
  * reglas: sin cédulas, PEP solo mientras dura, ni parentescos ni biografías,
- * la fuente y la fecha de corte en cada respuesta (docs/ARQUITECTURA.md, el
- * servidor MCP).
+ * la fuente y la fecha de corte en cada respuesta (docs/INFRAESTRUCTURA.md
+ * §9).
  *
  * Sin estado, sin sesión y sin clave (CLAUDE.md, la invariante): cada pedido
  * HTTP construye su servidor (`servidorMcp`) y lo suelta. Solo lectura: ninguna

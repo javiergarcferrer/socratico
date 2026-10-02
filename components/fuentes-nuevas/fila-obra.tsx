@@ -7,7 +7,7 @@ import { enlace } from "@/lib/grafo";
 
 /**
  * Una obra en un listado: qué es, quién la ejecuta, dónde, en qué estado y
- * cuánto dice haber avanzado. La fila entera lleva a la ficha (IDENTIDAD §8).
+ * cuánto dice haber avanzado. La fila entera lleva a la ficha (docs/INFRAESTRUCTURA.md §11).
  *
  * Componente de servidor: importa `lib/obras.ts`, que lee disco con `node:fs`.
  * Lo pintan el listado `/obras` y la ficha de institución; nunca un cliente.

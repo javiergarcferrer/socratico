@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * El compilador del grafo (docs/PLAN-GRAFO.md, F2): corre los constructores
+ * El compilador del grafo (docs/INFRAESTRUCTURA.md §7): corre los constructores
  * (`lib/grafo-constructores.ts`) sobre todas las instantáneas, para cada nodo
  * de cada tipo, y escribe lo que afirman en `datos/grafo/`. El servidor ya no
  * arma una descripción al pedirla: la lee de ahí (`lib/grafo-compilado.ts`,

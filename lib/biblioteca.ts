@@ -6,7 +6,7 @@ import { agujas, contieneTodas, plano, recortar } from "@/lib/raiz";
  * Biblioteca del Estado — un índice de los documentos (PDF, hojas de cálculo,
  * Word) que publican las instituciones en sus sitios WordPress.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.2: el endpoint público de
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.10: el endpoint público de
  * lectura `/wp-json/wp/v2/media`, sin clave y paginado, en 23 instituciones.
  * `scripts/build-documentos.py` lo recorre entero en build —robots primero,
  * un segundo entre peticiones— y deja en `public/data/documentos/`:

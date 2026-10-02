@@ -11,7 +11,7 @@ import { useHaySesion } from "./presencia";
 
 /**
  * «Importa»: el voto sobre un registro o una investigación
- * (docs/PLAN-ESPACIOS.md §6). Solo hacia arriba: no se vota contra un hecho,
+ * (docs/INFRAESTRUCTURA.md §10). Solo hacia arriba: no se vota contra un hecho,
  * se dice que merece atención. Vota cualquier cuenta con correo verificado;
  * sin sesión, el botón lleva a entrar y vuelve aquí.
  *

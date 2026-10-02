@@ -24,7 +24,7 @@ const ORDENES: { clave: OrdenComunidad; nombre: string; alcance: string }[] = [
 const LIMITE = 50;
 
 /**
- * El feed de la comunidad (docs/PLAN-ESPACIOS.md §6): las conversaciones
+ * El feed de la comunidad (docs/INFRAESTRUCTURA.md §10): las conversaciones
  * abiertas sobre registros de la plataforma y sobre investigaciones
  * publicadas. Lo lee el servidor por HTTP (`leerComunidad`, medio minuto de
  * caché); votar y comentar pasan en el navegador, en la ficha.

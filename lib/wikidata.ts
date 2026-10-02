@@ -5,7 +5,7 @@ import type { NodoRdf } from "@/lib/grafo";
 /**
  * Los identificadores de Wikidata de los nodos del grafo: la instantánea
  * `public/data/wikidata.json` que escribe `scripts/build-wikidata.py` con
- * consultas a la réplica de Wikidata de QLever (docs/AUDITORIA.md §H.14; el
+ * consultas a la réplica de Wikidata de QLever (docs/INFRAESTRUCTURA.md §5.7; el
  * servicio SPARQL de Wikidata veta `/sparql` en su robots).
  *
  * Solo el QID, para `owl:sameAs` y `schema:sameAs`: ni descripciones, ni

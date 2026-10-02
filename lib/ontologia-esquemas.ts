@@ -2,7 +2,7 @@ import { z } from "zod";
 import { CLASES, PROPIEDADES, curie, type Clase, type Propiedad } from "@/lib/ontologia";
 
 /**
- * Lo que sale de la ontología para los datos (docs/PLAN-GRAFO.md, F0): las
+ * Lo que sale de la ontología para los datos (docs/INFRAESTRUCTURA.md §7): las
  * tablas Parquet del grafo y los esquemas zod que validan sus filas y cada
  * nodo, de la **misma definición** que da el OWL, el SHACL y el perfil de
  * Fabric IQ (`lib/ontologia.ts`).

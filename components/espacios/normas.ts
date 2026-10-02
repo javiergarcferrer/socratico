@@ -1,5 +1,5 @@
 /**
- * Las normas de la conversación (docs/PLAN-ESPACIOS.md §6). Una sola lista:
+ * Las normas de la conversación (docs/INFRAESTRUCTURA.md §10). Una sola lista:
  * la acepta quien va a comentar por primera vez y la publica `/comunidad/normas`.
  * Están escritas para lo que esta plataforma arriesga: hablar de personas con
  * nombre y apellido que manejan dinero público.

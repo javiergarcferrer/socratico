@@ -3,7 +3,7 @@
 cálculo, Word) que publican las instituciones del Estado en sus sitios
 WordPress.
 
-Mecánica verificada en docs/AUDITORIA.md §G.2 (2026-09-24): el endpoint
+Mecánica verificada en docs/INFRAESTRUCTURA.md §5.10 (2026-09-24): el endpoint
 público de lectura de WordPress
 
     GET https://<host>/wp-json/wp/v2/media?media_type=application
@@ -52,7 +52,7 @@ TOPE_PAGINAS = 250
 PAUSA = 1.0
 
 # host → (institución, unidad de compra de su ficha o None). Verificados en
-# AUDITORIA §G.2; `minpre` queda fuera por su robots (`Disallow: /*?`) y los
+# docs/INFRAESTRUCTURA.md §5.10; `minpre` queda fuera por su robots (`Disallow: /*?`) y los
 # de REST cerrada (sns, map, miderec) o WAF (agricultura, infotep, one) no se
 # intentan: su vía es institucional.
 HOSTS: dict[str, tuple[str, int | None]] = {

@@ -8,8 +8,8 @@ import { esRncDeEmpresa, soloCifras } from "@/lib/padron";
  * Las empresas del padrón de contribuyentes de la DGII: todas las personas
  * jurídicas, por su RNC o por su razón social, sin base de datos.
  *
- * Mecánica verificada en docs/AUDITORIA.md §A.2 (el padrón es un ZIP estático
- * sin clave, Windows-1252, que cambia hacia el día 19 de cada mes) y §A.12
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.7 (el padrón es un ZIP estático
+ * sin clave, Windows-1252, que cambia hacia el día 19 de cada mes) y §5.1
  * (la tabla entera del Registro de Proveedores, para el RPE).
  * `scripts/build-empresas.py` lo convierte en build, nunca por request, en
  * `public/data/empresas/`; este módulo solo lee esos archivos (`node:fs`, de
@@ -137,8 +137,8 @@ let rango: Promise<Uint8Array | null> | null = null;
 /*
   Cada ruta se escribe entera, con sus carpetas literales: el trazado de
   archivos de Next lee la expresión de `readFile` y, con el nombre en una
-  variable, metería `public/data` entero en la función (docs/ARQUITECTURA.md
-  §Búsqueda). Así solo viaja `public/data/empresas/`.
+  variable, metería `public/data` entero en la función (docs/INFRAESTRUCTURA.md
+  §1.4). Así solo viaja `public/data/empresas/`.
 */
 function leerMeta(): Promise<Meta | null> {
   meta ??= readFile(join(process.cwd(), "public", "data", "empresas", "meta.json"), "utf8")

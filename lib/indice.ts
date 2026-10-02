@@ -10,7 +10,7 @@
  * declara su tarea. Antes había tres listas de destinos —las vistas de
  * `lib/secciones`, las páginas de plataforma y el menú— y no coincidían: la
  * paleta no conocía «El país en cifras» ni «Cortes de luz» aunque el menú sí.
- * Tres listas son la «segunda tabla» de docs/IDENTIDAD.md §7, y la forma
+ * Tres listas son la «segunda tabla» de docs/INFRAESTRUCTURA.md §11, y la forma
  * concreta en que un índice deja de decir la verdad.
  *
  * El gate (`.claude/hooks/indice.py`) exige que toda página estática de

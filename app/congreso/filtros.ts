@@ -4,7 +4,7 @@ import type { TipoIniciativa } from "@/lib/congreso";
  * Los filtros del listado de iniciativas. Todo vive en la URL y se comparte.
  *
  * `tipo` y `perimidas` solo existen dentro de un tema: es lo que el SIL sabe
- * responder (docs/RECON.md §2.2). Sin tema se leen como ausentes, y con tema
+ * responder (docs/INFRAESTRUCTURA.md §5.5). Sin tema se leen como ausentes, y con tema
  * toman los valores de entrada del propio portal del SIL —proyectos de ley, sin
  * las perimidas—, que la vista enseña como chips de fábrica.
  */

@@ -17,7 +17,7 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode
  *   el punto lleva a una ficha, la lectura trae un enlace de 44 px. Con ratón,
  *   el clic va directo a la ficha.
  * - **La lectura no es la única vía**: el máximo va rotulado, los extremos del
- *   eje también y la tabla equivalente está debajo (docs/IDENTIDAD.md
+ *   eje también y la tabla equivalente está debajo (docs/INFRAESTRUCTURA.md §11
  *   §Gráficos). Esto acelera; no esconde nada.
  * - Aparece y se va sin animar: responde al lector en el mismo cuadro.
  */

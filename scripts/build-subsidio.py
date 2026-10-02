@@ -3,8 +3,8 @@
 cada año a las empresas eléctricas del Estado (las tres distribuidoras y la
 transmisora), según la API de datos abiertos del SIGEF.
 
-Mecánica verificada en docs/AUDITORIA.md §G.8 (2026-09-24), la misma API que
-ya lee `scripts/build-fiscal.py` (§A.1):
+Mecánica verificada en docs/INFRAESTRUCTURA.md §5.2 (2026-09-24), la misma API que
+ya lee `scripts/build-fiscal.py`:
 
     GET https://api-sigef.hacienda.gob.do/servicios/datosabiertos/portaltransparencia/gastos/transferencias/{año}/{mes}/json?seccion=11111&capitulo=0999
     → 200 (`content-type: application/csv` con cuerpo JSON: se valida el

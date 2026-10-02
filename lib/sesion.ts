@@ -5,14 +5,14 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase-config";
 
 /**
  * Abrir sesión con el correo: lo comparten `/democracia/registro` (votar) y
- * `/cuenta` (el espacio del lector, `docs/PLAN-ESPACIOS.md`). Es una sola
+ * `/cuenta` (el espacio del lector, `docs/INFRAESTRUCTURA.md` §10). Es una sola
  * cuenta de Supabase Auth para las dos cosas.
  *
  * Vivía dentro del registro del voto. Se sacó cuando la cuenta del espacio
  * necesitó exactamente lo mismo: la lectura tolerante de todo lo que el
  * visitante puede pegar (código, enlace sin pulsar, barra de direcciones tras
  * pulsarlo, canje PKCE, fallo) y la traducción de cada error de envío. Dos
- * copias serían la «segunda tabla» de docs/IDENTIDAD.md §7.
+ * copias serían la «segunda tabla» de docs/INFRAESTRUCTURA.md §11.
  */
 
 /**
@@ -210,7 +210,7 @@ export const correoValido = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test
  *
  * El proveedor se activa en el panel de Supabase; hasta
  * entonces `/auth/v1/settings` dice `google: false` y el botón no se ofrece:
- * un botón que lleva a un error es un control sin efecto (IDENTIDAD §6).
+ * un botón que lleva a un error es un control sin efecto (docs/INFRAESTRUCTURA.md §11).
  */
 let googleActivo: Promise<boolean> | null = null;
 

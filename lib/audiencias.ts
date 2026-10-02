@@ -2,7 +2,7 @@
  * Rol Nacional de Audiencias del Poder Judicial: la historia de un caso en
  * todos los tribunales por los que pasó, buscada por su número único (NUC).
  *
- * Mecánica verificada en docs/AUDITORIA.md §H.13 (2026-09-30), con la consulta:
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.6 (2026-09-30), con la consulta:
  *
  *  1. La página pública `rolnacionalaudiencias.poderjudicial.gob.do` es una SPA
  *     de React, sin CAPTCHA ni clave. Su API vive en
@@ -32,7 +32,7 @@
  * ⚠️ En `next dev` la respuesta cruda **sí** aparece en el HTML: React 19.2, en
  * su build de desarrollo, serializa como información de depuración el valor de
  * cada lectura que espera un componente de servidor. El servidor de producción
- * de React no tiene ese código (docs/ARQUITECTURA.md, «Consultas por número»):
+ * de React no tiene ese código (docs/INFRAESTRUCTURA.md §5.6):
  * lo que no pinta un componente no llega a la página.
  *
  * Contrato (`.claude/rules/fuentes.md`): `lib/pedir.ts` con el User-Agent de la
@@ -89,7 +89,7 @@ export function validarNuc(texto: string | null | undefined): { nuc: string } | 
  * casi siempre su papel, pero un nombre con paréntesis («EMPRESA (EMT)») o una
  * errata del tribunal podría colar un nombre: si no está aquí, no se muestra.
  * Salen de los papeles que trae el rol en las filas del reconocimiento
- * (AUDITORIA §H.13: dieciséis distintos) y de los que usan los procesos penal,
+ * (docs/INFRAESTRUCTURA.md §5.6: dieciséis distintos) y de los que usan los procesos penal,
  * civil, laboral e inmobiliario.
  */
 const PAPELES: Record<string, string> = Object.fromEntries(

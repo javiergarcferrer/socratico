@@ -3,8 +3,7 @@
 sola instantánea — denuncias de robo y armas (Ministerio de Interior y
 Policía), matrícula escolar (MINERD) y licencias de construcción (MIVHED).
 
-Mecánica verificada en docs/AUDITORIA.md §G.7 (MIP, MINERD) y §G.8 (MIVHED);
-esta instantánea es §G.14. Ninguna de las tres tiene un nombre de archivo
+Mecánica verificada en docs/INFRAESTRUCTURA.md §5.9 (MIP, MINERD y MIVHED). Ninguna de las tres tiene un nombre de archivo
 predecible, así que cada bloque empieza por el listado que lo publica:
 
 - MIP: `wp-json/wp/v2/media?mime_type=…spreadsheetml.sheet` (robots solo veta

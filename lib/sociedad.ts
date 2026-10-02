@@ -6,8 +6,7 @@ import { join } from "node:path";
  * (Ministerio de Interior y Policía), matrícula escolar (MINERD) y licencias
  * de construcción (MIVHED).
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.14 (sobre los hallazgos de §G.7
- * y §G.8): ninguno de los tres orígenes publica un nombre de archivo
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.9: ninguno de los tres orígenes publica un nombre de archivo
  * predecible —el MIP sube a una carpeta por mes con sufijos `-v2`, el MINERD
  * antepone prefijos aleatorios, el MIVHED cambia la carpeta al actualizar—, así
  * que `scripts/build-sociedad.py` descubre cada archivo en su listado (la

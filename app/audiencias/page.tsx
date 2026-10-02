@@ -259,7 +259,7 @@ function Resultado({ rol }: { rol: RolDeCaso }) {
         {/*
           En el teléfono cada audiencia es una ficha apilada —cuándo, dónde, en
           qué quedó, de qué y con quién—; desde `sm` manda el cuadro, que es
-          donde se comparan cuatro columnas (docs/IDENTIDAD.md §8).
+          donde se comparan cuatro columnas (docs/INFRAESTRUCTURA.md §11).
         */}
         <ol className="mt-2 divide-y divide-hairline border-t border-hairline sm:hidden">
           {rol.audiencias.map((a, i) => (

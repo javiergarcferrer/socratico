@@ -5,7 +5,7 @@ scripts/build-funcionarios.py (designaciones y firmantes).
 `POST /api/consultas/search` con `DocumentTypeCode: 3` y el año vacío es la
 consulta que hace el buscador público: sin sesión ni clave, responde de una
 vez los ~78,800 decretos desde 1844 (~75 MB, ~60 s). Mecánica en
-docs/AUDITORIA.md §4.1. Solo se guardan seis campos: la cédula, el monto de
+docs/INFRAESTRUCTURA.md §5.6. Solo se guardan seis campos: la cédula, el monto de
 una pensión y los campos de persona que trae la fila no se escriben ni en la
 caché.
 

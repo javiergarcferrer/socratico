@@ -1,7 +1,7 @@
 /**
  * Alertas meteorológicas — Instituto Dominicano de Meteorología (INDOMET).
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.4 (2026-09-24): INDOMET emite sus
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.4 (2026-09-24): INDOMET emite sus
  * avisos en el estándar internacional CAP 1.2 y los publica, en dominio
  * público, en el repositorio de fuentes CAP que alimenta a los agregadores de
  * alertas:

@@ -7,7 +7,7 @@ import { formatMagnitud, formatPesos } from "@/lib/format";
  * y pasarlo a su capa de cliente sin serializar código.
  *
  * Todo sale de `lib/format.ts`: la magnitud viaja en palabras, nunca «MM» ni
- * «K» (docs/IDENTIDAD.md §3).
+ * «K» (docs/INFRAESTRUCTURA.md §11).
  */
 export type FormatoValor = "entero" | "pesos" | "usd-millones" | "porciento" | "decimal";
 

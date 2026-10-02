@@ -7,7 +7,7 @@ import { join } from "node:path";
  * la CDEEE que lo repartía), según las transferencias del capítulo 0999 en la
  * API de datos abiertos del SIGEF.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.8; `scripts/build-subsidio.py`
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.2; `scripts/build-subsidio.py`
  * la lee en build (≈20 s por año, más el año en curso) y deja
  * `public/data/subsidio-electrico.json`. Es lo que transfiere el Tesoro, no
  * todo el costo del sector: la interfaz lo dice.

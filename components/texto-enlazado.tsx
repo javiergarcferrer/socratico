@@ -6,7 +6,7 @@ import { reconocerTodo } from "@/lib/grafo-servidor";
 /**
  * Un texto oficial con sus menciones convertidas en enlaces: la norma que
  * cita, la institución que nombra, el proceso o la obra por su código
- * (docs/PLAN-ACCESO.md §6 ter, G1: todo lo que se ve se puede investigar).
+ * (docs/INFRAESTRUCTURA.md §7: todo lo que se ve se puede investigar).
  *
  * El enlace va subrayado en fino y en la tinta del texto, no en azul: dentro
  * de un párrafo el azul entero convertiría el título en una fila de botones.

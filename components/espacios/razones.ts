@@ -2,7 +2,7 @@ import type { EstadoConversacion } from "@/lib/espacios-cliente";
 import { formatFecha } from "@/lib/format";
 
 /**
- * Por qué este lector no puede votar, dicho antes del toque (docs/IDENTIDAD.md,
+ * Por qué este lector no puede votar, dicho antes del toque (docs/INFRAESTRUCTURA.md §11,
  * ergonomía §6). `null` si puede. La comparten la ficha y el feed.
  */
 export function porQueNoVota(yo: EstadoConversacion | null): string | null {

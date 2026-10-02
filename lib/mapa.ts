@@ -6,7 +6,7 @@ import { join } from "node:path";
  *
  * Fuente: los límites administrativos oficiales de la Oficina Nacional de
  * Estadística (ONE), publicados en el HDX de la ONU como COD-AB `cod-ab-dom`,
- * CC BY-IGO (docs/AUDITORIA.md §G.16). `scripts/build-mapa.py` los proyecta y
+ * CC BY-IGO (docs/INFRAESTRUCTURA.md §5.9). `scripts/build-mapa.py` los proyecta y
  * simplifica a `public/data/mapa.json` (~40 KB); esto solo lee esa instantánea.
  * Sin servidor de teselas, sin clave y sin librería: el mapa es un SVG que se
  * pinta en el servidor, y cada provincia es un enlace.

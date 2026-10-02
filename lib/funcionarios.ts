@@ -8,7 +8,7 @@ export { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP };
 
 /**
  * Personas con cargo público — quién ocupa cada cargo y qué cargos ha ocupado
- * cada persona, según lo que el propio Estado publica (docs/AUDITORIA.md §H,
+ * cada persona, según lo que el propio Estado publica (docs/INFRAESTRUCTURA.md §5.7,
  * cuarta pasada, 2026-09-29). Es la capa de personas del grafo: la ficha
  * `/funcionarios/[slug]`, el directorio y el «¿Quién la dirige?» de cada
  * institución.
@@ -24,7 +24,7 @@ export { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP };
  *    Judicial, Tribunal Constitucional, Tribunal Superior Electoral (con sus
  *    gestiones anteriores), Junta Central Electoral y Defensor del Pueblo;
  *  · la **Junta Monetaria**, de la página del Banco Central (el POST que hace
- *    esa misma página, docs/AUDITORIA.md §H.13): nombre y cargo, nada más;
+ *    esa misma página, docs/INFRAESTRUCTURA.md §5.7): nombre y cargo, nada más;
  *  · los **electos municipales de 2024** (JCE) y los **legisladores** del
  *    período (el SIL, sin red).
  *
@@ -309,7 +309,7 @@ export async function personaDeLegislador(id: number): Promise<Persona | null> {
 /**
  * La fecha (ISO) tres años antes del corte de la instantánea: el plazo del
  * art. 2, num. 19 de la Ley 155-17, contado desde lo que dicen los datos y no
- * desde el reloj de quien lee (docs/PLAN-GRAFO.md §3.4). El mismo corte da la
+ * desde el reloj de quien lee (docs/INFRAESTRUCTURA.md §7). El mismo corte da la
  * misma respuesta cualquier día, y la ficha y el grafo compilado coinciden.
  */
 function haceTresAnios(corte: string): string {

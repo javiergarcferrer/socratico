@@ -58,7 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * Qué es (la razón social y su RNC) → en qué punto está (estado, régimen,
  * desde cuándo opera) → con qué se conecta (su ficha de proveedor del Estado)
  * → lo que aquí no hay y dónde se pide (el registro mercantil). Es el orden
- * de docs/IDENTIDAD.md §4.
+ * de docs/INFRAESTRUCTURA.md §11.
  */
 export default async function EmpresaPage({ params }: Props) {
   const { rnc } = await params;

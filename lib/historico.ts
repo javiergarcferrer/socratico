@@ -5,7 +5,7 @@ import { join } from "node:path";
  * Historia de las compras públicas desde 2015 — todos los contratos y procesos
  * que el registro de la DGCP conserva, agregados.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.1: las tablas `contratos` y
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.1: las tablas `contratos` y
  * `procesos` de la sección «Tablas» de datos abiertos de la DGCP bajan enteras
  * como CSV (~115 y ~245 MB). `scripts/build-historico.py` las agrega en build
  * —nunca por request— y deja en `public/data/historico/`:

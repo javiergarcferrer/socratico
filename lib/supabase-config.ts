@@ -6,7 +6,7 @@
  * RLS en la base). Van con fallback literal para que producción funcione sin
  * configurar nada en Vercel; las env vars, si existen, mandan. El material
  * sensible (el pepper del hash de cédula) vive dentro de Postgres y jamás
- * pasa por aquí — ver docs/PLAN-DEMOCRACIA.md §4.
+ * pasa por aquí — ver docs/INFRAESTRUCTURA.md §10.
  */
 
 export const SUPABASE_URL =

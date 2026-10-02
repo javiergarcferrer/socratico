@@ -7,7 +7,7 @@ import { EnlaceRegistro, MarcaTipo } from "./registro";
  * La línea de tiempo de un caso: los registros a los que el investigador les
  * dio una fecha, en orden, por año. La fecha es suya —cuándo pasó lo que le
  * importa de ese registro—, no un dato copiado de la fuente
- * (docs/PLAN-ESPACIOS.md §7): por eso se dice «fecha anotada».
+ * (docs/INFRAESTRUCTURA.md §10): por eso se dice «fecha anotada».
  *
  * Sin «use client»: `/p` la pinta en el servidor; la mesa le pasa `accion`
  * para cambiar la fecha en cada fila.

@@ -25,6 +25,6 @@ cat <<CTX
 [harness Socrático.do] branch=${rama:-?} (${delta:-no upstream}); uncommitted files=${sucio}
 Last commits:
 $(git log --oneline -5 2>/dev/null | sed 's/^/  /')
-CLAUDE.md §"Qué documento responde a qué" routes every question to its page; docs/HARNESS.md says what shapes a session. Gate before finishing: /verificar (verificar.sh --completo) — on green it stamps the commit, and the push to main is refused without that stamp. Delivery: /entregar. New state source: /nueva-fuente.
+CLAUDE.md §"Qué documento responde a qué" routes every question to its section of docs/INFRAESTRUCTURA.md, the only document (what is, never plans); §12 says what shapes a session. Gate before finishing: /verificar (verificar.sh --completo) — on green it stamps the commit, and the push to main is refused without that stamp. Delivery: /entregar. New state source: /nueva-fuente.
 CTX
 exit 0

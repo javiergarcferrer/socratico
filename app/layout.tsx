@@ -172,7 +172,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             */}
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <Paleta />
-              {/* La cuenta: «Entrar» o «Tu espacio» (docs/PLAN-ESPACIOS.md). */}
+              {/* La cuenta: «Entrar» o «Tu espacio» (docs/INFRAESTRUCTURA.md §10). */}
               <PuertaCuenta />
             </div>
           </div>

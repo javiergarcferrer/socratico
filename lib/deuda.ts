@@ -9,7 +9,7 @@
  * La serie en el tiempo (`getSerieDeuda`) sale de la instantánea que arma
  * `scripts/build-deuda.py` recorriendo el listado de cada año.
  *
- * Reconocimiento en docs/AUDITORIA.md §3.3 y docs/PLAN-DEMOCRACIA.md §1.
+ * Reconocimiento en docs/INFRAESTRUCTURA.md §5.3 y docs/INFRAESTRUCTURA.md §10.
  */
 
 // Módulo SOLO de servidor (usa node:fs): no importarlo desde componentes
@@ -82,7 +82,7 @@ export function periodoDeFecha(iso: string): string {
  * serie de Excel en la fila de debajo. El saldo del período es la de fecha
  * mayor. Hasta el 2026-09-23 esta capa leía la primera —la columna C— y
  * publicaba como «Jul-26» el saldo del 31 de diciembre de 2025
- * (docs/AUDITORIA.md §3.3). La etiqueta va en la columna B desde 2020 y en
+ * (docs/INFRAESTRUCTURA.md §5.3). La etiqueta va en la columna B desde 2020 y en
  * la C antes; y las celdas de fórmula compartida (`<f t="shared" …/>`) traen
  * su valor calculado igual que las demás.
  */
@@ -205,7 +205,7 @@ export interface SerieDeuda {
   ultimo: Deuda;
   /**
    * Cierres trimestrales desde 2015 y los meses recientes del año en curso:
-   * es lo que el origen **conserva** publicado (docs/AUDITORIA.md §3.3). Si la
+   * es lo que el origen **conserva** publicado (docs/INFRAESTRUCTURA.md §5.3). Si la
    * lectura en vivo trae un cierre posterior a la instantánea, va al final.
    */
   serie: CierreDeuda[];

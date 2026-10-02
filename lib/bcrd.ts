@@ -5,7 +5,7 @@ import { MESES, MESES_CORTOS } from "@/lib/format";
 /**
  * Inflación (IPC) y llegadas de pasajeros por vía aérea, del Banco Central.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.5 (2026-09-24): los dos archivos
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.4 (2026-09-24): los dos archivos
  * del CDN del BCRD están en el Excel viejo (BIFF, `.xls`), que el lector de
  * XLSX de `lib/deuda.ts` no abre. `scripts/build-bcrd.py` los lee en build y
  * este módulo sirve `public/data/bcrd.json`; la interfaz dice que es una

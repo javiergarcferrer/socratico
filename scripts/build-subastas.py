@@ -3,7 +3,7 @@
 Ministerio de Hacienda y Economía, del consolidado anual que publica la
 Dirección General de Crédito Público.
 
-Mecánica verificada el 2026-09-24 (docs/AUDITORIA.md §G.5, Crédito Público):
+Mecánica verificada el 2026-09-24 (docs/INFRAESTRUCTURA.md §5.3, Crédito Público):
 
 - **Listado por año**: `GET /emisiones/subastas?dlAnio=AAAA&tipocontenido=Resultados`
   (el mismo formulario GET de la página; el selector llega hasta 2009) → HTML

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Genera public/data/fiscal.json: ejecución presupuestaria por institución.
 
-La API de datos abiertos del SIGEF (docs/AUDITORIA.md §A.1) sirve la ejecución del
+La API de datos abiertos del SIGEF (docs/INFRAESTRUCTURA.md §5.2) sirve la ejecución del
 Presupuesto General del Estado sin clave, pero calcula el año en curso en vivo:
 una sección entera tarda ~97 s y una institución suelta entre 20 y 90 s. Eso no
 cabe en un request de la web, así que —como la nómina y la deuda— se consolida

@@ -3,7 +3,7 @@
  * OCCRP, OpenSanctions y Aleph (https://followthemoney.tech, licencia MIT).
  * Exportar en FtM deja que una investigación hecha aquí siga en esas
  * herramientas —cargarla en Aleph, cruzarla con listas de sanciones— sin
- * reescribirla (docs/PLAN-ESPACIOS.md §7).
+ * reescribirla (docs/INFRAESTRUCTURA.md §10).
  *
  * Una línea JSON por entidad, que es lo que lee `ftm` en la línea de
  * comandos. Los esquemas y propiedades se comprobaron contra

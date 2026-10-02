@@ -3,8 +3,7 @@
 del Estado, empresas y personas físicas, y las entidades de la lista SDN de la
 OFAC ligadas a la República Dominicana.
 
-Cinco descargas (reconocimiento del 2026-09-29; docs/AUDITORIA.md §A.3, §A.12
-y §G.1 para las tablas de la DGCP, §H.13 para el Banco Mundial):
+Cinco descargas (reconocimiento del 2026-09-29; docs/INFRAESTRUCTURA.md §5.1):
 
 1. **Proveedores inhabilitados**, la tabla que la DGCP sirve en su sección
    «Tablas» de datos abiertos:
@@ -18,11 +17,11 @@ y §G.1 para las tablas de la DGCP, §H.13 para el Banco Mundial):
    `inhabilitados=false`, ~80 MB, que **no** excluye a los inhabilitados): da
    la razón social, el documento, el tipo de persona y el estado actual de
    cada RPE. Se leen solo esas columnas; teléfonos, correos y contactos se
-   descartan al leer (§E.6: publicar no es exponer).
+   descartan al leer (publicar no es exponer).
 5. **La lista de firmas e individuos inhabilitados del Banco Mundial**: la
    API que usa su página, con la clave que la página publica (se lee de la
    página en cada corrida y no se escribe en ningún sitio
-   del 2026-09-30, docs/AUDITORIA.md §H.13). Se guardan las firmas ligadas al
+   del 2026-09-30, docs/INFRAESTRUCTURA.md §5.1). Se guardan las firmas ligadas al
    país y las que tienen exactamente el mismo nombre que un proveedor inscrito
    en la DGCP; los individuos solo se cuentan.
 3. y 4. **La lista SDN de la OFAC** (Tesoro de Estados Unidos),
@@ -382,7 +381,7 @@ def robots_permite_api(url: str) -> tuple[bool, str]:
     §2.3.1): si responde 200, manda su grupo `User-agent: *` sobre la ruta; si
     responde 4xx, el archivo «no está disponible» y se puede leer; si responde
     5xx o no contesta, no se lee. El gateway del Banco Mundial responde 403 a
-    `/robots.txt` y 200 a su API (docs/AUDITORIA.md §H.13)."""
+    `/robots.txt` y 200 a su API (docs/INFRAESTRUCTURA.md §5.1)."""
     partes = urllib.parse.urlsplit(url)
     try:
         req = urllib.request.Request(f"{partes.scheme}://{partes.netloc}/robots.txt", headers={"User-Agent": UA})
@@ -417,7 +416,7 @@ def robots_permite_api(url: str) -> tuple[bool, str]:
 
 def leer_banco_mundial(local: pathlib.Path | None) -> tuple[list[dict], bytes, str | None]:
     """La lista de firmas e individuos inhabilitados del Banco Mundial
-    (docs/AUDITORIA.md §H.13). Su API exige una clave que la propia página
+    (docs/INFRAESTRUCTURA.md §5.1). Su API exige una clave que la propia página
     publica en un `<script>`; se usa con una condición: **no se escribe en ningún sitio**. Se lee
     de la página en cada corrida y vive solo en memoria. Devuelve las filas,
     la respuesta cruda (para `--guardar`; no lleva la clave) y la fecha de

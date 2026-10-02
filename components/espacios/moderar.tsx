@@ -29,7 +29,7 @@ import { Cerrado, SinSesion, useUsuario } from "./comun";
 type Carga = { estado: "cargando" } | { estado: "ok"; cola: ColaModeracion } | { estado: "sin-permiso" } | { estado: "cerrado" } | { estado: "error"; error: string };
 
 /**
- * La cola de moderación (docs/PLAN-ESPACIOS.md §6): lo oculto por denuncias y
+ * La cola de moderación (docs/INFRAESTRUCTURA.md §10): lo oculto por denuncias y
  * lo denunciado aún visible, con los motivos; restaurar o retirar, con una
  * nota que queda en el registro de acciones; suspender o levantar una
  * suspensión. Solo la ve quien está en `espacios.moderadores`: la base lo

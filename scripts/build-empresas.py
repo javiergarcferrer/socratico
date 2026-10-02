@@ -3,7 +3,7 @@
 contribuyentes de la DGII, con su búsqueda por RNC y por razón social, sin
 base de datos.
 
-Fuentes, sin clave (docs/AUDITORIA.md §A.2 y §A.12):
+Fuentes, sin clave (docs/INFRAESTRUCTURA.md §5.7):
 
 1. **El padrón de contribuyentes de la DGII**:
    `https://dgii.gov.do/app/WebApps/Consultas/RNC/RNC_CONTRIBUYENTES.zip`
@@ -18,7 +18,7 @@ Fuentes, sin clave (docs/AUDITORIA.md §A.2 y §A.12):
    (~80 MB). Solo se leen `RPE`, `NUMERO_DOCUMENTO`, `TIPO_DOCUMENTO` y, para
    elegir entre dos inscripciones del mismo RNC, `ESTADO_RPE` y la fecha de
    su última actualización. Trae teléfonos, correos y personas de contacto:
-   nada de eso se guarda ni se imprime (§E.6: publicar no es exponer).
+   nada de eso se guarda ni se imprime (publicar no es exponer).
 
 **Quién entra: las personas jurídicas, y ninguna persona física.** El padrón
 no trae una columna de tipo de persona, así que se deduce, y por eso se

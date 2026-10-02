@@ -16,7 +16,7 @@ import { cn } from "@/lib/cn";
  * de dos piezas que hacen lo mismo — que es como se rompen los sistemas.
  *
  * Esquina `rounded-sm`: una barra con el radio completo es una píldora, y aquí
- * las píldoras no entran (docs/IDENTIDAD.md §7). El color del relleno se pasa
+ * las píldoras no entran (docs/INFRAESTRUCTURA.md §11). El color del relleno se pasa
  * por `indicadorClassName` porque una proporción **significa** algo distinto en
  * cada sitio —ejecución presupuestaria, reparto de votos, concentración de
  * contratos— y el significado manda sobre el adorno.

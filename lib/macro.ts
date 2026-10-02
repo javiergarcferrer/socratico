@@ -2,10 +2,9 @@
  * Indicadores macro del Banco Central: remesas, reservas internacionales y
  * tasa de interés activa de los bancos múltiples.
  *
- * Sin credenciales: la API del BCRD exige clave y es decisión del dueño
- * (docs/AUDITORIA.md §8.3). Esto lee los **archivos públicos del CDN** del
- * BCRD, verificados en la tercera pasada de reconocimiento (docs/AUDITORIA.md
- * §G.5, 2026-09-24), el mismo camino que `lib/tasa.ts`:
+ * Sin credenciales: la API del BCRD exige clave
+ * (docs/INFRAESTRUCTURA.md §5.11). Esto lee los **archivos públicos del CDN** del
+ * BCRD, verificados el 2026-09-24 (docs/INFRAESTRUCTURA.md §5.4), el mismo camino que `lib/tasa.ts`:
  *
  *   https://cdn.bancentral.gov.do/documents/estadisticas/sector-externo/documents/Remesas_6.xlsx
  *   → 200 `application/octet-stream`, ~18 KB, `PK`. Hoja «Total», formato

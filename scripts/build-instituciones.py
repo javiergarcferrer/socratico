@@ -43,7 +43,7 @@ Cada institución se ata a:
   una sola institución: el del Servicio Nacional de Salud no se reparte entre
   sus 186 hospitales.
 
-Mecánica verificada el 2026-09-29 (la documenta docs/AUDITORIA.md):
+Mecánica verificada el 2026-09-29 (la documenta docs/INFRAESTRUCTURA.md §5.7):
 
 - `GET https://digepres.gob.do/wp-json/wp/v2/media?search=clasificador&…` →
   200 JSON (40 medios). El nombre del archivo del clasificador cambia con cada

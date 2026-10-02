@@ -4,7 +4,7 @@
  * Mismo contrato que las demás capas: sin base de datos, lectura en vivo con
  * caché. En septiembre de 2026 la Consultoría rehízo su portal: la vieja app
  * ASP.NET MVC (`/consulta/`, token antiforgery + POST de formulario) devuelve
- * 404 y el buscador nuevo habla JSON. Reglas verificadas (docs/AUDITORIA.md §4.1):
+ * 404 y el buscador nuevo habla JSON. Reglas verificadas (docs/INFRAESTRUCTURA.md §5.6):
  *
  *  1. **Búsqueda.** `POST /api/consultas/search` con cuerpo JSON; sin token ni
  *     sesión. Responde la lista completa, sin paginar.
@@ -163,7 +163,7 @@ const REPOSITORIO = filas(
 /*
   El contrato de la casa (`lib/pedir.ts`) con **un solo intento**, como antes:
   el rechazo típico aquí es el desafío de Cloudflare, y repetir la petición
-  no lo levanta (se gestiona: docs/AUDITORIA.md §4.1). El motivo del registro
+  no lo levanta (se gestiona: docs/INFRAESTRUCTURA.md §5.6). El motivo del registro
   lleva el veredicto `cf-mitigated`.
 */
 const PEDIDO = {

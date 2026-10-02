@@ -19,7 +19,7 @@ const FORMATOS: readonly FormatoRdf[] = ["ttl", "jsonld", "nt", "trig", "nq"];
  * `/normativa/decreto/641-26`, `/provincias/santo-domingo`) y `?formato=`
  * uno de `ttl` (por defecto), `jsonld` o `nt`; `trig` y `nq` llevan además el
  * grafo con nombre de cada triple —de qué fuente y corte, o de qué regla— y lo
- * que se dice de cada grafo en PROV-O (docs/PLAN-GRAFO.md §3.8).
+ * que se dice de cada grafo en PROV-O (docs/INFRAESTRUCTURA.md §7).
  */
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;

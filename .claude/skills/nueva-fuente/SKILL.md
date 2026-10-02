@@ -14,19 +14,18 @@ One sentence, as a question («¿Cuánto debe el Estado?»). If the source
 answers no citizen question, stop and say so.
 
 ## R — recon (verify, never assume)
-Check `docs/AUDITORIA.md` first: most sources already have a status and a
-verified path, and its **SEGUNDA PASADA** (§A–§F) supersedes rows marked ↓ in
-the first table. §D ranks the next integrations by value ÷ effort (DGCP's
-unused endpoints first, then SIGEF, MICM, MapaInversiones, RNC, nómina
-ampliada, BCRD). Before a new host, exhaust the ones already integrated. If the mechanics are not yet ✅, run the `recon` agent
+Check `docs/INFRAESTRUCTURA.md` §5 first: the sources already read, with
+their status and verified paths, and §5.11 with the ones that do not answer.
+Before a new host, exhaust the ones already integrated. If the mechanics are not yet ✅, run the `recon` agent
 (`.claude/agents/recon.md`) or do it by hand with the same hygiene:
 `robots.txt` first, identifiable User-Agent, 2–6 requests, GET only, no
-challenge evasion. Write the findings into `docs/AUDITORIA.md` (or `docs/RECON.md`
-for Congress) with ✅/⚠️/❌ and the exact URLs, response shapes, and
-content-types you saw.
+challenge evasion. Write the findings into the subsection of `docs/INFRAESTRUCTURA.md` §5
+for its vertical with ✅/⚠️/❌ and the exact URLs, response shapes, and
+content-types you saw, each with its date.
 
 Blocked (403/470/challenge) or credentialed (API key) → the outcome is a
-documented "sin vía hoy" row plus the institutional unblock path. Do not build.
+row in `docs/INFRAESTRUCTURA.md` §5.11 with the observed response and its
+date. Do not build.
 
 ## S — spike
 One throwaway script (scratchpad, not the repo) that fetches one real record
@@ -52,8 +51,8 @@ fabricated number), whether a committed snapshot fallback is warranted
    and scope declared), and a vertical only if it deserves navigation
    (`lib/secciones.ts` + `--color-v-*` token in `app/globals.css`).
 4. `app/fuentes/page.tsx`: the public contract of what is read, with limits.
-5. `CLAUDE.md`: one paragraph in the data-layer notes; `README.md` table if
-   a route was added.
+5. `CLAUDE.md`: one paragraph in the data-layer notes; `docs/INFRAESTRUCTURA.md`
+   §2–§6 (module, route, source, snapshot) in the same commit.
 6. `/verificar --completo`, then `/entregar`.
 
 $ARGUMENTS

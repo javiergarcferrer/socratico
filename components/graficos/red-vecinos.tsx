@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
  * («Cargo en · Ministro de Hacienda»). Es la vista de un paso del grafo
  * (`/grafo`), pintada en el servidor como SVG, sin librería.
  *
- * Reglas que trae puestas (docs/IDENTIDAD.md §Gráficos):
+ * Reglas que trae puestas (docs/INFRAESTRUCTURA.md §11):
  *  - **una sola marca y un solo color**: el vecino es un punto de 8 px en la
  *    firma con anillo de papel; el centro, en tinta. La categoría de la arista
  *    no se pinta: se escribe (el rótulo de cada tramo de columna y la línea de

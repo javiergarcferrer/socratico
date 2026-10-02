@@ -3,7 +3,7 @@
 desde 2015, agregada por año, por institución y por proveedor.
 
 Dos descargas, sin clave, de la sección «Tablas» del portal de datos abiertos
-de la DGCP (docs/AUDITORIA.md §A.12 y §G.1, verificadas el 2026-09-24):
+de la DGCP (docs/INFRAESTRUCTURA.md §5.1, verificadas el 2026-09-24):
 
 - `…/api-dgcp/v1/tablas/contratos?Type=csv` — ~115 MB, ~723 mil contratos
   desde 2015: código, estado, fecha de adjudicación, valor, moneda, objeto,
@@ -33,11 +33,11 @@ apellido (13 el 2026-09-24, ~16 % del valor). Algunos parecen errores de
 captura (RD$10,000,000,001 exactos por un servicio de Cultura); otros pueden
 ser obras reales (la Autopista del Ámbar, la línea 2 del teleférico). Sin el
 expediente no se distinguen: sumarlos podría dar la cifra creíble y falsa que
-§D prohíbe, y esconderlos callaría lo que el registro publica. Cada ficha de
+la plataforma no publica, y esconderlos callaría lo que el registro publica. Cada ficha de
 institución y de proveedor dice además cuántos de los suyos quedaron fuera.
 
 Sin teléfonos ni correos: estas tablas no los traen, y de todas formas no
-se leerían (§E.6).
+se leerían (publicar no es exponer).
 
 Uso:
     python3 scripts/build-historico.py              # descarga las dos tablas

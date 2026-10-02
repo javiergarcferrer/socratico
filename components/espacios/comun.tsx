@@ -52,14 +52,14 @@ export function SinSesion({ volver, que }: { volver: string; que: string }) {
 }
 
 /**
- * El esquema aún no está abierto en el API (docs/PLAN-ESPACIOS.md §5). No es
+ * El esquema aún no está abierto en el API (docs/INFRAESTRUCTURA.md §10). No es
  * una caída ni un vacío: se dice qué pasa y qué sí funciona ya.
  */
 export function Cerrado({ h1 = false }: { h1?: boolean }) {
   const titulo = "Los proyectos se abren pronto";
   return (
     <Alert role="note" variant="aviso" className="p-4">
-      {/* Cuando es lo único de la página, su título es el h1 (docs/DESIGN.md §7). */}
+      {/* Cuando es lo único de la página, su título es el h1 (docs/INFRAESTRUCTURA.md §11). */}
       {h1 ? <h1 className="font-sans text-sm font-semibold tracking-normal">{titulo}</h1> : <AlertTitle>{titulo}</AlertTitle>}
       <p className="mt-1 text-sm leading-relaxed">
         Tu cuenta ya existe y entrar funciona, pero guardar registros y armar

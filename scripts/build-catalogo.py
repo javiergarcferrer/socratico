@@ -2,7 +2,7 @@
 """Genera public/data/catalogo.json: el catálogo completo de conjuntos de
 datos públicos de datos.gob.do (el portal de datos abiertos del Estado).
 
-Mecánica verificada en docs/AUDITORIA.md §G.3 (2026-09-24):
+Mecánica verificada en docs/INFRAESTRUCTURA.md §5.10 (2026-09-24):
 
 - `robots.txt` veta `/api/`, `/revision/`, `/dataset/rate/` y
   `/dataset/*/history`, y pide `Crawl-Delay: 10`. Este script no toca

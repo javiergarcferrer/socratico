@@ -37,8 +37,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
  * expedientes (`lib/inmobiliario.ts`), en vivo, por el número exacto que
  * escribe el lector. El número vive en la URL (`?q=`, el de `BuscadorUrl`).
  *
- * ⚠️ La forma de una respuesta con datos no se ha visto (docs/AUDITORIA.md
- * §H.13): las siete columnas salen del JS de la página del Registro, y la
+ * ⚠️ La forma de una respuesta con datos no se ha visto (docs/INFRAESTRUCTURA.md
+ * §5.6): las siete columnas salen del JS de la página del Registro, y la
  * página lo dice junto a la tabla.
  */
 export default async function InmobiliarioPage({ searchParams }: Props) {
@@ -172,7 +172,7 @@ function Resultado({ consulta }: { consulta: ConsultaExpediente }) {
         columnas son las de su propia página; si algo sale como «{SIN_DATO}», compáralo allí.
       </p>
 
-      {/* En el teléfono, una ficha por fila; desde `sm`, el cuadro (docs/IDENTIDAD.md §8). */}
+      {/* En el teléfono, una ficha por fila; desde `sm`, el cuadro (docs/INFRAESTRUCTURA.md §11). */}
       <ol className="mt-2 divide-y divide-hairline border-t border-hairline sm:hidden">
         {consulta.expedientes.map((e, i) => (
           <li key={i} className="px-5 py-3">

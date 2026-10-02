@@ -4,7 +4,7 @@ nodos del grafo que lo tienen sin dudas —provincias, instituciones,
 entidades financieras y personas con cargo público—, para `owl:sameAs` en
 el RDF y `sameAs` en el schema.org de cada ficha (lib/wikidata.ts).
 
-Mecánica en docs/AUDITORIA.md §H.14: el servicio SPARQL de Wikidata
+Mecánica en docs/INFRAESTRUCTURA.md §5.7: el servicio SPARQL de Wikidata
 (`query.wikidata.org`) veta `/sparql` en su robots, y `www.wikidata.org` solo
 deja leer un elemento que ya se conoce. Las búsquedas van a la **réplica de
 Wikidata de QLever** (`qlever.dev/api/wikidata`, Universidad de Friburgo),

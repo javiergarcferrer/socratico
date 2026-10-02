@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * La batería de G4 (docs/PLAN-ACCESO.md §6 ter): cada pregunta en llano de
+ * La batería de pantallas (docs/INFRAESTRUCTURA.md §8.7): cada pregunta en llano de
  * `scripts/bateria-pantallas.json` tiene que llevar a su pantalla entre los
  * tres primeros resultados de `buscarPantallas` (`lib/busqueda.ts`). Sin red:
  * lee el modelo y el corpus de `public/data/busqueda/`.

@@ -21,7 +21,7 @@ import {
 /**
  * La ontología de Socrático.do: qué clases de cosas hay en el grafo, cómo se
  * relacionan y qué forma tiene cada una, en **una sola definición** de la que
- * salen todas sus formas (docs/PLAN-GRAFO.md, F0):
+ * salen todas sus formas (docs/INFRAESTRUCTURA.md §7):
  *
  *  · OWL 2 y RDFS (`/ontologia.ttl`, `.jsonld`, `.nt`), con su equivalencia en
  *    los vocabularios que el mundo ya lee —schema.org, W3C ORG, ELI, FOAF,
@@ -49,7 +49,7 @@ import {
  * (una Persona de aquí es una `schema:Person`, no al revés);
  * `rdfs:subPropertyOf` igual; `skos:closeMatch` o `skos:broadMatch` hacia
  * Wikidata, cuyos elementos no son clases OWL. Cada QID se verificó contra
- * Wikidata el 30-09-2026 (docs/AUDITORIA.md §H.14); los términos nuevos no
+ * Wikidata el 30-09-2026 (docs/INFRAESTRUCTURA.md §5.7); los términos nuevos no
  * llevan QID hasta verificarlo. Los nombres de FollowTheMoney se comprobaron
  * en followthemoney.tech el 01-10-2026; los de ePO, en su documentación.
  */
@@ -1651,7 +1651,7 @@ const NOMBRE_FABRIC = /^[A-Za-z0-9_-]{1,26}$/;
  *
  * Lanza si un nombre no cabe: el build falla antes de publicar un perfil que
  * Fabric rechazaría. ⚠️ Sin una importación real verificada
- * (docs/PLAN-GRAFO.md, F6).
+ * (docs/INFRAESTRUCTURA.md §7).
  */
 export function triplesFabric(): Triple[] {
   const o = PREFIJOS.fabric.slice(0, -1);

@@ -16,7 +16,7 @@ import { enPuntos, porciento } from "./formato";
  * ahorro; arriba, lo que cobra por prestar; en medio, la tasa del Banco
  * Central y la de los bancos entre sí.
  *
- * Una sola serie en la firma (docs/IDENTIDAD.md §Gráficos): el escalón no se
+ * Una sola serie en la firma (docs/INFRAESTRUCTURA.md §11): el escalón no se
  * colorea por quién paga, se rotula. El mes es el último cerrado que traen a
  * la vez las dos hojas del BCRD; la TPM se lee en ese mismo mes, y si ya
  * cambió después, la nota lo dice.

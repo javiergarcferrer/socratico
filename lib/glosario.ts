@@ -1,7 +1,7 @@
 /**
  * El vocabulario del Estado, traducido en el punto de uso.
  *
- * `docs/IDENTIDAD.md` obliga a explicar «perimió» antes de usarlo. Un glosario
+ * `docs/INFRAESTRUCTURA.md` §11 obliga a explicar «perimió» antes de usarlo. Un glosario
  * aparte no cumple eso: nadie abre un glosario. La traducción tiene que estar
  * pegada a la palabra, y por eso cada entrada se lee a través de
  * `components/termino.tsx`: la palabra subrayada con puntos, y al tocarla, la

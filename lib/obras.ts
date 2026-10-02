@@ -8,7 +8,7 @@ import type { Tono } from "./estados";
 /**
  * Obra pública — la inversión del Estado proyecto a proyecto (MapaInversiones).
  *
- * Mecánica verificada en docs/AUDITORIA.md §A.4 (y su verificación de campo del
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.9 (y su verificación de campo del
  * 2026-09-23): quince CSV abiertos, sin clave, en
  * `mapainversiones.gob.do/opendata/`. Son ~21 MB entre los cuatro que usamos,
  * así que **no se leen por request**: `scripts/build-obras.py` los consolida en

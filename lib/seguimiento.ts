@@ -7,8 +7,8 @@
  * `localStorage`, y «qué cambió desde tu última visita» se calcula en el
  * navegador comparando lo que la fuente dice hoy con la **huella** —el estado
  * en palabras— que se guardó la última vez que se miró. Las notificaciones
- * push exigirían guardar suscripciones en un servidor; es una decisión abierta
- * del dueño (`docs/PLAN-ACCESO.md` §6) y no se construye aquí.
+ * push exigirían guardar suscripciones en un servidor, y la plataforma no las
+ * guarda (CLAUDE.md, «La invariante»).
  *
  * Empezó guardando solo códigos de proceso de compras, como una lista de
  * cadenas bajo la misma clave. Esa forma se sigue leyendo: cada cadena suelta

@@ -5,7 +5,7 @@ import { join } from "node:path";
  * Declaraciones juradas de patrimonio (Ley 311-14) que las propias
  * instituciones publican en sus portales, atadas a la ficha de quien declara
  * cuando no hay duda. Instantánea `public/data/declaraciones.json`
- * (`scripts/build-declaraciones.py`; mecánica en docs/AUDITORIA.md §H.12).
+ * (`scripts/build-declaraciones.py`; mecánica en docs/INFRAESTRUCTURA.md §5.7).
  *
  * Se **enlazan**. No se
  * copia ningún PDF ni se lee su contenido: título, institución, fecha de

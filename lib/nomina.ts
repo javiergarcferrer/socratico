@@ -148,7 +148,7 @@ export function median(values: number[]): number {
  * Cuántos meses tiene una foto que se deja de llamar «reciente». Cada
  * institución publica su nómina a su ritmo: el conjunto mezcla julio de 2026
  * con diciembre de 2021, y quien compara sueldos entre las dos tiene que
- * saberlo en la fila, no en una nota al pie (docs/PLAN-ACCESO.md, 1.6).
+ * saberlo en la fila, no en una nota al pie (docs/INFRAESTRUCTURA.md §5.8).
  */
 export const ATRASO_MAX_MESES = 3;
 

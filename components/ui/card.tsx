@@ -2,13 +2,13 @@
  * Tarjeta — la hoja sobre el papel.
  *
  * shadcn la dibuja con `rounded-xl` y `shadow-sm`; aquí no. «El papel no
- * flota» (docs/IDENTIDAD.md §2): las superficies se separan con **filete**, y
+ * flota» (docs/INFRAESTRUCTURA.md §11): las superficies se separan con **filete**, y
  * la esquina se queda en 8 px. La sombra queda reservada a lo que de verdad se
  * superpone —menú, hoja modal, botón flotante—, y esas primitivas sí la traen.
  *
  * Una tarjeta que se pulsa —un `<a>` con `asChild`, o una `relative` con un
  * enlace `estira` dentro— toma el **relieve** sola, desde `app/globals.css`:
- * fibra y canto. Nadie tiene que acordarse de pedirlo (docs/IDENTIDAD.md
+ * fibra y canto. Nadie tiene que acordarse de pedirlo (docs/INFRAESTRUCTURA.md §11
  * §Relieve).
  */
 

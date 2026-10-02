@@ -8,7 +8,7 @@
  *    la DGCP (`provincia`, `municipio` de cada ficha). El registro **no se
  *    puede filtrar ni recorrer por provincia**: `provincia=` devuelve 500 con
  *    cualquier valor (verificado otra vez el 2026-09-23 con `SANTIAGO` y
- *    `Santiago`; docs/AUDITORIA.md §A.12) y hay páginas rotas de forma
+ *    `Santiago`; docs/INFRAESTRUCTURA.md §5.9) y hay páginas rotas de forma
  *    permanente. La vía acotada y declarada: se toman los `TOPE_PROVEEDORES`
  *    que más adjudicaron en la ventana de contratos recientes (la misma de
  *    `/contratos` y `/proveedores`, con su caché), se consulta la ficha de

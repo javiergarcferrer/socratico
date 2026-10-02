@@ -5,7 +5,7 @@ Diputados en sus dos períodos, para que el buscador (`/buscar`) encuentre
 legisladores e iniciativas sin tocar el SIL en cada consulta.
 
 Fuente: la API interna del portal SIL Ciudadano,
-`https://www.diputadosrd.gob.do/sil/api` (docs/RECON.md §2, §6 y §14). Solo
+`https://www.diputadosrd.gob.do/sil/api` (docs/INFRAESTRUCTURA.md §5.5). Solo
 GET, User-Agent identificable, en serie y con pausa de cortesía.
 
 Mecánica verificada el 2026-09-27:
@@ -28,19 +28,19 @@ Mecánica verificada el 2026-09-27:
   `legislador/legisladores?page=N&nivel={demarcación}` — el mismo barrido que
   `getDirectorioLegisladores` en `lib/congreso.ts` (~41 peticiones). Solo se
   guardan quienes tienen función de diputado o senador: son los que la
-  plataforma enlaza a `/congreso/legisladores/{id}` (RECON §14.3).
-- Un `200` con HTML es un fallo de ruta (RECON §2.1): se valida el
+  plataforma enlaza a `/congreso/legisladores/{id}` (docs/INFRAESTRUCTURA.md §5.5).
+- Un `200` con HTML es un fallo de ruta (docs/INFRAESTRUCTURA.md §5.5): se valida el
   `content-type` y la envoltura en cada respuesta.
 
 Límites que declara la instantánea (`corte`):
 - Cobertura = lo que el SIL de Diputados registra en 2020-2024 y 2024-2028.
   Las piezas vivas de períodos anteriores se arrastran al registro vigente con
-  número nuevo (RECON §6); las que murieron antes de 2020 no están.
+  número nuevo (docs/INFRAESTRUCTURA.md §5.5); las que murieron antes de 2020 no están.
 - Los títulos pesan ~6 MB por sí solos (media de 320 caracteres) y no se
   recortan; por eso el resto va en columnas con catálogos. El reformulado
   («TÍTULO MODIFICADO», ~1 850 piezas) va aparte, para que también se busque.
 - El Senado **no** entra: su consultante lista 50 expedientes por colección y
-  pagina por postback con ViewState que muta la sesión (RECON §12.2). No hay
+  pagina por postback con ViewState que muta la sesión (docs/INFRAESTRUCTURA.md §5.5). No hay
   listado barato; su búsqueda sigue en vivo en `/congreso/senado`.
 
 Coste: ~1 800 peticiones para las iniciativas (a ~1 s cada una con la pausa,
@@ -76,7 +76,7 @@ peticiones = 0
 
 
 def pedir(ruta: str):
-    """GET JSON al SIL con un reintento; lanza si no es JSON (RECON §2.1)."""
+    """GET JSON al SIL con un reintento; lanza si no es JSON (docs/INFRAESTRUCTURA.md §5.5)."""
     global peticiones
     url = f"{BASE}/{ruta}"
     for intento in (1, 2):

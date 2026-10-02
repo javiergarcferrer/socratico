@@ -3,7 +3,7 @@
  * `app/globals.css` (el escáner de Tailwind lee el fuente: una clase armada
  * con plantilla no se genera).
  *
- * Cada paleta tiene un oficio y solo uno (docs/IDENTIDAD.md §Gráficos):
+ * Cada paleta tiene un oficio y solo uno (docs/INFRAESTRUCTURA.md §11):
  *
  *  - `CATEGORICA` — qué serie es. Orden fijo; la serie N lleva siempre el
  *    paso N, así que el color sigue a la entidad y no a su puesto: un filtro

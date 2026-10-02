@@ -16,13 +16,13 @@ import { Rotulo } from "@/components/papel";
 import { IconArrowRight, IconLink } from "@/components/icons";
 
 /*
-  Un proyecto publicado por un lector (docs/PLAN-ESPACIOS.md). Se sirve en el
+  Un proyecto publicado por un lector (docs/INFRAESTRUCTURA.md §10). Se sirve en el
   servidor para que se pueda compartir y leer sin cuenta y sin JavaScript. Lo
   que dice es del autor —su selección, sus notas, su narración, sus fechas—;
   lo que enlaza son las fichas vivas de la plataforma, que leen cada cifra de
   su fuente.
 
-  El orden es el de entender (docs/IDENTIDAD.md §4): los datos responden y el
+  El orden es el de entender (docs/INFRAESTRUCTURA.md §11): los datos responden y el
   lector concluye. Primero cómo se conectan las piezas (tablero), en qué
   orden pasaron (línea de tiempo), cada pieza con su nota y lo que las une;
   después lo que sostiene el autor (narración), y al final la conversación.

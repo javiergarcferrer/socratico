@@ -1,6 +1,6 @@
 /**
  * El reconocimiento del grafo que necesita datos: nombres de instituciones en
- * un texto (docs/PLAN-ACCESO.md §6 ter, G1). Solo servidor: carga el cruce de
+ * un texto (docs/INFRAESTRUCTURA.md §7). Solo servidor: carga el cruce de
  * instituciones, que no viaja al navegador.
  *
  * Mismo criterio que `institucionesNombradasEn`: solo el **nombre completo**

@@ -26,8 +26,8 @@ import {
 } from "@/lib/grafo-compilado";
 
 /**
- * El grafo semántico de la plataforma, nodo a nodo (docs/ARQUITECTURA.md,
- * docs/PLAN-GRAFO.md): la descripción RDF de cada ficha y lo que se lee de
+ * El grafo semántico de la plataforma, nodo a nodo (docs/INFRAESTRUCTURA.md
+ * §7): la descripción RDF de cada ficha y lo que se lee de
  * ella —sus aristas, el camino entre dos fichas, la búsqueda de nodos—.
  *
  * La descripción **no se arma aquí**: se lee del grafo compilado

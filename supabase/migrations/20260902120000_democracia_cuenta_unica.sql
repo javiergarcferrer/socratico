@@ -1,4 +1,4 @@
--- Identidad v2 — Cuenta Única (docs/PLAN-DEMOCRACIA.md §9). Re-ejecutable.
+-- Identidad v2 — Cuenta Única (docs/INFRAESTRUCTURA.md §10). Re-ejecutable.
 --
 -- Un votante puede quedar «declarado» (cédula tecleada, v1) o «verificado»
 -- por Cuenta Única (OGTIC). La vinculación la hace SOLO la Edge Function
@@ -77,7 +77,7 @@ begin
   -- Colisión: distinguir si quien ocupa el hash es otra Cuenta Única o una
   -- cédula tecleada sin verificar (v1), porque son dos situaciones distintas y
   -- la persona verificada tiene derecho a saber cuál es. Qué hacer con la
-  -- declaración sin verificar lo decide el dueño (PLAN §9.5); aquí no se
+  -- declaración sin verificar lo decide el dueño (docs/INFRAESTRUCTURA.md §10.7); aquí no se
   -- desplaza a nadie.
   if exists (select 1 from democracia.votantes
               where cedula_hash = v_hash and id <> p_uid and origen = 'declarada') then

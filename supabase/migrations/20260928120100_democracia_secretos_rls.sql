@@ -9,7 +9,7 @@
 -- son SECURITY DEFINER y su dueño es el mismo rol dueño de la tabla
 -- (`postgres`, comprobado en vivo el 2026-09-28), y RLS no alcanza al dueño de
 -- la tabla mientras no haya `force row level security`. Comprobación después
--- de aplicar (docs/PLAN-ESPACIOS.md §5): como `authenticated`,
+-- de aplicar (docs/INFRAESTRUCTURA.md §10): como `authenticated`,
 -- `select democracia.hash_cedula('00100000001') is not null` → true.
 --
 -- Va en su propia migración y no dentro de la de `espacios`: toca la otra

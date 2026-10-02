@@ -20,7 +20,7 @@ import type { TipoEntrada } from "@/lib/espacios";
 /**
  * La narración del caso: lo que el investigador sabe, sospecha y falta
  * probar, escrito con los registros a la mano —«@» y el nombre de uno lo
- * cita, y en `/p` esa cita abre su ficha (docs/PLAN-ESPACIOS.md §7).
+ * cita, y en `/p` esa cita abre su ficha (docs/INFRAESTRUCTURA.md §10).
  *
  * El editor es Tiptap (MIT, sobre ProseMirror). Se guarda solo, un momento
  * después de dejar de escribir, sobre la versión que se leyó

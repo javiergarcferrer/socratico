@@ -17,7 +17,7 @@
   acento del logotipo y las viñetas van siempre en rojo.
 
   Profundidad y movimiento son semánticos: plano se lee, relieve se pulsa,
-  hundido está puesto (docs/IDENTIDAD.md §Relieve, §Movimiento).
+  hundido está puesto (docs/INFRAESTRUCTURA.md §11, §Movimiento).
 
   Los tokens viven en @theme para que Tailwind genere las utilidades
   (bg-canvas, text-ink, font-display, shadow-card…).
@@ -119,12 +119,12 @@
   /*
     El canto del papel: el borde que se ve cuando una hoja descansa sobre
     otra. Un tono más hondo que el filete. Solo lo lleva lo que se pulsa
-    (docs/IDENTIDAD.md §Relieve).
+    (docs/INFRAESTRUCTURA.md §11).
   */
   --color-canto: #cbbfa7;
 
   /*
-    Gráficos (docs/IDENTIDAD.md §Gráficos — el sistema). Cuatro paletas, cada
+    Gráficos (docs/INFRAESTRUCTURA.md §11 — el sistema). Cuatro paletas, cada
     una con un solo oficio, **validadas** con el validador de la habilidad
     `dataviz` contra el papel (`canvas`) y la hoja (`surface`). Sin modo
     oscuro: la identidad es papel. Salvo tres pasos nuevos de la categórica
@@ -178,7 +178,7 @@
   --color-grafico-base: var(--color-canto);
 
   /*
-    Movimiento (docs/IDENTIDAD.md §Movimiento). Cuatro curvas con oficio:
+    Movimiento (docs/INFRAESTRUCTURA.md §11). Cuatro curvas con oficio:
       · firma   — un cambio en su sitio: color, relieve, estado.
       · sello   — algo llega: frena al final, como el papel que se apoya.
       · salida  — algo se va: acelera y desaparece, sin pedir atención.
@@ -220,7 +220,7 @@
     `primary` es la firma (azul de bolígrafo) porque es lo accionable, y
     `destructive` es el sello: lo que deroga, anula o borra. Sobre relleno
     saturado el texto es papel —`canvas`—, nunca blanco de pantalla
-    (docs/IDENTIDAD.md §Prohibiciones 6).
+    (docs/INFRAESTRUCTURA.md §11 6).
   */
   --color-background: var(--color-canvas);
   --color-foreground: var(--color-ink);
@@ -436,7 +436,7 @@
   ------------------------------------------------------------------
   Relieve — lo que se toca tiene canto; lo que se lee es plano
   ------------------------------------------------------------------
-  La profundidad es semántica, no decoración (docs/IDENTIDAD.md §Relieve):
+  La profundidad es semántica, no decoración (docs/INFRAESTRUCTURA.md §11):
   tres estratos y cada uno dice algo distinto.
 
     · plano   — se lee. Papel y filete, sin sombra. Todo el contenido.
@@ -665,7 +665,7 @@
 /*
   Capas que se superponen —menú, desplegable, hoja modal, globo de ayuda—.
   Son las únicas piezas que de verdad flotan, y por eso son las únicas que
-  llevan sombra (docs/IDENTIDAD.md §2).
+  llevan sombra (docs/INFRAESTRUCTURA.md §11).
 
   La animación se escribe aquí, en CSS plano, y no con un plugin de
   utilidades de animación: son cuatro fotogramas, los usan las seis primitivas

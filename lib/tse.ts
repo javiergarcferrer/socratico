@@ -2,7 +2,7 @@
  * Sentencias del Tribunal Superior Electoral — el visor de sentencias
  * contenciosas del Tribunal.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.6 (2026-09-24) y re-medida el
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.6 (2026-09-24) y re-medida el
  * mismo día con este User-Agent:
  *
  *  1. `tse.gob.do` redirige a `tse.do` (WordPress; su robots solo veta

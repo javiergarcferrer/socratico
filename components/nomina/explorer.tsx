@@ -669,7 +669,7 @@ function ExplorerReady({ data, fichas }: { data: NominaData; fichas: FichasNomin
           {/*
             Paneles pequeños con la misma escala: las áreas y los cargos son
             dos cortes del mismo gasto, y una barra llena significa lo mismo en
-            los dos (docs/IDENTIDAD.md §Gráficos, `Multiples`).
+            los dos (docs/INFRAESTRUCTURA.md §11, `Multiples`).
           */}
           <Multiples>
             <Panel title="Áreas con más gasto">

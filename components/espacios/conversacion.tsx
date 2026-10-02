@@ -39,10 +39,10 @@ type Orden = "mejores" | "recientes";
 const HILO_VACIO: Hilo = { existe: false, estado: "visible", votos: 0, comentarios: 0, mi_voto: false, lista: [] };
 
 /**
- * La conversación de un registro (docs/PLAN-ESPACIOS.md §6): «Importa», los
+ * La conversación de un registro (docs/INFRAESTRUCTURA.md §10): «Importa», los
  * comentarios en árbol con sus votos, responder, denunciar y borrar lo
  * propio. Va al final de la ficha: primero se entiende el registro, después
- * se opina (docs/IDENTIDAD.md, ergonomía §4).
+ * se opina (docs/INFRAESTRUCTURA.md §11, ergonomía §4).
  *
  * No carga nada hasta que el lector se acerca: la mayoría de las visitas a una
  * ficha no baja hasta aquí. Sin sesión lee por HTTP con la clave publicable

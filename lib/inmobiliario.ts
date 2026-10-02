@@ -3,7 +3,7 @@
  * exacto. En qué órgano está un trámite (Registro de Títulos, Mensuras
  * Catastrales…), cuándo se pidió, su resultado y su estado.
  *
- * Mecánica verificada en docs/AUDITORIA.md §H.13 (2026-09-30), con la consulta:
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.6 (2026-09-30), con la consulta:
  *
  *  1. La página `https://servicios.ri.gob.do/ConsultaDeExpedientes` (robots de
  *     0 bytes) hace `POST ConsultaDeExpedientes/GetExpedient` con un

@@ -5,8 +5,8 @@ import { esRncDeEmpresa } from "@/lib/padron";
 /**
  * Registro tributario (DGII) de un proveedor del Estado.
  *
- * Mecánica verificada en docs/AUDITORIA.md §A.2 (padrón RNC de la DGII, ZIP
- * estático sin clave) y §A.12 (la tabla completa del Registro de Proveedores
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.1 (padrón RNC de la DGII, ZIP
+ * estático sin clave, y la tabla completa del Registro de Proveedores
  * que la DGCP sirve como archivo). `scripts/build-rnc.py` cruza las dos en
  * build —~107 MB de descarga, nunca por request— y deja en
  * `public/data/rnc/{0..9}.json` una fila por RPE de persona jurídica: RNC,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Valida el grafo contra su ontología (docs/PLAN-GRAFO.md, F0): cada
+ * Valida el grafo contra su ontología (docs/INFRAESTRUCTURA.md §7): cada
  * instancia contra las formas SHACL que salen de `lib/ontologia.ts`
  * (`/ontologia.shacl.ttl`), y cada término `soc:` o `do:` que el grafo usa
  * contra los que la ontología declara.

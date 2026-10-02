@@ -7,7 +7,7 @@ import { MESES } from "@/lib/format";
  * Administración Pública (MAP) con todas las instituciones que reportan a su
  * sistema de gestión de recursos humanos, Educación y Salud incluidas.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.10: un CSV mensual de ~62 MB en
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.8: un CSV mensual de ~62 MB en
  * `map.gob.do/datosabiertos/…/csv?year=&month=`. `scripts/build-nomina-general.py`
  * lo agrega en build **sin guardar nombres ni género** y deja
  * `public/data/nomina-general.json` (~1 MB): por institución, sus cifras y sus

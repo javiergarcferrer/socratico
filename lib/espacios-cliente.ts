@@ -3,11 +3,11 @@
 /**
  * El espacio del lector desde el navegador: la sesión, lo guardado, los
  * proyectos con sus enlaces y notas, quién colabora y lo que sigue
- * (docs/PLAN-ESPACIOS.md). Todo pasa por RLS en el esquema `espacios`: aquí no
+ * (docs/INFRAESTRUCTURA.md §10). Todo pasa por RLS en el esquema `espacios`: aquí no
  * se decide quién puede qué, solo se pide y se traduce la respuesta.
  *
  * Cada llamada devuelve `Hecho<T>` y nunca lanza: una pantalla tiene que
- * distinguir «no hay nada» de «no se pudo mirar» (docs/IDENTIDAD.md §6), y un
+ * distinguir «no hay nada» de «no se pudo mirar» (docs/INFRAESTRUCTURA.md §11), y un
  * tercer caso que solo existe hasta que el dueño abra el esquema en el API
  * —`cerrado`—, que se dice como tal y no como un fallo.
  */
@@ -41,7 +41,7 @@ function traducir(e: FalloSupabase): { ok: false; error: string; cerrado?: boole
   const codigo = e.code ?? "";
   const texto = (e.message ?? "").toLowerCase();
   // PGRST106: el esquema no está entre los que expone el API (paso 2 de
-  // PLAN-ESPACIOS §5); 42P01/3F000: la migración aún no se aplicó;
+  // docs/INFRAESTRUCTURA.md §10); 42P01/3F000: la migración aún no se aplicó;
   // PGRST202/42883: la función todavía no existe (la conversación, paso 4).
   // 42703/PGRST204: la columna no existe todavía (una migración posterior,
   // como la del caso, sin aplicar): lo que no está abierto no es una caída.

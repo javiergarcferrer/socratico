@@ -87,7 +87,7 @@ const procesosRecientes = cache(() =>
 
 /*
   La portada responde, en orden, las cuatro preguntas de quien llega
-  (docs/IDENTIDAD.md §4, «el orden de los bloques es el orden en que se
+  (docs/INFRAESTRUCTURA.md §11, «el orden de los bloques es el orden en que se
   entiende»):
 
   1. ¿Qué es esto? — la misión en una frase y la caja que busca en todo.

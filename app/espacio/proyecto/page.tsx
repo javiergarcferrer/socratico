@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 /**
  * La mesa de una investigación. El id va en `?id=` y no en la ruta: es una
  * página privada que se pinta en el navegador, y así ningún id de proyecto
- * queda en HTML cacheado ni en el mapa del sitio (docs/PLAN-ESPACIOS.md §3).
+ * queda en HTML cacheado ni en el mapa del sitio (docs/INFRAESTRUCTURA.md §10).
  */
 export default async function ProyectoPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const { id } = await searchParams;

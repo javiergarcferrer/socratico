@@ -24,7 +24,7 @@ import {
 } from "@/lib/grafo-nodo";
 
 /**
- * El grafo compilado (docs/PLAN-GRAFO.md, F2): la descripción de cada nodo,
+ * El grafo compilado (docs/INFRAESTRUCTURA.md §7): la descripción de cada nodo,
  * leída de `datos/grafo/` en vez de armada en cada petición.
  * `scripts/build-grafo.mjs` corre los constructores
  * (`lib/grafo-constructores.ts`) sobre todas las instantáneas, escribe cada

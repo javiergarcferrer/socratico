@@ -2,16 +2,16 @@
 """Genera public/data/rnc/*.json: el registro tributario (DGII) de cada
 proveedor del Estado que es persona jurídica, indexado por su RPE.
 
-Dos descargas, sin clave (docs/AUDITORIA.md §A.2 y §A.12):
+Dos descargas, sin clave (docs/INFRAESTRUCTURA.md §5.1):
 
 1. **El Registro de Proveedores del Estado entero**, que la DGCP sirve como
    archivo en su sección «Tablas» de datos abiertos:
    `https://datosabiertos.dgcp.gob.do/api-dgcp/v1/tablas/proveedores?Type=csv&inhabilitados=false`
-   (~80 MB, ~138 mil filas). Es la vía que §A.12 no encontró: la API paginada
+   (~80 MB, ~138 mil filas). La API paginada
    no se puede recorrer, pero la tabla se descarga de una vez. De ella se leen
    **solo** `RPE`, `NUMERO_DOCUMENTO` y `TIPO_DOCUMENTO`: el archivo trae
    teléfonos, correos y personas de contacto, y nada de eso se guarda ni se
-   imprime (§E.6: publicar no es exponer).
+   imprime (publicar no es exponer).
 2. **El padrón de contribuyentes de la DGII**:
    `https://dgii.gov.do/app/WebApps/Consultas/RNC/RNC_CONTRIBUYENTES.zip`
    (~27 MB comprimido, ~790 mil filas, Windows-1252).

@@ -16,8 +16,8 @@ paths:
 ---
 # The reader's account and spaces — the second exception
 
-docs/PLAN-ESPACIOS.md governs.
-Read §1 (contract) and §5 (applying) before changing anything here.
+docs/INFRAESTRUCTURA.md §10 records it as it is (§10.5–10.6, §10.8–10.11);
+read it before changing anything here.
 
 ## Boundary
 - Schema `espacios` in the `Transac` project, same Auth pool as `/democracia`:
@@ -40,7 +40,7 @@ Read §1 (contract) and §5 (applying) before changing anything here.
   `espacios.publicado(slug)` over HTTP (`lib/espacios.ts`), which returns no
   user ids and no emails.
 
-## The conversation (PLAN §6)
+## The conversation (§10.6)
 - Threads, comments, votes and reports live in `espacios`; nobody writes a
   table. Every write is a definer function. Public text (a comment, or the
   title that opening a thread writes) needs a registered cédula
@@ -55,7 +55,7 @@ Read §1 (contract) and §5 (applying) before changing anything here.
 - `Conversacion` goes at the **end** of a ficha (understand first, opine
   after) and loads nothing until the reader scrolls near it.
 
-## The case (PLAN §7)
+## The case
 - A case adds only the investigator's own work: a date they set, a board
   position, a closed-vocabulary verb per link (`TIPOS_ENLACE` = the `check`),
   and the narrative. Never a date or a figure copied from the source.
@@ -71,7 +71,7 @@ Read §1 (contract) and §5 (applying) before changing anything here.
   Touching the follow sync in `lib/espacios-cliente.ts`: run
   `node supabase/pruebas/sincronizar_seguidos.cjs` (no network) and keep `FALLOS: 0`.
 - Applying the migration or exposing the schema in the Data API is an
-  **owner action**: prepare, list the steps (PLAN §5), stop.
+  **owner action**: prepare, list the exact steps, stop.
 - Every screen distinguishes three states: nothing there, could not look
   (`variante="caida"`), and `cerrado` (schema not open yet — `<Cerrado />`).
 - Sending alerts (e-mail, push) is an open owner decision: alerts are shown on

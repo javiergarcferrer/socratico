@@ -1,9 +1,9 @@
 #!/bin/bash
 # ¿Sigue siendo cierto lo que el harness dice de sí mismo?
 #
-# `docs/HARNESS.md` §0: «un archivo solo moldea una sesión si la sesión lo
-# carga de verdad», y §4: la prosa de T1/T2 es la explicación de un pin de T4,
-# no su sustituto. Esto es el pin. Comprueba las cuatro cosas que el harness
+# Un archivo solo moldea una sesión si la sesión lo carga de verdad
+# (docs/INFRAESTRUCTURA.md §12.1), y la prosa es la explicación de un pin de la
+# máquina, no su sustituto. Esto es el pin. Comprueba las cuatro cosas que el harness
 # afirma y que se rompen en silencio:
 #
 #   1. El techo de `CLAUDE.md`. Se inyecta entero en cada turno, así que su
@@ -11,9 +11,8 @@
 #      líneas y 27.9 KB sin que nada avisara.
 #   2. Que exista cada ruta del repositorio que `CLAUDE.md` nombra. Una tabla
 #      que apunta a un archivo movido manda a la sesión a un sitio que no está.
-#   3. Que cada `.claude/rules/*.md` declare la página que condensa. Son la
-#      forma corta de una página de `docs/`; sin dueño declarado, las dos
-#      copias derivan y nadie sabe cuál manda.
+#   3. Que cada `.claude/rules/*.md` nombre la página de `docs/` que describe
+#      su zona y que esa página exista.
 #   4. Que cada habilidad y agente tenga frontmatter utilizable: `name` y
 #      `description` (la descripción **es** el disparador) y, en un agente,
 #      `model` y `effort` — sin `effort`, un barrido de solo lectura hereda el
@@ -32,7 +31,7 @@ BYTES_MAX=12288
 if [ -f CLAUDE.md ]; then
   lineas=$(wc -l < CLAUDE.md)
   bytes=$(wc -c < CLAUDE.md)
-  [ "$lineas" -le "$LIN_MAX" ] || mal "CLAUDE.md: $lineas líneas > $LIN_MAX — se paga en cada turno; lo que crezca va a docs/ (docs/HARNESS.md §4)"
+  [ "$lineas" -le "$LIN_MAX" ] || mal "CLAUDE.md: $lineas líneas > $LIN_MAX — se paga en cada turno; lo que crezca va a docs/INFRAESTRUCTURA.md (§12.2)"
   [ "$bytes" -le "$BYTES_MAX" ] || mal "CLAUDE.md: $bytes bytes > $BYTES_MAX — íd."
 else
   mal "CLAUDE.md no existe"
@@ -56,10 +55,9 @@ fi
 # hasta que alguien va a buscarlas y no las encuentra.
 if [ -f CLAUDE.md ]; then
   epigrafes="$(grep '^## ' CLAUDE.md | sed 's/^## //')"
-  # Se excluyen los dos archivos que hablan DE este mecanismo —el comprobador y
-  # la página que lo documenta—, porque ambos citan la forma como ejemplo.
+  # Se excluye el comprobador, que cita la forma como ejemplo.
   grep -rhoE 'CLAUDE\.md §"[^"]+"' .claude scripts docs \
-    --exclude=harness.sh --exclude=HARNESS.md 2>/dev/null | sort -u | while read -r cita; do
+    --exclude=harness.sh 2>/dev/null | sort -u | while read -r cita; do
     titulo="${cita#*§\"}"; titulo="${titulo%\"}"
     printf '%s\n' "$epigrafes" | grep -qxF "$titulo" \
       || echo "se cita CLAUDE.md §\"$titulo\", que ya no es una sección"
@@ -73,7 +71,7 @@ for regla in .claude/rules/*.md; do
   [ -e "$regla" ] || continue
   duena="$(grep -oE '(docs/[A-Z-]+\.md|supabase/CLAUDE\.md)' "$regla" | head -1)"
   if [ -z "$duena" ]; then
-    mal "$regla no nombra la página de docs/ que condensa (docs/HARNESS.md §4)"
+    mal "$regla no nombra la página de docs/ que describe su zona (docs/INFRAESTRUCTURA.md §12.8)"
   elif [ ! -e "$duena" ]; then
     mal "$regla condensa '$duena', que no existe"
   fi
@@ -93,7 +91,7 @@ for ag in .claude/agents/*.md; do
   [ "$(campo "$ag" name)" -ge 1 ] || mal "$ag sin 'name'"
   [ "$(campo "$ag" description)" -ge 1 ] || mal "$ag sin 'description'"
   [ "$(campo "$ag" model)" -ge 1 ] || mal "$ag sin 'model'"
-  [ "$(campo "$ag" effort)" -ge 1 ] || mal "$ag sin 'effort' — sin él hereda el de la sesión (docs/HARNESS.md §3.6)"
+  [ "$(campo "$ag" effort)" -ge 1 ] || mal "$ag sin 'effort' — sin él hereda el de la sesión (docs/INFRAESTRUCTURA.md §12.10)"
 done
 
 exit $([ "$fallos" -eq 0 ] && echo 0 || echo 1)

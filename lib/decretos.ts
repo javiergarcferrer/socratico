@@ -12,7 +12,7 @@ export { AVISO_DECRETO, CONSULTORIA_PDF, hrefDecreto, type AvisoDecreto };
  * El registro de decretos del Poder Ejecutivo: los ~78,800 que publica la
  * Consultoría Jurídica, desde 1844, con su firmante. Es la instantánea
  * `public/data/decretos/` que escribe `scripts/build-decretos.py` (una sola
- * lectura del buscador público, docs/AUDITORIA.md §4.1), partida por año.
+ * lectura del buscador público, docs/INFRAESTRUCTURA.md §5.6), partida por año.
  *
  * Es el nodo «decreto» del grafo:
  *  · la lista de los decretos que firmó cada Presidente

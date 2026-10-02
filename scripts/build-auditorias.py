@@ -10,7 +10,7 @@ informes varias veces al mes y las listas de omisos cada dos meses):
     python3 scripts/build-auditorias.py            # en vivo
     python3 scripts/build-auditorias.py --cache D  # guarda/reusa las respuestas en D
 
-Mecánica verificada el 2026-09-24 (docs/AUDITORIA.md §4.2, §4.3, §G.6 y §G.12):
+Mecánica verificada el 2026-09-24 (docs/INFRAESTRUCTURA.md §5.10):
 
 Contraloría General (`contraloria.gob.do`, WordPress, robots abierto salvo
 `/wp-admin/`):

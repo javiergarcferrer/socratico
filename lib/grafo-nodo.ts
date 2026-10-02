@@ -6,7 +6,7 @@ import type { Empresa } from "@/lib/empresas";
 import type { OrigenCargo } from "@/lib/funcionarios";
 
 /**
- * Lo que es un nodo del grafo compilado (docs/PLAN-GRAFO.md, F2), sin leer
+ * Lo que es un nodo del grafo compilado (docs/INFRAESTRUCTURA.md §7), sin leer
  * nada: su IRI, su clave en el compilado, el fragmento donde vive y cómo se
  * codifican sus triples. Lo comparten el compilador
  * (`scripts/build-grafo.mjs`), que escribe `datos/grafo/`, y los dos lectores
@@ -32,7 +32,7 @@ export interface Descripcion {
 }
 
 /**
- * Los grafos con nombre (docs/PLAN-GRAFO.md §3.5 y §3.8): cada triple sale de
+ * Los grafos con nombre (docs/INFRAESTRUCTURA.md §7): cada triple sale de
  * una instantánea de una fuente, o de una regla de Socrático que la deriva de
  * otras, y lo dice. Los de fuente se nombran por su corte
  * (`…/fuente/padron/2026-09-19`); los derivados, por la regla. Qué es cada

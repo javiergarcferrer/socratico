@@ -1,5 +1,5 @@
 /**
- * Qué responde cada pantalla, en llano (docs/PLAN-ACCESO.md §6 ter, G4).
+ * Qué responde cada pantalla, en llano (docs/INFRAESTRUCTURA.md §8.7).
  *
  * El menú (`lib/menu.ts`) dice dónde vive cada destino y su nota de una
  * línea; aquí se dice **qué se puede preguntar** en él, con las palabras de

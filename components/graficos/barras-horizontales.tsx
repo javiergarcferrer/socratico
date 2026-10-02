@@ -14,7 +14,7 @@ import { SERIE, type ClasesSerie } from "./paleta";
  * barra nunca es la única forma de leerlo y no hace falta capa al apuntar:
  * la fila **es** la tabla equivalente.
  *
- * Reglas que trae puestas (docs/IDENTIDAD.md §Gráficos):
+ * Reglas que trae puestas (docs/INFRAESTRUCTURA.md §11):
  *  - una sola serie, en la firma (`SERIE`); el color no codifica el puesto;
  *  - barra de 8 px, extremo del dato con esquina de 4 px y cuadrada en la
  *    base; sin carril detrás: el carril es de un medidor (`Progress`), y

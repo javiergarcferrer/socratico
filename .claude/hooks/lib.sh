@@ -8,7 +8,7 @@ export LC_ALL=C.UTF-8
 
 ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
-# Files whose UI classes are checked against docs/IDENTIDAD.md.
+# Files whose UI classes are checked against .claude/rules/identidad.md.
 es_archivo_ui() {
   case "$1" in
     */app/*.tsx|*/components/*.tsx|*/app/*.css|app/*.tsx|components/*.tsx|app/*.css) return 0 ;;
@@ -17,8 +17,8 @@ es_archivo_ui() {
 }
 
 # Files that legitimately touch Supabase / env vars: the two documented
-# exceptions — /democracia (docs/PLAN-DEMOCRACIA.md) and the reader's account
-# and spaces (docs/PLAN-ESPACIOS.md). A data surface
+# exceptions — /democracia and the reader's account and spaces
+# (docs/INFRAESTRUCTURA.md §10). A data surface
 # (a ficha, a listing) never imports Supabase: it renders a component from
 # components/espacios/, and that component is the only thing that talks to the
 # database. Everything else is stateless by contract.
@@ -32,7 +32,7 @@ es_archivo_con_estado() {
   esac
 }
 
-# Prohibitions from docs/IDENTIDAD.md, as grep -E patterns. Comment lines are
+# Prohibitions from .claude/rules/identidad.md, as grep -E patterns. Comment lines are
 # stripped before matching so a code comment can name the sin it avoids.
 #
 # Three of these were added after a UI integrity pass found them by hand:
@@ -55,7 +55,7 @@ EMOJI_PATRON='[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE0F}]'
 # Values are forbidden everywhere. Names (`service_role`, `SUPABASE_SERVICE…`)
 # are forbidden on every app surface; they are legitimate only on the database
 # side (`supabase/`: the GRANT to the role, the Edge Function that is the trust
-# boundary of docs/PLAN-DEMOCRACIA.md §9.2) and in the documents that explain it.
+# boundary of docs/INFRAESTRUCTURA.md §10.7) and in the documents that explain it.
 SECRETO_VALORES='sb_secret_|-----BEGIN [A-Z ]*PRIVATE KEY|eyJhbGciOi'
 SECRETO_NOMBRES='service_role|SUPABASE_SERVICE'
 SECRETO_PATRONES="$SECRETO_VALORES|$SECRETO_NOMBRES"

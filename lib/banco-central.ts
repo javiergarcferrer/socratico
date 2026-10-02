@@ -2,12 +2,12 @@
  * El Banco Central por dentro: su tasa de política monetaria, lo que cobran y
  * pagan los bancos, su balance y lo que hace cada día con la liquidez.
  *
- * Sin credenciales: la API del BCRD exige clave y es decisión del dueño
- * (docs/AUDITORIA.md §8.3). Esto lee **archivos públicos del CDN** del BCRD,
+ * Sin credenciales: la API del BCRD exige clave
+ * (docs/INFRAESTRUCTURA.md §5.11). Esto lee **archivos públicos del CDN** del BCRD,
  * el mismo camino de `lib/tasa.ts` y `lib/macro.ts`. Nombres tomados del
  * paquete R abierto `databcrd`, y cada archivo verificado el 2026-10-02 con
  * una respuesta real (200, `application/octet-stream`, `PK`) en
- * docs/AUDITORIA.md §G.17:
+ * docs/INFRAESTRUCTURA.md §5.3:
  *
  *   sector-monetario-y-financiero/documents/Serie_TPM.xlsx (37 KB)
  *     Hoja «Tasas»: Año (solo en enero) | Mes («Ene») | TPM | Facilidad de

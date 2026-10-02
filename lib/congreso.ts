@@ -6,7 +6,7 @@
  *
  * El origen es la **API interna** del portal SIL Ciudadano
  * (`https://www.diputadosrd.gob.do/sil/api`), no una API pública documentada.
- * El reconocimiento está en `docs/RECON.md`; las tres reglas que impone:
+ * El reconocimiento está en `docs/INFRAESTRUCTURA.md` §5.5; las tres reglas que impone:
  *
  *  1. **Un `200` no significa que la ruta exista.** IIS enruta lo desconocido
  *     bajo `/sil/` al catch-all de la SPA y devuelve HTML con estado 200. Hay
@@ -210,7 +210,7 @@ export interface FiltroIniciativas {
 /**
  * El listado filtrado del SIL (`iniciativa/iniciativas`), el mismo que usa su
  * portal al entrar a un tema. Mecánica verificada el 2026-09-24 leyendo el
- * bundle del portal y contra el origen (docs/RECON.md §2.2):
+ * bundle del portal y contra el origen (docs/INFRAESTRUCTURA.md §5.5):
  *
  *  · `tipo` es un **booleano**, no el `tipoId`: `true` son los proyectos de
  *    ley y `false` las resoluciones (internas y bicamerales). Con el id
@@ -471,7 +471,7 @@ export async function getPeriodos(): Promise<SilPeriodo[]> {
  *
  * El bundle del SIL trae una URL hardcodeada distinta de la que devuelve este
  * endpoint, así que hay que preguntarla y no fijarla. El host que responde es
- * on-premise en RD y rechaza conexiones desde fuera del país (docs/RECON.md §2.9).
+ * on-premise en RD y rechaza conexiones desde fuera del país (docs/INFRAESTRUCTURA.md §5.5).
  */
 export async function getRutaDocumento(): Promise<string | null> {
   return silFetchSafe<string>("comun/GetRutaDocumento/", 86400);
@@ -964,7 +964,7 @@ export function resumirIniciativas(iniciativas: Iniciativa[]): ResumenLegislativ
 
 /*
   Directorio, ficha, propuestas y voto nominal. Mecánica verificada en
-  docs/RECON.md §14 (2026-09-23):
+  docs/INFRAESTRUCTURA.md §5.5 (2026-09-23):
 
   · `legislador/legisladores?page=&nivel=` espera en `nivel` el **id de la
     demarcación**, no el del nivel: el id de una provincia (`Provincias/1`),
@@ -985,7 +985,7 @@ export function resumirIniciativas(iniciativas: Iniciativa[]): ResumenLegislativ
 const DEMARCACION_NACIONAL = 2892;
 const DEMARCACION_EXTERIOR = 3403;
 
-/** Tope de páginas por legislador: 200 piezas cubren a casi todos (RECON §14). */
+/** Tope de páginas por legislador: 200 piezas cubren a casi todos (docs/INFRAESTRUCTURA.md §5.5). */
 export const MAX_PAGINAS_PROPUESTAS = 20;
 
 /** Votaciones de la legislatura que se leen por ficha: las 30 más recientes. */

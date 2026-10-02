@@ -2,10 +2,10 @@
  * Muertes en las vías — Observatorio Permanente de Seguridad Vial (OPSEVI) del
  * INTRANT.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.7 (2026-09-24): el tablero
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.4 (2026-09-24): el tablero
  * `opsevi.intrant.gob.do` (Next.js, sin robots) se alimenta de una API JSON
  * interna, sin clave, que su propio JavaScript llama («la vitrina no es la
- * fuente», §E.1):
+ * fuente»):
  *
  *  - `GET /api/national?years=2026` → `monthly` [{month: «Enero»|«agosto»…,
  *    fatalities}] (sin orden, mayúsculas al azar), `vehicle-types`.

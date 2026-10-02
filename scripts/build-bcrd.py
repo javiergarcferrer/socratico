@@ -5,7 +5,7 @@ por vía aérea que publica el Banco Central en su CDN.
 Los dos archivos están en el formato viejo de Excel (BIFF, `.xls`), que el
 lector de XLSX de la plataforma (`leerZip` en lib/deuda.ts) no abre; por eso
 se leen aquí, en build, y la app sirve la instantánea (lib/bcrd.ts). Mecánica
-verificada en docs/AUDITORIA.md §G.5 (2026-09-24). Regenerar cuando el BCRD
+verificada en docs/INFRAESTRUCTURA.md §5.4 (2026-09-24). Regenerar cuando el BCRD
 publique un mes nuevo (el IPC sale a principios de mes; las llegadas, con un
 mes más de rezago):
 
@@ -67,7 +67,7 @@ def bajar(url: str) -> bytes:
         try:
             # La fecha como consulta: el CDN guarda copias viejas por
             # codificación, y una consulta nueva le hace pedir la vigente a su
-            # origen (lib/pedir.ts, `delDiaBcrd`; docs/AUDITORIA.md §G.17).
+            # origen (lib/pedir.ts, `delDiaBcrd`; docs/INFRAESTRUCTURA.md §5.4).
             fresca = f"{url}?d={datetime.date.today().isoformat()}"
             req = urllib.request.Request(fresca, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=40) as r:

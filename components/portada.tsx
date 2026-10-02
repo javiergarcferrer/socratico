@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
  * La portada de una vertical: la banda de tinta con la pregunta.
  *
  * Es **tinta plana** con la trama de papel milimetrado, nunca un degradado
- * (docs/IDENTIDAD.md §1), y su epígrafe lleva el punto en rojo sello, que es la
+ * (docs/INFRAESTRUCTURA.md §11), y su epígrafe lleva el punto en rojo sello, que es la
  * regla única de la marca. El titular es una pregunta y va en la letra de
  * titular (Geist): la pregunta la hace la plataforma y la responden los datos de abajo.
  *

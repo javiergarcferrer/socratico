@@ -3,7 +3,7 @@ import { SITIO } from "@/lib/sitio";
 /**
  * RDF sin dependencias: términos, triples y tres serializaciones —Turtle,
  * N-Triples y JSON-LD— para el grafo semántico de la plataforma
- * (`lib/ontologia.ts`, `lib/grafo-rdf.ts`, docs/ARQUITECTURA.md).
+ * (`lib/ontologia.ts`, `lib/grafo-rdf.ts`, docs/INFRAESTRUCTURA.md §7).
  *
  * No es una base de datos ni un almacén de triples (la invariante: sin base
  * de datos en las superficies de inteligencia): los triples se **compilan**
@@ -35,7 +35,7 @@ export const BASE = SITIO;
 /**
  * Los IRIs persistentes: w3id.org redirige `https://w3id.org/socratico/…` a
  * este sitio, donde esté, y un IRI publicado no depende del dominio del
- * despliegue (docs/PLAN-GRAFO.md §4.1). `def/` es el vocabulario: el núcleo,
+ * despliegue (docs/INFRAESTRUCTURA.md §7). `def/` es el vocabulario: el núcleo,
  * neutral de país (`soc:`), y el módulo dominicano (`do:`).
  */
 export const W3ID = "https://w3id.org/socratico";

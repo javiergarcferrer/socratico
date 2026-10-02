@@ -34,8 +34,8 @@ export const metadata: Metadata = {
  * —diez tableros a lo ancho—, y la empujaban hasta que quien llegaba por
  * primera vez no veía qué es la plataforma ni qué más hay. La portada conserva
  * una línea con las cuatro cifras que más se preguntan y trae aquí; aquí está
- * cada tablero completo, con su fuente y su fecha (docs/ARQUITECTURA.md
- * §Páginas). Cada uno espera solo a su fuente.
+ * cada tablero completo, con su fuente y su fecha (docs/INFRAESTRUCTURA.md
+ * §3). Cada uno espera solo a su fuente.
  */
 export default function IndicadoresPage() {
   return (

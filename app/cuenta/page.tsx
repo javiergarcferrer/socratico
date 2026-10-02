@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Entrar o crear la cuenta (docs/PLAN-ESPACIOS.md). El formulario es de
+ * Entrar o crear la cuenta (docs/INFRAESTRUCTURA.md §10). El formulario es de
  * cliente; lo que se guarda y lo que no se dice aquí, en el servidor, para que
  * se lea antes de dar el correo.
  */

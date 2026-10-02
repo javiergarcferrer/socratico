@@ -326,7 +326,7 @@ const VACIAS = new Set([
  * La frase más distintiva de un título para buscarla en otro origen.
  *
  * Los buscadores de ambas cámaras hacen match de **subcadena literal**,
- * sensible a tildes pero no a mayúsculas (RECON §2.3, §12.2), y cada origen
+ * sensible a tildes pero no a mayúsculas (docs/INFRAESTRUCTURA.md §5.5), y cada origen
  * escribe distinto las cifras y las abreviaturas: «Ley núm.99-25» en uno,
  * «LEY NÚM. 99-25» en otro. Así que se busca el tramo de texto corrido más
  * largo sin números ni puntuación, recortado a unas pocas palabras y sin

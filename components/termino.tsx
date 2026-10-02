@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
  * La palabra queda en su frase, subrayada con puntos —la convención de
  * imprenta para «esto tiene nota»—, y al tocarla abre un globo con la
  * definición llana de `lib/glosario.ts` y, si la hay, la guía que lo cuenta
- * entero. `docs/IDENTIDAD.md` §3: la jerga se traduce en el punto de uso, no
+ * entero. `docs/INFRAESTRUCTURA.md` §11: la jerga se traduce en el punto de uso, no
  * en un glosario que nadie abre.
  *
  * Decisiones:

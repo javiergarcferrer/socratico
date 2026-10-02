@@ -24,16 +24,16 @@ Then:
    the hooks to make it pass; if a check is wrong, say so in the final
    message with the evidence and leave it red.
 3. **Statelessness or secret failures** are architectural: stop, re-read
-   CLAUDE.md §"La invariante" and docs/PLAN-DEMOCRACIA.md §2, and undo the leak.
+   CLAUDE.md §"La invariante" and docs/INFRAESTRUCTURA.md §10.2, and undo the leak.
 4. **Identity failures**: use the primitive instead of the class — the
-   catalogue is in `docs/ARQUITECTURA.md` §Primitivas; read
+   catalogue is in `docs/INFRAESTRUCTURA.md` §11.8–11.9; read
    `.claude/rules/identidad.md`.
    **Mute controls** (`hover:` that repeats what the element already has, a
    ring colour with no ring width): the control looks interactive and is not.
    **Harness drift**: `CLAUDE.md` over its ceiling (move the growth to
-   `docs/`), a path it names that no longer exists, a `rules/*.md` that stopped
-   naming the page it condenses, or an agent without `effort`. See
-   `docs/HARNESS.md` §4.
+   `docs/INFRAESTRUCTURA.md`), a path it names that no longer exists, a
+   `rules/*.md` that stopped naming the section it describes, or an agent
+   without `effort`. See `docs/INFRAESTRUCTURA.md` §12.
 5. **MCP eval failures** (`scripts/eval-mcp.mjs`, run against `next start`
    over the fresh build): each `FAIL` line names the question and what the
    tool answered versus the oracle read from `public/data`. A tool whose shape

@@ -7,7 +7,7 @@ tres o cuatro semanas del cierre):
 
     python3 scripts/build-justicia.py
 
-Mecánica verificada el 2026-09-24 (docs/AUDITORIA.md §5.2 y §G.6):
+Mecánica verificada el 2026-09-24 (docs/INFRAESTRUCTURA.md §5.6):
 
 - `transparencia.poderjudicial.gob.do/robots.txt` solo veta `/reportePDF/`.
   El índice `…/estadisticas_judiciales/BoletinesEstadisticos` es HTML de

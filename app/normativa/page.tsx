@@ -64,7 +64,7 @@ const TIPO_DE_CITA: Partial<Record<TipoNormativa, string>> = {
  * Normas por página. Un año de decretos son cientos: la lista entera en una
  * página medía 24.000 px en el teléfono y se cortaba en 200 sin decirlo hasta
  * el final. Veinticinco caben en unas pocas pantallas y el resto está a un
- * toque, en una URL que se comparte (docs/IDENTIDAD.md §2).
+ * toque, en una URL que se comparte (docs/INFRAESTRUCTURA.md §11).
  */
 const POR_PAGINA = 25;
 

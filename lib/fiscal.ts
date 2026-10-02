@@ -7,7 +7,7 @@
  *
  * Por qué esto lee una instantánea y no la API en vivo: el SIGEF calcula el
  * año en curso al vuelo —una sección entera tarda ~97 s, una institución
- * suelta entre 20 y 90 s (docs/AUDITORIA.md §A.1)—, muy por encima de lo que puede
+ * suelta entre 20 y 90 s (docs/INFRAESTRUCTURA.md §5.2)—, muy por encima de lo que puede
  * esperar un request. `scripts/build-fiscal.py` consolida las tres secciones
  * institucionales en `public/data/fiscal.json` y esta capa lo sirve al
  * instante. La contrapartida es honesta y se declara en la interfaz: el dato

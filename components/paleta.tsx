@@ -37,7 +37,7 @@ import {
  * vertical vivía —«Perención» cuelga de Congreso, «Planes» de Licitaciones—,
  * abrirla y buscar la pestaña; y buscar un texto fuera de licitaciones costaba
  * saber que proveedores y las dos cámaras tienen su propio campo. La paleta
- * sostiene eso por el lector (docs/IDENTIDAD.md §3, reconocer y no recordar):
+ * sostiene eso por el lector (docs/INFRAESTRUCTURA.md §11, reconocer y no recordar):
  * toda la arquitectura de `lib/secciones` en una lista que se filtra al
  * teclear, y el texto tecleado ofrecido a **cada** búsqueda de la plataforma.
  * La lista es el índice de `lib/indice.ts`, agrupado por tarea.

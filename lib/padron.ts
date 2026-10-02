@@ -31,7 +31,7 @@ export function esRncDeEmpresa(rnc: string): boolean {
 /**
  * El documento de un proveedor como se puede enseñar: el RNC de una persona
  * jurídica, sí; la cédula o el pasaporte de una persona, nunca (el registro de
- * la DGCP los publica, pero publicar no es exponer: docs/AUDITORIA.md §E).
+ * la DGCP los publica, pero publicar no es exponer: docs/INFRAESTRUCTURA.md §4).
  */
 export function documentoPublicable(tipo: string | null | undefined, numero: string | null | undefined): string {
   const t = (tipo ?? "").trim();

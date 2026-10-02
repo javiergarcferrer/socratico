@@ -11,16 +11,17 @@ main unverified, and nothing stays in a container: the session is ephemeral.
 ## 1. Documentation is memory
 Before committing, update whatever the next session would otherwise have to
 rediscover:
-Cada cosa tiene una página dueña — `docs/HARNESS.md` §4 dice cuál:
+`docs/INFRAESTRUCTURA.md` is the only document: it records what is, never
+plans, pending work, evaluations or history (those go in the commit body).
+Update the section that describes what you changed, in the same commit:
 - A new or changed source → `app/fuentes/page.tsx` (coverage, limits, blocks)
-  and the data-layer note in `docs/ARQUITECTURA.md`; verified mechanics and
-  quirks → `docs/RECON.md` (Congress) or `docs/AUDITORIA.md` (everything else),
-  with the ✅/⚠️/❌ convention.
-- A new route or vertical → `lib/secciones.ts`, `README.md` feature list, the
-  domain table in `CLAUDE.md`.
+  and its subsection of §5, with the ✅/⚠️/❌ convention, the exact URLs and
+  the dated observations; a snapshot → its row in §6.
+- A new route or vertical → `lib/secciones.ts`, §3, the domain table in
+  `CLAUDE.md`.
 - A new invariant or a rule you had to learn the hard way → the matching
   `.claude/rules/*.md`, one line, with the file that proves it.
-- Anything that changes how a session is shaped → `docs/HARNESS.md`.
+- Anything that changes how a session is shaped → §12.
 
 ## 2. Gate
 ```bash

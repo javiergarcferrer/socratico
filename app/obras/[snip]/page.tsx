@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * quién la ejecuta, dónde, y los contratos y procesos de compras que la
  * materializan — cada uno enlazado a su ficha de proceso y de proveedor.
  *
- * El orden de los bloques es el de IDENTIDAD §4: qué es → en qué punto está →
+ * El orden de los bloques es el de docs/INFRAESTRUCTURA.md §11: qué es → en qué punto está →
  * con qué se ejecuta → el documento original (la ficha de MapaInversiones).
  */
 export default async function ObraPage({ params }: Props) {

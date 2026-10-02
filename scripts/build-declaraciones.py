@@ -8,7 +8,7 @@ entonces `scripts/build-documentos.py` las excluía del índice de documentos
 por título; siguen fuera de él para no contarlas dos veces: viven aquí, junto
 a la persona.
 
-Mecánica verificada el 2026-09-30 (docs/AUDITORIA.md §H.12):
+Mecánica verificada el 2026-09-30 (docs/INFRAESTRUCTURA.md §5.7):
 
 - El registro central es la **Consulta Pública de DJP de la Cámara de
   Cuentas** (`consultadjp.camaradecuentas.gob.do`): busca por nombre, pero el

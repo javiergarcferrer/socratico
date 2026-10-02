@@ -3,7 +3,7 @@
 (Ministerio de Administración Pública) para instituciones del Gobierno central
 y para gobiernos locales.
 
-Mecánica verificada en docs/AUDITORIA.md §A.7 (y su verificación del
+Mecánica verificada en docs/INFRAESTRUCTURA.md §5.10 (y su verificación del
 2026-09-23): tres tablas HTML servidas, sin SPA ni API que extraer.
 
 - `https://sismap.gob.do/GestionPublica/Ranking/RankingView` — 181 organismos:

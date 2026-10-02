@@ -20,7 +20,7 @@ import {
  *
  * Estaba escrita cinco veces con tres vestidos —enlace azul de 14 px, enlace
  * gris de 12, y «Volver al buscador» en otro azul—, que es la dilución que
- * `docs/IDENTIDAD.md` §10 describe. Ahora es una pieza, y hace dos cosas que
+ * `docs/INFRAESTRUCTURA.md` §11 describe. Ahora es una pieza, y hace dos cosas que
  * ninguna de las cinco hacía:
  *
  *  · **Volver no pierde la búsqueda.** El enlace de vuelta apuntaba a la raíz

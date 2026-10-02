@@ -24,7 +24,7 @@ const AGREGADOS = z.array(
     a_favor: z.number(),
     en_contra: z.number(),
     total: z.number(),
-    // La columna llegó con la migración de Cuenta Única (PLAN-DEMOCRACIA §9,
+    // La columna llegó con la migración de Cuenta Única (docs/INFRAESTRUCTURA.md §10,
     // aplicada el 2026-09-26). Si una vista anterior no la trae, cero: nadie
     // ha verificado su identidad mientras no exista el cliente de la OGTIC.
     verificados: z.number().default(0),
@@ -69,7 +69,7 @@ export interface Agregado {
   a_favor: number;
   en_contra: number;
   total: number;
-  /** Votos de votantes con identidad verificada por Cuenta Única (PLAN §9). */
+  /** Votos de votantes con identidad verificada por Cuenta Única (docs/INFRAESTRUCTURA.md §10.7). */
   verificados: number;
 }
 

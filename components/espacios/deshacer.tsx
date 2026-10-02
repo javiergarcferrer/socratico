@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
 /**
- * «Deshacer» en lugar de «¿Seguro?» (docs/DESIGN.md §4.1): lo reversible se
+ * «Deshacer» en lugar de «¿Seguro?» (docs/INFRAESTRUCTURA.md §11): lo reversible se
  * hace al primer toque y se ofrece volver atrás durante unos segundos. Solo
  * para lo que de verdad se restaura entero desde el navegador; lo que se lleva
  * consigo algo que no se puede volver a poner (los enlaces de un registro, las

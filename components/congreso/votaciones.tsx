@@ -60,7 +60,7 @@ export function FilaVotacion({
 /**
  * El recuento con su base, y la barra del reparto entre los votos emitidos.
  *
- * La barra es **divergente** (docs/IDENTIDAD.md §Gráficos): a favor en la
+ * La barra es **divergente** (docs/INFRAESTRUCTURA.md §11): a favor en la
  * firma, en contra en el sello, la abstención en el gris del papel entre los
  * dos. No es un color de estado —no dice que ganar sea bueno—: dice de qué
  * lado cayó cada voto, con los dos polos a la misma luz para que ninguno pese

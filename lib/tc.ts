@@ -1,7 +1,7 @@
 /**
  * Sentencias del Tribunal Constitucional — el listado anual de la Secretaría.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.6 (tercera pasada, 2026-09-24)
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.6 (tercera pasada, 2026-09-24)
  * y re-medida el mismo día con este User-Agent:
  *
  *  1. `tc.gob.do/robots.txt` responde 404 vacío: no hay reglas. El portal es

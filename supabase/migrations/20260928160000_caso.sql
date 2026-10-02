@@ -1,4 +1,4 @@
--- El caso: la investigación como expediente de trabajo (docs/PLAN-ESPACIOS.md §7).
+-- El caso: la investigación como expediente de trabajo (docs/INFRAESTRUCTURA.md §10).
 --
 -- Cuatro cosas nuevas, todas del investigador y ninguna del Estado:
 --  · qué une a dos registros, con un verbo de un vocabulario cerrado

@@ -1,9 +1,9 @@
 /**
  * Tasa de cambio del dólar — referencia del mercado spot del Banco Central.
  *
- * Sin credenciales: la API del BCRD (`api.bancentral.gov.do`) exige clave y es
- * decisión del dueño (docs/AUDITORIA.md §8.3); esto lee el **archivo público
- * del CDN** que el propio BCRD publica (§A.6), verificado el 2026-09-23:
+ * Sin credenciales: la API del BCRD (`api.bancentral.gov.do`) exige clave
+ * (docs/INFRAESTRUCTURA.md §5.11); esto lee el **archivo público
+ * del CDN** que el propio BCRD publica (§5.4), verificado el 2026-09-23:
  *
  *   https://cdn.bancentral.gov.do/documents/estadisticas/mercado-cambiario/documents/TASA_DOLAR_REFERENCIA_MC.xlsx
  *

@@ -5,7 +5,7 @@ import { formatInt } from "@/lib/nomina";
 
 /**
  * Una arista del grafo vista desde una ficha: adónde lleva, cuántos nodos hay
- * al otro lado y de qué fuente sale el cruce (docs/PLAN-ACCESO.md §6 ter, G2).
+ * al otro lado y de qué fuente sale el cruce (docs/INFRAESTRUCTURA.md §7).
  */
 export interface Arista {
   /** Qué hay al otro lado, en llano: «Capítulo del presupuesto», «Obras que ejecuta». */
@@ -22,7 +22,7 @@ export interface Arista {
 
 /**
  * «Conectado con»: el vecindario de una ficha, cada arista una fila entera
- * que se pulsa (docs/IDENTIDAD.md §8) con su cuenta y su fuente. Solo
+ * que se pulsa (docs/INFRAESTRUCTURA.md §11) con su cuenta y su fuente. Solo
  * aristas verificadas —un cruce adivinado es peor que ninguno—; las que no
  * tienen nada al otro lado se callan, y si no queda ninguna, el bloque
  * entero.

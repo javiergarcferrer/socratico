@@ -1,6 +1,6 @@
 /**
  * Lo que se escribe donde falta un valor: «sin dato», en palabras y no con
- * una raya, que se leía como un número borrado (docs/DESIGN.md §6 y §8).
+ * una raya, que se leía como un número borrado (docs/INFRAESTRUCTURA.md §11).
  */
 export const SIN_DATO = "sin dato";
 

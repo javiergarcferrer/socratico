@@ -1,5 +1,5 @@
 # Configuración mínima del CLI de Supabase para este repositorio.
-# El proyecto es `Transac` (docs/PLAN-DEMOCRACIA.md §0); el resto de la
+# El proyecto es `Transac` (docs/INFRAESTRUCTURA.md §10); el resto de la
 # configuración vive en el panel y no se replica aquí.
 project_id = "amuyclnyjyhigeyhuufs"
 

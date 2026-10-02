@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   General de Crédito Público. Esta guía explica esa cifra y no otra. El
   porcentaje del PIB solo existe para los cierres de año que publica el propio
   origen (`/deuda`); para un mes suelto no hay ancla y no se inventa una
-  comparación (docs/IDENTIDAD.md, ergonomía §1).
+  comparación (docs/INFRAESTRUCTURA.md §11, ergonomía §1).
 */
 
 export default function GuiaDeudaPage() {

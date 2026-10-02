@@ -4,7 +4,7 @@ import { SIN_DATO } from "@/lib/format";
  * DGCP.
  *
  * Los tonos no son una paleta decorativa: son los oficios de color de
- * `docs/IDENTIDAD.md` («un color = un significado, en toda la plataforma»), y
+ * `docs/INFRAESTRUCTURA.md` §11 («un color = un significado, en toda la plataforma»), y
  * por eso se nombran por **lo que significan** y nunca por el estado concreto
  * de una fuente. Un estado del origen se traduce a uno de estos cinco; los
  * nombres del Estado no entran aquí.
@@ -87,7 +87,7 @@ export type Tono = keyof typeof TONOS;
  *
  * Cada etapa es un **predicado sobre el estado normalizado**, no una lista de
  * literales. No es estilo: el vocabulario del origen no está versionado, ya
- * costó caro confiar en valores tecleados a mano (docs/AUDITORIA.md §A.12), y
+ * costó caro confiar en valores tecleados a mano (docs/INFRAESTRUCTURA.md §5.1), y
  * un literal mal transcrito no falla — devuelve cero, que se lee como «no
  * hay». Con predicados, un estado que la DGCP añada mañana cae en `cerrados`
  * —definida por negación de `abiertos`— en vez de desaparecer sin que nadie se

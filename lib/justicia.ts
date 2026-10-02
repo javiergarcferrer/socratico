@@ -5,7 +5,7 @@ import { join } from "node:path";
  * Estadísticas judiciales — cuántas solicitudes entran a los tribunales de
  * jurisdicción ordinaria en un mes y cuántas salen, por departamento judicial.
  *
- * Mecánica verificada en docs/AUDITORIA.md §5.2 y §G.6 (2026-09-24): el índice
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.6 (2026-09-24): el índice
  * `transparencia.poderjudicial.gob.do/…/BoletinesEstadisticos` enlaza 943
  * PDF/XLSX con nombres irregulares; `scripts/build-justicia.py` lo lee, toma
  * el último `EST_02_tribunales_de_jurisdiccion_ordinaria_<mes>_<año>.xlsx`

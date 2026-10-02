@@ -5,7 +5,7 @@ unida a sus procesos de compra, sus contratos y su territorio.
 Fuente: los datos abiertos de MapaInversiones (Ministerio de Hacienda y
 Economía, sobre el Banco de Proyectos del SNIP y la DGCP), descarga directa y
 sin clave desde https://mapainversiones.gob.do/DatosAbiertos
-(docs/AUDITORIA.md §A.4). Cuatro de sus quince CSV:
+(docs/INFRAESTRUCTURA.md §5.9). Cuatro de sus quince CSV:
 
 - `DatosAbiertosProyectosDeInversion.csv` (~4 MB): el proyecto, con su código
   SNIP, estado, valor, sector, entidad ejecutora y avance.

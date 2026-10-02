@@ -1,5 +1,5 @@
 /**
- * El sistema de gráficos (docs/IDENTIDAD.md §Gráficos — el sistema). Un
+ * El sistema de gráficos (docs/INFRAESTRUCTURA.md §11 — el sistema). Un
  * gráfico nuevo se compone con estas piezas; no se dibuja a mano en una
  * página.
  */

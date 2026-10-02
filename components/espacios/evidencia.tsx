@@ -28,7 +28,7 @@ import { EnlaceRegistro, MarcaTipo } from "./registro";
  * columna y se filtra por texto. La tabla es TanStack Table (MIT), sin estilos
  * propios: la pintan las primitivas (`components/ui/table.tsx`).
  *
- * En el teléfono el cuadro se apila en fichas (docs/IDENTIDAD.md §8): las
+ * En el teléfono el cuadro se apila en fichas (docs/INFRAESTRUCTURA.md §11): las
  * mismas filas, ordenadas y filtradas igual.
  */
 

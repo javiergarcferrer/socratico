@@ -23,9 +23,8 @@ function esc(s: string): string {
  *
  * Es el aviso de «se movió» que la plataforma puede dar **sin servidor ni
  * cuenta**: quien quiera enterarse sin volver a `/seguimiento` se suscribe en
- * su lector y el lector pregunta. Las notificaciones push exigirían guardar
- * suscripciones, que es una decisión abierta del dueño
- * (`docs/PLAN-ACCESO.md` §6).
+ * su lector y el lector pregunta. La plataforma no envía notificaciones push:
+ * exigirían guardar suscripciones (CLAUDE.md, «La invariante»).
  *
  * Lee lo mismo que la ficha (`getIniciativa`, `leerHistoricos`), con su caché
  * de cinco minutos.

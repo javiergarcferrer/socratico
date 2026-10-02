@@ -14,16 +14,15 @@ import type { ClaveGlosario } from "@/lib/glosario";
  * servicios múltiples, una ficha por entidad con lo que publica de ella
  * **quien la supervisa**.
  *
- * Mecánica verificada el 2026-09-29 (docs/AUDITORIA.md §5.6, §5.7, §G.5 y
- * §G.13, y el reconocimiento de esa pasada, que va en la cabecera de
- * `scripts/build-banca.py`). El script lee, con robots primero y diez
+ * Mecánica verificada el 2026-09-29 (docs/INFRAESTRUCTURA.md §5.7 y
+ * §5.4, y la cabecera de `scripts/build-banca.py`). El script lee, con robots primero y diez
  * segundos entre peticiones a la SB, y escribe `public/data/banca.json`:
  *  · Superintendencia de Bancos (`sb.gob.do/supervisados/`): el listado y la
  *    ficha de cada entidad de intermediación financiera y cambiaria, fiduciaria,
  *    sociedad de información crediticia y oficina de representación. La
  *    instantánea del 29-09-2026 trae solo las de intermediación financiera: al
  *    leer las demás, el cortafuegos de la SB respondió con su desafío y el
- *    script paró sin escribir (docs/AUDITORIA.md §H.6). Activos,
+ *    script paró sin escribir (docs/INFRAESTRUCTURA.md §5.7). Activos,
  *    participación, empleados, oficinas, cajeros, calificación, consejo y
  *    principales funcionarios, y los PDF de sus estados financieros y memorias
  *    (se enlazan, no se leen). La SB publica **cuántos** accionistas hay, no

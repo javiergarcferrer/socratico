@@ -3,7 +3,7 @@ import { lematizar, PALABRAS_VACIAS } from "@/lib/raiz";
 
 /**
  * Un título con las palabras de la búsqueda marcadas: el ojo ve **por qué**
- * salió esa fila sin leerla entera (docs/IDENTIDAD.md §3, reconocer y no
+ * salió esa fila sin leerla entera (docs/INFRAESTRUCTURA.md §11, reconocer y no
  * recordar).
  *
  * Marca por raíz, con el mismo lematizador del español que usa el índice

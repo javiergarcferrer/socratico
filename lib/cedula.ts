@@ -5,7 +5,7 @@
  *
  * Sirve para rechazar tipeos y números inventados — **no** prueba que la
  * cédula exista en el padrón ni que pertenezca a quien la escribe (eso exige
- * la JCE; ver docs/PLAN-DEMOCRACIA.md §6). El servidor re-valida siempre en
+ * la JCE; ver docs/INFRAESTRUCTURA.md §10). El servidor re-valida siempre en
  * `democracia.cedula_valida`: esta copia es solo feedback inmediato de UI.
  */
 

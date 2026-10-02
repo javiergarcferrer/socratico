@@ -6,7 +6,7 @@ Es el nodo «decreto» del grafo: la lista de los decretos que firmó cada
 Presidente (`/funcionarios/[slug]/decretos`), la ficha de cualquier decreto
 numerado «NNN-AA» aunque la Consultoría desafíe al egreso de Vercel
 (`resolverNorma` en lib/normativa.ts cae aquí) y las aristas firmante →
-decreto del grafo semántico. Mecánica en docs/AUDITORIA.md §4.1: una sola
+decreto del grafo semántico. Mecánica en docs/INFRAESTRUCTURA.md §5.6: una sola
 lectura del buscador público (`scripts/consultoria_decretos.py`), compartida
 con scripts/build-funcionarios.py por la misma caché.
 

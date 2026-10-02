@@ -5,7 +5,7 @@ import { join } from "node:path";
  * Catálogo de datos abiertos del Estado — los conjuntos públicos de
  * datos.gob.do, con su organización, formatos y grupo temático.
  *
- * Mecánica verificada en docs/AUDITORIA.md §G.3: su `/api/` la veta el propio
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.10: su `/api/` la veta el propio
  * robots, pero la búsqueda HTML `/dataset/?q=*:*&sort=name+asc&page=N` es
  * server-rendered y recorre el catálogo entero. `scripts/build-catalogo.py` la
  * lee con los diez segundos de espera que pide el robots (~55 peticiones) y

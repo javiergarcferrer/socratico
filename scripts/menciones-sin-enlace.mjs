@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * La segunda mitad del criterio de G1 (docs/PLAN-ACCESO.md §6 ter): ninguna
+ * Comprueba que (docs/INFRAESTRUCTURA.md §7.1) ninguna
  * ficha pinta una cita de norma, un código de proceso o un SNIP **sin
  * enlace**. Recorre fichas de muestra en un servidor en marcha y busca esas
  * formas en el texto que no está dentro de un `<a>`.

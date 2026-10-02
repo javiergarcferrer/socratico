@@ -5,7 +5,7 @@
 // memoria con ganchos entre llamadas —para tocar la lista *mientras* la
 // sincronización espera a la red— y recorre los casos. Debe imprimir
 // `FALLOS: 0`. Uso: node supabase/pruebas/sincronizar_seguidos.cjs
-// (docs/PLAN-ESPACIOS.md §3).
+// (docs/INFRAESTRUCTURA.md §10).
 const fs = require("fs");
 const os = require("os");
 const path = require("path");

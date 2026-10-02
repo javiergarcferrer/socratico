@@ -7,7 +7,7 @@ import { SERIE, CONTEXTO } from "./paleta";
  * Una serie en el tiempo (o sobre cualquier eje ordenado: los tramos de un
  * histograma), pintada en el servidor.
  *
- * Dos formas y una regla para elegir (docs/IDENTIDAD.md §Gráficos):
+ * Dos formas y una regla para elegir (docs/INFRAESTRUCTURA.md §11):
  *  - `columnas` — un **flujo** que se suma por período: lo contratado en el
  *    año, las licencias emitidas, las denuncias. Cada columna es un total.
  *  - `linea` — un **saldo o una tasa** que se lee en su nivel: la deuda al

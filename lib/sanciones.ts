@@ -9,8 +9,8 @@ import { TIPOS_MEDIDA, type GrupoMedida, type TipoMedida } from "@/lib/medidas";
  * inhabilitaciones que registra la DGCP — y las entidades de la lista SDN de
  * la OFAC ligadas a la República Dominicana.
  *
- * Mecánica verificada en el reconocimiento del 2026-09-29 (docs/AUDITORIA.md
- * §A.3, §A.12 y §G.1 para la sección «Tablas» de la DGCP):
+ * Mecánica verificada en el reconocimiento del 2026-09-29 (docs/INFRAESTRUCTURA.md §5.1,
+ * la sección «Tablas» de la DGCP):
  *
  *  - ✅ `…/api-dgcp/v1/tablas/proveedores?Type=csv&inhabilitados=true` →
  *    200 `text/csv`, `ProveedoresInhabilitados.csv`, ~0.9 MB: **una fila por

@@ -2,9 +2,9 @@
 """Genera public/data/funcionarios.json: quién ocupa cada cargo público y qué
 cargos ha ocupado cada persona, según lo que el propio Estado publica.
 
-Es la capa de personas del grafo (docs/PLAN-ACCESO.md §6 quater): la ficha
+Es la capa de personas del grafo (docs/INFRAESTRUCTURA.md §5.7): la ficha
 `/funcionarios/[slug]`, el directorio `/funcionarios` y el bloque «¿Quién la
-dirige?» de cada institución. Mecánica verificada en docs/AUDITORIA.md §H
+dirige?» de cada institución. Mecánica verificada en docs/INFRAESTRUCTURA.md §5.7
 (cuarta pasada, 2026-09-29). Una lectura por fuente, en build, con el
 User-Agent identificable; nunca en una visita.
 
@@ -42,8 +42,8 @@ Fuentes, en el orden en que se leen:
    Se descarta el sexo.
 5. **Congreso**: los legisladores del período en `public/data/congreso.json`
    (sin red).
-6. **Banco Central — la Junta Monetaria** (`/a/d/2557-miembros-jm`, AUDITORIA
-   §H.13): la página es un cascarón que pide su contenido con el POST que hace
+6. **Banco Central — la Junta Monetaria** (`/a/d/2557-miembros-jm`,
+   docs/INFRAESTRUCTURA.md §5.7): la página es un cascarón que pide su contenido con el POST que hace
    ella misma, `POST /Home/GetContentForRender` con `id=2557&languageName=es`. Llega JSON dentro
    de `text/html`; los nombres y los cargos vienen en el HTML de
    `result.article.content`, y un miembro que ya salió queda **comentado** ahí:
@@ -671,7 +671,7 @@ class Instituciones:
         if not puntos:
             return None
         mejor, segundo = puntos[0], (puntos[1][0] if len(puntos) > 1 else 0.0)
-        # Calibrado a mano sobre las 252 instituciones del MAP (docs/AUDITORIA.md §H):
+        # Calibrado a mano sobre las 252 instituciones del MAP (docs/INFRAESTRUCTURA.md §5.7):
         # 224 casan así y ninguna mal; las dudosas se quedan sin enlace.
         if mejor[0] >= 0.6 and mejor[0] - segundo >= 0.15:
             return mejor[1]
@@ -1063,7 +1063,7 @@ def junta_del_html(html: str) -> list[dict]:
 
 def leer_junta_monetaria() -> tuple[list[dict], dict]:
     """La Junta Monetaria en la página del Banco Central, con el POST que hace
-    esa misma página (AUDITORIA §H.13). Lanza si no contesta: sin la Junta no
+    esa misma página (docs/INFRAESTRUCTURA.md §5.7). Lanza si no contesta: sin la Junta no
     se escribe (ver main)."""
     cuerpo, _ = pedir(JUNTA_CONTENIDO, datos=b"id=2557&languageName=es", tipo=r"text/html|json",
                       cabeceras={"Content-Type": "application/x-www-form-urlencoded"}, pausa=2.0)

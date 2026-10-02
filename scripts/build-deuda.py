@@ -11,7 +11,7 @@ instantánea. Regenerar cuando haya un mes nuevo:
 Requiere red con acceso a creditopublico.gob.do (una máquina local o un
 sandbox con egreso; verificado el 2026-09-23 desde uno).
 
-Qué lee (docs/AUDITORIA.md §3.3):
+Qué lee (docs/INFRAESTRUCTURA.md §5.3):
 
 - **La serie**: `/inicio/estadisticas?dlAnio=AAAA` lista los XLSX de cada año.
   El origen **no conserva todos los meses**: de cada año cerrado quedan el

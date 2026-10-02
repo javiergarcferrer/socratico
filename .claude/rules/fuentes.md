@@ -6,8 +6,8 @@ paths:
 ---
 # Contract for every state-source adapter (`lib/*.ts`)
 
-Condensed from docs/AUDITORIA.md §6/§9 and docs/RECON.md §2.1/§2.10/§12.1. The full
-verified mechanics per source live there; this is what every adapter obeys.
+The mechanics of each source as they are: docs/INFRAESTRUCTURA.md §4–§6.
+This is what every adapter obeys.
 
 ## Reading a source
 - **One `lib/<fuente>.ts` per source, one contract:** identifiable
@@ -23,14 +23,14 @@ verified mechanics per source live there; this is what every adapter obeys.
   (Senate `consultante`, Consultoría `Search`, the MAP directory, BCRD
   `GetContentForRender`, the Poder Judicial hearing roll by exact case number,
   the Registro Inmobiliario file by exact number). Never a login, admin, or subscription endpoint.
-  Never copy telemetry keys the portals leak (RECON §2.10).
+  Never copy telemetry keys the portals leak.
 - **Never evade a WAF, challenge, 403, 470, or robots rule.** Do not rotate
   User-Agent or IP, do not spoof a browser. A blocked source is unblocked
-  institutionally (whitelist, Ley 200-04); write that down in docs/AUDITORIA.md
-  and `/fuentes`, then stop.
+  institutionally (whitelist, Ley 200-04); record the observed response in
+  docs/INFRAESTRUCTURA.md §5.11 and `/fuentes`, then stop.
 - **Stateless.** No database, no `process.env`, no API keys in any adapter.
   A source that needs credentials (BCRD, Superintendencia de Bancos) is an
-  **owner decision** (AUDITORIA §8.3): implement nothing, report the option.
+  **owner decision**: implement nothing, report the option.
   Hooks enforce this; do not work around them.
 - **Cache by volatility:** live listings 5 min, prices 1 h, catalogues 24 h,
   monthly series daily. Use fetch `revalidate` when the URL is stable;
@@ -43,13 +43,13 @@ verified mechanics per source live there; this is what every adapter obeys.
   when the origin rejects cloud egress. A value served from a snapshot says so
   in the UI (`desdeInstantanea`) with its generation date.
 
-## Two adapter classes (docs/AUDITORIA.md §D)
+## Two adapter classes (docs/INFRAESTRUCTURA.md §4)
 - **Live source, cached by minutes** (`lib/dgcp.ts`, `lib/congreso.ts`):
   fetch `revalidate`, the request path is fast, the page waits for it.
 - **Slow source, cached by day** (`lib/senado.ts`, `lib/normativa.ts`):
   `unstable_cache` with a daily window, timeout up to 120 s, queries scoped (by
   institution, by year), the current month degraded to the last closed one.
-  Latency is part of the contract: design the cache before the feature (§E.4).
+  Latency is part of the contract: design the cache before the feature.
 - **Too slow even for that → snapshot** (`lib/fiscal.ts` over SIGEF): measured
   at 97 s for a whole institutional section and 20–90 s for a single
   institution, past any function budget, so it is built by
@@ -61,7 +61,7 @@ verified mechanics per source live there; this is what every adapter obeys.
   **build-time snapshots** via `scripts/build-*.py` restricted to what the
   platform shows, never fetched in a request.
 
-## Lessons the second audit pass made rules (docs/AUDITORIA.md §E)
+## Lessons from reading the State's sources
 1. The showcase is not the source: read the JavaScript that builds the calls.
 2. A 403 at the door does not close the house: look for the static download.
 3. Before a new source, exhaust the one already integrated (DGCP had four
@@ -83,7 +83,7 @@ verified mechanics per source live there; this is what every adapter obeys.
 - A new adapter is not done until `app/fuentes/page.tsx` declares it (what,
   limits, what is blocked) and CLAUDE.md's data-layer notes name the file.
   The gate (`verificar.sh`) checks for this.
-- Cite the RECON/AUDITORIA section that verified the mechanics in the module
+- Cite the docs/INFRAESTRUCTURA.md §5 subsection that records the mechanics in the module
   header, as the existing adapters do. Unverified claims are hypotheses and
   are labelled as such.
 

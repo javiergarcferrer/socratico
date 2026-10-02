@@ -83,7 +83,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /**
  * La ficha de una entidad financiera: qué es y quién la supervisa → de qué
  * tamaño es → con qué se cruza → quién la dirige → qué informa → de dónde sale
- * cada dato. El orden de IDENTIDAD §4.
+ * cada dato. El orden de docs/INFRAESTRUCTURA.md §11.
  *
  * Todo sale de la instantánea de `lib/financieras.ts`. Los nombres del consejo
  * y de los funcionarios se muestran tal como los publica la SB, sin completar;

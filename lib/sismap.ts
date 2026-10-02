@@ -7,7 +7,7 @@ import { INSTITUCIONES } from "@/lib/instituciones";
  * Pública, para instituciones del Gobierno central, ayuntamientos y juntas de
  * distrito municipal.
  *
- * Mecánica verificada en docs/AUDITORIA.md §A.7: tablas HTML servidas, tres
+ * Mecánica verificada en docs/INFRAESTRUCTURA.md §5.10: tablas HTML servidas, tres
  * páginas. `scripts/build-sismap.py` las lee y las cruza por nombre con las
  * fichas de institución; este módulo sirve `public/data/sismap.json`. El SISMAP
  * no publica fecha de corte en esas páginas: lo que se declara es el día en que

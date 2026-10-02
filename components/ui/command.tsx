@@ -9,7 +9,7 @@
  * señalada mientras el foco se queda en el campo. Es lo que hace que una lista
  * de treinta destinos se recorra sin tabular treinta veces.
  *
- * Las medidas son las de la casa (docs/IDENTIDAD.md §8): el campo se escribe a
+ * Las medidas son las de la casa (docs/INFRAESTRUCTURA.md §11): el campo se escribe a
  * 16 px en el teléfono —por debajo, Safari hace zoom al enfocarlo— y cada
  * opción mide 44 px, 40 desde `sm`. La opción señalada se pinta con el tenue de
  * la firma, el mismo que el `hover` de un botón fantasma: una sola señal para

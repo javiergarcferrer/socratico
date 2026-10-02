@@ -242,7 +242,7 @@ export default async function IniciativaPage({ params }: Props) {
         Seguir, compartir y el RSS van después de entender la pieza, no antes:
         encima del título empujaban el h1 a media pantalla del teléfono, y
         nadie sigue una iniciativa antes de saber qué es y en qué punto está
-        (docs/IDENTIDAD.md §4, el orden de los bloques).
+        (docs/INFRAESTRUCTURA.md §11, el orden de los bloques).
       */}
       <AccionesFicha className="mt-4" tipo="proyecto" id={String(ini.id)} titulo={titulo} href={enlace.iniciativa(ini.id)} situacion={ini} feed={`/api/feed/congreso/${ini.id}`} />
 

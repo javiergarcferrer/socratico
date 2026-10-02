@@ -41,7 +41,7 @@ const ROL: Record<ProyectoConCuenta["rol"], string> = { dueno: "Tuyo", editor: "
  * sus investigaciones (propias y compartidas) y lo guardado sin ordenar. El
  * orden es el de la pregunta con que se abre: ¿quién me espera? → ¿qué
  * cambió? → ¿en qué estoy trabajando? → ¿qué dejé sin ordenar?
- * (docs/IDENTIDAD.md §4).
+ * (docs/INFRAESTRUCTURA.md §11).
  */
 export default function MiEspacio() {
   const sesion = useUsuario();
@@ -301,7 +301,7 @@ function Guardado({
   /*
     Quitar algo guardado sin ordenar se deshace entero: vuelve a guardarse con
     su nota y su fecha (no tiene enlaces ni sitio en un tablero). Por eso no se
-    pregunta antes; se ofrece «Deshacer» (docs/DESIGN.md §4.1).
+    pregunta antes; se ofrece «Deshacer» (docs/INFRAESTRUCTURA.md §11).
   */
   const [deshacible, setDeshacible] = useState<Deshacible | null>(null);
   const [quitando, setQuitando] = useState<string | null>(null);

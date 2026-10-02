@@ -64,7 +64,7 @@ export class FalloLectura extends Error {
 /**
  * El estado y, si lo hay, el veredicto de Cloudflare (`cf-mitigated:
  * challenge` es un bloqueo del WAF, no una caída —y no se rodea: se gestiona,
- * docs/AUDITORIA.md—) y el servidor que respondió.
+ * docs/INFRAESTRUCTURA.md §4—) y el servidor que respondió.
  */
 function motivo(res: Response): string {
   const cf = res.headers.get("cf-mitigated");
@@ -201,7 +201,7 @@ export async function pedirBytes(url: string, p: Pedido): Promise<ArrayBuffer | 
  * octubre a quien no pide compresión y del 1 de **septiembre** a quien pide
  * `gzip`, que es lo que pide `fetch` en Node; con `reservas_internacionales.xlsx`
  * pasaba lo mismo, y con la tasa del dólar, al revés. La plataforma enseñaba
- * la TPM de un mes atrás como vigente (docs/AUDITORIA.md §G.17). Una consulta
+ * la TPM de un mes atrás como vigente (docs/INFRAESTRUCTURA.md §4). Una consulta
  * nueva cada día hace que el CDN pida el archivo a su origen la primera vez
  * que se lee ese día —una sola, el resto del día sigue en su caché—, que es
  * lo que el origen publica hoy. No rodea ningún bloqueo: es la misma

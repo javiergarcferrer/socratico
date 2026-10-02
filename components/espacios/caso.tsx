@@ -38,7 +38,7 @@ import TableroDiferido, { type Seleccion } from "./tablero-diferido";
 import { AvisoDeshacer, type Deshacible } from "./deshacer";
 
 /**
- * El caso: la misma investigación vista de cuatro maneras (docs/PLAN-ESPACIOS.md §7).
+ * El caso: la misma investigación vista de cuatro maneras (docs/INFRAESTRUCTURA.md §10).
  *
  *  · Tablero: dónde está cada registro y qué los une, con el verbo en la flecha.
  *  · Línea de tiempo: los registros a los que se les anotó una fecha, en orden.
@@ -565,7 +565,7 @@ function PanelEnlace({
   const [error, setError] = useState<string | null>(null);
   /*
     Un enlace se restaura entero (sus dos extremos, su verbo, su nota), así que
-    no se pregunta antes: se quita y el caso ofrece «Deshacer» (docs/DESIGN.md
+    no se pregunta antes: se quita y el caso ofrece «Deshacer» (docs/INFRAESTRUCTURA.md §11
     §4.1). Quitar un registro sí pregunta: se lleva sus enlaces y sus menciones.
   */
   const [quitando, setQuitando] = useState(false);

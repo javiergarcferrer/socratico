@@ -5,7 +5,7 @@
  * viva existe siempre y solo cambia su texto: un lector de pantalla no anuncia
  * una región que aparece ya llena. Vacía se aparta con `sr-only` (no con
  * `display: none`) para no abrir hueco en el formulario. En alerta y no en
- * sello: el sello es escaso y no se gasta en validar (IDENTIDAD, color).
+ * sello: el sello es escaso y no se gasta en validar (.claude/rules/identidad.md).
  */
 
 import * as React from "react";

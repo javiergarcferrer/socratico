@@ -3,7 +3,7 @@
  *
  * Es el `Badge` de shadcn con la forma que manda la identidad: rectangular
  * (`rounded-[3px]`), en versalitas monoespaciadas y **nunca una píldora** — un
- * sello no tiene esquinas redondas (docs/IDENTIDAD.md §3 y §7).
+ * sello no tiene esquinas redondas (docs/INFRAESTRUCTURA.md §11).
  *
  * Las variantes se nombran por el **oficio del color**, no por el estado
  * concreto de una fuente: es la misma disciplina de `lib/estados.ts`, donde un

@@ -30,7 +30,7 @@ import { EnlaceRegistro, MarcaTipo } from "./registro";
 
 /**
  * El tablero de un caso: cada registro es una tarjeta que el investigador pone
- * donde le sirve, y cada enlace una flecha con su verbo (docs/PLAN-ESPACIOS.md §7).
+ * donde le sirve, y cada enlace una flecha con su verbo (docs/INFRAESTRUCTURA.md §10).
  * Lo pinta React Flow (xyflow, MIT); el vestido es el de la casa.
  *
  * No importa el cliente de Supabase: guardar es del que lo monta (`onMover`,

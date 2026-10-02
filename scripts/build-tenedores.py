@@ -3,7 +3,7 @@
 y a quién le debe el sector público, según la Dirección General de Crédito
 Público (Ministerio de Hacienda y Economía).
 
-Mecánica verificada el 2026-10-02 (docs/AUDITORIA.md §G.17), desde un sandbox
+Mecánica verificada el 2026-10-02 (docs/INFRAESTRUCTURA.md §5.3), desde un sandbox
 con egreso y UA identificable. El servidor de Crédito Público no responde al
 egreso de Vercel (§3.3), así que esto es una instantánea que regenera este
 script; robots.txt responde 404 (sin reglas).

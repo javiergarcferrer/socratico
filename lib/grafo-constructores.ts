@@ -32,7 +32,7 @@ import type { ClaseContada, MetaGrafo } from "@/lib/grafo-compilado";
 /**
  * Los constructores del grafo: de las instantáneas a los triples de cada
  * nodo (lo que es, lo que dice y con quién se liga). Los corre **solo el
- * compilador** (`scripts/build-grafo.mjs`, docs/PLAN-GRAFO.md F2), que
+ * compilador** (`scripts/build-grafo.mjs`, docs/INFRAESTRUCTURA.md §7), que
  * guarda lo que afirman en `datos/grafo/`; el servidor lee eso
  * (`lib/grafo-compilado.ts`) y ninguna ruta importa este módulo: si una lo
  * hiciera, su función arrastraría todas las instantáneas que lee.
@@ -121,7 +121,7 @@ const dia = (x: string | null | undefined) => x?.slice(0, 10) ?? null;
  * fuente y su corte, leídos de las mismas instantáneas que los constructores.
  * Un triple sale de una fuente (lo que dice el Estado, tal cual) o de una
  * regla de Socrático (lo que la plataforma infiere o cruza): las dos cosas no
- * se mezclan nunca en un mismo grafo (docs/PLAN-GRAFO.md §3.8).
+ * se mezclan nunca en un mismo grafo (docs/INFRAESTRUCTURA.md §7).
  */
 export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
   type Organo = { url: string };

@@ -8,13 +8,13 @@
  *
  * Toda variante con caja lleva **relieve** (`app/globals.css`): fibra de papel
  * y canto. Es la señal de «esto se pulsa», y por eso ninguna superficie que
- * solo se lee la lleva (docs/IDENTIDAD.md §Relieve).
+ * solo se lee la lleva (docs/INFRAESTRUCTURA.md §11).
  *
  * `asChild` es lo que hace esta pieza usable en una plataforma que es, sobre
  * todo, enlaces: `<Button asChild><Link href=…>` conserva la semántica de
  * navegación y hereda el vestido. Antes había que copiar la línea de clases a
  * mano en cada página, que es exactamente como se diluyó la identidad dos
- * veces (docs/IDENTIDAD.md §8).
+ * veces (docs/INFRAESTRUCTURA.md §11).
  */
 
 import * as React from "react";
@@ -101,7 +101,7 @@ function Button({
     <Comp
       data-slot="button"
       // Un botón hace algo, no envía por accidente: `submit` se pide
-      // explícito (docs/DESIGN.md §5). Con `asChild` el tipo es del hijo.
+      // explícito (docs/INFRAESTRUCTURA.md §11). Con `asChild` el tipo es del hijo.
       type={asChild ? undefined : "button"}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}

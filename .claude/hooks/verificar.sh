@@ -24,7 +24,7 @@ if [ -d node_modules/typescript ]; then
   fi
 fi
 
-# 2. Identity (docs/IDENTIDAD.md prohibitions) across the UI tree.
+# 2. Identity (.claude/rules/identidad.md prohibitions) across the UI tree.
 hallazgos="$( { grep -rnE "$IDENTIDAD_PATRONES" app components --include=*.tsx --include=*.css 2>/dev/null; \
                 grep -rnP "$EMOJI_PATRON" app components --include=*.tsx 2>/dev/null; } \
               | grep -vE ':[0-9]+:[[:space:]]*(//|/?\*)' | head -10)"
@@ -39,7 +39,7 @@ if command -v python3 >/dev/null 2>&1; then
   fi
 fi
 
-# 2c. Magnitude travels in words (IDENTIDAD §3): «MM» reads *millones* in
+# 2c. Magnitude travels in words (.claude/rules/identidad.md): «MM» reads *millones* in
 # Dominican usage, so an amount abbreviated MM/M/K is off by up to 1,000×.
 abrev="$(grep -rnE '\)\}?(MM|M|K)`' app components lib --include=*.ts --include=*.tsx 2>/dev/null \
          | grep -vE ':[0-9]+:[[:space:]]*(//|/?\*)' | head -5)"
@@ -55,19 +55,19 @@ if command -v python3 >/dev/null 2>&1; then
   fi
 fi
 
-# 2e. Motion goes through its tokens (IDENTIDAD §Movimiento): no curve
+# 2e. Motion goes through its tokens (docs/INFRAESTRUCTURA.md §11.4): no curve
 # written by hand in a component, no bounce, nothing slower than a sheet.
 mov="$(grep -rnE 'cubic-bezier\(|animate-bounce|duration-\[|duration-(3[5-9][0-9]|[4-9][0-9]{2}|[0-9]{4})([^0-9]|$)' app components --include=*.tsx 2>/dev/null \
        | grep -vE ':[0-9]+:[[:space:]]*(//|/?\*)' | head -5)"
 if [ -z "$mov" ]; then ok "motion: curves and durations come from the tokens"; else mal "hand-written motion — use ease-firma/sello/salida/estampa and the --dur-* tokens"; printf '%s\n' "$mov" | sed 's/^/       /'; fi
 
-# 2f. The graph (docs/PLAN-ACCESO.md §6 ter, G1): every entity address comes
+# 2f. The graph (docs/INFRAESTRUCTURA.md §7.1): every entity address comes
 # from lib/grafo.ts (`enlace.*`), so a link cannot be built by hand and drift.
 grafo="$(grep -rnE '[`"]/(instituciones|proveedores|procesos|normativa|congreso|obras|provincias|finanzas|funcionarios|banca|empresas)/(\$\{|[a-z0-9-]+/\$\{|"[[:space:]]*\+)' app components lib --include=*.ts --include=*.tsx 2>/dev/null \
          | grep -vE '^lib/grafo' | grep -vE ':[0-9]+:[[:space:]]*(//|/?\*)' | head -5)"
 if [ -z "$grafo" ]; then ok "graph: every entity href comes from lib/grafo.ts"; else mal "entity href built by hand — use enlace.* from lib/grafo.ts"; printf '%s\n' "$grafo" | sed 's/^/       /'; fi
 
-# 2g. The graph's builders run only in the compiler (docs/PLAN-GRAFO.md, F2):
+# 2g. The graph's builders run only in the compiler (docs/INFRAESTRUCTURA.md §7.4):
 # a route that imports them reads every snapshot again on each request and
 # drags them all into its function. The server reads datos/grafo/.
 constructores="$(grep -rnE 'from "@/lib/grafo-constructores"' app components lib --include=*.ts --include=*.tsx 2>/dev/null | head -5)"
@@ -118,7 +118,7 @@ fi
 grandes="$(git ls-files -z 2>/dev/null | xargs -0 stat -c '%s %n' 2>/dev/null \
            | awk '{s=$1; $1=""; if (s > 90000000) printf "%s (%.1f MB)\n", substr($0, 2), s/1e6}')"
 if [ -z "$grandes" ]; then ok "size: every tracked file under 90 MB (GitHub refuses 100 MiB)"
-else mal "tracked file over 90 MB — split it before GitHub refuses the push (docs/ARQUITECTURA.md, Búsqueda)"; printf '%s\n' "$grandes" | sed 's/^/       /'; fi
+else mal "tracked file over 90 MB — split it before GitHub refuses the push (docs/INFRAESTRUCTURA.md §8.1)"; printf '%s\n' "$grandes" | sed 's/^/       /'; fi
 
 # 5b. The harness's own claims (ceiling, paths, rule ownership, frontmatter).
 if arn="$("$(dirname "$0")/harness.sh" "$ROOT" 2>&1)" && [ -z "$arn" ]; then
@@ -140,8 +140,8 @@ if [ "$modo" = "--completo" ] && command -v python3 >/dev/null 2>&1; then
   fi
 fi
 
-# 5d. The graph the server reads is what the builders say (docs/PLAN-GRAFO.md,
-#     F2): `describir()` reads datos/grafo/, compiled by build-grafo.mjs, so a
+# 5d. The graph the server reads is what the builders say
+#     (docs/INFRAESTRUCTURA.md §7.4): `describir()` reads datos/grafo/, compiled by build-grafo.mjs, so a
 #     stale one is not an error at runtime — it silently serves the previous
 #     graph. Re-describes every node with the builders and compares it, triple
 #     by triple, with what the server's own reader gets (~2 min): completo only.
@@ -161,8 +161,8 @@ if [ "$modo" = "--completo" ]; then
   else mal "npm run build (see $LOG)"; tail -30 "$LOG" | sed 's/^/       /'; fi
 fi
 
-# 6b. The MCP server answers what it promises (docs/PLAN-ACCESO.md §6 sexies,
-#     M5): `scripts/eval-mcp.mjs` calls every tool against `next start` over
+# 6b. The MCP server answers what it promises (docs/INFRAESTRUCTURA.md §9.5):
+#     `scripts/eval-mcp.mjs` calls every tool against `next start` over
 #     the build just made, each case checked against an oracle read from the
 #     snapshots, plus the rules every answer keeps (no cédula, source, cut).
 #     A change that breaks a tool's shape does not reach `main`.
@@ -185,7 +185,7 @@ if [ "$construido" = 1 ]; then
     if [ "$listo" = 1 ]; then printf '%s\n' "$eval_mcp" | grep -E 'FAIL|casos' | head -15 | sed 's/^/       /'
     else echo "       next start did not answer in 60 s:"; tail -5 "$SLOG" | sed 's/^/       /'; fi
   fi
-  # 6c. The graph conforms to its ontology (docs/PLAN-GRAFO.md, F0): the dump
+  # 6c. The graph conforms to its ontology (docs/INFRAESTRUCTURA.md §7.2): the dump
   #     plus a sample of people and decrees against the SHACL shapes generated
   #     from lib/ontologia.ts, and every soc:/do: term the graph uses declared.
   #     Same server, ~1 min.

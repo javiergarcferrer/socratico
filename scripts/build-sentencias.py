@@ -8,7 +8,7 @@ Las páginas `/constitucional` y `/tse` leen esos mismos listados en vivo, un
 año a la vez (`lib/tc.ts`, `lib/tse.ts`); el buscador necesita todos los años
 juntos y de antemano, y por eso esta instantánea. No sustituye a las páginas.
 
-Mecánica verificada el 2026-09-27 con este User-Agent (docs/AUDITORIA.md §G.6):
+Mecánica verificada el 2026-09-27 con este User-Agent (docs/INFRAESTRUCTURA.md §5.6):
 
 - **TC.** `tc.gob.do/robots.txt` responde 404: no hay reglas. Un año entero
   cabe en una respuesta: `GET /consultas/secretar%C3%ADa/sentencias?…&size=999999&filtery=AAAA&criteriay=years`
