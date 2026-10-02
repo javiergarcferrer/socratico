@@ -19,7 +19,7 @@
  */
 
 import { unstable_cache } from "next/cache";
-import { pedirBytes } from "@/lib/pedir";
+import { delDiaBcrd, pedirBytes } from "@/lib/pedir";
 import { filasDe, leerHoja } from "@/lib/xlsx";
 import { numeroMes } from "@/lib/format";
 
@@ -43,7 +43,7 @@ export interface Tasa {
 
 
 function bajar(): Promise<ArrayBuffer | null> {
-  return pedirBytes(URL_TASA, {
+  return pedirBytes(delDiaBcrd(URL_TASA), {
     fuente: "tasa",
     ua: USER_AGENT,
     tipo: /octet-stream|spreadsheetml|excel/i,
@@ -86,7 +86,7 @@ const leerTasa = unstable_cache(
     const haceUnMes = [...puntos].reverse().find((p) => p.fecha <= iso) ?? null;
     return { ultimo, haceUnMes, fuente: URL_TASA };
   },
-  ["tasa-bcrd-v2"],
+  ["tasa-bcrd-v3"],
   { revalidate: 3600 },
 );
 

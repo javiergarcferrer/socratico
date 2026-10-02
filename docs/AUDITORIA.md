@@ -1617,6 +1617,82 @@ Para pintar un mapa sin teselas ni clave (`lib/mapa.ts`, `scripts/build-mapa.py`
   Earth, 60 vértices por provincia de media). Más tosca y no es fuente del
   Estado.
 
+### G.17 Dinero: el Banco Central por dentro y quién tiene los bonos (2026-10-02)
+
+Para la vertical `/dinero` (`lib/banco-central.ts`, `lib/tenedores.ts`,
+`scripts/build-tenedores.py`). Todo con UA identificable, GET, desde un sandbox
+con egreso; nombres de archivo del BCRD tomados del paquete R abierto
+`databcrd` (Johan Rosa), cada uno comprobado con una respuesta real.
+
+- ✅ **BCRD, CDN, `sector-monetario-y-financiero/documents/`** (200,
+  `application/octet-stream`, `PK`):
+  - `Serie_TPM.xlsx` (37 KB): Año | Mes | TPM | facilidad de depósito | de
+    préstamo | Lombarda, **en fracción**, desde 2004. Nota 1: desde febrero de
+    2013 la TPM es indicativa y las facilidades son TPM ± margen. Oct-2026:
+    5.50 % (depósito 4.75, préstamo 6.00); 37 cambios desde feb-2013.
+  - `tbm_pasivad.xlsx` (150 KB), hermana de `tbm_activad.xlsx` (§G.5) con la
+    misma trampa de filas: plazos B–I, promedio simple J y ponderado K, ahorro
+    L, público/preferencial M–N e **interbancaria O**. Ago-2026: ponderada
+    7.37 %, ahorro 0.49 %, interbancaria 7.42 %.
+  - `serie_indicadores_bcrd.xlsx` (217 KB): balance armonizado, ancho, una
+    columna por mes desde ene-1996 (serie de Excel hasta 2012; luego «abr-13»,
+    «sept.-25», «ago.-26*») y una última **parcial de un día**
+    («25-sept.-26*»). Millones de RD$; reservas en millones de US$; «n.d.».
+    25-sep-2026: valores en circulación RD$882,538 M, reservas brutas
+    US$14,991 M, base restringida RD$527,258 M.
+  - `operaciones_monetarias.xlsx` (401 KB): contracción (ventanilla de
+    depósitos + letras a un día) y expansión (repos), millones de RD$; mensual
+    hasta 2013 y diario después, con la fecha escrita a mano en cinco formas
+    («1-mayo-15», «06-noviembre-18.», «30-septiembre-26*», «02-sep-13») y algún
+    día como serie de Excel. 30-sep-2026: contracción 74,631 M, expansión 250 M.
+    Cuadra con la fila «Depósitos remunerados de corto plazo» del balance.
+  - También responden y no se usan aún: `encaje_bancario.xlsx`,
+    `Tasas_Interbancarias_Promedio_por_Plazos.xlsm`, `ti_reales.xls`.
+- ⚠️ **El CDN sirve copias viejas según la compresión.** El 2026-10-02
+  `Serie_TPM.xlsx` llegaba con `last-modified` del 1-oct a quien no pide
+  compresión (o pide `br`) y del **1-sep** a quien pide `gzip`, que es lo que
+  pide `fetch` en Node: la plataforma habría mostrado 5.25 % como vigente.
+  `reservas_internacionales.xlsx` igual (1-sep contra 1-oct); con la tasa del
+  dólar la copia `gzip` era la **más nueva**. `Cache-Control: no-cache` no
+  cambia nada; una consulta nueva (`?d=2026-10-02`) da `TCP_MISS` y trae la
+  vigente, y la siguiente con la misma consulta ya es `TCP_HIT`. Desde ese día
+  toda lectura del CDN lleva la fecha dominicana (`delDiaBcrd` en
+  `lib/pedir.ts`; `lib/tasa.ts`, `lib/macro.ts`, `scripts/build-bcrd.py`): una
+  ida al origen por archivo y día. Con eso `bcrd.json` ganó agosto de 2026 en
+  llegadas, que la copia vieja no traía.
+- ✅ **Crédito Público, tenedores**: `GET /emisiones/interna` (HTML) enlaza
+  `/Content/emisiones_de_titulos/internas/emisiones/01Relación de Tenedores de
+  Bonos Internos Emitidos por el Sector Públic.xlsx` (sic; 120 KB, XLSX,
+  «Cifras actualizadas en septiembre 2026»). Millones de RD$, una columna por
+  mes de ene-2011 a ago-2026; TOTAL, residencia doméstica y extranjera, cada
+  una con físicas y jurídicas, y bajo las jurídicas el tipo de tenedor (las
+  etiquetas se repiten entre residencias: se leen por bloque). Ago-2026:
+  RD$1,143,392 M; fondos de pensiones 325,970 + fondos de la seguridad social
+  133,032 + AFP 1,891 (40.3 %), bancos múltiples 324,269, extranjero 35,258.
+  ⚠️ Notas 4–7: CEVALDOM reorganizó la clasificación en oct-2011, feb-2023
+  (≈RD$45,600 M pasan del sector público a los bancos), abr-2024 (las AFP se
+  parten en «Fondos de Pensiones» y «Fondos de la Seguridad Social») y
+  nov-2025. ⚠️ Descuadres del propio archivo: jul-2016 (la residencia
+  extranjera no suma sus personas) y ago-2018 (los tipos extranjeros pasan a
+  las jurídicas por 25 M); se publican tal cual. Cubre bonos internos de
+  Hacienda (subastas y leyes de emisión, incluida la 167-07); no los globales
+  ni los títulos del BCRD.
+- ✅ En la misma página, `02Situación de Bonos Internos…xlsx` (79 KB): cada
+  colocación con fecha, cupón, moneda, autorizado, colocado, reembolsado y en
+  circulación. Sin usar todavía.
+- ✅ **Crédito Público, acreedores**: `…/anual/2026/09Agosto/09Saldo Deuda
+  Histórico Sector Público No Financiero por Acreedor.xlsx` (43 KB). Millones
+  de US$ y % por acreedor, cierres 2022–2025 y «Ago. 26*». Ago-2026: total
+  US$67,649.7 M; bonos externos 37,924.7 (56.1 %), bonos internos de Hacienda
+  16,751.1, BID 4,128.7, Banco Mundial 2,425.0. El % de la deuda interna va
+  sobre la interna, no sobre el total. ⚠️ El corte de marzo de 2026 no rotula
+  la cabecera igual: el script avisa, lo salta y usa el más reciente que
+  comprueba.
+- ❌ No publicados en lo leído: los tenedores de los bonos globales y de los
+  títulos del BCRD. Mercado secundario: `/Content/archivos/04Nueva
+  Metodología.xlsx` (14.5 MB; la página lo agrupa con los rendimientos del
+  mercado secundario) responde 200; no se abrió.
+
 ### G.9 Pendientes que deja esta pasada
 
 1. Estadísticas judiciales (índice + XLSX mensual) y sentencias del TSE.

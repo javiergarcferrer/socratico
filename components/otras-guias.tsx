@@ -30,6 +30,11 @@ export const GUIAS = [
     titulo: "¿Qué es la deuda pública?",
     descriptor: "Qué cubre la cifra del sector público no financiero, y qué es interna y externa.",
   },
+  {
+    href: "/dinero/guia",
+    titulo: "¿Cómo funciona el dinero en el país?",
+    descriptor: "El Banco Central y su tasa, lo que cobran y pagan los bancos, y quién compra los bonos del Estado.",
+  },
 ] as const;
 
 export function OtrasGuias({ actual }: { actual: string }) {

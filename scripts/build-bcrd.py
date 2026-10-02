@@ -65,7 +65,11 @@ def bajar(url: str) -> bytes:
     """GET con UA identificable, un reintento, y validación de tipo y firma."""
     for intento in (1, 2):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            # La fecha como consulta: el CDN guarda copias viejas por
+            # codificación, y una consulta nueva le hace pedir la vigente a su
+            # origen (lib/pedir.ts, `delDiaBcrd`; docs/AUDITORIA.md §G.17).
+            fresca = f"{url}?d={datetime.date.today().isoformat()}"
+            req = urllib.request.Request(fresca, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=40) as r:
                 tipo = r.headers.get("Content-Type", "")
                 cuerpo = r.read()

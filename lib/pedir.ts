@@ -191,3 +191,23 @@ export async function pedirBytes(url: string, p: Pedido): Promise<ArrayBuffer | 
     return anotar(p, url, err);
   }
 }
+
+/**
+ * La dirección de un archivo del CDN del Banco Central con la fecha del día
+ * dominicano como consulta (`?d=2026-10-02`).
+ *
+ * El CDN (`cdn.bancentral.gov.do`) guarda **una copia por codificación** y no
+ * las renueva a la vez: el 2026-10-02 `Serie_TPM.xlsx` llegaba del 1 de
+ * octubre a quien no pide compresión y del 1 de **septiembre** a quien pide
+ * `gzip`, que es lo que pide `fetch` en Node; con `reservas_internacionales.xlsx`
+ * pasaba lo mismo, y con la tasa del dólar, al revés. La plataforma enseñaba
+ * la TPM de un mes atrás como vigente (docs/AUDITORIA.md §G.17). Una consulta
+ * nueva cada día hace que el CDN pida el archivo a su origen la primera vez
+ * que se lee ese día —una sola, el resto del día sigue en su caché—, que es
+ * lo que el origen publica hoy. No rodea ningún bloqueo: es la misma
+ * dirección pública, leída una vez al día.
+ */
+export function delDiaBcrd(url: string): string {
+  const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santo_Domingo" }).format(new Date());
+  return `${url}${url.includes("?") ? "&" : "?"}d=${hoy}`;
+}

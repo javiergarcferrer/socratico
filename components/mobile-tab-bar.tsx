@@ -8,6 +8,7 @@ import { SECCIONES, seccionDe } from "@/lib/secciones";
 import { MENU, puntoDe } from "@/lib/menu";
 import { CampoBusqueda } from "@/components/campo-busqueda";
 import {
+  IconBuilding,
   IconChartBar,
   IconCheck,
   IconChevronRight,
@@ -82,6 +83,7 @@ const ICONOS: Record<SeccionId, (p: { className?: string }) => React.ReactElemen
   congreso: IconLayers,
   normativa: IconDoc,
   nomina: IconChartBar,
+  dinero: IconBuilding,
   democracia: IconCheck,
 };
 

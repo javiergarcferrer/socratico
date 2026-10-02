@@ -31,6 +31,7 @@ const GUIA_LEY = { href: "/congreso/guia", label: "Cómo nace una ley" };
 const GUIA_PRESUPUESTO = { href: "/finanzas/guia", label: "Cómo leer el presupuesto" };
 const GUIA_DEUDA = { href: "/finanzas/guia/deuda", label: "Qué es la deuda pública" };
 const GUIA_COMPRAS = { href: "/guia", label: "Cómo se le oferta al Estado" };
+const GUIA_DINERO = { href: "/dinero/guia", label: "Cómo funciona el dinero" };
 
 export const GLOSARIO = {
   /* ------------------------------------------------------------ Congreso */
@@ -303,6 +304,131 @@ export const GLOSARIO = {
     llano:
       "La que se debe a acreedores del país: bancos locales, fondos de pensiones y quienes compraron bonos de Hacienda aquí.",
     guia: GUIA_DEUDA,
+  },
+
+  /* ------------------------------------------- Dinero y Banco Central */
+  tpm: {
+    termino: "Tasa de política monetaria",
+    llano:
+      "La tasa de interés que el Banco Central fija como referencia para el dinero a un día entre él y los bancos. Cuando la sube, prestar y pedir prestado tiende a encarecerse y el ahorro a pagar más; cuando la baja, lo contrario. Es su herramienta principal para cuidar la inflación.",
+    enLlano: "Tasa de referencia del Banco Central",
+    guia: GUIA_DINERO,
+  },
+  tasaActiva: {
+    termino: "Tasa activa",
+    llano:
+      "Lo que cobra un banco por prestar, en % al año. Se llama activa porque el préstamo es un activo del banco. El Banco Central publica el promedio ponderado por monto: pesa más lo que más se prestó.",
+    enLlano: "Lo que cobran por prestar",
+    guia: GUIA_DINERO,
+  },
+  tasaPasiva: {
+    termino: "Tasa pasiva",
+    llano:
+      "Lo que paga un banco por tu dinero en un certificado o depósito a plazo, en % al año. Se llama pasiva porque tu depósito es una deuda del banco contigo.",
+    enLlano: "Lo que pagan por tu ahorro",
+    guia: GUIA_DINERO,
+  },
+  tasaInterbancaria: {
+    termino: "Tasa interbancaria",
+    llano:
+      "La que se cobran los bancos entre sí cuando uno le presta a otro por pocos días. Dice qué tan escaso está el dinero en el sistema esa semana.",
+    guia: GUIA_DINERO,
+  },
+  margenFinanciero: {
+    termino: "Margen de intermediación",
+    llano:
+      "La diferencia entre lo que el banco cobra por prestar y lo que paga por el ahorro. De ahí salen sus costos, sus pérdidas por préstamos que no se pagan y su ganancia.",
+    guia: GUIA_DINERO,
+  },
+  tasaReal: {
+    termino: "Tasa real",
+    llano:
+      "La tasa menos la inflación: lo que de verdad gana tu dinero, o lo que de verdad cuesta una deuda, una vez descontado lo que subieron los precios. Restar las dos es una aproximación.",
+    guia: GUIA_DINERO,
+  },
+  inflacion: {
+    termino: "Inflación",
+    llano:
+      "Cuánto subieron los precios de una canasta de bienes y servicios en doce meses, según el índice de precios del Banco Central. Cuidar que se mantenga baja y estable es la tarea principal del Banco Central.",
+    guia: GUIA_DINERO,
+  },
+  encajeLegal: {
+    termino: "Encaje legal",
+    llano:
+      "La parte de los depósitos del público que los bancos no pueden prestar y deben guardar en el Banco Central. Lo fija la Junta Monetaria; subirlo deja menos dinero para prestar.",
+    guia: GUIA_DINERO,
+  },
+  valoresBcrd: {
+    termino: "Valores del Banco Central",
+    llano:
+      "Títulos que vende el propio Banco Central (certificados, notas, letras): quien los compra le entrega pesos hoy y cobra intereses. Así el Banco Central saca pesos de la economía. Son deuda del Banco Central, no del Gobierno.",
+    guia: GUIA_DINERO,
+  },
+  baseMonetaria: {
+    termino: "Base monetaria",
+    llano:
+      "El dinero que crea directamente el Banco Central: los billetes y monedas que emitió más lo que los bancos tienen depositado en él. Sobre esa base los bancos prestan y crean el resto del dinero.",
+    guia: GUIA_DINERO,
+  },
+  m1: {
+    termino: "Medio circulante (M1)",
+    llano:
+      "El dinero que se puede gastar ya: billetes y monedas en manos del público más las cuentas que se usan para pagar al instante.",
+    guia: GUIA_DINERO,
+  },
+  m2: {
+    termino: "Oferta monetaria ampliada (M2)",
+    llano:
+      "M1 más los ahorros y depósitos a plazo en pesos: todo el dinero en pesos que la gente y las empresas tienen en el sistema.",
+    guia: GUIA_DINERO,
+  },
+  reservasInternacionales: {
+    termino: "Reservas internacionales",
+    llano:
+      "Los dólares y otros activos en el exterior que guarda el Banco Central para respaldar el peso y para que el país pueda pagar lo que debe afuera aunque falten divisas por un tiempo.",
+    guia: GUIA_DINERO,
+  },
+  contraccion: {
+    termino: "Operación de contracción",
+    llano:
+      "Cuando el Banco Central recibe pesos de los bancos a cambio de un interés (un depósito de un día, una letra) y así los saca de circulación por ese tiempo.",
+    guia: GUIA_DINERO,
+  },
+  repo: {
+    termino: "Repo",
+    llano:
+      "Un préstamo de muy corto plazo del Banco Central a un banco que necesita pesos, con títulos como garantía que el banco vuelve a comprar después. Es una operación de expansión: mete pesos al sistema.",
+    guia: GUIA_DINERO,
+  },
+  bono: {
+    termino: "Bono",
+    llano:
+      "Un préstamo partido en títulos iguales que se pueden comprar y vender. Quien compra un bono del Estado le presta dinero al Estado, cobra un interés fijo (el cupón) y recupera su dinero cuando el bono vence.",
+    guia: GUIA_DINERO,
+  },
+  tenedor: {
+    termino: "Tenedor",
+    llano:
+      "Quien tiene un bono en este momento y por tanto cobra sus intereses. Los bonos se revenden, así que el tenedor de hoy puede no ser quien lo compró en la subasta.",
+    guia: GUIA_DINERO,
+  },
+  cevaldom: {
+    termino: "CEVALDOM",
+    llano:
+      "El depósito centralizado de valores del país: la entidad que lleva el registro de quién es dueño de cada título, como un registro de títulos para bonos y acciones. De su registro sale la lista de tenedores.",
+    guia: GUIA_DINERO,
+  },
+  bonoGlobal: {
+    termino: "Bono global",
+    llano:
+      "Un bono que el Estado vende en los mercados internacionales, casi siempre en dólares. Sus tenedores son en su mayoría fondos e inversionistas de fuera, y Crédito Público no publica quiénes son.",
+    guia: GUIA_DINERO,
+  },
+  multilateral: {
+    termino: "Organismo multilateral",
+    llano:
+      "Un banco que es de muchos países y les presta a sus miembros, casi siempre a largo plazo y a tasas más bajas que el mercado: el BID, el Banco Mundial, la CAF.",
+    guia: GUIA_DINERO,
   },
 
   /* ----------------------------------------------- Bancos y financieras */

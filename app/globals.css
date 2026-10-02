@@ -112,6 +112,9 @@
   --color-v-democracia-tenue: #f9f0dc;
   --color-v-finanzas: #7a2f52;
   --color-v-finanzas-tenue: #f7eaef;
+  /* Petróleo: entre la firma del Congreso y el verde de la nómina, 6.7:1 sobre canvas. */
+  --color-v-dinero: #245b74;
+  --color-v-dinero-tenue: #e8eff4;
 
   /*
     El canto del papel: el borde que se ve cuando una hoja descansa sobre

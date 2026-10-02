@@ -1204,6 +1204,13 @@ export default async function FuentesPage() {
             actividad (IMAE) del mismo CDN está congelado desde octubre de 2024 y no
             se muestra.
           </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            El CDN guarda una copia de cada archivo por forma de compresión y no las
+            renueva a la vez: el 2 de octubre de 2026 la copia que recibe un servidor
+            iba un mes atrás en la tasa de política monetaria y en las reservas. Desde
+            entonces cada archivo del Banco Central se pide con la fecha del día en la
+            dirección, y el CDN trae la vigente una vez al día.
+          </p>
         </Fuente>
 
         <Fuente nombre="Banco Central · inflación y llegadas por avión" estado="activa" etiqueta="Instantánea local">
@@ -1305,7 +1312,59 @@ export default async function FuentesPage() {
             . El script rechaza el archivo si las filas no suman su propio total. En
             las subastas de septiembre de 2026 el archivo pone la fecha de liquidación
             donde va el vencimiento: se muestran marcadas como dudosas, no se corrigen
-            a ojo.
+            a ojo. También en{" "}
+            <Link href="/dinero/bonos" className="font-medium text-brand-700 hover:underline">
+              quién compra los bonos
+            </Link>
+            .
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Crédito Público · tenedores de bonos y acreedores" estado="activa" etiqueta="Instantánea local">
+          <p>
+            Dos hojas de Crédito Público, convertidas al regenerar, en{" "}
+            <Link href="/dinero/bonos" className="font-medium text-brand-700 hover:underline">
+              quién compra los bonos
+            </Link>
+            : la relación de tenedores de los bonos internos (cuánto tiene cada tipo de tenedor
+            —bancos múltiples, fondos de pensiones, aseguradoras, personas, del país o del
+            exterior—, mes a mes desde enero de 2011, en millones de pesos, con el registro de
+            CEVALDOM) y el saldo de la deuda del sector público no financiero por acreedor
+            (organismos, países, bonos y banca, en millones de dólares, cuatro cierres de año y
+            el corte más reciente). El script rechaza el último mes si sus partes no suman su
+            total; las ocho familias de tenedores son una agrupación de la plataforma, con el
+            nombre del archivo debajo de cada una.
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            La relación dice el tipo de tenedor, no su nombre, y cubre solo los bonos vendidos en
+            el país: los tenedores de los bonos vendidos en el exterior y de los títulos del Banco
+            Central no se publican. CEVALDOM reorganizó la clasificación en octubre de 2011,
+            febrero de 2023, abril de 2024 y noviembre de 2025, así que un salto en esos meses
+            puede ser un cambio de casilla. Julio de 2016 y agosto de 2018 no cuadran en el propio
+            archivo y se publican tal cual. El servidor de Crédito Público no acepta lecturas
+            desde la nube.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="Banco Central · su tasa, las tasas de los bancos, su balance y sus operaciones" estado="activa" etiqueta="Conectada">
+          <p>
+            Cinco archivos públicos del CDN del Banco Central, sin clave, en{" "}
+            <Link href="/dinero" className="font-medium text-brand-700 hover:underline">
+              Dinero
+            </Link>
+            : la serie de la tasa de política monetaria con sus ventanillas de depósito y de
+            préstamo (desde febrero de 2013, cuando pasó a ser la tasa de referencia); las tasas
+            activas y pasivas en pesos de los bancos múltiples, por destino y por plazo, desde
+            2017, con la tasa entre bancos; el balance armonizado del Banco Central (reservas,
+            billetes, base monetaria, M1, M2, encaje y sus títulos en circulación, mes a mes desde
+            1996); y sus operaciones diarias de contracción y de expansión, de las que se muestran
+            los últimos 90 días hábiles. Se leen cada seis horas, el balance cada día.
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            Las tasas son solo de los bancos múltiples. El mes en curso es un promedio de los días
+            que van y no se presenta como mes cerrado. Las restas (el margen, la tasa real) las hace
+            la plataforma y se dice. Las columnas se leen por su posición y se comprueban contra su
+            rótulo: si el Banco Central las mueve, esa cifra cae en vez de leer otra.
           </p>
         </Fuente>
 

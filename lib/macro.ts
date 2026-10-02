@@ -41,7 +41,7 @@
  * servidor: lee con `lib/xlsx.ts`.
  */
 
-import { pedirBytes } from "@/lib/pedir";
+import { delDiaBcrd, pedirBytes } from "@/lib/pedir";
 import { indiceColumna, leerHoja as leerXlsx, type Hoja } from "@/lib/xlsx";
 import { MESES, numeroMes } from "@/lib/format";
 
@@ -75,7 +75,7 @@ export interface Macro {
 const periodo = (anio: number, mes: number) => `${MESES[mes - 1]} ${anio}`;
 
 function bajar(url: string, revalidate: number): Promise<ArrayBuffer | null> {
-  return pedirBytes(url, {
+  return pedirBytes(delDiaBcrd(url), {
     fuente: "macro",
     ua: USER_AGENT,
     tipo: /octet-stream|spreadsheetml|excel/i,

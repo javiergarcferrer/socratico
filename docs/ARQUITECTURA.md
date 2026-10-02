@@ -246,7 +246,17 @@ composed in `app/page.tsx`):
   for four banking series (§G.13), `IndicadoresBanca` on `/`. Daily.
 - **`lib/subastas.ts`** — Crédito Público auction results (§G.13), snapshot
   from `scripts/build-subastas.py` (build-time `xlrd` for 2025), `SubastasDeuda`
-  on `/deuda`.
+  on `/deuda` and `/dinero/bonos`.
+- **`lib/banco-central.ts`** — BCRD CDN (§G.17): monetary-policy rate,
+  lending/deposit rates of the multiple banks with the interbank rate, the
+  harmonized balance sheet and daily open-market operations. Each file is
+  parsed inside its own `unstable_cache` (6 h; the balance 24 h), columns read
+  by position and checked against their header, each piece `null` alone.
+  Every BCRD CDN URL goes through `delDiaBcrd` (`lib/pedir.ts`): the CDN keeps
+  one copy per content-encoding and the `gzip` one ran a month stale.
+- **`lib/tenedores.ts`** — Crédito Público bondholders by type since 2011 and
+  SPNF debt by creditor (§G.17), snapshot from `scripts/build-tenedores.py`;
+  the eight holder families are the platform's grouping, declared on screen.
 - **`lib/cortes.ts`** — scheduled maintenance outages from Edenorte's RSS and
   Edesur's weekly page (§G.11), today onward; `/luz`.
 - **`lib/alertas.ts`** — INDOMET CAP feed (§G.4), `AlertasTiempo`. 15 min.
@@ -842,6 +852,16 @@ sources impose:
   `/finanzas/[capitulo]` per institution (SSG from the snapshot, one page per
   chapter) lists its DGCP purchasing units from `institucionesDelCapitulo`,
   each linking to its `/instituciones/[id]` ficha.
+- `/dinero` → the money vertical (`lib/secciones.ts` id `dinero`, which also
+  owns `/banca`): the rate ladder of one month (`components/dinero/
+  escalera-tasas.tsx`), who holds the bonds (`reparto-tenedores.tsx`), what
+  the BCRD does, SIMBAD. `/dinero/tasas` (TPM since feb-2013, bank rates since
+  2017 as `Multiples` on a common max, by purpose and term, a 36-month table),
+  `/dinero/bonos` (holders, their history by family with CEVALDOM's
+  reclassification months, auctions, creditors, the BCRD's own securities and
+  what is not published), `/dinero/banco-central` (daily operations, its
+  securities, reserves, money aggregates against a year earlier, the Junta
+  Monetaria from `lib/funcionarios.ts`) and `/dinero/guia` (no source).
 - `/deuda` → SPNF debt over time (finanzas section): year-end since 2000 with
   % of GDP and quarter-ends since 2015 from `getSerieDeuda()` (`lib/deuda.ts`),
   which reads the series from `public/data/deuda.json` and appends the live

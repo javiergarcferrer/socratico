@@ -25,6 +25,7 @@ export type SeccionId =
   | "congreso"
   | "normativa"
   | "nomina"
+  | "dinero"
   | "democracia";
 
 export interface VistaSeccion {
@@ -193,6 +194,28 @@ export const SECCIONES: Seccion[] = [
     },
   },
   {
+    id: "dinero",
+    nombre: "Dinero",
+    pregunta: "¿Cuánto cuesta el dinero?",
+    href: "/dinero",
+    descriptor: "Banco Central, tasas, bonos y banca",
+    rutas: ["/dinero", "/banca"],
+    vistas: [
+      { href: "/dinero", label: "Panorama", exact: true },
+      { href: "/dinero/tasas", label: "Tasas" },
+      { href: "/dinero/bonos", label: "Bonos" },
+      { href: "/dinero/banco-central", label: "Banco Central" },
+      { href: "/banca", label: "Bancos" },
+      { href: "/dinero/guia", label: "Guía" },
+    ],
+    hue: {
+      activo: "text-v-dinero",
+      barra: "bg-v-dinero",
+      punto: "bg-v-dinero",
+      chip: "bg-v-dinero-tenue text-v-dinero",
+    },
+  },
+  {
     id: "democracia",
     nombre: "Democracia",
     pregunta: "¿Qué opinas?",
@@ -319,6 +342,7 @@ export const BUSQUEDAS: DestinoBusqueda[] = [
       "Un RNC, cédula o RPE busca en el registro completo; un nombre, entre todos los que contrataron desde 2015 y los que ganaron algo este último mes.",
   },
   {
+    seccion: "dinero",
     etiqueta: "Bancos y financieras",
     href: "/banca",
     alcance:

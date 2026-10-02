@@ -46,7 +46,7 @@ export const MENU: GrupoMenu[] = [
   {
     id: "dinero",
     label: "Dinero público",
-    resumen: "Qué compra el Estado, cuánto gasta, cuánto debe y a quién le paga.",
+    resumen: "Qué compra el Estado, cuánto gasta, cuánto debe, a quién le paga y cuánto cuesta el dinero.",
     columnas: [
       {
         titulo: "Compras públicas",
@@ -79,6 +79,18 @@ export const MENU: GrupoMenu[] = [
           { href: "/nomina", label: "Nómina pública", nota: "Plazas y sueldos por institución y cargo", tarea: "comparar" },
           { href: "/nomina/general", label: "Nómina de todo el Estado", nota: "Casi medio millón de plazas, institución por institución", tarea: "comparar" },
           { href: "/obras", label: "Obras públicas", nota: "Si la obra existe y cuánto avanza", tarea: "vigilar" },
+        ],
+      },
+      {
+        titulo: "Banco Central y banca",
+        seccion: "dinero",
+        enlaces: [
+          { href: "/dinero", label: "El costo del dinero", nota: "La tasa del Banco Central y lo que cobran y pagan los bancos, hoy", tarea: "vigilar" },
+          { href: "/dinero/tasas", label: "Tasas de interés", nota: "Préstamos, ahorros y la tasa de referencia, mes a mes desde 2017", tarea: "comparar" },
+          { href: "/dinero/bonos", label: "Quién compra los bonos", nota: "Quién tiene los bonos del Estado y a quién le debe", tarea: "comparar" },
+          { href: "/dinero/banco-central", label: "El Banco Central por dentro", nota: "Reservas, billetes, sus propios títulos y lo que hace cada día", tarea: "comparar" },
+          { href: "/banca", label: "Bancos y financieras", nota: "Quién guarda el dinero: bancos, cooperativas, AFP y aseguradoras", tarea: "buscar" },
+          { href: "/dinero/guia", label: "Cómo funciona el dinero", nota: "El Banco Central, las tasas y los bonos, en llano", tarea: "entender" },
         ],
       },
     ],
@@ -151,7 +163,6 @@ export const MENU: GrupoMenu[] = [
           { href: "/instituciones", label: "Instituciones", nota: "Cada ministerio, dirección y ayuntamiento", tarea: "buscar" },
           { href: "/funcionarios", label: "Funcionarios", nota: "Quién ocupa cada cargo público y qué decreto lo nombró", tarea: "buscar" },
           { href: "/empresas", label: "Empresas", nota: "Cualquier empresa del padrón de la DGII, por RNC o por nombre", tarea: "buscar" },
-          { href: "/banca", label: "Bancos y financieras", nota: "Quién guarda el dinero: bancos, cooperativas, AFP y aseguradoras", tarea: "buscar" },
           { href: "/provincias", label: "Provincias", nota: "El Estado visto desde tu provincia", tarea: "buscar" },
           { href: "/grafo", label: "El grafo", nota: "Con quién se liga cada ficha, y el camino entre dos", tarea: "buscar" },
           { href: "/gestion", label: "Gestión pública", nota: "El ranking SISMAP de instituciones y municipios", tarea: "comparar" },
