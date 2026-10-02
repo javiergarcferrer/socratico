@@ -65,6 +65,7 @@ por defecto) y `NEXT_PUBLIC_CUENTA_UNICA_CLIENT_ID`
 | Producción | Cada push a `main` (remoto `github.com/javiergarcferrer/socratico`) despliega a producción |
 | Vistas previas | Una rama `claude/*` empujada se despliega como vista previa de Vercel. `app/mcp/route.ts` (`origenDe`) trata como despliegue propio `SITIO`, `http://localhost`, `http://127.0.0.1` y todo host `https` que empieza por `socratico` y termina en `.vercel.app` |
 | Middleware | `middleware.ts`, `matcher: ["/buscar", "/empresas"]`: responde 307 a la ficha cuando `?q=` es un atajo reconocido (§3) |
+| Medición de uso | Vercel Web Analytics: `<Analytics />` de `@vercel/analytics/next` al final del `<body>` de `app/layout.tsx`. Páginas vistas y visitantes con país, sistema, navegador, referente y ruta; sin cookies (el visitante es un hash de la petición que se reinicia cada día) y sin contar bots. Sin clave ni variable de entorno; solo cuenta producción. El panel está en Vercel, proyecto `socratico`, pestaña Analytics (en el sitio no hay panel). Lo que no ve: `/mcp` y `/api/*` los usan asistentes y scripts, no navegadores; su carga es la de Observability (invocaciones por ruta). Estado del proyecto en Vercel, 2026-10-02: Web Analytics sin activar (la API contesta «Web Analytics not found»). Límites (docs de Vercel, 2026-10-02; la API no expone el plan del equipo): Hobby, 50 000 eventos al mes, ventana de un mes, sin eventos personalizados, y al pasarse la recolección se pausa; Pro, 0,03 USD por mil eventos, ventana de doce meses, eventos personalizados |
 
 ### 1.3 Stack y versiones
 
@@ -86,6 +87,7 @@ está fijado sin rango (`"next": "15.5.27"`).
 | `fflate`, `fast-xml-parser` | `^0.8.3`, `^5.11.1` | 0.8.3, 5.11.1 | `lib/xlsx.ts` |
 | `pdfjs-dist` | `^6.3.289` | 6.3.289 | `components/lector-pdf.tsx` (build `legacy`) |
 | `nuqs` | `^2.10.1` | 2.10.1 | Estado de filtros en la URL (`NuqsAdapter` en el layout) |
+| `@vercel/analytics` | `^2.0.1` | 2.0.1 | Medición de uso (§1.2): `<Analytics />` en `app/layout.tsx` |
 | `@supabase/supabase-js` | `^2.112.4` | 2.112.4 | `lib/supabase.ts`, `lib/espacios-cliente.ts` (§10) |
 | `@modelcontextprotocol/server` | `^2.2.0` | 2.2.0 | `app/mcp/route.ts`, `lib/mcp.ts` (§9) |
 | `@duckdb/node-api` | `1.5.5-r.5` | 1.5.5-r.5 | `lib/grafo-sql.ts` (por `fork` de `lib/sql-hijo.cjs`), `scripts/build-grafo-tablas.mjs` (§7) |

@@ -48,9 +48,11 @@ export default function SeguridadPlataformaPage() {
           Licitaciones, Congreso, Normativa, Nómina y los indicadores del panorama
           se leen <strong>en vivo</strong> de fuentes oficiales y se cachean unos
           minutos; no hay base de datos ni rastreo de quién consulta, y se leen
-          igual con cuenta que sin ella. La forma más fuerte de proteger un dato
-          personal es no recolectarlo, y en toda esta parte de la plataforma
-          sencillamente no existe.
+          igual con cuenta que sin ella. La única medición es la de audiencia
+          (páginas vistas y visitantes en conjunto, vía Vercel Web Analytics):
+          sin cookies, sin identificar a nadie y sin guardar lo que buscas. La
+          forma más fuerte de proteger un dato personal es no recolectarlo, y
+          en toda esta parte de la plataforma sencillamente no existe.
         </Medida>
 
         <Medida titulo="Tu cuenta guarda lo que eliges, nunca los datos del Estado">

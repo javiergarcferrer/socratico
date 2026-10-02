@@ -3,6 +3,7 @@ import { Geist, IBM_Plex_Mono, Instrument_Serif, Public_Sans } from "next/font/g
 import Link from "next/link";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { Analytics } from "@vercel/analytics/next";
 import ProveedorConsultas from "@/components/consultas";
 import MobileTabBar from "@/components/mobile-tab-bar";
 import InstallPrompt from "@/components/install-prompt";
@@ -339,6 +340,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </footer>
         </ProveedorConsultas>
         </NuqsAdapter>
+        {/*
+          Audiencia de la plataforma, medida por Vercel Web Analytics: páginas
+          vistas y visitantes, sin cookies ni identificar a nadie, y sin
+          contar bots. No necesita clave ni variable de entorno: el script
+          lo sirve el propio despliegue. Solo cuenta en producción; el panel
+          está en Vercel, no en el sitio.
+        */}
+        <Analytics />
       </body>
     </html>
   );
