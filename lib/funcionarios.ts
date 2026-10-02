@@ -239,7 +239,7 @@ export function getFuncionarios(): Promise<Funcionarios | null> {
     .then((t) => {
       const d = JSON.parse(t) as Instantanea;
       if (!Array.isArray(d?.personas) || d.personas.length === 0) return null;
-      const limite = haceTresAnios();
+      const limite = haceTresAnios(d.generado);
       const personas: Persona[] = d.personas.map((p) => {
         const cargos = p.c.map(aCargo);
         const { hoy, ultima } = estadoPep(cargos);
@@ -302,10 +302,15 @@ export async function personaDeLegislador(id: number): Promise<Persona | null> {
   return f?.personas.find((p) => p.legislador === id) ?? null;
 }
 
-/** La fecha (ISO) de hace tres años: el plazo del art. 2, num. 19 de la Ley 155-17. */
-function haceTresAnios(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 3);
+/**
+ * La fecha (ISO) tres años antes del corte de la instantánea: el plazo del
+ * art. 2, num. 19 de la Ley 155-17, contado desde lo que dicen los datos y no
+ * desde el reloj de quien lee (docs/PLAN-GRAFO.md §3.4). El mismo corte da la
+ * misma respuesta cualquier día, y la ficha y el grafo compilado coinciden.
+ */
+function haceTresAnios(corte: string): string {
+  const d = /^\d{4}-\d{2}-\d{2}/.test(corte) ? new Date(`${corte.slice(0, 10)}T12:00:00Z`) : new Date();
+  d.setUTCFullYear(d.getUTCFullYear() - 3);
   return d.toISOString().slice(0, 10);
 }
 
@@ -570,10 +575,14 @@ export function quienDirige(f: Funcionarios, institucionId: number): Dirigente |
 /** Los cargos de cabeza que un decreto puede nombrar: sin «director de…» a secas. */
 const CABEZA_POR_DECRETO = /^(ministr[oa]|director[a]? (general|ejecutiv[oa]|nacional)|administrador[a]? general|superintendente|gerente general|presidente|presidenta|rector[a]?|contralor[a]? general|procurador[a]? general|tesorer[oa] nacional|defensor[a]? del pueblo|gobernador[a]?)\b/;
 
-/** Quien el MAP pone hoy como Presidente de la República, con sus firmas. */
+/** Quien el MAP pone hoy como Presidente de la República, con sus firmas. Una vez por instantánea: recorre a todas las personas. */
 function presidenteEnFunciones(f: Funcionarios): Persona | null {
-  return cabezasDelEstado(f).find(({ cargo }) => /^presidente de la republica/.test(plano(cargo.titulo).trim()))?.persona ?? null;
+  if (!PRESIDENTE.has(f)) {
+    PRESIDENTE.set(f, cabezasDelEstado(f).find(({ cargo }) => /^presidente de la republica/.test(plano(cargo.titulo).trim()))?.persona ?? null);
+  }
+  return PRESIDENTE.get(f) ?? null;
 }
+const PRESIDENTE = new WeakMap<Funcionarios, Persona | null>();
 
 export interface GobiernoProvincial {
   /** Quien gobierna la provincia: el MAP hoy o, si no la lista, el último decreto de este Presidente. */

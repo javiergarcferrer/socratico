@@ -9,8 +9,8 @@
  * con barra no abriera su ficha. El gate (`verificar.sh`) rechaza un `href` de
  * entidad armado fuera de este módulo.
  *
- * Nada aquí guarda datos ni los lee: el grafo se **deriva** de las mismas
- * fuentes e instantáneas en cada lectura. El módulo no
+ * Nada aquí guarda datos ni los lee: el grafo se **compila** de las mismas
+ * fuentes e instantáneas (`lib/grafo-compilado.ts`). El módulo no
  * importa nada pesado, así que lo pueden usar los componentes de cliente; el
  * reconocimiento que necesita datos (nombres de instituciones) vive en
  * `lib/grafo-servidor.ts`.

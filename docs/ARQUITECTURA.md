@@ -1035,12 +1035,13 @@ deriva en cada lectura de las mismas fuentes e instantáneas.
   no es un 404: `NormaFueraDeAlcance` dice qué pasa y enseña los proyectos
   que la citan.
 
-## El grafo semántico — `lib/rdf.ts`, `lib/ontologia.ts`, `lib/grafo-rdf.ts`, `lib/wikidata.ts`
+## El grafo semántico — `lib/rdf.ts`, `lib/ontologia.ts`, `lib/grafo-rdf.ts`, `lib/grafo-compilado.ts`, `lib/wikidata.ts`
 La plataforma ya era un grafo de fichas enlazadas; esta capa lo dice en RDF,
 para máquinas y para el explorador (`/grafo`). **No hay almacén de triples del
 grafo entero** (la invariante: sin base de datos en las superficies de
-inteligencia): cada descripción se deriva al pedirla de las mismas
-instantáneas que pinta la ficha, y se cachea como cualquier página. El grafo
+inteligencia): cada descripción se **compila** de las mismas instantáneas
+que pinta la ficha (`scripts/build-grafo.mjs` → `datos/grafo/`, abajo) y se
+lee de archivos, como el índice del buscador. El grafo
 entero sin personas naturales se consulta en **SQL** sobre sus tablas
 (`query` del servidor MCP y `/api/sql`, con DuckDB embebido: las tablas,
 abajo) y se descarga entero, en N-Triples y en Parquet (el volcado y las
@@ -1160,16 +1161,49 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
     `triplesFabric` lanza y el build falla. 35 tipos y 92 propiedades y
     relaciones. ⚠️ Sin una importación real: es lo que dice su
     documentación.
-- **`lib/grafo-rdf.ts`** — `describir(nodo, ligero)`: los triples de un nodo
-  con el vecindario que hace falta para leerlo (cada vecino con su
-  `rdfs:label`). Topes que la descripción declara en su `nota`: una
-  institución, sus 200 primeros cargos vigentes en el orden de la
-  institución; quien firma decretos, sus 20 más recientes (la lista entera
-  está en su ficha). Nunca entra la cédula, un parentesco, una biografía ni
-  el consejo de un banco. `ligero` deja solo el nodo y sus datos propios: es
-  lo que `aSchemaOrg` convierte en el JSON-LD de schema.org que cada ficha
-  incrusta (`components/en-el-grafo.tsx`, con `alternasRdf()` en
-  `metadata.alternates.types`). `relacionesDesdeTriples` lee las aristas
+- **Los constructores** (`lib/grafo-constructores.ts`) —
+  `describirEnVivo(nodo, ligero)`: los triples de un nodo con el vecindario
+  que hace falta para leerlo (cada vecino con su `rdfs:label`). Topes que la
+  descripción declara en su `nota`: una institución, sus 200 primeros cargos
+  vigentes en el orden de la institución; quien firma decretos, sus 20 más
+  recientes (la lista entera está en su ficha). Nunca entra la cédula, un
+  parentesco, una biografía ni el consejo de un banco. `ligero` deja solo el
+  nodo y sus datos propios: es lo que `aSchemaOrg` (`lib/grafo-ld.ts`)
+  convierte en el JSON-LD de schema.org que cada ficha incrusta
+  (`components/en-el-grafo.tsx`, con `alternasRdf()` en
+  `metadata.alternates.types`). **Solo los corre el compilador**: ninguna
+  ruta los importa (el gate lo comprueba, paso 2g), porque leen todas las
+  instantáneas de personas, decretos, empresas, medidas, declaraciones y
+  contrataciones.
+- **El grafo compilado** (F2 de `docs/PLAN-GRAFO.md`, 02-10-2026):
+  `scripts/build-grafo.mjs` corre los constructores en Node, sin Next
+  (`scripts/cargador-ts.mjs` quita los tipos y resuelve `@/`), sobre cada
+  nodo de cada tipo, y escribe `datos/grafo/`: `nodos/<tipo>/NNN.json.br`
+  (la descripción entera), `ld/<tipo>/NNN.json.br` (el schema.org de cada
+  ficha) y `meta.json` (conteos, la huella, el inventario, los enlaces a
+  Wikidata y la primera clave de cada fragmento). Los nodos de un tipo se
+  reparten en orden de clave, como las filas del padrón: leer uno es una
+  búsqueda binaria en `meta.json` y abrir un archivo; recorrerlos en orden
+  abre cada uno una vez. Cada fragmento trae su tabla de términos y cada
+  nodo, sus triples como índices en ella (`lib/grafo-nodo.ts`); brotli, no
+  gzip: un 30 % menos y se descomprime igual de rápido. Una empresa que el grafo no liga a nada —ni
+  proveedora, ni con medidas, ni en la OFAC, ni supervisada— no se escribe:
+  su descripción es la plantilla `describirEmpresaSola` sobre su fila del
+  padrón, la misma con que el constructor empieza la de cualquier empresa, y
+  el compilador comprueba que lo es. **Comprobado nodo a nodo**: antes de dar
+  el compilado por bueno lo relee por `describir()` y `schemaOrgDe()`, los
+  del servidor, y lo compara triple a triple con los constructores; el gate
+  completo repite la comparación en cada entrega (paso 5d), así que un
+  compilado viejo, o un constructor que cambió sin recompilar, no llega a
+  `main`. **Fuera de `public/`, a propósito**: trae a cada persona con sus
+  cargos y no se sirve como archivo (el volcado sin personas naturales sigue
+  siendo la descarga); `cedulas.py` lo recorre igual. El estado PEP se
+  cuenta desde el corte de las personas, no desde el reloj
+  (`haceTresAnios(generado)` en `lib/funcionarios.ts`): el mismo corte da la
+  misma respuesta cualquier día, y la ficha y el compilado coinciden.
+- **`lib/grafo-rdf.ts`** — `describir(nodo)` lee el compilado
+  (`leerDescripcion`) y, para una empresa que no está, describe su fila del
+  padrón. `relacionesDesdeTriples` lee las aristas
   **de los triples** (atravesando los cargos), así que el explorador pinta
   exactamente lo que dice el RDF. `camino()` busca en anchura desde los dos
   extremos a la vez, con las aristas sin dirección (una institución solo
@@ -1178,10 +1212,9 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   saltos y 300 fichas, y el resultado dice por qué no encontró (`motivo`).
   No es completa (una arista que solo dice un nodo que ningún lado abre no se
   ve) y la página no lo afirma. Se cachea por par **sin orden** con
-  `unstable_cache`, con la versión del resultado y una huella de los datos (el
-  tamaño de cada instantánea que lee `describir`) en la clave: la caché de
-  datos sobrevive a un despliegue, y un cambio de datos con la misma fecha de
-  corte también debe dejarla atrás.
+  `unstable_cache`, con la versión del resultado y la huella del compilado
+  (`meta.json`) en la clave: la caché de datos sobrevive a un despliegue, y
+  un grafo nuevo con la misma fecha de corte también debe dejarla atrás.
 - **El dinero en el grafo: las contrataciones** (ontología 1.1.0, 30-09-2026).
   `soc:Contratacion` es lo que una institución le contrató a un proveedor desde
   2015, agregado: `soc:contratante` (la institución), `soc:contratista` (el
@@ -1252,19 +1285,21 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   proporcionalidad de su ficha, porque la página de Wikidata trae biografía y
   familia, que la plataforma no publica. Se busca en la réplica de QLever porque el SPARQL
   de Wikidata veta `/sparql` en su robots (docs/AUDITORIA.md §H.14).
-- **Trazado de archivos**: `/grafo` (la clave casa con `/grafo/camino` y
-  `/api/grafo`) lleva decretos, padrón, funcionarios, declaraciones,
-  sanciones, banca, `historico/` y `wikidata.json`; las fichas que incrustan su JSON-LD,
-  `wikidata.json`. ⚠️ **Deuda conocida**: como `components/en-el-grafo.tsx`
-  importa `lib/grafo-rdf.ts`, el trazado mete en las funciones de las fichas
-  de persona, institución, provincia, banca y norma el padrón de empresas
-  (~17 MB), donde no estaban los decretos (~13 MB) y, desde las
-  contrataciones, `historico/` (~7 MB; ~167 MB por ficha medidos el
-  30-09-2026). Cabe de sobra en el
-  límite, pero pesa en el arranque en frío. El arreglo es sacar los
-  constructores de triples del nodo solo (sin vecinos) a un módulo que no
-  importe `lib/empresas`, `lib/sanciones` ni `lib/decretos`, y que la página
-  le pase la entidad que ya cargó.
+- **Trazado de archivos** (medido sobre cada `*.nft.json` el 02-10-2026):
+  `/grafo` (la clave casa con `/grafo/camino` y `/api/grafo`) lleva el
+  compilado (`datos/grafo/nodos/`, ~19 MB) y lo que pide la búsqueda de
+  nodos —funcionarios, banca, decretos y el padrón, que también describe la
+  empresa que el compilado no trae—: ~57 MB por función. Cada ficha que es un
+  nodo lleva solo `datos/grafo/ld/` (~2,5 MB) además de sus propios datos.
+  ✅ **La deuda de ~167 MB por ficha, saldada** (F2): la causaba
+  `huellaDatos()`, que miraba las instantáneas con un nombre en una variable
+  (`stat(join(…, "public", "data", n))`), y el trazado metía `public/data`
+  entero —el índice del buscador incluido— en toda función que importara
+  `lib/grafo-rdf.ts`, y `components/en-el-grafo.tsx` lo importaba. Hoy la
+  ficha importa `lib/grafo-ld.ts`, que no lee instantáneas. Antes y después:
+  persona 162 → 24 MB, institución 162 → 46, provincia 163 → 16, banca
+  162 → 11, decreto 163 → 28, empresa 162 → 22, `/api/grafo` y `/grafo`
+  161–162 → 56–57.
 - **Las tablas** (`scripts/build-grafo-tablas.mjs` → `public/tablas/`: nueve
   Parquet con zstd, ~4 MB, y su `meta.json`; servidas por la CDN en
   `/tablas/`). El mismo grafo del volcado, sin personas naturales, en tablas
@@ -1476,9 +1511,10 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
 - **`lib/mcp-herramientas.ts`**: la dirección y la tabla de herramientas
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
-- **Trazado** (medido sobre cada `route.js.nft.json` el 01-10-2026): `/mcp`
-  pesa ~172 MB —el índice de búsqueda (sin `corpus.json`, que ya está en
-  `indice.bin`), las instantáneas del grafo,
+- **Trazado** (medido sobre cada `route.js.nft.json` el 02-10-2026): `/mcp`
+  pesa ~191 MB —el índice de búsqueda (sin `corpus.json`, que ya está en
+  `indice.bin`), el grafo compilado (~19 MB, que se sumó con F2), las
+  instantáneas que leen sus herramientas,
   `historico/`, `rnc/` y `procesos.json`, que se incluye aquí y se excluye de
   las fichas del grafo, que lo arrastraban sin leerlo—; `/api/sql`, ~77 MB
   —DuckDB, sin la versión musl, que Vercel no usa, y las tablas—. El límite
@@ -1503,6 +1539,16 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   el nodo, procesos— y la recolección de basura que dejan, no el índice; el
   arreglo es el mismo: tablas por columnas. Después, 20–190 ms. Con el disco
   frío, el índice sube a varios segundos.
+- **Con el grafo compilado** (02-10-2026, F2; un `next start` nuevo por
+  llamada, tres por caso, el commit anterior y este en la misma máquina, las
+  mismas respuestas byte a byte): `/api/grafo` de una institución 0,16–0,21 s
+  → **0,02 s**; de una persona 0,20–0,27 → 0,02; de un decreto 0,12–0,15 →
+  0,02; de una empresa sin vínculos 0,08–0,11 → 0,02–0,04. `path` del MCP
+  0,52–0,62 → **0,15–0,17 s**; `fetch` de una institución 0,54–0,58 →
+  **0,21 s**: su descripción cuesta 4 ms, y casi todo lo demás (~0,17 s) es
+  la tabla de procesos (`procesos.json`, 11 MB) de su sección de compras,
+  que entra al grafo con F3. Cotejo: 323 descripciones por `/api/grafo` y
+  el JSON-LD de 40 fichas, idénticos entre los dos builds.
 - ⚠️ **En Vercel la primera llamada cuesta más que aquí** (01-10-2026, un
   preview recién desplegado contra producción con el código anterior, la
   misma secuencia, ~0,22 s de ida y vuelta incluidos): `search` 1,71 s contra

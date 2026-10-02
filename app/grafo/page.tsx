@@ -222,8 +222,8 @@ async function Portada({ consulta }: { consulta: string }) {
           <a href="/.well-known/void" className="text-brand-700 underline">
             VoID
           </a>
-          . Cada descripción se arma al pedirla, de las mismas instantáneas que pintan las fichas: no hay un
-          almacén de triples ni un servidor que mantener.
+          . Cada descripción se compila de las mismas instantáneas que pintan las fichas, se comprueba nodo a nodo y
+          se lee de archivos: no hay un almacén de triples ni un servidor que mantener.
         </p>
         {volcado && (
           <p>

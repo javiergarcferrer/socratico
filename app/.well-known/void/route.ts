@@ -26,7 +26,7 @@ export async function GET() {
       ds,
       "dct:description",
       lit(
-        "Personas con cargo público, instituciones, decretos, entidades financieras, personas jurídicas y provincias de la República Dominicana, con sus relaciones, tal como las publican las fuentes del Estado. Herramienta independiente y no oficial: cada descripción se deriva al pedirla de las instantáneas de la plataforma.",
+        "Personas con cargo público, instituciones, decretos, entidades financieras, personas jurídicas y provincias de la República Dominicana, con sus relaciones, tal como las publican las fuentes del Estado. Herramienta independiente y no oficial: cada descripción se compila de las instantáneas de la plataforma.",
         "es",
       ),
     ),

@@ -31,25 +31,31 @@ const nextConfig: NextConfig = {
     // leen solo sus dos rutas; la clave casa también «/empresas/[rnc]». La
     // ficha de proveedor y /fuentes leen únicamente su meta.json, por ruta
     // literal, y no arrastran el resto.
-    "/empresas": ["./public/data/empresas/**"],
+    "/empresas": ["./public/data/empresas/**", "./datos/grafo/ld/**"],
     // El registro de decretos (~13 MB en un archivo por año, `lib/decretos.ts`)
     // se abre por un nombre que se arma en la consulta. Hoy el trazado lo
     // incluye solo; se declara para no depender de que lo siga adivinando en
     // las rutas que lo leen: la ficha de una persona y sus decretos firmados, y
     // la ficha de un decreto.
-    "/funcionarios": ["./public/data/decretos/**", "./public/data/wikidata.json"],
-    "/normativa": ["./public/data/decretos/**", "./public/data/wikidata.json"],
-    // El grafo semántico (`lib/grafo-rdf.ts`) describe cualquier nodo: lee las
-    // instantáneas de personas, decretos, bancos, empresas, medidas,
-    // declaraciones, las contrataciones desde 2015 (`historico/`) y los QID de
-    // Wikidata. La clave casa también con «/grafo/camino» y «/api/grafo». Las
-    // fichas que incrustan su JSON-LD leen además `wikidata.json`.
+    // Toda ficha que es un nodo del grafo incrusta su schema.org, ya compilado
+    // (`lib/grafo-ld.ts`): lleva `datos/grafo/ld/` y nada más del grafo.
+    "/funcionarios": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    "/normativa": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    // El grafo semántico lee cada nodo del grafo compilado (`datos/grafo/`,
+    // `lib/grafo-compilado.ts`), no las instantáneas de las que sale. Lo
+    // demás es la búsqueda de nodos por nombre, por número de decreto o por
+    // RNC (personas, bancos, decretos, el padrón), y el padrón describe
+    // también la empresa que el compilado no trae. La clave casa también con
+    // «/grafo/camino» y «/api/grafo».
     "/grafo": [
+      "./datos/grafo/meta.json",
+      "./datos/grafo/nodos/**",
       "./public/data/decretos/**",
       "./public/data/empresas/**",
-      "./public/data/historico/**",
-      "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
+      "./public/data/{funcionarios,banca,wikidata}.json",
     ],
+    // VoID cuenta las clases del grafo y sus enlaces a Wikidata: los cuenta el compilador.
+    "/.well-known": ["./datos/grafo/meta.json"],
     // El servidor MCP (`lib/mcp.ts`) busca en el índice y describe nodos del
     // grafo: lleva lo de `/buscar` y lo de `/grafo`, la historia de las
     // compras desde 2015 (`lib/historico.ts`, que abre un archivo por el
@@ -64,15 +70,17 @@ const nextConfig: NextConfig = {
       "./public/data/decretos/**",
       "./public/data/empresas/**",
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
+      "./datos/grafo/meta.json",
+      "./datos/grafo/nodos/**",
     ],
     // SQL sobre las tablas del grafo (`lib/grafo-sql.ts`): el proceso hijo que
     // corre el motor (se carga de disco, sin empaquetar), los Parquet y la
     // biblioteca de DuckDB, que `duckdb.node` enlaza por su cuenta y el
     // trazado no ve.
     "/api/sql": ["./lib/sql-hijo.cjs", "./public/tablas/*.parquet", "./node_modules/@duckdb/node-bindings-linux-x64/**"],
-    "/instituciones": ["./public/data/wikidata.json"],
-    "/banca": ["./public/data/wikidata.json"],
-    "/provincias": ["./public/data/wikidata.json"],
+    "/instituciones": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    "/banca": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    "/provincias": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus (los procesos, además,

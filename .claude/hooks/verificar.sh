@@ -67,6 +67,12 @@ grafo="$(grep -rnE '[`"]/(instituciones|proveedores|procesos|normativa|congreso|
          | grep -vE '^lib/grafo' | grep -vE ':[0-9]+:[[:space:]]*(//|/?\*)' | head -5)"
 if [ -z "$grafo" ]; then ok "graph: every entity href comes from lib/grafo.ts"; else mal "entity href built by hand — use enlace.* from lib/grafo.ts"; printf '%s\n' "$grafo" | sed 's/^/       /'; fi
 
+# 2g. The graph's builders run only in the compiler (docs/PLAN-GRAFO.md, F2):
+# a route that imports them reads every snapshot again on each request and
+# drags them all into its function. The server reads datos/grafo/.
+constructores="$(grep -rnE 'from "@/lib/grafo-constructores"' app components lib --include=*.ts --include=*.tsx 2>/dev/null | head -5)"
+if [ -z "$constructores" ]; then ok "graph: no route imports the builders (lib/grafo-constructores.ts)"; else mal "a route imports lib/grafo-constructores.ts — read the compiled graph (lib/grafo-compilado.ts)"; printf '%s\n' "$constructores" | sed 's/^/       /'; fi
+
 # 3. Statelessness: env vars and Supabase confined to /democracia.
 fuera="$( { grep -rlE 'process\.env\.' app lib components --include=*.ts --include=*.tsx 2>/dev/null; \
             grep -rlE '@supabase/supabase-js|@/lib/supabase["'"'"']' app lib components --include=*.ts --include=*.tsx 2>/dev/null; } \
@@ -122,14 +128,28 @@ else
 fi
 
 # 5c. Nunca la cédula: ninguna instantánea de public/data ni tabla de public/tablas,
-#     que se sirve tal cual, la guarda, ni la que traiga un título oficial. Lee
-#     ~200 MB (unos 13 s): solo en el completo.
+#     que se sirven tal cual, ni el grafo compilado de datos/, que viaja en las
+#     funciones, la guarda, ni la que traiga un título oficial. Lee ~230 MB
+#     (unos 15 s): solo en el completo.
 if [ "$modo" = "--completo" ] && command -v python3 >/dev/null 2>&1; then
   # Las tablas Parquet de public/tablas son binarias: las lee DuckDB.
   if ced="$(python3 "$(dirname "$0")/cedulas.py" "$ROOT" 2>&1; node "$(dirname "$0")/cedulas-tablas.mjs" "$ROOT" 2>&1)" && [ -z "$ced" ]; then
-    ok "privacy: no cédula in public/data or public/tablas"
+    ok "privacy: no cédula in public/data, public/tablas or datos"
   else
     mal "a cédula reached a snapshot — scripts/privacidad.py"; printf '%s\n' "$ced" | head -5 | sed 's/^/       /'
+  fi
+fi
+
+# 5d. The graph the server reads is what the builders say (docs/PLAN-GRAFO.md,
+#     F2): `describir()` reads datos/grafo/, compiled by build-grafo.mjs, so a
+#     stale one is not an error at runtime — it silently serves the previous
+#     graph. Re-describes every node with the builders and compares it, triple
+#     by triple, with what the server's own reader gets (~2 min): completo only.
+if [ "$modo" = "--completo" ]; then
+  if grafo="$(node scripts/build-grafo.mjs --comprobar 2>&1)"; then
+    ok "compiled graph: $(printf '%s\n' "$grafo" | tail -1)"
+  else
+    mal "compiled graph out of date — node scripts/build-grafo.mjs"; printf '%s\n' "$grafo" | tail -10 | sed 's/^/       /'
   fi
 fi
 

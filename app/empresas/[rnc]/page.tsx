@@ -250,7 +250,7 @@ export default async function EmpresaPage({ params }: Props) {
         </Link>
         .
       </p>
-      <EnElGrafo nodo={{ tipo: "empresa", id: e.rnc }} className="mt-2" />
+      <EnElGrafo nodo={{ tipo: "empresa", id: e.rnc }} empresa={e} className="mt-2" />
     </div>
   );
 }

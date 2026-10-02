@@ -2,18 +2,21 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { enlace, rutaDeNodo, type NodoRdf } from "@/lib/grafo";
-import { schemaOrgDe } from "@/lib/grafo-rdf";
+import { schemaOrgDe } from "@/lib/grafo-ld";
+import type { Empresa } from "@/lib/empresas";
 
 /**
  * El pie de una ficha que es un nodo del grafo (docs/ARQUITECTURA.md, el
  * grafo semántico): su descripción en schema.org incrustada como JSON-LD
  * —lo que leen los buscadores; sale de los mismos triples que `/api/grafo`,
- * en su forma ligera— y el camino a su red en el explorador y a su RDF.
+ * en su forma ligera, ya compilada (`lib/grafo-ld.ts`)— y el camino a su red
+ * en el explorador y a su RDF. La ficha de una empresa pasa la fila del
+ * padrón que ya leyó: la mayoría no está en el compilado y sale de ella.
  *
- * Componente de servidor: lee las instantáneas.
+ * Componente de servidor: lee el compilado, no las instantáneas.
  */
-export async function EnElGrafo({ nodo, className }: { nodo: NodoRdf; className?: string }) {
-  const ld = await schemaOrgDe(nodo);
+export async function EnElGrafo({ nodo, empresa, className }: { nodo: NodoRdf; empresa?: Empresa; className?: string }) {
+  const ld = await schemaOrgDe(nodo, empresa);
   const ruta = rutaDeNodo(nodo);
   return (
     <>

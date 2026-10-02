@@ -6,9 +6,9 @@ import { SITIO } from "@/lib/sitio";
  * (`lib/ontologia.ts`, `lib/grafo-rdf.ts`, docs/ARQUITECTURA.md).
  *
  * No es una base de datos ni un almacén de triples (la invariante: sin base
- * de datos en las superficies de inteligencia): los triples se **derivan** en
- * cada lectura de las mismas instantáneas que pintan las fichas, y se
- * serializan aquí. Escribirlo a mano, en vez de traer una biblioteca, cuesta
+ * de datos en las superficies de inteligencia): los triples se **compilan**
+ * de las mismas instantáneas que pintan las fichas (`scripts/build-grafo.mjs`,
+ * a archivos que se leen), y se serializan aquí. Escribirlo a mano, en vez de traer una biblioteca, cuesta
  * poco porque solo hace falta escribir, no leer; las reglas de escape son las
  * de las gramáticas de W3C (Turtle 1.1 §6.4, N-Triples 1.1 §2.4) y la salida
  * se valida contra un analizador independiente al construirla.
