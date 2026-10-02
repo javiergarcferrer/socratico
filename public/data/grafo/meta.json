@@ -1,8 +1,26 @@
 {
-  "generado": "2026-10-01",
+  "generado": "2026-10-02",
   "formato": "N-Triples (application/n-triples), comprimido con gzip",
   "triples": 816229,
   "bytes": 7454609,
+  "trig": {
+    "formato": "TriG (application/trig), comprimido con gzip: cada triple en el grafo con nombre de su fuente y su corte, o de la regla que lo deriva; en el grafo por omisión, PROV-O de cada grafo",
+    "bytes": 3736978,
+    "cuadruples": 863795,
+    "grafos": {
+      "instituciones": 6850,
+      "banca": 10572,
+      "padron": 236679,
+      "proveedores": 73380,
+      "contratos": 496560,
+      "medidas": 11889,
+      "ofac": 11,
+      "wikidata": 64,
+      "provincias": 162,
+      "identidad": 96,
+      "plataforma": 27532
+    }
+  },
   "nodos": {
     "instituciones": 894,
     "financieras": 1300,

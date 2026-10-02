@@ -183,3 +183,71 @@ export function planoNombre(p: ProveedorIndexado): string {
   if (v === undefined) planos.set(p, (v = plano(p.nombre)));
   return v;
 }
+
+/* ------------------------------------------------------- lo publicado */
+
+/** La primera y la última publicación de la instantánea. */
+let coberturaMemo: { procesos: ProcesoIndexado[]; desde: string; hasta: string } | null = null;
+
+export function coberturaDe(procesos: ProcesoIndexado[]): { desde: string; hasta: string } {
+  if (coberturaMemo?.procesos !== procesos) {
+    let desde = procesos[0].fecha;
+    let hasta = procesos[0].fecha;
+    for (const p of procesos) {
+      if (p.fecha < desde) desde = p.fecha;
+      if (p.fecha > hasta) hasta = p.fecha;
+    }
+    coberturaMemo = { procesos, desde, hasta };
+  }
+  return coberturaMemo;
+}
+
+/** Cuántos procesos publicó cada unidad de compra en la instantánea, y por cuánto, por su nombre plano. */
+let porUnidadMemo: { procesos: ProcesoIndexado[]; mapa: Map<string, { procesos: number; suma: number }> } | null = null;
+
+export function publicadoPorUnidad(procesos: ProcesoIndexado[]): Map<string, { procesos: number; suma: number }> {
+  if (porUnidadMemo?.procesos !== procesos) {
+    const mapa = new Map<string, { procesos: number; suma: number }>();
+    const planos = new Map<string, string>();
+    for (const p of procesos) {
+      let k = planos.get(p.unidad);
+      if (k === undefined) planos.set(p.unidad, (k = plano(p.unidad)));
+      const g = mapa.get(k) ?? { procesos: 0, suma: 0 };
+      g.procesos++;
+      g.suma += p.valor ?? 0;
+      mapa.set(k, g);
+    }
+    porUnidadMemo = { procesos, mapa };
+  }
+  return porUnidadMemo.mapa;
+}
+
+/** Lo que compra una institución: lo contratado desde 2015 y lo publicado en el último año, con las herramientas que lo abren. */
+
+/** Lo publicado por cada institución en la tabla de procesos: lo que `fetch` dice de ella; lo compila `scripts/build-grafo.mjs`. */
+export interface ComprasPublicadas {
+  /** El corte de la tabla de procesos. */
+  corte: string | null;
+  /** La primera y la última publicación; `null` si la tabla está vacía. */
+  cobertura: { desde: string; hasta: string } | null;
+  /** Por id de institución: `[procesos, suma estimada]`; las que no publicaron, no están. */
+  porInstitucion: Record<string, [number, number]>;
+}
+
+/**
+ * Cuántos procesos publicó cada institución en la ventana de la tabla, y por
+ * cuánto: su unidad de compra por su nombre plano. Una sola definición para
+ * el compilador, que lo guarda, y para quien lo compara.
+ */
+export async function publicadoPorInstitucion(instituciones: { id: number; nombre: string; dgcp?: unknown }[]): Promise<ComprasPublicadas> {
+  const { procesos, corte } = await todosLosProcesos();
+  const porUnidad = publicadoPorUnidad(procesos);
+  const porInstitucion: Record<string, [number, number]> = {};
+  for (const i of instituciones) {
+    if (!i.dgcp) continue;
+    const p = porUnidad.get(plano(i.nombre));
+    if (p) porInstitucion[String(i.id)] = [p.procesos, p.suma];
+  }
+  const c = procesos.length ? coberturaDe(procesos) : null;
+  return { corte, cobertura: c ? { desde: c.desde, hasta: c.hasta } : null, porInstitucion };
+}

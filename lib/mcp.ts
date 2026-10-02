@@ -28,6 +28,7 @@ import {
   type TipoResultado,
 } from "@/lib/busqueda";
 import {
+  coberturaDe,
   planoNombre,
   planoTitulo,
   todosLosProcesos,
@@ -35,6 +36,7 @@ import {
   type ProcesoIndexado,
   type ProveedorIndexado,
 } from "@/lib/tablas-compras";
+import { comprasPublicadas } from "@/lib/grafo-compilado";
 import { getResumenHistorico, historiaDeInstitucion, historiaDeProveedor, prefijoSinAsignar } from "@/lib/historico";
 import { FUENTES_DEL_CRUCE, INSTITUCIONES, institucionPorId, type Institucion } from "@/lib/instituciones";
 import { buscarEmpresas, empresaPorRnc, padronEmpresas, type Empresa } from "@/lib/empresas";
@@ -1124,22 +1126,6 @@ function argumentosDeCompras(f: FiltrosCompras): ArgumentosCompras {
   return a as ArgumentosCompras;
 }
 
-/** La primera y la última publicación de la instantánea. */
-let coberturaMemo: { procesos: ProcesoIndexado[]; desde: string; hasta: string } | null = null;
-
-function coberturaDe(procesos: ProcesoIndexado[]): { desde: string; hasta: string } {
-  if (coberturaMemo?.procesos !== procesos) {
-    let desde = procesos[0].fecha;
-    let hasta = procesos[0].fecha;
-    for (const p of procesos) {
-      if (p.fecha < desde) desde = p.fecha;
-      if (p.fecha > hasta) hasta = p.fecha;
-    }
-    coberturaMemo = { procesos, desde, hasta };
-  }
-  return coberturaMemo;
-}
-
 const mayor = (a: string | null, b: string | null) => (a == null ? b : b == null ? a : a > b ? a : b);
 const menor = (a: string | null, b: string | null) => (a == null ? b : b == null ? a : a < b ? a : b);
 
@@ -1642,37 +1628,20 @@ interface Seccion {
   metadata: Record<string, unknown>;
 }
 
-/** Cuántos procesos publicó cada unidad de compra en la instantánea, y por cuánto, por su nombre plano. */
-let porUnidadMemo: { procesos: ProcesoIndexado[]; mapa: Map<string, { procesos: number; suma: number }> } | null = null;
-
-function publicadoPorUnidad(procesos: ProcesoIndexado[]): Map<string, { procesos: number; suma: number }> {
-  if (porUnidadMemo?.procesos !== procesos) {
-    const mapa = new Map<string, { procesos: number; suma: number }>();
-    const planos = new Map<string, string>();
-    for (const p of procesos) {
-      let k = planos.get(p.unidad);
-      if (k === undefined) planos.set(p.unidad, (k = plano(p.unidad)));
-      const g = mapa.get(k) ?? { procesos: 0, suma: 0 };
-      g.procesos++;
-      g.suma += p.valor ?? 0;
-      mapa.set(k, g);
-    }
-    porUnidadMemo = { procesos, mapa };
-  }
-  return porUnidadMemo.mapa;
-}
-
-/** Lo que compra una institución: lo contratado desde 2015 y lo publicado en el último año, con las herramientas que lo abren. */
 async function comprasDeInstitucion(i: Institucion): Promise<Seccion | null> {
   if (!i.dgcp) return null;
   const id = rutaInstitucion(i);
-  const [h, resumen, { procesos, corte }] = await Promise.all([historiaDeInstitucion(i.id), getResumenHistorico(), todosLosProcesos()]);
+  // Lo publicado en el último año viene compilado con el grafo (`datos/grafo/compras.json`):
+  // contarlo aquí obligaba a leer la tabla de procesos entera (11 MB) en cada `fetch` en frío.
+  const [h, resumen, publicadas] = await Promise.all([historiaDeInstitucion(i.id), getResumenHistorico(), comprasPublicadas()]);
+  if (!publicadas) throw new Error("el resumen de compras compilado no está (datos/grafo/compras.json)");
   const serie = h?.historia.serie ?? [];
   const sinAsignar = serie.some((f) => f[1] > 0) ? null : await prefijoSinAsignar(i.nombre);
   const contratos = serie.reduce((s, f) => s + f[1], 0);
   const monto = serie.reduce((s, f) => s + f[2], 0);
-  const publicado = publicadoPorUnidad(procesos).get(plano(i.nombre)) ?? { procesos: 0, suma: 0 };
-  const cobertura = procesos.length ? coberturaDe(procesos) : null;
+  const [nPublicados, suma] = publicadas.porInstitucion[String(i.id)] ?? [0, 0];
+  const publicado = { procesos: nPublicados, suma };
+  const { cobertura, corte } = publicadas;
   const lineas = ["", "## Compras públicas (DGCP)"];
   if (sinAsignar) {
     lineas.push(
@@ -2311,9 +2280,11 @@ const Ontologia = z.object({
     fabric: z.string().describe("El perfil para Microsoft Fabric IQ, para importar en un ítem de ontología vacío."),
     pagina: z.string(),
     grafo: z
-      .object({ url: z.string(), triples: z.number(), generado: z.string(), excluye: z.string() })
+      .object({ url: z.string(), trig: z.string(), triples: z.number(), generado: z.string(), excluye: z.string() })
       .nullable()
-      .describe("El grafo entero sin personas naturales, en N-Triples comprimido, para cargarlo en un motor RDF propio (Oxigraph, QLever, Apache Jena)."),
+      .describe(
+        "El grafo entero sin personas naturales, en N-Triples comprimido (url), para cargarlo en un motor RDF propio (Oxigraph, QLever, Apache Jena); en trig, el mismo en TriG, cada triple en el grafo con nombre de su fuente y su corte, o de la regla que lo deriva.",
+      ),
     tablas: z
       .object({ url: z.string(), generadas: z.string(), tablas: z.array(z.object({ tabla: z.string(), filas: z.number(), descripcion: z.string() })) })
       .describe("El mismo grafo, más los procesos de compra, en tablas Parquet: lo que consulta query, para abrirlo en DuckDB, pandas o Polars."),
@@ -2354,7 +2325,7 @@ async function ontologia(): Promise<z.infer<typeof Ontologia>> {
       shacl: `${SITIO}/ontologia.shacl.ttl`,
       fabric: `${SITIO}/ontologia.fabric.ttl`,
       pagina: `${SITIO}/ontologia`,
-      grafo: volcado ? { url: volcado.url, triples: volcado.triples, generado: volcado.generado, excluye: volcado.excluye } : null,
+      grafo: volcado ? { url: volcado.url, trig: volcado.urlTrig, triples: volcado.triples, generado: volcado.generado, excluye: volcado.excluye } : null,
       tablas: {
         url: `${SITIO}/tablas/`,
         generadas: TABLAS_GENERADAS,

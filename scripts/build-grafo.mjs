@@ -10,6 +10,8 @@
  *   datos/grafo/nodos/<tipo>/NNN.json.br   la descripción entera de cada nodo
  *   datos/grafo/ld/<tipo>/NNN.json.br      el schema.org de cada ficha
  *   datos/grafo/ld/meta.json               la primera clave de cada fragmento de schema.org
+ *   datos/grafo/vecinos/<tipo>/NNN.json.br las aristas de cada nodo hacia otros (lo que recorre `camino()`)
+ *   datos/grafo/compras.json               lo publicado por cada institución en la tabla de procesos
  *
  * Los nodos de cada tipo se reparten en fragmentos en orden de clave, como
  * las filas del padrón; `meta.json` guarda la primera clave de cada uno, así
@@ -21,10 +23,15 @@
  * plantilla sobre su fila del padrón (`describirEmpresaSola`), y el
  * compilador comprueba que lo es.
  *
+ * Cada triple lleva el grafo con nombre de donde sale —una fuente y su corte,
+ * o una regla de Socrático— (`grafosEnVivo`, guardados en `meta.json`).
+ *
  * Antes de darlo por bueno, lo **relee por los módulos del servidor** y lo
- * compara nodo a nodo, triple a triple, con lo que dicen los constructores, y
- * el schema.org de cada ficha con el de la descripción ligera. Si algo
- * difiere, sale con 1.
+ * compara nodo a nodo, triple a triple y grafo a grafo, con lo que dicen los
+ * constructores; el schema.org de cada ficha con el de la descripción
+ * ligera; los vecinos con las aristas de la descripción; lo publicado con la
+ * tabla de procesos; y pasa cada nodo por el esquema zod de su clase
+ * (`lib/ontologia-esquemas.ts`). Si algo difiere, sale con 1.
  *
  * Uso:
  *     node scripts/build-grafo.mjs              # compila y comprueba (tras las demás instantáneas)
@@ -48,6 +55,7 @@ process.chdir(RAIZ);
 const SALIDA = path.join(RAIZ, "datos", "grafo");
 const DATOS = path.join(RAIZ, "public", "data");
 const COMPROBAR = process.argv.includes("--comprobar");
+const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
 const lib = (m) => import(pathToFileURL(path.join(RAIZ, "lib", `${m}.ts`)).href);
 
 // Cuánto lleva un fragmento: lo bastante para que haya pocos archivos y lo
@@ -64,6 +72,11 @@ const B = await lib("financieras");
 const D = await lib("decretos");
 const P = await lib("provincias");
 const E = await lib("empresas");
+const R = await lib("grafo-rdf");
+const GC = await lib("grafo-compilado");
+const T = await lib("tablas-compras");
+const ESQ = await lib("ontologia-esquemas");
+const O = await lib("ontologia");
 
 const t0 = performance.now();
 const segundos = () => `${Math.round((performance.now() - t0) / 1000)} s`;
@@ -111,12 +124,68 @@ function diferencia(a, b) {
   if (a.titulo !== b.titulo) return `título «${a.titulo}» ≠ «${b.titulo}»`;
   if ((a.nota ?? null) !== (b.nota ?? null)) return `nota «${a.nota}» ≠ «${b.nota}»`;
   if (a.triples.length !== b.triples.length) return `${a.triples.length} triples ≠ ${b.triples.length}`;
+  if ((a.grafos?.length ?? -1) !== a.triples.length || (b.grafos?.length ?? -1) !== b.triples.length) return "un triple sin grafo";
   for (let i = 0; i < a.triples.length; i++) {
+    if (a.grafos[i] !== b.grafos[i]) return `triple ${i}: grafo ${a.grafos[i]} ≠ ${b.grafos[i]}`;
     const x = a.triples[i];
     const y = b.triples[i];
     if (x.p !== y.p || !mismoTermino(x.s, y.s) || !mismoTermino(x.o, y.o)) return `triple ${i}: <${x.s.valor}> <${x.p}> «${x.o.valor}» ≠ <${y.s.valor}> <${y.p}> «${y.o.valor}»`;
   }
   return null;
+}
+
+/* ---------------------------------------------------- contra la ontología */
+
+const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+const SOC = `${W3ID}/def/core#`;
+const DO = `${W3ID}/def/do#`;
+const XSD = "http://www.w3.org/2001/XMLSchema#";
+const curieDe = (v) => (v.startsWith(SOC) ? `soc:${v.slice(SOC.length)}` : v.startsWith(DO) ? `do:${v.slice(DO.length)}` : null);
+const funcional = new Set(O.PROPIEDADES.filter((p) => p.funcional).map((p) => O.curie(p)));
+const esquemas = new Map();
+const esquemaDe = (clase) => {
+  if (!esquemas.has(clase)) esquemas.set(clase, O.CLASES.some((c) => O.curie(c) === clase) ? ESQ.esquemaClase(clase) : null);
+  return esquemas.get(clase);
+};
+/** Un valor de RDF en el JSON de un nodo: un número, un sí o un no, o un texto (un IRI, un día, un año). */
+const valorJson = (o) => {
+  if (o.tipo !== "literal") return o.valor;
+  if (o.datatype === `${XSD}integer` || o.datatype === `${XSD}decimal`) return Number(o.valor);
+  if (o.datatype === `${XSD}boolean`) return o.valor === "true";
+  return o.valor;
+};
+
+/**
+ * Cada sujeto de una descripción con un tipo de la ontología, contra el
+ * esquema zod de su clase (`esquemaClase`, de la misma definición que el
+ * SHACL): sus propiedades de aquí, con su tipo y su cardinalidad. Devuelve lo
+ * que no cabe.
+ */
+function contraLaOntologia(d) {
+  const porSujeto = new Map();
+  for (const x of d.triples) {
+    if (x.s.tipo !== "iri") continue;
+    let e = porSujeto.get(x.s.valor);
+    if (!e) porSujeto.set(x.s.valor, (e = { tipos: new Set(), props: {} }));
+    if (x.p === RDF_TYPE) {
+      const c = x.o.tipo === "iri" ? curieDe(x.o.valor) : null;
+      if (c) e.tipos.add(c);
+    } else {
+      // Un grafo es un conjunto: el mismo triple dos veces es uno (como cuenta SHACL).
+      const c = curieDe(x.p);
+      const v = valorJson(x.o);
+      if (c && !(e.props[c] ??= []).includes(v)) e.props[c].push(v);
+    }
+  }
+  const fallos = [];
+  for (const [sujeto, { tipos, props }] of porSujeto) {
+    const obj = Object.fromEntries(Object.entries(props).map(([k, vs]) => [k, funcional.has(k) && vs.length === 1 ? vs[0] : vs]));
+    for (const clase of tipos) {
+      const r = esquemaDe(clase)?.safeParse(obj);
+      if (r && !r.success) fallos.push(`${sujeto} (${clase}): ${r.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`);
+    }
+  }
+  return fallos;
 }
 
 /* ---------------------------------------------------------- compilar */
@@ -139,6 +208,9 @@ function repartir(registros, bytesPorFragmento) {
   return { limites: cubetas.map((c) => c[0].clave), cubetas };
 }
 
+/** El índice de cada grafo en `meta.grafos`: lo fija `compilar` antes de codificar. */
+let indiceGrafo = new Map();
+
 function codificarNodos(cubeta) {
   const terminos = [];
   const indice = new Map();
@@ -155,7 +227,11 @@ function codificarNodos(cubeta) {
   const nodos = {};
   for (const { clave, d } of cubeta) {
     const ints = [];
-    for (const x of d.triples) ints.push(id(N.codificarTermino(x.s)), id(x.p), id(N.codificarTermino(x.o)));
+    d.triples.forEach((x, i) => {
+      const g = indiceGrafo.get(d.grafos[i]);
+      if (g === undefined) throw new Error(`${clave}: el grafo «${d.grafos[i]}» no está en grafosEnVivo()`);
+      ints.push(id(N.codificarTermino(x.s)), id(x.p), id(N.codificarTermino(x.o)), g);
+    });
     nodos[clave] = [d.titulo, d.nota ?? null, ints];
   }
   return { terminos, nodos };
@@ -166,6 +242,33 @@ const comprimir = promisify(brotliCompress);
 const brotli = (texto) =>
   comprimir(texto, { params: { [constants.BROTLI_PARAM_QUALITY]: 11, [constants.BROTLI_PARAM_SIZE_HINT]: Buffer.byteLength(texto) } });
 
+/** Las aristas de un nodo hacia otros nodos, como las lee `camino()`: `[destino, vía, nombre]`. */
+const vecinosDe = (d, n) =>
+  R.relacionesDesdeTriples(d.triples, N.iriDe(n)).flatMap((r) => (r.nodo ? [[R.claveNodo(r.nodo), r.neutro, r.nombre]] : []));
+
+/** Un fragmento del índice de vecinos, en filas comprimidas (`FragmentoVecinos`). */
+function codificarVecinos(cubeta, tipo) {
+  const cadenas = [];
+  const indice = new Map();
+  const id = (c) => {
+    let i = indice.get(c);
+    if (i === undefined) {
+      i = cadenas.length;
+      cadenas.push(c);
+      indice.set(c, i);
+    }
+    return i;
+  };
+  const f = { cadenas, claves: [], titulos: [], inicio: [0], aristas: [] };
+  for (const { clave, d } of cubeta) {
+    f.claves.push(clave);
+    f.titulos.push(id(d.titulo));
+    for (const [destino, via, nombre] of vecinosDe(d, { tipo, id: clave })) f.aristas.push(id(destino), id(via), id(nombre));
+    f.inicio.push(f.aristas.length / 3);
+  }
+  return f;
+}
+
 /** Escribe los archivos de un directorio y borra los que ya no tocan (un tipo con menos fragmentos). */
 function escribirDirectorio(dir, archivos) {
   mkdirSync(dir, { recursive: true });
@@ -174,7 +277,21 @@ function escribirDirectorio(dir, archivos) {
   for (const a of readdirSync(dir)) if (!vigentes.has(a)) unlinkSync(path.join(dir, a));
 }
 
+/**
+ * Los grafos con nombre, con su IRI: el de una fuente lleva su corte
+ * (`…/fuente/padron/2026-09-19`); el de una regla, el día en que se compiló.
+ */
+function conIri(definiciones, generado) {
+  return definiciones.map((g) => ({
+    ...g,
+    iri: g.derivado ? `${W3ID}/derivado/${g.clave}/${generado}` : `${W3ID}/fuente/${g.clave}${g.corte ? `/${g.corte}` : ""}`,
+  }));
+}
+
 async function compilar(todas) {
+  const generado = new Date().toISOString().slice(0, 10);
+  const grafos = conIri(await C.grafosEnVivo(), generado);
+  indiceGrafo = new Map(grafos.map((g, i) => [g.clave, i]));
   const tipos = {};
   const limitesLd = {};
   const escritos = [];
@@ -183,11 +300,13 @@ async function compilar(todas) {
   for (const tipo of N.TIPOS_COMPILADOS) {
     const nodos = [];
     const lds = [];
+    const fuera = [];
     let triples = 0;
     for (const clave of todas[tipo]) {
       const n = { tipo, id: clave };
       const d = await C.describirEnVivo(n);
       if (!d) continue;
+      for (const f of contraLaOntologia(d)) fuera.push(f);
       const ld = LD.aSchemaOrg((await C.describirEnVivo(n, true)).triples, N.iriDe(n));
       let conRegistro = true;
       let conLd = true;
@@ -205,9 +324,16 @@ async function compilar(todas) {
       }
       if (conLd) lds.push({ clave, ld, peso: JSON.stringify(ld).length });
     }
+    if (fuera.length) {
+      for (const f of fuera.slice(0, 8)) console.log(`NO CABE ${f}`);
+      throw new Error(`${fuera.length} nodos de ${tipo} no caben en el esquema de su clase (lib/ontologia-esquemas.ts): no se escribe nada`);
+    }
     const { limites, cubetas } = repartir(nodos, BYTES_POR_FRAGMENTO);
     const archivos = await Promise.all(cubetas.map(async (c, i) => [N.archivoFragmento(i), await brotli(JSON.stringify(codificarNodos(c)))]));
     escribirDirectorio(path.join(SALIDA, "nodos", tipo), archivos);
+    // El índice de vecinos, con los mismos fragmentos que las descripciones.
+    const archivosVecinos = await Promise.all(cubetas.map(async (c, i) => [N.archivoFragmento(i), await brotli(JSON.stringify(codificarVecinos(c, tipo)))]));
+    escribirDirectorio(path.join(SALIDA, "vecinos", tipo), archivosVecinos);
     const ld = repartir(lds, BYTES_POR_FRAGMENTO_LD);
     const archivosLd = await Promise.all(
       ld.cubetas.map(async (c, i) => [N.archivoFragmento(i), await brotli(JSON.stringify(Object.fromEntries(c.map((r) => [r.clave, r.ld]))))]),
@@ -215,13 +341,14 @@ async function compilar(todas) {
     escribirDirectorio(path.join(SALIDA, "ld", tipo), archivosLd);
     for (const [nombre, bytes] of archivos) escritos.push([`nodos/${tipo}/${nombre}`, bytes]);
     for (const [nombre, bytes] of archivosLd) escritos.push([`ld/${tipo}/${nombre}`, bytes]);
+    for (const [nombre, bytes] of archivosVecinos) escritos.push([`vecinos/${tipo}/${nombre}`, bytes]);
     tipos[tipo] = { nodos: nodos.length, triples, limites };
     limitesLd[tipo] = ld.limites;
     triplesTotal += triples;
     const mb = (xs) => (xs.reduce((s, [, b]) => s + b.length, 0) / 1e6).toFixed(2);
     console.log(
       `${tipo}: ${nodos.length.toLocaleString("en-US")} nodos, ${triples.toLocaleString("en-US")} triples, ` +
-        `${limites.length} fragmentos (${mb(archivos)} MB); schema.org de ${lds.length.toLocaleString("en-US")} fichas en ${ld.limites.length} (${mb(archivosLd)} MB) · ${segundos()}`,
+        `${limites.length} fragmentos (${mb(archivos)} MB; vecinos ${mb(archivosVecinos)} MB); schema.org de ${lds.length.toLocaleString("en-US")} fichas en ${ld.limites.length} (${mb(archivosLd)} MB) · ${segundos()}`,
     );
   }
   const huella = createHash("sha256");
@@ -229,8 +356,9 @@ async function compilar(todas) {
   const f = await F.getFuncionarios();
   const meta = {
     formato: N.FORMATO_GRAFO,
-    generado: new Date().toISOString().slice(0, 10),
+    generado,
     aFecha: f?.generado ?? null,
+    grafos,
     tipos,
     empresasSolas,
     triples: triplesTotal,
@@ -239,6 +367,8 @@ async function compilar(todas) {
     wikidata: await C.enlacesWikidataEnVivo(),
   };
   writeFileSync(path.join(SALIDA, "ld", "meta.json"), `${JSON.stringify({ formato: N.FORMATO_GRAFO, limites: limitesLd })}\n`);
+  // Lo publicado por cada institución en la tabla de procesos: lo que dice `fetch` (`lib/mcp.ts`).
+  writeFileSync(path.join(SALIDA, "compras.json"), `${JSON.stringify(await T.publicadoPorInstitucion(I.INSTITUCIONES))}\n`);
   writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify(meta)}\n`);
 }
 
@@ -251,7 +381,6 @@ async function compilar(todas) {
 async function comprobar(todas) {
   const meta = JSON.parse(readFileSync(path.join(SALIDA, "meta.json"), "utf8"));
   const metaLd = JSON.parse(readFileSync(path.join(SALIDA, "ld", "meta.json"), "utf8"));
-  const R = await lib("grafo-rdf");
   const malos = [];
   const anotar = (k, por) => {
     if (malos.length < 8) console.log(`DIFIERE ${k}: ${por}`);
@@ -271,7 +400,14 @@ async function comprobar(todas) {
       nodos++;
       const por = diferencia(await R.describir(n), vivo);
       if (por) anotar(`${tipo}:${clave}`, por);
-      if (tipo !== "empresa" || diferencia(vivo, N.describirEmpresaSola(await E.empresaPorRnc(clave))) !== null) conRegistro++;
+      for (const f of contraLaOntologia(vivo)) anotar(`${tipo}:${clave} (ontología)`, f);
+      const conRegistroEste = tipo !== "empresa" || diferencia(vivo, N.describirEmpresaSola(await E.empresaPorRnc(clave))) !== null;
+      if (conRegistroEste) conRegistro++;
+      // Sus vecinos, como los recorre `camino()`: los del índice, los de su descripción.
+      const indice = await GC.leerVecinos(n);
+      const esperado = conRegistroEste ? { titulo: vivo.titulo, vecinos: vecinosDe(vivo, n) } : undefined;
+      const leido = indice && { titulo: indice.titulo, vecinos: indice.vecinos.map((v) => [R.claveNodo(v.nodo), v.via, v.nombre]) };
+      if (JSON.stringify(leido) !== JSON.stringify(esperado)) anotar(`${tipo}:${clave} (vecinos)`, "el índice de vecinos difiere");
     }
     // Ni uno de más: el compilado no puede traer nodos que los constructores ya no describen.
     if (conRegistro !== meta.tipos[tipo]?.nodos) anotar(tipo, `${meta.tipos[tipo]?.nodos} nodos compilados, ${conRegistro} hoy`);
@@ -289,6 +425,9 @@ async function comprobar(todas) {
   }
   const [inventario, wikidata] = [await C.inventarioEnVivo(), await C.enlacesWikidataEnVivo()];
   if (JSON.stringify(inventario) !== JSON.stringify(meta.inventario)) anotar("inventario", "los conteos por clase cambiaron");
+  if (JSON.stringify(conIri(await C.grafosEnVivo(), meta.generado)) !== JSON.stringify(meta.grafos)) anotar("grafos", "las fuentes o los cortes de los grafos con nombre cambiaron");
+  const compras = JSON.parse(readFileSync(path.join(SALIDA, "compras.json"), "utf8"));
+  if (JSON.stringify(compras) !== JSON.stringify(await T.publicadoPorInstitucion(I.INSTITUCIONES))) anotar("compras", "lo publicado por institución cambió");
   if (JSON.stringify(wikidata) !== JSON.stringify(meta.wikidata)) anotar("wikidata", "los enlaces a Wikidata cambiaron");
   return { malos: malos.length, nodos, fichas, triples: meta.triples };
 }

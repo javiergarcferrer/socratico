@@ -52,6 +52,10 @@ export async function EnElGrafo({ nodo, empresa, className }: { nodo: NodoRdf; e
               JSON-LD
             </a>
             {" · "}
+            <a href={enlace.rdf(ruta, "trig")} rel="nofollow" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
+              TriG, con la fuente de cada dato
+            </a>
+            {" · "}
             <Link href="/ontologia" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
               la ontología
             </Link>
@@ -69,5 +73,7 @@ export function alternasRdf(nodo: NodoRdf): Record<string, string> {
     "text/turtle": enlace.rdf(ruta, "ttl"),
     "application/ld+json": enlace.rdf(ruta, "jsonld"),
     "application/n-triples": enlace.rdf(ruta, "nt"),
+    "application/trig": enlace.rdf(ruta, "trig"),
+    "application/n-quads": enlace.rdf(ruta, "nq"),
   };
 }

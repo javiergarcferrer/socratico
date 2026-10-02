@@ -1,10 +1,12 @@
 # Plan del grafo — Socrático como módulo de conocimiento
 
-> **Estado (2026-10-02): aprobado; F0 en curso, F2 hecho.** F0: ontología
-> 2.0.0 con núcleo y módulo dominicano en w3id, SHACL, perfil para Fabric IQ
-> y el validador; falta la importación real en Fabric. F2: el grafo se
-> compila (`scripts/build-grafo.mjs` → `datos/grafo/`) y `describir()` lo
-> lee, comprobado nodo a nodo en cada entrega. §4.1 decidido: w3id.
+> **Estado (2026-10-02): aprobado; F0 hecho salvo la importación real en
+> Fabric IQ, F2 hecho.** F0: ontología 2.0.0 con núcleo y módulo dominicano
+> en w3id, SHACL, perfil para Fabric IQ, el validador, y las tablas y los
+> esquemas zod sacados de la misma definición. F2: el grafo se compila
+> (`scripts/build-grafo.mjs` → `datos/grafo/`) con la fuente de cada triple
+> y un índice de vecinos, y `describir()` y `path` lo leen, comprobado nodo a
+> nodo en cada entrega. §4.1 decidido: w3id.
 > Dirección del dueño:
 > Socrático deja de ser una plataforma con verticales que además tiene un grafo
 > y pasa a ser **un grafo de conocimiento con ontología** del que las páginas,
@@ -48,7 +50,7 @@ Inventario verificado el 2026-10-01 (código y `meta.json`):
 | La persona se identifica por **su nombre normalizado**; un choque se resuelve con `-2`, `-3` **por orden de proceso** (`build-funcionarios.py`). | Un id puede pasar de una persona a otra entre builds. Inaceptable para un nodo que otros sistemas enlazan. |
 | Un cargo tiene **una fecha** (la del movimiento) y un tipo de movimiento; el período electo es un literal («Período 2024-2028»). | No hay intervalos: «¿quién dirigía el INAPA en marzo de 2023?» no se puede preguntar. |
 | `pepVigente` se calcula con **`new Date()`** menos 3 años. ✅ Desde F2, desde el corte de la instantánea. | El mismo corte da respuestas distintas según el día en que se lee. Un hecho no puede depender del reloj del lector. |
-| La procedencia es **texto en la interfaz** (y `dct:source` literal en cargos y contrataciones); no hay PROV ni grafos con nombre. | No se puede preguntar «qué dice solo la DGCP» ni auditar de dónde salió una arista. |
+| La procedencia es **texto en la interfaz** (y `dct:source` literal en cargos y contrataciones); no hay PROV ni grafos con nombre. ✅ F2: cada triple lleva su grafo con nombre, por fuente y corte o por regla, con PROV-O. | No se puede preguntar «qué dice solo la DGCP» ni auditar de dónde salió una arista. |
 | **Sin jerarquía**: ni `org:subOrganizationOf`, ni niveles del clasificador de DIGEPRES (se leen y se tiran), ni municipios. | No hay subgrafos: un ministerio no contiene nada. |
 | Las menciones en texto se **enlazan al pintar** (`reconocerPorForma`, `reconocerInstituciones`) y no producen triples. | Lo que un decreto o una sentencia dice de alguien no entra al grafo. |
 | La organización del repositorio son **verticales** (`lib/secciones.ts`), un `lib/<fuente>.ts` que pinta su página. | La fuente y la vista están soldadas: una fuente nueva es una página nueva, no nodos y aristas nuevos. |
@@ -271,15 +273,20 @@ adaptadores:
 - ✅ Comprobado nodo a nodo: el compilador relee por los módulos del
   servidor y compara triple a triple con los constructores; el gate lo
   repite en cada entrega (`ARQUITECTURA.md` §Grafo semántico).
-- ⚠️ Los grafos con nombre por fuente (TriG con PROV-O) esperan a que los
-  adaptadores afirmen con su fuente y su corte (F1/F3): hoy un triple no
-  sabe de qué instantánea salió, y repartirlos por tipo de nodo sería
-  inventar la procedencia.
-- ⚠️ La adyacencia en CSR espera a F7: con `describir()` convertido en
-  lectura, `path` ya no abre instantáneas; el CSR hace falta cuando
-  `retrieve` y `path` recorran el grafo entero.
-- Las tablas por clase y relación siguen saliendo del volcado
-  (`scripts/build-grafo-tablas.mjs`), que ahora pide al compilado.
+- ✅ Los grafos con nombre: cada constructor dice de qué grafo sale cada
+  triple —uno por fuente y corte, uno por regla de Socrático—, el compilado
+  lo guarda y se comprueba como el triple mismo. `/api/grafo` los sirve en
+  TriG y N-Quads con PROV-O, y el volcado sale también en TriG
+  (`grafo.trig.gz`). Los IRIs son `…/fuente/<clave>/<corte>` y
+  `…/derivado/<regla>/<día>`.
+- ✅ El índice de vecinos (`datos/grafo/vecinos/`): las aristas de cada
+  nodo en filas comprimidas por fragmento, con los mismos fragmentos que las
+  descripciones; `path` lo recorre. Para que `retrieve` recorra el grafo
+  entero (F7) bastará un índice global de nodos sobre él.
+- ✅ Lo publicado por cada institución en la tabla de procesos, compilado
+  (`compras.json`): `fetch` ya no abre la tabla entera.
+- Las tablas por clase y relación salen del volcado, que lee el compilado
+  sin servidor (34 s, antes 226), con sus columnas y tipos de la ontología.
 
 ### 3.10 Exportaciones
 
@@ -353,9 +360,9 @@ Cada fase deja todo funcionando y se comprueba contra la anterior.
 
 | Fase | Qué | Criterio de hecho |
 |---|---|---|
-| **F0 · Ontología 2.0** ⚠️ en curso | ✅ Una sola definición (`lib/ontologia.ts`) de la que salen OWL, SHACL, el perfil de Fabric IQ y la correspondencia con FtM; núcleo `soc:` y módulo `do:` en w3id; Puesto, Ocupacion con intervalo, Evento, Membresia, Mencion, Identificador, Instantanea (PROV-O), jerarquía ORG, cadena de contratación (ePO). ✅ `scripts/validar-grafo.mjs`. Pendiente: el esquema zod y Parquet salen todavía de su propio código, no de la definición. | ✅ El grafo de hoy es conforme a sus formas SHACL (856 mil triples, 0 violaciones; ARQUITECTURA §Grafo semántico) y el gate completo lo comprueba en cada entrega. ❌ Falta el informe de una importación real en Fabric IQ: exige un espacio de Fabric con capacidad, que esta sesión no tiene. |
+| **F0 · Ontología 2.0** ✅ salvo Fabric | ✅ Una sola definición (`lib/ontologia.ts`) de la que salen OWL, SHACL, el perfil de Fabric IQ y la correspondencia con FtM; núcleo `soc:` y módulo `do:` en w3id; Puesto, Ocupacion con intervalo, Evento, Membresia, Mencion, Identificador, Instantanea (PROV-O), jerarquía ORG, cadena de contratación (ePO). ✅ `scripts/validar-grafo.mjs`. ✅ Las tablas Parquet y los esquemas zod salen de la misma definición (`lib/ontologia-esquemas.ts`): cada columna dice su propiedad, cada fila y cada nodo compilado se validan. | ✅ El grafo de hoy es conforme a sus formas SHACL (856 mil triples, 0 violaciones; ARQUITECTURA §Grafo semántico) y el gate completo lo comprueba en cada entrega. ❌ Falta el informe de una importación real en Fabric IQ: exige un espacio de Fabric con capacidad, que esta sesión no tiene. |
 | **F1 · Identidad** | IRIs de §3.7 (tras la decisión §4.1); registro de ids de personas solo de adición; `sameAs` de los IRIs viejos. | Dos builds seguidos con datos nuevos no cambian ningún id existente (el gate lo comprueba). |
-| **F2 · El compilador** ✅ 2026-10-02 | ✅ Los constructores de los 6 tipos (`lib/grafo-constructores.ts`) solo los corre `build-grafo.mjs`; `describir()` lee el compilado (`datos/grafo/`). ⚠️ TriG por fuente y adyacencia, aplazados con razones (§3.9). | ✅ Mismos triples que los constructores para cada uno de los 536 196 nodos (3,39 millones de triples), y el mismo schema.org de cada ficha; el gate lo repite en cada entrega. ✅ Una institución en frío: 0,02 s por `/api/grafo` (antes 0,16–0,21); ⚠️ la herramienta `fetch` del MCP, 0,21 s (antes 0,54–0,58), por la tabla de procesos de su sección de compras, no por el grafo (F3). ✅ La función de una ficha, de ~162 MB a 11–46 MB (ARQUITECTURA §Grafo semántico). |
+| **F2 · El compilador** ✅ 2026-10-02 | ✅ Los constructores de los 6 tipos (`lib/grafo-constructores.ts`) solo los corre `build-grafo.mjs` y afirman cada triple con su grafo; `describir()` lee el compilado (`datos/grafo/`), `path` su índice de vecinos; TriG por fuente con PROV-O (§3.9). | ✅ Mismos triples, con el mismo grafo cada uno, que los constructores para cada uno de los 536 196 nodos (3,39 millones de triples), el mismo schema.org de cada ficha y los mismos vecinos; el gate lo repite en cada entrega. ✅ Una institución en frío: 0,02 s por `/api/grafo` (antes 0,16–0,21) y 0,06–0,07 s por `fetch` del MCP (antes 0,54–0,58). ✅ La función de una ficha, de ~162 MB a 11–46 MB (ARQUITECTURA §Grafo semántico). |
 | **F3 · Todo adentro** | Procesos (OCDS), normas (ELI, con vigencia y derogaciones), Congreso (Popolo), obras (SNIP), partidas de SIGEF, jerarquía de DIGEPRES y capítulos, municipios. | Cada vertical de `lib/secciones.ts` tiene sus clases en el grafo; `inventario()` las cuenta. |
 | **F4 · Tiempo** | Ocupaciones con desde/hasta derivadas de los eventos; `pepVigente`/`esActual` «a tal fecha»; muertes de Wikidata si se verifican. | «¿Quién dirigía el INAPA en marzo de 2023?» se contesta con su decreto; el mismo corte da la misma respuesta cualquier día. |
 | **F5 · Menciones** | El flujo de §3.6 sobre decretos, sentencias y documentos; grafo `…/derivado/menciones`. | En una muestra revisada a mano, ningún enlace a un homónimo; cada mención atada cita su prueba. |

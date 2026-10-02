@@ -219,12 +219,9 @@ function agrupar(triples: Triple[]): Map<string, { s: Termino; porP: Map<string,
   return grupos;
 }
 
-/** Turtle legible: prefijos, un bloque por sujeto, `a` para `rdf:type`. */
-export function aTurtle(triples: Triple[], cabecera?: string): string {
-  const lineas: string[] = [];
-  if (cabecera) lineas.push(...cabecera.split("\n").map((l) => `# ${l}`), "");
-  for (const p of prefijosUsados(triples)) lineas.push(`@prefix ${p}: <${PREFIJOS[p]}> .`);
-  lineas.push("");
+/** Un bloque de Turtle por sujeto, con `sangria` delante de cada línea (la de un grafo en TriG). */
+function bloques(triples: Triple[], sangria = ""): string[] {
+  const salida: string[] = [];
   for (const { s, porP } of agrupar(triples).values()) {
     const partes: string[] = [];
     // El tipo primero: se lee qué es antes de lo que dice.
@@ -233,9 +230,67 @@ export function aTurtle(triples: Triple[], cabecera?: string): string {
       const verbo = p === PREFIJOS.rdf + "type" ? "a" : (compactar(p) ?? iriRef(p));
       partes.push(`${verbo} ${porP.get(p)!.map(turtleTermino).join(", ")}`);
     }
-    lineas.push(`${turtleTermino(s)}\n    ${partes.join(" ;\n    ")} .`, "");
+    salida.push(`${sangria}${turtleTermino(s)}\n${sangria}    ${partes.join(` ;\n${sangria}    `)} .`, "");
+  }
+  return salida;
+}
+
+/** Turtle legible: prefijos, un bloque por sujeto, `a` para `rdf:type`. */
+export function aTurtle(triples: Triple[], cabecera?: string): string {
+  const lineas: string[] = [];
+  if (cabecera) lineas.push(...cabecera.split("\n").map((l) => `# ${l}`), "");
+  for (const p of prefijosUsados(triples)) lineas.push(`@prefix ${p}: <${PREFIJOS[p]}> .`);
+  lineas.push("");
+  for (const b of bloques(triples)) lineas.push(b);
+  return lineas.join("\n");
+}
+
+/* ---------------------------------------------------- grafos con nombre */
+
+/** Un triple con el grafo con nombre que lo afirma (su IRI); sin `g`, el grafo por omisión. */
+export interface Cuadruple extends Triple {
+  g?: string;
+}
+
+/**
+ * TriG (W3C): Turtle con un bloque por grafo con nombre. El grafo por
+ * omisión va primero, sin bloque: ahí va lo que se dice de los grafos (su
+ * fuente, su corte).
+ */
+export function aTrig(cuadruples: Cuadruple[], cabecera?: string): string {
+  const lineas: string[] = [];
+  if (cabecera) lineas.push(...cabecera.split("\n").map((l) => `# ${l}`), "");
+  for (const p of prefijosUsados(cuadruples)) lineas.push(`@prefix ${p}: <${PREFIJOS[p]}> .`);
+  lineas.push("");
+  const porGrafo = new Map<string, Triple[]>();
+  for (const x of cuadruples) {
+    const k = x.g ?? "";
+    const lista = porGrafo.get(k);
+    if (lista) lista.push(x);
+    else porGrafo.set(k, [x]);
+  }
+  // Uno a uno: un volcado tiene cientos de miles de bloques, más de los que caben en un `push(...)`.
+  for (const b of bloques(porGrafo.get("") ?? [])) lineas.push(b);
+  for (const [g, triples] of porGrafo) {
+    if (!g) continue;
+    lineas.push(`${iriRef(g)} {`);
+    for (const b of bloques(triples, "    ")) lineas.push(b);
+    lineas.push("}", "");
   }
   return lineas.join("\n");
+}
+
+/** N-Quads (W3C): una línea por triple con su grafo; sin repetidos. */
+export function aNQuads(cuadruples: Cuadruple[]): string {
+  const vistas = new Set<string>();
+  const salida: string[] = [];
+  for (const x of cuadruples) {
+    const l = `${ntTermino(x.s)} ${iriRef(x.p)} ${ntTermino(x.o)}${x.g ? ` ${iriRef(x.g)}` : ""} .`;
+    if (vistas.has(l)) continue;
+    vistas.add(l);
+    salida.push(l);
+  }
+  return salida.join("\n") + "\n";
 }
 
 /* -------------------------------------------------------------- N-Triples */
@@ -301,12 +356,14 @@ export function aJsonLd(triples: Triple[]): Record<string, unknown> {
 
 /* ------------------------------------------------------------- formatos */
 
-export type FormatoRdf = "ttl" | "jsonld" | "nt";
+export type FormatoRdf = "ttl" | "jsonld" | "nt" | "trig" | "nq";
 
 export const TIPO_MIME: Record<FormatoRdf, string> = {
   ttl: "text/turtle; charset=utf-8",
   jsonld: "application/ld+json; charset=utf-8",
   nt: "application/n-triples; charset=utf-8",
+  trig: "application/trig; charset=utf-8",
+  nq: "application/n-quads; charset=utf-8",
 };
 
 /** El formato que pide una cabecera `Accept`, o `null` si prefiere HTML (o no pide RDF). */
@@ -316,12 +373,16 @@ export function formatoDeAccept(accept: string | null | undefined): FormatoRdf |
   if (a.includes("text/turtle") || a.includes("application/x-turtle")) return "ttl";
   if (a.includes("application/ld+json")) return "jsonld";
   if (a.includes("application/n-triples")) return "nt";
+  if (a.includes("application/trig")) return "trig";
+  if (a.includes("application/n-quads")) return "nq";
   return null;
 }
 
-/** Serializa en el formato pedido. */
-export function serializar(triples: Triple[], formato: FormatoRdf, cabecera?: string): string {
+/** Serializa en el formato pedido; TriG y N-Quads llevan el grafo de cada triple (`Cuadruple`). */
+export function serializar(triples: Cuadruple[], formato: FormatoRdf, cabecera?: string): string {
   if (formato === "ttl") return aTurtle(triples, cabecera);
   if (formato === "nt") return aNTriples(triples);
+  if (formato === "trig") return aTrig(triples, cabecera);
+  if (formato === "nq") return aNQuads(triples);
   return JSON.stringify(aJsonLd(triples), null, 2);
 }

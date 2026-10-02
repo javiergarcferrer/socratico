@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { describir } from "@/lib/grafo-rdf";
+import { cuadruplesDe, describir } from "@/lib/grafo-rdf";
 import { nodoDeRuta, rutaDeNodo } from "@/lib/grafo";
 import { SITIO } from "@/lib/sitio";
 import { TIPO_MIME, serializar, type FormatoRdf } from "@/lib/rdf";
 
 export const dynamic = "force-dynamic";
 
-const FORMATOS: readonly FormatoRdf[] = ["ttl", "jsonld", "nt"];
+const FORMATOS: readonly FormatoRdf[] = ["ttl", "jsonld", "nt", "trig", "nq"];
 
 /**
  * La descripción RDF de un nodo del grafo (`lib/grafo-rdf.ts`): lo que dice
@@ -17,7 +17,9 @@ const FORMATOS: readonly FormatoRdf[] = ["ttl", "jsonld", "nt"];
  * `?nodo=` es la ruta de la ficha (`/funcionarios/luis-rodolfo-abinader-corona`,
  * `/instituciones/5`, `/banca/banreservas`, `/empresas/401010062`,
  * `/normativa/decreto/641-26`, `/provincias/santo-domingo`) y `?formato=`
- * uno de `ttl` (por defecto), `jsonld` o `nt`.
+ * uno de `ttl` (por defecto), `jsonld` o `nt`; `trig` y `nq` llevan además el
+ * grafo con nombre de cada triple —de qué fuente y corte, o de qué regla— y lo
+ * que se dice de cada grafo en PROV-O (docs/PLAN-GRAFO.md §3.8).
  */
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
@@ -26,7 +28,7 @@ export async function GET(req: Request) {
   const ruta = (pedido.startsWith(SITIO + "/") ? pedido.slice(SITIO.length) : pedido).slice(0, 200);
   const formato = (params.get("formato") ?? "ttl") as FormatoRdf;
   if (!FORMATOS.includes(formato)) {
-    return NextResponse.json({ error: "formato: ttl, jsonld o nt" }, { status: 400 });
+    return NextResponse.json({ error: "formato: ttl, jsonld, nt, trig o nq" }, { status: 400 });
   }
   const nodo = nodoDeRuta(ruta);
   if (!nodo) return NextResponse.json({ error: "esa ruta no es un nodo del grafo" }, { status: 400 });
@@ -40,7 +42,8 @@ export async function GET(req: Request) {
       `Ontología: ${SITIO}/ontologia`,
       ...(d.nota ? [d.nota] : []),
     ].join("\n");
-    return new NextResponse(serializar(d.triples, formato, cabecera), {
+    const triples = formato === "trig" || formato === "nq" ? await cuadruplesDe(d) : d.triples;
+    return new NextResponse(serializar(triples, formato, cabecera), {
       headers: {
         "Content-Type": TIPO_MIME[formato],
         "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",

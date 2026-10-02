@@ -233,7 +233,12 @@ async function Portada({ consulta }: { consulta: string }) {
             </a>
             , <span className="font-mono text-[13px] text-ink">{formatInt(volcado.triples)}</span> triples en N-Triples
             comprimido, del {formatFecha(volcado.generado)}, para SPARQL (Oxigraph, QLever o Apache Jena, todos
-            abiertos). Las mismas entidades, con lo contratado desde 2015 y los procesos de compra del último año,
+            abiertos). Los mismos triples, cada uno con la fuente y el corte de donde sale —o la regla de Socrático
+            que lo deriva—, en{" "}
+            <a href={volcado.urlTrig} className="text-brand-700 underline">
+              grafo.trig.gz
+            </a>{" "}
+            (TriG, con un grafo por fuente). Las mismas entidades, con lo contratado desde 2015 y los procesos de compra del último año,
             están también en nueve tablas para abrir en DuckDB, pandas o Polars (formato Parquet;{" "}
             <a href="/tablas/procesos.parquet" className="text-brand-700 underline">
               la de procesos

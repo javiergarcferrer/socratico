@@ -49,6 +49,59 @@ All paths redirect to https://socratico.vercel.app/<path>.
 Maintainer: Javier García Ferrer (GitHub: @javiergarcferrer)
 ```
 
+## Por terminal, de una vez (con `gh` iniciado como el dueño)
+
+Una sesión no puede: su acceso a GitHub se limita a `javiergarcferrer/socratico`, y crear el *fork* o empujar a `perma-id/w3id.org` se rechaza (comprobado el 2026-10-02). Desde la máquina del dueño, con [GitHub CLI](https://cli.github.com) (`gh auth login` una vez), esto hace los pasos 1–4 de abajo:
+
+```bash
+set -euo pipefail
+gh repo fork perma-id/w3id.org --clone=false
+# Solo la carpeta nueva: el repositorio de w3id es grande.
+git clone --depth 1 --filter=blob:none --sparse https://github.com/javiergarcferrer/w3id.org /tmp/w3id-socratico
+cd /tmp/w3id-socratico
+git sparse-checkout set ids/socratico
+git checkout -b socratico
+mkdir -p ids/socratico
+cat > ids/socratico/.htaccess <<'FIN'
+# Socrático.do — herramienta independiente y no oficial sobre datos del Estado dominicano
+# https://socratico.vercel.app
+# Mantenedor: Javier García Ferrer (GitHub: javiergarcferrer)
+#
+# Todo https://w3id.org/socratico/<ruta> va a https://socratico.vercel.app/<ruta>,
+# que resuelve /def/core, /def/do (el vocabulario, por Accept: HTML, Turtle,
+# JSON-LD o N-Triples), /def/formas (SHACL), /def/fabric (perfil para Fabric IQ)
+# y, más adelante, /id/… (cada nodo).
+# Si el sitio cambia de dominio, solo cambia esta línea.
+Options +FollowSymLinks
+RewriteEngine on
+RewriteRule ^(.*)$ https://socratico.vercel.app/$1 [R=302,L]
+FIN
+cat > ids/socratico/README.md <<'FIN'
+# Socrático.do
+
+Persistent identifiers for the Socrático.do knowledge graph: an independent,
+unofficial platform over public data of the Dominican Republic.
+
+- Vocabulary: https://w3id.org/socratico/def/core (country-neutral core, `soc:`)
+  and https://w3id.org/socratico/def/do (Dominican Republic module, `do:`)
+- SHACL shapes: https://w3id.org/socratico/def/formas
+- Microsoft Fabric IQ profile: https://w3id.org/socratico/def/fabric
+- Instances (planned): https://w3id.org/socratico/id/…
+
+All paths redirect to https://socratico.vercel.app/<path>.
+
+Maintainer: Javier García Ferrer (GitHub: @javiergarcferrer)
+FIN
+git add ids/socratico
+git commit -m "Add socratico"
+git push -u origin socratico
+gh pr create --repo perma-id/w3id.org --base master --head javiergarcferrer:socratico \
+  --title "Add socratico" \
+  --body "Persistent identifiers for the Socrático.do knowledge graph (vocabulary at /def/, instances at /id/). Redirects to https://socratico.vercel.app. Maintainer: @javiergarcferrer."
+```
+
+Imprime la dirección del pull request. Después, el paso 5 de abajo.
+
 ## Pasos (unos dos minutos, en el navegador)
 
 1. En https://github.com/perma-id/w3id.org, botón **Fork** → *Create fork* (queda en `javiergarcferrer/w3id.org`).

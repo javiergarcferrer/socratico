@@ -139,8 +139,8 @@ export const enlace = {
   caminoGrafo(de: string, a: string): string {
     return `/grafo/camino?de=${enRuta(de)}&a=${enRuta(a)}`;
   },
-  /** La descripción RDF de una ficha: Turtle, JSON-LD o N-Triples. */
-  rdf(ruta: string, formato: "ttl" | "jsonld" | "nt" = "ttl"): string {
+  /** La descripción RDF de una ficha: Turtle, JSON-LD o N-Triples; TriG o N-Quads, con el grafo de cada triple. */
+  rdf(ruta: string, formato: "ttl" | "jsonld" | "nt" | "trig" | "nq" = "ttl"): string {
     return `/api/grafo?nodo=${enRuta(ruta)}&formato=${formato}`;
   },
 } as const;

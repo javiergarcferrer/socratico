@@ -3,6 +3,7 @@ import { enlace, rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo"
 import { fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
 import { soloCifras } from "@/lib/padron";
 import type { Empresa } from "@/lib/empresas";
+import type { OrigenCargo } from "@/lib/funcionarios";
 
 /**
  * Lo que es un nodo del grafo compilado (docs/PLAN-GRAFO.md, F2), sin leer
@@ -23,9 +24,52 @@ export function iriDe(n: NodoRdf): string {
 /** El resultado de describir un nodo: sus triples y cómo se llama. */
 export interface Descripcion {
   triples: Triple[];
+  /** De dónde sale cada triple: la clave de su grafo con nombre, en el mismo orden (`ClaveGrafo`). */
+  grafos?: ClaveGrafo[];
   titulo: string;
   /** Lo que la descripción deja fuera y lo dice: «Se describen 200 de sus 312 cargos vigentes». */
   nota?: string;
+}
+
+/**
+ * Los grafos con nombre (docs/PLAN-GRAFO.md §3.5 y §3.8): cada triple sale de
+ * una instantánea de una fuente, o de una regla de Socrático que la deriva de
+ * otras, y lo dice. Los de fuente se nombran por su corte
+ * (`…/fuente/padron/2026-09-19`); los derivados, por la regla. Qué es cada
+ * uno, su fuente y su corte: `GRAFOS` en `lib/grafo-constructores.ts`, que
+ * el compilador guarda en `datos/grafo/meta.json`.
+ */
+export type ClaveGrafo =
+  | "plataforma"
+  | "instituciones"
+  | `cargos-${OrigenCargo}`
+  | "decretos"
+  | "declaraciones"
+  | "banca"
+  | "padron"
+  | "proveedores"
+  | "contratos"
+  | "medidas"
+  | "ofac"
+  | "wikidata"
+  | "provincias"
+  | "personas"
+  | "pep"
+  | "vigente"
+  | "identidad"
+  | "firma"
+  | "materia";
+
+/** Lo que afirma una descripción mientras se arma: cada triple con el grafo de donde sale. */
+export class Afirmaciones {
+  readonly triples: Triple[] = [];
+  readonly grafos: ClaveGrafo[] = [];
+  de(grafo: ClaveGrafo, ...ts: Triple[]): void {
+    for (const x of ts) {
+      this.triples.push(x);
+      this.grafos.push(grafo);
+    }
+  }
 }
 
 /** El nombre de un decreto para `rdfs:label`. */
@@ -34,7 +78,7 @@ export function nombreDecreto(numero: string | null): string {
 }
 
 /** La versión del formato de `datos/grafo/`. Si cambia, cambia este número y el compilador lo reescribe. */
-export const FORMATO_GRAFO = 1;
+export const FORMATO_GRAFO = 2;
 
 /**
  * La clave de un nodo en el compilado: el identificador como lo leen los
@@ -86,8 +130,9 @@ export const TIPOS_COMPILADOS: readonly TipoNodoRdf[] = ["provincia", "instituci
 
 /*
   La codificación. Cada fragmento lleva su propia tabla de términos y cada
-  nodo, sus triples como índices en ella (sujeto, predicado, objeto, uno tras
-  otro): un IRI se escribe una vez por fragmento y no una por triple.
+  nodo, sus cuádruplos como índices (sujeto, predicado y objeto en la tabla
+  del fragmento; el grafo, en la lista de `meta.json`), uno tras otro: un IRI
+  se escribe una vez por fragmento y no una por triple.
 
     término  IRI          → "https://…"
              literal      → ["valor"] · ["valor", "es"] · ["valor", 0, "http://…#date"]
@@ -95,10 +140,27 @@ export const TIPOS_COMPILADOS: readonly TipoNodoRdf[] = ["provincia", "instituci
 */
 export type TerminoCodificado = string | [string] | [string, string] | [string, 0, string] | { b: string };
 
-/** Un fragmento de nodos: su tabla de términos y, por clave, `[título, nota, triples]`. */
+/** Un fragmento de nodos: su tabla de términos y, por clave, `[título, nota, cuádruplos]`. */
 export interface FragmentoNodos {
   terminos: TerminoCodificado[];
   nodos: Record<string, [string, string | null, number[]]>;
+}
+
+/**
+ * Un fragmento del índice de vecinos (`datos/grafo/vecinos/`), en filas
+ * comprimidas (CSR): las aristas de la clave `claves[i]` son las de
+ * `aristas[3·inicio[i] … 3·inicio[i+1]]`, cada una `[destino, vía, nombre]`
+ * como índices en `cadenas`. El destino es `tipo:id` (`claveNodo`); la vía,
+ * la arista sin dirección («Cargo: Ministro de Hacienda»); el nombre, el del
+ * destino como lo dice este nodo. Es lo que recorre `camino()` sin decodificar
+ * descripciones enteras.
+ */
+export interface FragmentoVecinos {
+  cadenas: string[];
+  claves: string[];
+  titulos: number[];
+  inicio: number[];
+  aristas: number[];
 }
 
 export function codificarTermino(x: Termino): TerminoCodificado {
@@ -119,15 +181,22 @@ export function decodificarTermino(c: TerminoCodificado): Termino {
 }
 
 /**
- * Las tripletas de un nodo a partir de su fragmento ya decodificado. Cada
+ * Los triples de un nodo a partir de su fragmento ya decodificado. Cada
  * llamada arma sus propios triples (quien los recibe puede añadir); los
  * términos se comparten.
  */
 export function triplesDe(indices: number[], terminos: Termino[]): Triple[] {
-  const salida: Triple[] = new Array(indices.length / 3);
-  for (let i = 0, j = 0; i < indices.length; i += 3, j++) {
+  const salida: Triple[] = new Array(indices.length / 4);
+  for (let i = 0, j = 0; i < indices.length; i += 4, j++) {
     salida[j] = { s: terminos[indices[i]], p: terminos[indices[i + 1]].valor, o: terminos[indices[i + 2]] };
   }
+  return salida;
+}
+
+/** El grafo de cada triple, en el mismo orden: `claves` es la lista de `meta.json`. */
+export function grafosDe(indices: number[], claves: readonly ClaveGrafo[]): ClaveGrafo[] {
+  const salida: ClaveGrafo[] = new Array(indices.length / 4);
+  for (let i = 3, j = 0; i < indices.length; i += 4, j++) salida[j] = claves[indices[i]];
   return salida;
 }
 
@@ -138,9 +207,10 @@ export function triplesDe(indices: number[], terminos: Termino[]): Triple[] {
  * las copia: las describe esta plantilla, la misma con que el constructor
  * empieza la de cualquier empresa.
  */
-export function describirEmpresaSola(e: Empresa): Descripcion {
+export function describirEmpresaSola(e: Empresa, x = new Afirmaciones()): Descripcion {
   const s = iriDe({ tipo: "empresa", id: e.rnc });
-  const x: Triple[] = [
+  x.de(
+    "padron",
     t(s, "rdf:type", iri("soc:Empresa")),
     t(s, "rdf:type", iri("schema:Organization")),
     t(s, "rdf:type", iri("rov:RegisteredOrganization")),
@@ -149,10 +219,10 @@ export function describirEmpresaSola(e: Empresa): Descripcion {
     t(s, "do:rnc", lit(e.rnc)),
     t(s, "schema:taxID", lit(e.rnc)),
     t(s, "soc:estado", lit(e.estado, "es")),
-    t(s, "foaf:page", iri(`${SITIO}${enlace.empresa(e.rnc)}`)),
-  ];
+  );
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.empresa(e.rnc)}`)));
   // El inicio de operaciones que declaró a la DGII, no su constitución: no es `schema:foundingDate`.
-  if (e.inicio) x.push(t(s, "soc:inicioOperaciones", fecha(e.inicio)));
-  if (e.actividad) x.push(t(s, "schema:description", lit(e.actividad, "es")));
-  return { triples: x, titulo: e.razonSocial };
+  if (e.inicio) x.de("padron", t(s, "soc:inicioOperaciones", fecha(e.inicio)));
+  if (e.actividad) x.de("padron", t(s, "schema:description", lit(e.actividad, "es")));
+  return { triples: x.triples, grafos: x.grafos, titulo: e.razonSocial };
 }

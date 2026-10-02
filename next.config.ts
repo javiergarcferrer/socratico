@@ -45,11 +45,12 @@ const nextConfig: NextConfig = {
     // `lib/grafo-compilado.ts`), no las instantáneas de las que sale. Lo
     // demás es la búsqueda de nodos por nombre, por número de decreto o por
     // RNC (personas, bancos, decretos, el padrón), y el padrón describe
-    // también la empresa que el compilado no trae. La clave casa también con
-    // «/grafo/camino» y «/api/grafo».
+    // también la empresa que el compilado no trae; un camino recorre el índice
+    // de vecinos. La clave casa también con «/grafo/camino» y «/api/grafo».
     "/grafo": [
       "./datos/grafo/meta.json",
       "./datos/grafo/nodos/**",
+      "./datos/grafo/vecinos/**",
       "./public/data/decretos/**",
       "./public/data/empresas/**",
       "./public/data/{funcionarios,banca,wikidata}.json",
@@ -72,6 +73,8 @@ const nextConfig: NextConfig = {
       "./public/data/{funcionarios,declaraciones,sanciones,banca,wikidata}.json",
       "./datos/grafo/meta.json",
       "./datos/grafo/nodos/**",
+      "./datos/grafo/vecinos/**",
+      "./datos/grafo/compras.json",
     ],
     // SQL sobre las tablas del grafo (`lib/grafo-sql.ts`): el proceso hijo que
     // corre el motor (se carga de disco, sin empaquetar), los Parquet y la
@@ -90,7 +93,7 @@ const nextConfig: NextConfig = {
   // Las claves casan como subcadena: «/proveedores» también es
   // «/proveedores/[rpe]» y «/api/proveedores», que no usan el índice.
   outputFileTracingExcludes: {
-    "*": ["./public/data/{congreso,sentencias}.json", "./public/data/busqueda/corpus.json", "./public/data/grafo/grafo.nt.gz"],
+    "*": ["./public/data/{congreso,sentencias}.json", "./public/data/busqueda/corpus.json", "./public/data/grafo/grafo.{nt,trig}.gz"],
     // Vercel corre sobre glibc: la versión musl de DuckDB (~74 MB) sobra.
     "/api/sql": ["./node_modules/@duckdb/node-bindings-linux-x64-musl/**"],
     // Las fichas del grafo leen instantáneas por nombre variable y el trazado
@@ -126,6 +129,11 @@ const nextConfig: NextConfig = {
       { formato: "jsonld", acepta: "(?!.*text/html).*application/ld\\+json.*" },
       { formato: "nt", acepta: "(?!.*text/html).*application/n-triples.*" },
     ];
+    // Una ficha se pide también con el grafo de cada triple: TriG y N-Quads (la ontología no los tiene).
+    const conGrafos = [
+      { formato: "trig", acepta: "(?!.*text/html).*application/trig.*" },
+      { formato: "nq", acepta: "(?!.*text/html).*application/n-quads.*" },
+    ];
     const fichas = [
       "/funcionarios/:slug",
       "/instituciones/:id",
@@ -135,7 +143,7 @@ const nextConfig: NextConfig = {
       "/provincias/:slug",
     ];
     return [
-      ...formatos.flatMap(({ formato, acepta }) =>
+      ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>
         fichas.map((ficha) => ({
           source: ficha,
           has: [{ type: "header" as const, key: "accept", value: acepta }],
@@ -164,6 +172,9 @@ const nextConfig: NextConfig = {
       })),
       { source: "/def/:modulo(core|do)/:version?", destination: "/ontologia", statusCode: 303 as const },
       { source: "/def/formas", destination: "/ontologia.shacl.ttl", statusCode: 303 as const },
+      // Los grafos con nombre (`…/fuente/padron/2026-09-19`, `…/derivado/pep/…`): lo que se
+      // dice de cada uno viaja en el TriG; quien sigue el IRI llega a la página de las fuentes.
+      { source: "/:clase(fuente|derivado)/:ruta*", destination: "/fuentes", statusCode: 303 as const },
       { source: "/def/fabric", destination: "/ontologia.fabric.ttl", statusCode: 303 as const },
     ];
   },

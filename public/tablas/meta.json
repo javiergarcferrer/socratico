@@ -1,5 +1,5 @@
 {
-  "generado": "2026-10-01",
+  "generado": "2026-10-02",
   "formato": "Apache Parquet (zstd)",
   "tablas": {
     "instituciones": {
@@ -26,7 +26,8 @@
         {
           "nombre": "sector",
           "tipo": "VARCHAR",
-          "descripcion": "ejecutivo, descentralizada, local (ayuntamientos y juntas de distrito), empresa, financiera, poderes, seguridad-social, fideicomiso."
+          "descripcion": "ejecutivo, descentralizada, local (ayuntamientos y juntas de distrito), empresa, financiera, poderes, seguridad-social, fideicomiso.",
+          "propiedad": "soc:sector"
         },
         {
           "nombre": "capitulo",
@@ -64,7 +65,8 @@
         {
           "nombre": "rnc",
           "tipo": "VARCHAR",
-          "descripcion": "RNC de nueve cifras."
+          "descripcion": "RNC de nueve cifras.",
+          "propiedad": "do:rnc"
         },
         {
           "nombre": "nombre",
@@ -74,12 +76,14 @@
         {
           "nombre": "estado",
           "tipo": "VARCHAR",
-          "descripcion": "Estado en el padrón: ACTIVO, SUSPENDIDO, CESE TEMPORAL, DADO DE BAJA, ANULADO."
+          "descripcion": "Estado en el padrón: ACTIVO, SUSPENDIDO, CESE TEMPORAL, DADO DE BAJA, ANULADO.",
+          "propiedad": "soc:estado"
         },
         {
           "nombre": "inicio_operaciones",
           "tipo": "DATE",
-          "descripcion": "Fecha de inicio de operaciones declarada."
+          "descripcion": "Fecha de inicio de operaciones declarada.",
+          "propiedad": "soc:inicioOperaciones"
         },
         {
           "nombre": "actividad",
@@ -102,7 +106,8 @@
         {
           "nombre": "rpe",
           "tipo": "VARCHAR",
-          "descripcion": "Registro de Proveedores del Estado."
+          "descripcion": "Registro de Proveedores del Estado.",
+          "propiedad": "do:rpe"
         },
         {
           "nombre": "nombre",
@@ -150,22 +155,26 @@
         {
           "nombre": "institucion_id",
           "tipo": "INTEGER",
-          "descripcion": "La institución que contrata (instituciones.id)."
+          "descripcion": "La institución que contrata (instituciones.id).",
+          "propiedad": "soc:contratante"
         },
         {
           "nombre": "proveedor_rpe",
           "tipo": "VARCHAR",
-          "descripcion": "El proveedor contratado (proveedores.rpe)."
+          "descripcion": "El proveedor contratado (proveedores.rpe).",
+          "propiedad": "soc:contratista"
         },
         {
           "nombre": "contratos",
           "tipo": "INTEGER",
-          "descripcion": "Contratos entre los dos desde 2015."
+          "descripcion": "Contratos entre los dos desde 2015.",
+          "propiedad": "soc:numeroDeContratos"
         },
         {
           "nombre": "monto",
           "tipo": "BIGINT",
-          "descripcion": "Pesos contratados entre los dos desde 2015."
+          "descripcion": "Pesos contratados entre los dos desde 2015.",
+          "propiedad": "soc:montoContratado"
         }
       ]
     },
@@ -183,12 +192,14 @@
         {
           "nombre": "tipo",
           "tipo": "VARCHAR",
-          "descripcion": "prohibicion, inhabilitacion-permanente, inhabilitacion-temporal, cancelacion, penal, suspension, incumplimiento, condena, levantamiento…"
+          "descripcion": "prohibicion, inhabilitacion-permanente, inhabilitacion-temporal, cancelacion, penal, suspension, incumplimiento, condena, levantamiento…",
+          "propiedad": "do:tipoDeMedida"
         },
         {
           "nombre": "fecha",
           "tipo": "DATE",
-          "descripcion": "Fecha de la medida."
+          "descripcion": "Fecha de la medida.",
+          "propiedad": "soc:fecha"
         },
         {
           "nombre": "titulo",
@@ -226,7 +237,8 @@
         {
           "nombre": "supervisor_id",
           "tipo": "INTEGER",
-          "descripcion": "La institución que la supervisa (instituciones.id)."
+          "descripcion": "La institución que la supervisa (instituciones.id).",
+          "propiedad": "soc:supervisadaPor"
         },
         {
           "nombre": "url",
@@ -315,7 +327,8 @@
         {
           "nombre": "valor_estimado",
           "tipo": "BIGINT",
-          "descripcion": "Valor estimado en pesos; NULL si no lo trae."
+          "descripcion": "Valor estimado en pesos; NULL si no lo trae.",
+          "propiedad": "soc:valorEstimado"
         },
         {
           "nombre": "url",

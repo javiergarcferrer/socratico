@@ -1,6 +1,8 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { SITIO } from "@/lib/sitio";
 import { enlace, type NodoRdf } from "@/lib/grafo";
-import { booleano, entero, fecha, iri, lit, t, type Triple } from "@/lib/rdf";
+import { booleano, entero, fecha, iri, lit, t } from "@/lib/rdf";
 import {
   ETIQUETA_ORIGEN,
   gobiernoDeProvincia,
@@ -11,6 +13,7 @@ import {
   quienDirige,
   esActual,
   type Cargo,
+  type OrigenCargo,
   type Persona,
 } from "@/lib/funcionarios";
 import { FUENTES_DEL_CRUCE, INSTITUCIONES, institucionPorId } from "@/lib/instituciones";
@@ -23,7 +26,7 @@ import { PROVINCIAS, provinciaDeSlug, provinciaDeTexto } from "@/lib/provincias"
 import { getWikidata, wikidataDe } from "@/lib/wikidata";
 import { contarContrataciones, getResumenHistorico, historiaDeInstitucion, historiaDeProveedor, rncDeProveedor } from "@/lib/historico";
 import { desdeMayusculas } from "@/lib/congreso";
-import { describirEmpresaSola, iriDe, nombreDecreto, type Descripcion } from "@/lib/grafo-nodo";
+import { Afirmaciones, describirEmpresaSola, iriDe, nombreDecreto, type ClaveGrafo, type Descripcion } from "@/lib/grafo-nodo";
 import type { ClaseContada, MetaGrafo } from "@/lib/grafo-compilado";
 
 /**
@@ -90,15 +93,226 @@ export async function describirEnVivo(n: NodoRdf, ligero = false): Promise<Descr
   }
 }
 
+/* ------------------------------------------------------ los grafos con nombre */
+
+/** Un grafo con nombre: qué es, de qué fuente y de qué corte, o de qué regla (`ClaveGrafo`). */
+export interface DefinicionGrafo {
+  clave: ClaveGrafo;
+  etiqueta: string;
+  descripcion: string;
+  /** Lo que se leyó: `prov:wasDerivedFrom`. */
+  fuentes: string[];
+  /** La fecha de la instantánea (ISO), si la tiene. */
+  corte: string | null;
+  /** Si lo afirma una regla de Socrático, de qué grafos lo deriva. */
+  derivado?: { de: ClaveGrafo[] };
+}
+
+/** El padrón de la DGII que lee `scripts/build-empresas.py`. */
+const PADRON_DGII = "https://dgii.gov.do/app/WebApps/Consultas/RNC/RNC_CONTRIBUYENTES.zip";
+/** La API del SIL que lee `scripts/build-funcionarios.py` para los legisladores (`lib/congreso.ts`). */
+const SIL = "https://www.diputadosrd.gob.do/sil/api";
+
+const leerInstantanea = async <T>(ruta: string): Promise<T> => JSON.parse(await readFile(join(process.cwd(), "public", "data", ruta), "utf8")) as T;
+const dia = (x: string | null | undefined) => x?.slice(0, 10) ?? null;
+
+/**
+ * Los grafos con nombre del compilado, en un orden fijo: cada uno con su
+ * fuente y su corte, leídos de las mismas instantáneas que los constructores.
+ * Un triple sale de una fuente (lo que dice el Estado, tal cual) o de una
+ * regla de Socrático (lo que la plataforma infiere o cruza): las dos cosas no
+ * se mezclan nunca en un mismo grafo (docs/PLAN-GRAFO.md §3.8).
+ */
+export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
+  type Organo = { url: string };
+  const [f, ind, fin, dj, sanc, padron, historico, w] = await Promise.all([
+    leerInstantanea<{ generado: string; fuentes: { map: { url: string; corte: string }; decretos: { url: string }; organos: Record<string, Organo>; electos2024: { url: string } } }>(
+      "funcionarios.json",
+    ),
+    indiceDecretos(),
+    getFinancieras(),
+    leerInstantanea<{ generado: string; camara: string; fuentes: { base: string }[] }>("declaraciones.json"),
+    leerInstantanea<{ fuentes: { dgcp: { url: string; urlRegistro: string; corte: string }; ofac: { url: string; fecha: string } } }>("sanciones.json"),
+    padronEmpresas(),
+    getResumenHistorico(),
+    leerInstantanea<{ fuente: string; generado: string }>("wikidata.json"),
+  ]);
+  if (!ind || !fin || !padron || !historico) throw new Error("falta una instantánea: decretos, banca, padrón o histórico");
+  const fuentesBanca = await leerInstantanea<{ fuentes: Record<string, string> }>("banca.json");
+  const cargo = (origen: OrigenCargo, url: string | null): DefinicionGrafo => ({
+    clave: `cargos-${origen}`,
+    etiqueta: `Cargos: ${ETIQUETA_ORIGEN[origen]}`,
+    descripcion: `Los cargos que registra ${ETIQUETA_ORIGEN[origen]}, con su titular, su institución, su provincia, su movimiento y su decreto.`,
+    fuentes: url ? [url] : [],
+    corte: dia(f.generado),
+  });
+  const organo = (k: string) => f.fuentes.organos[k]?.url ?? null;
+  const cargos: ClaveGrafo[] = (Object.keys(ETIQUETA_ORIGEN) as OrigenCargo[]).map((o) => `cargos-${o}` as const);
+  return [
+    {
+      clave: "instituciones",
+      etiqueta: "Instituciones del Estado",
+      descripcion: "El Clasificador Institucional de DIGEPRES cruzado con las unidades de compra de la DGCP: nombre, siglas y sector de cada institución.",
+      fuentes: [FUENTES_DEL_CRUCE.clasificador.url, FUENTES_DEL_CRUCE.dgcp.url],
+      corte: dia(FUENTES_DEL_CRUCE.clasificador.consultado),
+    },
+    cargo("map", f.fuentes.map.url),
+    cargo("decreto", f.fuentes.decretos.url),
+    cargo("scj", organo("scj")),
+    cargo("cpj", organo("cpj")),
+    cargo("tc", organo("tc")),
+    cargo("tse", organo("tse")),
+    cargo("jce", organo("jce")),
+    cargo("jce-suplentes", organo("jce-suplentes")),
+    cargo("defensor", organo("defensor")),
+    cargo("jce2024", f.fuentes.electos2024.url),
+    cargo("congreso", SIL),
+    cargo("bcrd", organo("bcrd")),
+    {
+      clave: "decretos",
+      etiqueta: "Registro de decretos de la Consultoría Jurídica",
+      descripcion: "Cada decreto con su número, su fecha, su título, la etiqueta que le pone la Consultoría y su PDF.",
+      fuentes: [ind.fuente.url],
+      corte: dia(ind.generado),
+    },
+    {
+      clave: "declaraciones",
+      etiqueta: "Declaraciones juradas publicadas",
+      descripcion: "Las declaraciones juradas de patrimonio que publican las instituciones en sus portales de transparencia: título, fecha y quién las publica.",
+      fuentes: [dj.camara, ...dj.fuentes.map((x) => `https://${x.base}/`)],
+      corte: dia(dj.generado),
+    },
+    {
+      clave: "banca",
+      etiqueta: "Entidades financieras supervisadas",
+      descripcion: "Bancos, asociaciones, cooperativas, AFP y aseguradoras, según la SB, la SIPEN, la SIS y el IDECOOP: nombre, razón social, tipo, estado, RNC y quién las supervisa.",
+      fuentes: Object.values(fuentesBanca.fuentes),
+      corte: dia(fin.generado),
+    },
+    {
+      clave: "padron",
+      etiqueta: "Padrón de contribuyentes de la DGII",
+      descripcion: "Las personas jurídicas del padrón: RNC, razón social, estado, actividad e inicio de operaciones.",
+      fuentes: [PADRON_DGII],
+      corte: dia(padron.corteDgii ?? padron.generado),
+    },
+    {
+      clave: "proveedores",
+      etiqueta: "Registro de Proveedores del Estado (DGCP)",
+      descripcion: "El RPE que el registro de la DGCP da a cada RNC: qué empresa está inscrita como qué proveedor.",
+      fuentes: [sanc.fuentes.dgcp.urlRegistro],
+      corte: dia(padron.generado),
+    },
+    {
+      clave: "contratos",
+      etiqueta: "Contratos de la DGCP desde 2015",
+      descripcion: "Lo que cada institución le contrató a cada proveedor desde 2015, agregado: contratos y monto (contratado, no pagado).",
+      fuentes: historico.fuentes.slice(0, 1),
+      corte: dia(historico.corte),
+    },
+    {
+      clave: "medidas",
+      etiqueta: "Medidas de la DGCP sobre proveedores",
+      descripcion: "Inhabilitaciones, suspensiones, penalidades y levantamientos sobre inscripciones de proveedor.",
+      fuentes: [sanc.fuentes.dgcp.url],
+      corte: dia(sanc.fuentes.dgcp.corte),
+    },
+    {
+      clave: "ofac",
+      etiqueta: "Lista SDN de la OFAC",
+      descripcion: "Las entradas de la lista de sanciones del Tesoro de los Estados Unidos atadas a un RNC dominicano.",
+      fuentes: [sanc.fuentes.ofac.url],
+      corte: dia(sanc.fuentes.ofac.fecha),
+    },
+    {
+      clave: "wikidata",
+      etiqueta: "Correspondencias con Wikidata",
+      descripcion: "El QID de provincias, instituciones, entidades financieras y personas con cargo, buscado en la réplica de QLever y revisado por su etiqueta.",
+      fuentes: [w.fuente],
+      corte: dia(w.generado),
+    },
+    {
+      clave: "provincias",
+      etiqueta: "Provincias",
+      descripcion: "Las 31 provincias y el Distrito Nacional, con su nombre, en la República Dominicana.",
+      fuentes: [],
+      corte: null,
+    },
+    {
+      clave: "personas",
+      etiqueta: "Personas con cargo público (regla de identidad)",
+      descripcion:
+        "Quién es cada persona: los registros de cargo de todas las fuentes que llevan el mismo nombre normalizado son una persona, y un nombre repetido con historias que no casan se separa. Nunca se unen homónimos sin prueba; nunca la cédula.",
+      fuentes: [],
+      corte: dia(f.generado),
+      derivado: { de: cargos },
+    },
+    {
+      clave: "pep",
+      etiqueta: "Personas expuestas políticamente (regla PEP)",
+      descripcion:
+        "Ley 155-17, art. 2, num. 19, y Ley 311-14: es PEP quien ocupa un cargo obligado a declarar patrimonio, o lo dejó en los tres años antes del corte de las personas. El numeral de la Ley 311-14 de cada cargo lo asigna Socrático por su título.",
+      fuentes: [],
+      corte: dia(f.generado),
+      derivado: { de: [...cargos, "personas"] },
+    },
+    {
+      clave: "vigente",
+      etiqueta: "Cargos de hoy y quién encabeza (regla)",
+      descripcion:
+        "El cargo de hoy es el que su fuente da como vigente o electo para 2024-2028. Encabeza una institución el cargo de más arriba que el MAP da hoy en ella o, si no hay, la designación más reciente de una cabeza por decreto del Presidente en funciones, si ningún decreto posterior la sacó.",
+      fuentes: [],
+      corte: dia(f.generado),
+      derivado: { de: [...cargos, "personas"] },
+    },
+    {
+      clave: "identidad",
+      etiqueta: "Un mismo ente en dos registros (regla)",
+      descripcion:
+        "Una institución que es también una entidad financiera, una entidad financiera con RNC en el padrón, una persona que es legisladora en el SIL, y a quién se atribuye una declaración jurada: por identificador o por nombre normalizado, nunca entre homónimos.",
+      fuentes: [],
+      corte: dia(f.generado),
+      derivado: { de: ["instituciones", "banca", "padron", "personas", "cargos-congreso", "declaraciones"] },
+    },
+    {
+      clave: "firma",
+      etiqueta: "Decretos y personas: firma y designación (regla)",
+      descripcion:
+        "Quién firma cada decreto (la firma del registro, atada a una persona), qué decretos firmó y cuántos, a quién designa un decreto (el que cita su cargo), y el aviso cuando la fecha de la fila cae fuera de los períodos de su firmante.",
+      fuentes: [],
+      corte: dia(ind.generado),
+      derivado: { de: ["decretos", "personas", ...cargos] },
+    },
+    {
+      clave: "materia",
+      etiqueta: "Materia de cada decreto (regla)",
+      descripcion: "La materia de un decreto (designaciones, pensiones, ascensos…), deducida de su título y de la etiqueta de la Consultoría.",
+      fuentes: [],
+      corte: dia(ind.generado),
+      derivado: { de: ["decretos"] },
+    },
+    {
+      clave: "plataforma",
+      etiqueta: "Socrático.do",
+      descripcion: "La ficha de cada nodo en la plataforma (foaf:page, rdfs:seeAlso) y el nombre provisional («RPE 123») de lo que no tiene nombre en su fuente.",
+      fuentes: [],
+      corte: null,
+      derivado: { de: [] },
+    },
+  ];
+}
+
 /* ---------------------------------------------------------------- persona */
 
-/** Los triples de un cargo, con el vecindario que hace falta para leerlo. */
-async function triplesCargo(persona: Persona, c: Cargo, x: Triple[]): Promise<string> {
+/** Los triples de un cargo, con el vecindario que hace falta para leerlo. Lo dice la fuente del cargo. */
+async function triplesCargo(persona: Persona, c: Cargo, x: Afirmaciones): Promise<string> {
+  const g: ClaveGrafo = `cargos-${c.origen}`;
   const pIri = iriDe({ tipo: "funcionario", id: persona.id });
   const cIri = `${SITIO}${enlace.funcionario(persona.id)}#cargo-${huella(
     [c.titulo, c.fecha, c.movimiento, c.decreto?.numero ?? "", c.origen].join("|"),
   )}`;
-  x.push(
+  x.de(
+    g,
     t(cIri, "rdf:type", iri("soc:Cargo")),
     t(cIri, "rdf:type", iri("org:Membership")),
     t(cIri, "rdfs:label", lit(c.titulo, "es")),
@@ -109,35 +323,31 @@ async function triplesCargo(persona: Persona, c: Cargo, x: Triple[]): Promise<st
     t(cIri, "dct:source", lit(ETIQUETA_ORIGEN[c.origen], "es")),
     t(pIri, "soc:ocupa", iri(cIri)),
   );
-  if (c.fecha) x.push(t(cIri, "soc:fecha", fecha(c.fecha)));
-  if (c.periodo) x.push(t(cIri, "schema:description", lit(`Período ${c.periodo}`, "es")));
-  if (c.numeral311 != null) x.push(t(cIri, "do:numeralLey311", entero(c.numeral311)));
-  if (c.url) x.push(t(cIri, "dct:source", iri(c.url)));
+  if (c.fecha) x.de(g, t(cIri, "soc:fecha", fecha(c.fecha)));
+  if (c.periodo) x.de(g, t(cIri, "schema:description", lit(`Período ${c.periodo}`, "es")));
+  // El numeral de la Ley 311-14 lo asigna Socrático al título del cargo: es de la regla PEP.
+  if (c.numeral311 != null) x.de("pep", t(cIri, "do:numeralLey311", entero(c.numeral311)));
+  if (c.url) x.de(g, t(cIri, "dct:source", iri(c.url)));
   if (c.institucionId != null) {
     const inst = institucionPorId(c.institucionId);
     if (inst) {
-      x.push(
-        t(cIri, "soc:enInstitucion", iri(DE(inst.id))),
-        t(cIri, "org:organization", iri(DE(inst.id))),
-        t(DE(inst.id), "rdfs:label", lit(inst.nombre, "es")),
-      );
+      x.de(g, t(cIri, "soc:enInstitucion", iri(DE(inst.id))), t(cIri, "org:organization", iri(DE(inst.id))));
+      x.de("instituciones", t(DE(inst.id), "rdfs:label", lit(inst.nombre, "es")));
     }
   }
   const prov = provinciaDeTexto(c.provincia);
   if (prov) {
     const pr = iriDe({ tipo: "provincia", id: prov.slug });
-    x.push(t(cIri, "soc:enProvincia", iri(pr)), t(pr, "rdfs:label", lit(prov.nombre, "es")));
+    x.de(g, t(cIri, "soc:enProvincia", iri(pr)));
+    x.de("provincias", t(pr, "rdfs:label", lit(prov.nombre, "es")));
   }
   if (c.decreto?.numero) {
     const d = await decretoPorNumero(c.decreto.numero);
     const ficha = d != null && (c.decreto.docId == null || d.docId === c.decreto.docId);
     const dIri = iriDecreto({ numero: c.decreto.numero, ficha, docId: c.decreto.docId ?? d?.docId ?? null });
     if (dIri) {
-      x.push(
-        t(cIri, "soc:segunDecreto", iri(dIri)),
-        t(dIri, "rdf:type", iri("soc:Decreto")),
-        t(dIri, "rdfs:label", lit(nombreDecreto(c.decreto.numero), "es")),
-      );
+      x.de(g, t(cIri, "soc:segunDecreto", iri(dIri)));
+      x.de("decretos", t(dIri, "rdf:type", iri("soc:Decreto")), t(dIri, "rdfs:label", lit(nombreDecreto(c.decreto.numero), "es")));
     }
   }
   return cIri;
@@ -152,30 +362,30 @@ async function describirPersona(id: string, ligero = false): Promise<Descripcion
   if (!p) return null;
   let nota: string | undefined;
   const s = iriDe({ tipo: "funcionario", id });
-  const x: Triple[] = [
+  const x = new Afirmaciones();
+  x.de(
+    "personas",
     t(s, "rdf:type", iri("soc:Persona")),
     t(s, "rdf:type", iri("schema:Person")),
     t(s, "rdf:type", iri("foaf:Person")),
     t(s, "rdfs:label", lit(p.nombre)),
     t(s, "schema:name", lit(p.nombre)),
-    t(s, "foaf:page", iri(`${SITIO}${enlace.funcionario(id)}`)),
-    t(s, "soc:pepVigente", booleano(p.pepVigente)),
-  ];
-  if (p.pepVigente) x.push(t(s, "rdf:type", iri("soc:PersonaExpuestaPoliticamente")));
-  for (const a of p.alias) x.push(t(s, "skos:altLabel", lit(a)));
+  );
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.funcionario(id)}`)));
+  x.de("pep", t(s, "soc:pepVigente", booleano(p.pepVigente)));
+  if (p.pepVigente) x.de("pep", t(s, "rdf:type", iri("soc:PersonaExpuestaPoliticamente")));
+  for (const a of p.alias) x.de("personas", t(s, "skos:altLabel", lit(a)));
   for (const c of p.cargos) {
     if (!ligero) await triplesCargo(p, c, x);
     // Lo que schema.org lee de una persona: el cargo de hoy y dónde.
     if (esActual(c)) {
-      x.push(t(s, "schema:jobTitle", lit(c.titulo, "es")));
-      if (c.institucionId != null && institucionPorId(c.institucionId)) x.push(t(s, "schema:worksFor", iri(DE(c.institucionId))));
+      x.de("vigente", t(s, "schema:jobTitle", lit(c.titulo, "es")));
+      if (c.institucionId != null && institucionPorId(c.institucionId)) x.de("vigente", t(s, "schema:worksFor", iri(DE(c.institucionId))));
     }
   }
   if (p.firma) {
-    x.push(
-      t(s, "soc:decretosFirmados", entero(p.firma.decretos)),
-      t(s, "rdfs:seeAlso", iri(`${SITIO}${enlace.decretosFirmados(id)}`)),
-    );
+    x.de("firma", t(s, "soc:decretosFirmados", entero(p.firma.decretos)));
+    x.de("plataforma", t(s, "rdfs:seeAlso", iri(`${SITIO}${enlace.decretosFirmados(id)}`)));
     // Los más recientes, como aristas: los demás están en su lista de decretos.
     // Una fila fechada fuera de sus períodos de firma no se le atribuye.
     if (!ligero) {
@@ -183,13 +393,14 @@ async function describirPersona(id: string, ligero = false): Promise<Descripcion
       const recientes = [...suyos].sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? "")).slice(0, TOPE_FIRMADOS);
       for (const d of recientes) {
         const dIri = iriDe({ tipo: "decreto", id: d.numero! });
-        x.push(
-          t(s, "soc:firmo", iri(dIri)),
+        x.de("firma", t(s, "soc:firmo", iri(dIri)));
+        x.de(
+          "decretos",
           t(dIri, "rdf:type", iri("soc:Decreto")),
           t(dIri, "rdfs:label", lit(nombreDecreto(d.numero), "es")),
           t(dIri, "dct:title", lit(d.titulo, "es")),
         );
-        if (d.fecha) x.push(t(dIri, "soc:fecha", fecha(d.fecha)));
+        if (d.fecha) x.de("decretos", t(dIri, "soc:fecha", fecha(d.fecha)));
       }
       if (suyos.length > recientes.length) {
         nota = `Se describen los ${recientes.length} decretos más recientes de los ${p.firma.decretos.toLocaleString("es-DO")} que firmó; la lista entera está en su ficha.`;
@@ -198,24 +409,22 @@ async function describirPersona(id: string, ligero = false): Promise<Descripcion
   }
   if (p.legislador != null) {
     const l = `${SITIO}${enlace.legislador(p.legislador)}#id`;
-    x.push(t(s, "owl:sameAs", iri(l)));
+    x.de("identidad", t(s, "owl:sameAs", iri(l)));
   }
   for (const d of ligero ? [] : await declaracionesDe(id)) {
-    x.push(
-      t(s, "soc:declaracion", iri(d.url)),
-      t(d.url, "rdf:type", iri("soc:DeclaracionJurada")),
-      t(d.url, "dct:title", lit(d.titulo, "es")),
-    );
-    if (d.institucionId != null) x.push(t(d.url, "soc:publicadaPor", iri(DE(d.institucionId))));
-    if (d.fecha) x.push(t(d.url, "schema:uploadDate", fecha(d.fecha)));
+    // A quién es la declaración lo decide Socrático por el nombre; el documento, lo publica la institución.
+    x.de("identidad", t(s, "soc:declaracion", iri(d.url)));
+    x.de("declaraciones", t(d.url, "rdf:type", iri("soc:DeclaracionJurada")), t(d.url, "dct:title", lit(d.titulo, "es")));
+    if (d.institucionId != null) x.de("declaraciones", t(d.url, "soc:publicadaPor", iri(DE(d.institucionId))));
+    if (d.fecha) x.de("declaraciones", t(d.url, "schema:uploadDate", fecha(d.fecha)));
   }
   // Su QID de Wikidata, solo si es PEP hoy o firmó decretos como jefe de
   // Estado: la regla de proporcionalidad de su ficha (solo esas se ofrecen a
   // los buscadores). La página de Wikidata trae biografía y familia, que la
   // plataforma no publica; de quien dejó un cargo hace años no se enlaza.
   const qid = p.pepVigente || p.firma ? await wikidataDe({ tipo: "funcionario", id }) : null;
-  if (qid) x.push(t(s, "owl:sameAs", iri(`wd:${qid}`)));
-  return { triples: x, titulo: p.nombre, nota };
+  if (qid) x.de("wikidata", t(s, "owl:sameAs", iri(`wd:${qid}`)));
+  return { triples: x.triples, grafos: x.grafos, titulo: p.nombre, nota };
 }
 
 /* ------------------------------------------------------------- institución */
@@ -228,38 +437,43 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
   if (!inst) return null;
   let nota: string | undefined;
   const s = DE(inst.id);
-  const x: Triple[] = [
+  const x = new Afirmaciones();
+  x.de(
+    "instituciones",
     t(s, "rdf:type", iri("soc:Institucion")),
     t(s, "rdf:type", iri("schema:GovernmentOrganization")),
     t(s, "rdf:type", iri("org:FormalOrganization")),
     t(s, "rdfs:label", lit(inst.nombre, "es")),
     t(s, "schema:name", lit(inst.nombre, "es")),
     t(s, "soc:sector", iri(`do:sector-${inst.sector}`)),
-    t(s, "foaf:page", iri(`${SITIO}${enlace.institucion(inst.id, inst.acronimo || inst.nombre)}`)),
-  ];
-  if (inst.acronimo) x.push(t(s, "schema:alternateName", lit(inst.acronimo)), t(s, "skos:altLabel", lit(inst.acronimo)));
+  );
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.institucion(inst.id, inst.acronimo || inst.nombre)}`)));
+  if (inst.acronimo) x.de("instituciones", t(s, "schema:alternateName", lit(inst.acronimo)), t(s, "skos:altLabel", lit(inst.acronimo)));
   const f = ligero ? null : await getFuncionarios();
   if (f) {
     const cabeza = quienDirige(f, inst.id);
     if (cabeza) {
       const p = iriDe({ tipo: "funcionario", id: cabeza.persona.id });
-      x.push(t(p, "soc:dirige", iri(s)), t(p, "org:headOf", iri(s)), t(p, "rdfs:label", lit(cabeza.persona.nombre)));
+      x.de("vigente", t(p, "soc:dirige", iri(s)), t(p, "org:headOf", iri(s)));
+      x.de("personas", t(p, "rdfs:label", lit(cabeza.persona.nombre)));
     }
     const vigentes = personasDeInstitucion(f, inst.id).filter(({ cargo }) => esActual(cargo));
     const hoy = vigentes.slice(0, TOPE_CARGOS);
     if (vigentes.length > hoy.length) nota = `Se describen ${hoy.length} de sus ${vigentes.length} cargos vigentes, en el orden de la institución.`;
     for (const { persona, cargo } of hoy) {
       await triplesCargo(persona, cargo, x);
-      x.push(t(iriDe({ tipo: "funcionario", id: persona.id }), "rdfs:label", lit(persona.nombre)));
+      x.de("personas", t(iriDe({ tipo: "funcionario", id: persona.id }), "rdfs:label", lit(persona.nombre)));
     }
   }
   const banco = await entidadDeInstitucion(inst.id);
   if (banco) {
     const b = iriDe({ tipo: "entidad-financiera", id: banco.slug });
-    x.push(t(s, "owl:sameAs", iri(b)), t(b, "rdfs:label", lit(banco.nombre)));
+    x.de("identidad", t(s, "owl:sameAs", iri(b)));
+    x.de("banca", t(b, "rdfs:label", lit(banco.nombre)));
   }
   for (const d of ligero ? [] : await declaracionesDeInstitucion(inst.id)) {
-    x.push(
+    x.de(
+      "declaraciones",
       t(d.url, "rdf:type", iri("soc:DeclaracionJurada")),
       t(d.url, "dct:title", lit(d.titulo, "es")),
       t(d.url, "soc:publicadaPor", iri(s)),
@@ -275,8 +489,8 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
     nota = nota ? `${nota} ${compras}` : compras;
   }
   const qid = await wikidataDe({ tipo: "institucion", id: String(inst.id) });
-  if (qid) x.push(t(s, "owl:sameAs", iri(`wd:${qid}`)));
-  return { triples: x, titulo: inst.nombre, nota };
+  if (qid) x.de("wikidata", t(s, "owl:sameAs", iri(`wd:${qid}`)));
+  return { triples: x.triples, grafos: x.grafos, titulo: inst.nombre, nota };
 }
 
 /* ------------------------------------------------------ entidad financiera */
@@ -285,38 +499,44 @@ async function describirFinanciera(slug: string): Promise<Descripcion | null> {
   const e = await entidadPorSlug(slug);
   if (!e) return null;
   const s = iriDe({ tipo: "entidad-financiera", id: slug });
-  const x: Triple[] = [
+  const x = new Afirmaciones();
+  x.de(
+    "banca",
     t(s, "rdf:type", iri("soc:EntidadFinanciera")),
     t(s, "rdf:type", iri(BANCARIOS.has(e.sector) ? "schema:BankOrCreditUnion" : "schema:FinancialService")),
     t(s, "rdf:type", iri("org:FormalOrganization")),
     t(s, "rdfs:label", lit(e.nombre)),
     t(s, "schema:name", lit(e.nombre)),
-    t(s, "foaf:page", iri(`${SITIO}${enlace.entidadFinanciera(slug)}`)),
-  ];
-  if (e.razonSocial) x.push(t(s, "schema:legalName", lit(e.razonSocial)));
-  if (e.siglas) x.push(t(s, "schema:alternateName", lit(e.siglas)));
-  if (e.tipo) x.push(t(s, "schema:description", lit(e.tipo, "es")));
-  if (e.estatus) x.push(t(s, "soc:estado", lit(e.estatus, "es")));
-  if (e.web) x.push(t(s, "foaf:homepage", iri(e.web)));
+  );
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.entidadFinanciera(slug)}`)));
+  if (e.razonSocial) x.de("banca", t(s, "schema:legalName", lit(e.razonSocial)));
+  if (e.siglas) x.de("banca", t(s, "schema:alternateName", lit(e.siglas)));
+  if (e.tipo) x.de("banca", t(s, "schema:description", lit(e.tipo, "es")));
+  if (e.estatus) x.de("banca", t(s, "soc:estado", lit(e.estatus, "es")));
+  if (e.web) x.de("banca", t(s, "foaf:homepage", iri(e.web)));
   const sup = SUPERVISOR_INSTITUCION[e.supervisor];
   if (sup) {
     const inst = institucionPorId(sup);
-    x.push(t(s, "soc:supervisadaPor", iri(DE(sup))));
-    if (inst) x.push(t(DE(sup), "rdfs:label", lit(inst.nombre, "es")));
+    x.de("banca", t(s, "soc:supervisadaPor", iri(DE(sup))));
+    if (inst) x.de("instituciones", t(DE(sup), "rdfs:label", lit(inst.nombre, "es")));
   }
   if (e.rnc) {
-    x.push(t(s, "do:rnc", lit(e.rnc)), t(s, "schema:taxID", lit(e.rnc)));
+    x.de("banca", t(s, "do:rnc", lit(e.rnc)), t(s, "schema:taxID", lit(e.rnc)));
     const emp = await empresaPorRnc(e.rnc);
     if (emp) {
       const em = iriDe({ tipo: "empresa", id: e.rnc });
-      x.push(t(s, "owl:sameAs", iri(em)), t(em, "rdfs:label", lit(emp.razonSocial)));
+      x.de("identidad", t(s, "owl:sameAs", iri(em)));
+      x.de("padron", t(em, "rdfs:label", lit(emp.razonSocial)));
     }
   }
   const inst = institucionDe(e);
-  if (inst) x.push(t(s, "owl:sameAs", iri(DE(inst.id))), t(DE(inst.id), "rdfs:label", lit(inst.nombre, "es")));
+  if (inst) {
+    x.de("identidad", t(s, "owl:sameAs", iri(DE(inst.id))));
+    x.de("instituciones", t(DE(inst.id), "rdfs:label", lit(inst.nombre, "es")));
+  }
   const qid = await wikidataDe({ tipo: "entidad-financiera", id: slug });
-  if (qid) x.push(t(s, "owl:sameAs", iri(`wd:${qid}`)));
-  return { triples: x, titulo: e.nombre };
+  if (qid) x.de("wikidata", t(s, "owl:sameAs", iri(`wd:${qid}`)));
+  return { triples: x.triples, grafos: x.grafos, titulo: e.nombre };
 }
 
 /* --------------------------------------------------------------- empresa */
@@ -326,26 +546,29 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
   if (!e) return null;
   const s = iriDe({ tipo: "empresa", id: e.rnc });
   // Lo que dice su fila del padrón: la plantilla con que se describe también la empresa que el compilado no trae.
-  const x = describirEmpresaSola(e).triples;
+  const x = new Afirmaciones();
+  describirEmpresaSola(e, x);
   for (const rpe of e.rpe) {
     const pr = `${SITIO}${enlace.proveedor(rpe)}#id`;
     // Su nombre en el registro de proveedores si tiene contratos; si no, su número.
     const nombre = ligero ? null : ((await historiaDeProveedor(rpe))?.historia.nombre ?? null);
-    x.push(t(s, "soc:inscritaComo", iri(pr)), t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "do:rpe", lit(rpe)), t(pr, "rdfs:label", lit(nombre ?? `RPE ${rpe}`)));
+    x.de("proveedores", t(s, "soc:inscritaComo", iri(pr)), t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "do:rpe", lit(rpe)));
+    x.de(nombre ? "contratos" : "plataforma", t(pr, "rdfs:label", lit(nombre ?? `RPE ${rpe}`)));
   }
   for (const p of ligero ? [] : await medidasDeRnc(e.rnc)) {
     const pr = `${SITIO}${enlace.proveedor(p.rpe)}#id`;
-    x.push(t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "do:rpe", lit(p.rpe)));
+    x.de("medidas", t(pr, "rdf:type", iri("soc:Proveedor")), t(pr, "do:rpe", lit(p.rpe)));
     for (const m of p.eventos) {
       const mIri = `${SITIO}${enlace.proveedor(p.rpe)}#medida-${huella([m.fecha, m.tipo, m.resolucion ?? "", m.motivo].join("|"))}`;
-      x.push(
+      x.de(
+        "medidas",
         t(pr, "soc:tieneMedida", iri(mIri)),
         t(mIri, "rdf:type", iri("do:MedidaDGCP")),
         t(mIri, "do:tipoDeMedida", iri(`do:medida-${m.tipo}`)),
         t(mIri, "soc:fecha", fecha(m.fecha)),
         t(mIri, "dct:description", lit(m.motivo, "es")),
       );
-      if (m.resolucion) x.push(t(mIri, "rdfs:label", lit(m.resolucion, "es")));
+      if (m.resolucion) x.de("medidas", t(mIri, "rdfs:label", lit(m.resolucion, "es")));
     }
   }
   // Lo que el Estado le contrató desde 2015, por cada inscripción: sus ocho mayores clientes.
@@ -358,13 +581,14 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
     }
   }
   const ofac = await ofacDeRnc(e.rnc);
-  if (ofac) x.push(t(s, "rdfs:seeAlso", iri(hrefFichaOfac(ofac.ent))));
+  if (ofac) x.de("ofac", t(s, "rdfs:seeAlso", iri(hrefFichaOfac(ofac.ent))));
   const banco = await entidadPorRnc(e.rnc);
   if (banco) {
     const b = iriDe({ tipo: "entidad-financiera", id: banco.slug });
-    x.push(t(s, "owl:sameAs", iri(b)), t(b, "rdfs:label", lit(banco.nombre)));
+    x.de("identidad", t(s, "owl:sameAs", iri(b)));
+    x.de("banca", t(b, "rdfs:label", lit(banco.nombre)));
   }
-  return { triples: x, titulo: e.razonSocial };
+  return { triples: x.triples, grafos: x.grafos, titulo: e.razonSocial };
 }
 
 /* --------------------------------------------------------- contrataciones */
@@ -382,11 +606,12 @@ const FUENTE_CONTRATOS = "https://datosabiertos.dgcp.gob.do/api-dgcp/v1/tablas/c
  */
 async function triplesContratacion(
   c: { uc: number; rpe: string; proveedor: string; contratos: number; monto: number; institucion?: string; empresa?: string },
-  x: Triple[],
+  x: Afirmaciones,
 ): Promise<void> {
   const pr = `${SITIO}${enlace.proveedor(c.rpe)}#id`;
   const k = `${SITIO}${enlace.proveedor(c.rpe)}#contratacion-${c.uc}`;
-  x.push(
+  x.de(
+    "contratos",
     t(k, "rdf:type", iri("soc:Contratacion")),
     t(k, "soc:contratante", iri(DE(c.uc))),
     t(k, "soc:contratista", iri(pr)),
@@ -397,7 +622,7 @@ async function triplesContratacion(
     t(pr, "do:rpe", lit(c.rpe)),
     t(pr, "rdfs:label", lit(c.proveedor)),
   );
-  if (c.institucion) x.push(t(DE(c.uc), "rdfs:label", lit(c.institucion, "es")));
+  if (c.institucion) x.de("instituciones", t(DE(c.uc), "rdfs:label", lit(c.institucion, "es")));
   if (c.empresa) return;
   const rnc = await rncDeProveedor(c.rpe);
   if (rnc) {
@@ -405,8 +630,8 @@ async function triplesContratacion(
     // un centenar de cruces cambió de nombre entre uno y otro.
     const e = iriDe({ tipo: "empresa", id: rnc });
     const padron = await empresaPorRnc(rnc);
-    x.push(t(e, "soc:inscritaComo", iri(pr)));
-    if (padron) x.push(t(e, "rdfs:label", lit(padron.razonSocial)));
+    x.de("proveedores", t(e, "soc:inscritaComo", iri(pr)));
+    if (padron) x.de("padron", t(e, "rdfs:label", lit(padron.razonSocial)));
   }
 }
 
@@ -416,7 +641,9 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
   const d = await decretoPorNumero(numero);
   if (!d || !d.numero) return null;
   const s = iriDe({ tipo: "decreto", id: d.numero });
-  const x: Triple[] = [
+  const x = new Afirmaciones();
+  x.de(
+    "decretos",
     t(s, "rdf:type", iri("soc:Decreto")),
     t(s, "rdf:type", iri("eli:LegalResource")),
     t(s, "rdf:type", iri("schema:Legislation")),
@@ -428,27 +655,33 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
     t(s, "schema:legislationIdentifier", lit(nombreDecreto(d.numero), "es")),
     t(s, "schema:legislationType", lit("Decreto", "es")),
     t(s, "schema:inLanguage", lit("es")),
-    t(s, "soc:materia", iri(`do:materia-${d.materia.slug}`)),
-    t(s, "foaf:page", iri(`${SITIO}${enlace.norma("decreto", d.numero)}`)),
-  ];
+  );
+  // La materia la deduce Socrático del título y de la etiqueta de la Consultoría.
+  x.de("materia", t(s, "soc:materia", iri(`do:materia-${d.materia.slug}`)));
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.norma("decreto", d.numero)}`)));
   if (d.fecha) {
-    x.push(t(s, "soc:fecha", fecha(d.fecha)), t(s, "eli:date_document", fecha(d.fecha)), t(s, "schema:legislationDate", fecha(d.fecha)));
+    x.de("decretos", t(s, "soc:fecha", fecha(d.fecha)), t(s, "eli:date_document", fecha(d.fecha)), t(s, "schema:legislationDate", fecha(d.fecha)));
   }
-  if (d.aviso) x.push(t(s, "do:aviso", lit(d.aviso)));
-  if (d.institucion) x.push(t(s, "do:etiquetaConsultoria", lit(d.institucion, "es")));
+  // El aviso lo pone Socrático: la fecha de la fila cae fuera de los períodos de su firmante.
+  if (d.aviso) x.de("firma", t(s, "do:aviso", lit(d.aviso)));
+  if (d.institucion) x.de("decretos", t(s, "do:etiquetaConsultoria", lit(d.institucion, "es")));
   if (d.docId != null) {
     const pdf = `${CONSULTORIA_PDF}${d.docId}`;
-    x.push(t(s, "schema:encoding", iri(pdf)), t(s, "eli:is_realized_by", iri(pdf)));
+    x.de("decretos", t(s, "schema:encoding", iri(pdf)), t(s, "eli:is_realized_by", iri(pdf)));
   }
   // «Lo firma» solo si la fila no está fechada fuera de los períodos de su firmante.
   if (d.firmante && d.aviso !== "fuera") {
     const p = await personaPorFirma(d.firmante);
     if (p) {
       const pIri = iriDe({ tipo: "funcionario", id: p.id });
-      x.push(
+      x.de(
+        "firma",
         t(s, "soc:firmadoPor", iri(pIri)),
         t(s, "eli:passed_by", iri(pIri)),
         t(s, "schema:legislationPassedBy", iri(pIri)),
+      );
+      x.de(
+        "personas",
         // Tipada también en el núcleo: un decreto leído solo dice qué es su firmante (SHACL, `soc:firmadoPor`).
         t(pIri, "rdf:type", iri("soc:Persona")),
         t(pIri, "rdf:type", iri("schema:Person")),
@@ -462,10 +695,11 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
     for (const { persona, cargo } of personasDelDecreto(f, d.numero)) {
       const pIri = iriDe({ tipo: "funcionario", id: persona.id });
       await triplesCargo(persona, cargo, x);
-      x.push(t(s, "soc:designa", iri(pIri)), t(pIri, "rdf:type", iri("soc:Persona")), t(pIri, "rdfs:label", lit(persona.nombre)));
+      x.de("firma", t(s, "soc:designa", iri(pIri)));
+      x.de("personas", t(pIri, "rdf:type", iri("soc:Persona")), t(pIri, "rdfs:label", lit(persona.nombre)));
     }
   }
-  return { triples: x, titulo: nombreDecreto(d.numero) };
+  return { triples: x.triples, grafos: x.grafos, titulo: nombreDecreto(d.numero) };
 }
 
 /* ------------------------------------------------------------- provincia */
@@ -474,7 +708,9 @@ async function describirProvincia(slug: string, ligero = false): Promise<Descrip
   const prov = provinciaDeSlug(slug);
   if (!prov) return null;
   const s = iriDe({ tipo: "provincia", id: prov.slug });
-  const x: Triple[] = [
+  const x = new Afirmaciones();
+  x.de(
+    "provincias",
     t(s, "rdf:type", iri("soc:Provincia")),
     t(s, "rdf:type", iri("schema:AdministrativeArea")),
     t(s, "rdfs:label", lit(prov.nombre, "es")),
@@ -482,20 +718,21 @@ async function describirProvincia(slug: string, ligero = false): Promise<Descrip
     t(s, "schema:containedInPlace", iri("wd:Q786")),
     t("wd:Q786", "rdf:type", iri("schema:Country")),
     t("wd:Q786", "rdfs:label", lit("República Dominicana", "es")),
-    t(s, "foaf:page", iri(`${SITIO}${enlace.provincia(prov.slug)}`)),
-  ];
+  );
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.provincia(prov.slug)}`)));
   const f = ligero ? null : await getFuncionarios();
   if (f) {
     const g = gobiernoDeProvincia(f, (texto) => provinciaDeTexto(texto)?.slug === prov.slug);
     const cargos = [...(g.gobernador ? [g.gobernador] : []), ...g.alcaldes, ...g.directores];
     for (const { persona, cargo } of cargos) {
       const cIri = await triplesCargo(persona, cargo, x);
-      x.push(t(cIri, "soc:enProvincia", iri(s)), t(iriDe({ tipo: "funcionario", id: persona.id }), "rdfs:label", lit(persona.nombre)));
+      x.de(`cargos-${cargo.origen}`, t(cIri, "soc:enProvincia", iri(s)));
+      x.de("personas", t(iriDe({ tipo: "funcionario", id: persona.id }), "rdfs:label", lit(persona.nombre)));
     }
   }
   const qid = await wikidataDe({ tipo: "provincia", id: prov.slug });
-  if (qid) x.push(t(s, "owl:sameAs", iri(`wd:${qid}`)));
-  return { triples: x, titulo: prov.nombre };
+  if (qid) x.de("wikidata", t(s, "owl:sameAs", iri(`wd:${qid}`)));
+  return { triples: x.triples, grafos: x.grafos, titulo: prov.nombre };
 }
 
 /* ------------------------------------------------------------ el conjunto */

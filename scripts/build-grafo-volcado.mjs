@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 /**
- * Genera public/data/grafo/: el grafo de Socrático entero en N-Triples
- * (`grafo.nt.gz`) y su `meta.json`, para cargarlo en un motor SPARQL propio
- * (Oxigraph, QLever, Apache Jena, GraphDB…). El dueño decidió no servir un
- * almacén SPARQL del grafo entero;
+ * Genera public/data/grafo/: el grafo de Socrático sin personas naturales,
+ * para cargarlo en un motor SPARQL propio (Oxigraph, QLever, Apache Jena,
+ * GraphDB…). El dueño decidió no servir un almacén SPARQL del grafo entero;
  * esta es la otra salida: el grafo, para descargar.
  *
- * Cada triple sale de la plataforma misma. El script pide a un servidor en
- * marcha (`next start` sobre el build) la descripción de cada nodo por
- * `/api/grafo`, la misma que pintan el explorador y el servidor MCP, así que el
- * volcado no puede decir otra cosa que la plataforma.
+ *  - `grafo.nt.gz`: N-Triples, los triples.
+ *  - `grafo.trig.gz`: TriG, los mismos triples, cada uno en el grafo con
+ *    nombre de la fuente y el corte que lo dice, o de la regla de Socrático
+ *    que lo deriva; en el grafo por omisión, lo que se dice de cada grafo en
+ *    PROV-O (docs/PLAN-GRAFO.md §3.5 y §3.8).
+ *  - `meta.json`: cuántos, de cuándo, qué excluye.
+ *
+ * Cada triple sale del grafo compilado (`datos/grafo/`, de
+ * `scripts/build-grafo.mjs`), leído por `describir()`, el mismo que sirve
+ * `/api/grafo`, el explorador y el servidor MCP: el volcado no puede decir
+ * otra cosa que la plataforma. No hace falta un servidor.
  *
  * Qué entra y qué no. La regla es «ninguna
  * herramienta lista personas en masa»: una persona se lee una a una, en su
@@ -24,20 +30,19 @@
  *    esté atado a una empresa (puede ser una persona física), con todo lo que
  *    cuelga de él. Un triple que toca cualquiera de esos nodos no entra.
  *
- * Se corre después de las demás instantáneas y de un build. El resultado se
- * relee con N3.js antes de escribirse: un volcado que no parsea no se guarda.
+ * Se corre después de `scripts/build-grafo.mjs`. Los dos archivos se releen
+ * con N3.js antes de escribirse: un volcado que no parsea no se guarda.
  *
- * Uso:
- *     node scripts/build-grafo-volcado.mjs                          # levanta next start en un puerto libre
- *     node scripts/build-grafo-volcado.mjs --url http://localhost:3000
+ * Uso: node scripts/build-grafo-volcado.mjs
  */
-import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { Parser } from "n3";
+import { registrarTs } from "./cargador-ts.mjs";
+
+registrarTs();
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DATOS = path.join(RAIZ, "public", "data");
@@ -50,39 +55,14 @@ const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts
 const SOC = `${W3ID}/def/core#`;
 const DO = `${W3ID}/def/do#`;
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const CONCURRENCIA = 8;
 
-/* ------------------------------------------------------------ el servidor */
-
-function puertoLibre() {
-  return new Promise((resolver) => {
-    const s = createServer().listen(0, () => {
-      const { port } = s.address();
-      s.close(() => resolver(port));
-    });
-  });
-}
-
-async function servidor() {
-  const i = process.argv.indexOf("--url");
-  if (i > 0) return { url: process.argv[i + 1].replace(/\/$/, ""), cerrar: () => {} };
-  const puerto = await puertoLibre();
-  const hijo = spawn(process.execPath, [path.join(RAIZ, "node_modules/next/dist/bin/next"), "start", "-p", String(puerto)], {
-    cwd: RAIZ,
-    stdio: "ignore",
-  });
-  const url = `http://localhost:${puerto}`;
-  for (let k = 0; k < 90; k++) {
-    try {
-      if ((await fetch(`${url}/robots.txt`)).ok) return { url, cerrar: () => hijo.kill() };
-    } catch {
-      /* aún no */
-    }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  hijo.kill();
-  throw new Error("next start no respondió en 90 s: ¿hay un build?");
-}
+// Los módulos del servidor leen desde process.cwd(), como en el servidor.
+process.chdir(RAIZ);
+const lib = (m) => import(pathToFileURL(path.join(RAIZ, "lib", `${m}.ts`)).href);
+const R = await lib("grafo-rdf");
+const G = await lib("grafo");
+const RDF = await lib("rdf");
+const C = await lib("grafo-compilado");
 
 /* ---------------------------------------------------------------- los nodos */
 
@@ -107,32 +87,27 @@ function nodos() {
 
 /* ------------------------------------------------------------- las lecturas */
 
-async function nTriples(url, ruta) {
-  for (let intento = 1; ; intento++) {
-    try {
-      const r = await fetch(`${url}/api/grafo?nodo=${encodeURIComponent(ruta)}&formato=nt`, { signal: AbortSignal.timeout(60_000) });
-      if (r.status === 404) return null;
-      if (!r.ok) throw new Error(`${r.status}`);
-      return await r.text();
-    } catch (err) {
-      if (intento >= 2) throw new Error(`${ruta}: ${err.message}`);
-    }
-  }
-}
+const meta0 = await C.metaGrafo();
+if (!meta0) throw new Error("no hay grafo compilado: node scripts/build-grafo.mjs");
+const grafoDe = new Map(meta0.grafos.map((g) => [g.clave, g]));
 
-async function enLotes(lista, fn) {
-  let i = 0;
-  const hechos = [];
-  await Promise.all(
-    Array.from({ length: CONCURRENCIA }, async () => {
-      while (i < lista.length) {
-        const k = i++;
-        hechos[k] = await fn(lista[k]);
-        if ((k + 1) % 2000 === 0) process.stderr.write(`  ${k + 1} de ${lista.length}\n`);
-      }
-    }),
-  );
-  return hechos;
+/**
+ * Las líneas de un nodo, como las da `/api/grafo` en N-Triples (sin repetir
+ * dentro del nodo, en el orden de su descripción), cada una con su triple y
+ * los grafos que la afirman: un mismo triple puede decirlo más de uno.
+ */
+async function lineasDe(ruta) {
+  const d = await R.describir(G.nodoDeRuta(ruta));
+  if (!d) return null;
+  const porLinea = new Map();
+  d.triples.forEach((x, i) => {
+    const linea = RDF.aNTriples([x]).trimEnd();
+    const g = grafoDe.get(d.grafos[i]).iri;
+    const e = porLinea.get(linea);
+    if (!e) porLinea.set(linea, { linea, triple: x, grafos: [g] });
+    else if (!e.grafos.includes(g)) e.grafos.push(g);
+  });
+  return [...porLinea.values()];
 }
 
 /* ------------------------------------------------------------- el filtro */
@@ -152,17 +127,17 @@ function esPersonal(v, declaraciones) {
   );
 }
 
-function filtrar(textos) {
+/** Lo que entra, una vez por línea, en el orden en que apareció; con los grafos de todos los nodos que la dicen. */
+function filtrar(porNodo) {
   const lineas = [];
   const declaraciones = new Set();
   const proveedoresDeEmpresa = new Set();
-  for (const t of textos) {
-    if (!t) continue;
-    for (const linea of t.split("\n")) {
-      const m = LINEA.exec(linea.trim());
+  for (const entradas of porNodo) {
+    for (const e of entradas ?? []) {
+      const m = LINEA.exec(e.linea);
       if (!m) continue;
       const [, s, p, o] = m;
-      lineas.push([s, p, o, linea.trim()]);
+      lineas.push([s, p, o, e]);
       if (p === RDF_TYPE && o === `<${SOC}DeclaracionJurada>`) declaraciones.add(iriDe(s));
       if (p === `${SOC}inscritaComo` && iriDe(s)?.startsWith(`${SITIO}/empresas/`)) {
         const rpe = RPE_DE.exec(iriDe(o) ?? "")?.[1];
@@ -176,15 +151,14 @@ function filtrar(textos) {
     const rpe = RPE_DE.exec(v)?.[1];
     return rpe != null && !proveedoresDeEmpresa.has(rpe);
   };
-  const vistas = new Set();
-  const salida = [];
-  for (const [s, , o, linea] of lineas) {
+  const vistas = new Map();
+  for (const [s, , o, e] of lineas) {
     if (fuera(iriDe(s)) || fuera(iriDe(o))) continue;
-    if (vistas.has(linea)) continue;
-    vistas.add(linea);
-    salida.push(linea);
+    const ya = vistas.get(e.linea);
+    if (!ya) vistas.set(e.linea, { ...e, grafos: [...e.grafos] });
+    else for (const g of e.grafos) if (!ya.grafos.includes(g)) ya.grafos.push(g);
   }
-  return salida;
+  return [...vistas.values()];
 }
 
 /* ------------------------------------------------------------------ correr */
@@ -195,15 +169,11 @@ const todos = [...lista.instituciones, ...lista.financieras, ...lista.provincias
 console.error(
   `Nodos: ${lista.instituciones.length} instituciones, ${lista.financieras.length} financieras, ${lista.provincias.length} provincias, ${lista.empresas.length} empresas`,
 );
-const { url, cerrar } = await servidor();
-let textos;
-try {
-  textos = await enLotes(todos, (ruta) => nTriples(url, ruta));
-} finally {
-  cerrar();
-}
-const sinFicha = todos.filter((_, i) => textos[i] == null);
-const lineas = filtrar(textos);
+const porNodo = [];
+for (const ruta of todos) porNodo.push(await lineasDe(ruta));
+const sinFicha = todos.filter((_, i) => porNodo[i] == null);
+const entradas = filtrar(porNodo);
+const lineas = entradas.map((e) => e.linea);
 
 // Se relee antes de guardarse: un volcado que no parsea no se escribe.
 const nt = `${lineas.join("\n")}\n`;
@@ -211,6 +181,20 @@ const quads = new Parser({ format: "N-Triples" }).parse(nt);
 if (quads.length !== lineas.length) throw new Error(`se escribieron ${lineas.length} líneas y se leen ${quads.length} triples`);
 const personales = quads.filter((q) => [q.subject, q.object].some((x) => x.termType === "NamedNode" && x.value.startsWith(`${SITIO}/funcionarios/`)));
 if (personales.length) throw new Error(`${personales.length} triples tocan a una persona`);
+
+// TriG: cada triple en cada grafo que lo afirma; en el grafo por omisión, lo que se dice de los grafos.
+const cuadruples = entradas.flatMap((e) => e.grafos.map((g) => ({ ...e.triple, g })));
+const usados = meta0.grafos.filter((g) => cuadruples.some((x) => x.g === g.iri));
+const sobreGrafos = C.triplesDeGrafos(usados, meta0.grafos);
+const trig = RDF.aTrig([...sobreGrafos, ...cuadruples], "El grafo de Socrático.do sin personas naturales, por fuente y corte. Herramienta independiente y no oficial.");
+const leidos = new Parser({ format: "TriG" }).parse(trig);
+const enGrafos = leidos.filter((q) => q.graph.termType === "NamedNode");
+if (enGrafos.length !== cuadruples.length) throw new Error(`TriG: ${cuadruples.length} cuádruplos escritos y ${enGrafos.length} leídos`);
+if (new Set(enGrafos.map((q) => `${q.subject.value} ${q.predicate.value} ${q.object.id}`)).size !== quads.length) {
+  throw new Error("TriG: no trae los mismos triples que N-Triples");
+}
+const porGrafo = Object.fromEntries(usados.map((g) => [g.clave, cuadruples.filter((x) => x.g === g.iri).length]));
+
 const clases = {};
 // Por su nombre local, único entre los dos módulos (lib/ontologia.ts).
 for (const q of quads) {
@@ -222,11 +206,19 @@ for (const q of quads) {
 mkdirSync(SALIDA, { recursive: true });
 const gz = gzipSync(nt, { level: 9 });
 writeFileSync(path.join(SALIDA, "grafo.nt.gz"), gz);
+const gzTrig = gzipSync(trig, { level: 9 });
+writeFileSync(path.join(SALIDA, "grafo.trig.gz"), gzTrig);
 const meta = {
   generado: new Date().toISOString().slice(0, 10),
   formato: "N-Triples (application/n-triples), comprimido con gzip",
   triples: quads.length,
   bytes: gz.length,
+  trig: {
+    formato: "TriG (application/trig), comprimido con gzip: cada triple en el grafo con nombre de su fuente y su corte, o de la regla que lo deriva; en el grafo por omisión, PROV-O de cada grafo",
+    bytes: gzTrig.length,
+    cuadruples: cuadruples.length,
+    grafos: porGrafo,
+  },
   nodos: {
     instituciones: lista.instituciones.length,
     financieras: lista.financieras.length,
@@ -248,5 +240,6 @@ const meta = {
 };
 writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
 console.error(
-  `${quads.length} triples de ${todos.length - sinFicha.length} nodos (${sinFicha.length} sin ficha), ${(gz.length / 1e6).toFixed(1)} MB comprimidos, en ${Math.round((Date.now() - t0) / 1000)} s`,
+  `${quads.length} triples de ${todos.length - sinFicha.length} nodos (${sinFicha.length} sin ficha), ${(gz.length / 1e6).toFixed(1)} MB comprimidos; ` +
+    `TriG: ${cuadruples.length} cuádruplos en ${usados.length} grafos, ${(gzTrig.length / 1e6).toFixed(1)} MB; en ${Math.round((Date.now() - t0) / 1000)} s`,
 );

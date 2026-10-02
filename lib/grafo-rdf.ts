@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { unstable_cache } from "next/cache";
 import { SITIO } from "@/lib/sitio";
 import { nodoDeRuta, numeroCanonico, rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo";
-import { PREFIJOS, expandir, type Termino, type Triple } from "@/lib/rdf";
+import { PREFIJOS, expandir, type Cuadruple, type Termino, type Triple } from "@/lib/rdf";
 import { ETIQUETA_MOVIMIENTO, cargoPrincipal, filtrarPersonas, getFuncionarios, type Movimiento } from "@/lib/funcionarios";
 import { buscarInstituciones } from "@/lib/instituciones";
 import { decretoPorNumero } from "@/lib/decretos";
@@ -14,7 +14,7 @@ import { hrefWikidata } from "@/lib/wikidata";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
 import { desdeMayusculas } from "@/lib/congreso";
 import { describirEmpresaSola, iriDe, nombreDecreto, type Descripcion } from "@/lib/grafo-nodo";
-import { leerDescripcion, metaGrafo, type ClaseContada } from "@/lib/grafo-compilado";
+import { leerDescripcion, leerVecinos, metaGrafo, triplesDeGrafos, type ClaseContada, type Vecino } from "@/lib/grafo-compilado";
 
 /**
  * El grafo semántico de la plataforma, nodo a nodo (docs/ARQUITECTURA.md,
@@ -55,6 +55,20 @@ export async function describir(n: NodoRdf): Promise<Descripcion | null> {
   return e ? describirEmpresaSola(e) : null;
 }
 
+/**
+ * Los triples de una descripción con el grafo con nombre de cada uno (TriG,
+ * N-Quads), y en el grafo por omisión lo que se dice de esos grafos: su
+ * fuente, su corte o su regla.
+ */
+export async function cuadruplesDe(d: Descripcion): Promise<Cuadruple[]> {
+  const meta = await metaGrafo();
+  if (!meta || !d.grafos) return d.triples;
+  const porClave = new Map(meta.grafos.map((g) => [g.clave, g]));
+  const cuadruples: Cuadruple[] = d.triples.map((x, i) => ({ ...x, g: porClave.get(d.grafos![i])?.iri }));
+  const usados = [...new Set(d.grafos)].map((k) => porClave.get(k)!).filter(Boolean);
+  return [...triplesDeGrafos(usados, meta.grafos), ...cuadruples];
+}
+
 /** Describe la ficha de una ruta de la plataforma, si es un nodo del grafo. */
 export async function describirRuta(ruta: string): Promise<Descripcion | null> {
   const n = nodoDeRuta(ruta);
@@ -71,6 +85,8 @@ export async function inventario(): Promise<ClaseContada[]> {
 /** El volcado del grafo sin personas naturales (`scripts/build-grafo-volcado.mjs`): dónde se descarga, cuánto pesa y de cuándo es. */
 export interface Volcado {
   url: string;
+  /** El mismo grafo en TriG: cada triple en el grafo de su fuente y su corte. */
+  urlTrig: string;
   triples: number;
   bytes: number;
   generado: string;
@@ -83,7 +99,14 @@ export function volcadoDelGrafo(): Promise<Volcado | null> {
   volcadoMemo ??= readFile(join(process.cwd(), "public", "data", "grafo", "meta.json"), "utf8")
     .then((t) => {
       const m = JSON.parse(t) as { triples: number; bytes: number; generado: string; excluye: string };
-      return { url: `${SITIO}/data/grafo/grafo.nt.gz`, triples: m.triples, bytes: m.bytes, generado: m.generado, excluye: m.excluye };
+      return {
+        url: `${SITIO}/data/grafo/grafo.nt.gz`,
+        urlTrig: `${SITIO}/data/grafo/grafo.trig.gz`,
+        triples: m.triples,
+        bytes: m.bytes,
+        generado: m.generado,
+        excluye: m.excluye,
+      };
     })
     .catch(() => {
       volcadoMemo = null;
@@ -404,6 +427,20 @@ export async function vecindario(n: NodoRdf): Promise<Vecindario | null> {
 /** La clave de un nodo para conjuntos y mapas. */
 export const claveNodo = (n: NodoRdf) => `${n.tipo}:${n.id}`;
 
+/**
+ * Las aristas de un nodo hacia otros nodos, sin dirección, para recorrer el
+ * grafo: del índice de vecinos compilado (`leerVecinos`) o, si no lo trae —una
+ * empresa que solo es su fila del padrón—, de su descripción. Son las mismas
+ * que `vecindario` (el compilador lo comprueba nodo a nodo).
+ */
+export async function vecinosDe(n: NodoRdf): Promise<{ titulo: string; vecinos: Vecino[] } | null> {
+  const v = await leerVecinos(n);
+  if (v) return v;
+  const w = await vecindario(n);
+  if (!w) return null;
+  return { titulo: w.titulo, vecinos: w.relaciones.flatMap((r) => (r.nodo ? [{ nodo: r.nodo, via: r.neutro, nombre: r.nombre }] : [])) };
+}
+
 /* ---------------------------------------------------------------- caminos */
 
 export interface Paso {
@@ -466,16 +503,15 @@ async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
     const siguiente: string[] = [];
     for (const k of fronteras[lado]) {
       if (exploradas >= maxFichas) break;
-      const v = await vecindario(nodos.get(k)!);
+      const v = await vecinosDe(nodos.get(k)!);
       exploradas++;
       if (!v) continue;
       nombres.set(k, v.titulo);
-      for (const r of v.relaciones) {
-        if (!r.nodo) continue;
+      for (const r of v.vecinos) {
         const kv = claveNodo(r.nodo);
         if (!nombres.has(kv)) nombres.set(kv, r.nombre);
         if (padre[lado].has(kv)) continue;
-        padre[lado].set(kv, { desde: k, via: r.neutro });
+        padre[lado].set(kv, { desde: k, via: r.via });
         nodos.set(kv, r.nodo);
         if (padre[otro].has(kv)) {
           encuentro = kv;

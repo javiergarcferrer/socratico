@@ -1201,6 +1201,36 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   cuenta desde el corte de las personas, no desde el reloj
   (`haceTresAnios(generado)` en `lib/funcionarios.ts`): el mismo corte da la
   misma respuesta cualquier día, y la ficha y el compilado coinciden.
+  - **De dónde sale cada triple** (§3.8 del plan): cada constructor dice el
+    grafo con nombre de cada triple (`Afirmaciones`, `lib/grafo-nodo.ts`), y
+    el compilado lo guarda como cuarto índice. Hay un grafo por fuente y
+    corte (`…/fuente/padron/2026-09-19`: instituciones, los cargos de cada
+    fuente —MAP, decretos, cada alta corte, JCE, SIL, Junta Monetaria—,
+    decretos, declaraciones, banca, padrón, registro de proveedores,
+    contratos, medidas, OFAC, Wikidata, provincias) y uno por regla de
+    Socrático (`…/derivado/pep/…`: identidad de personas, regla PEP, cargos
+    de hoy y cabezas, un mismo ente en dos registros, firma y designación,
+    materia, la plataforma): lo que dice la fuente y lo que infiere la
+    plataforma no se mezclan. `grafosEnVivo()` define cada uno con su fuente y
+    su corte, leídos de las instantáneas; `/api/grafo?formato=trig` (o `nq`)
+    los sirve con su PROV-O en el grafo por omisión, y los IRIs llevan a
+    `/fuentes`.
+  - **El índice de vecinos** (`datos/grafo/vecinos/`, ~3,6 MB): las aristas
+    de cada nodo hacia otros nodos, en filas comprimidas por fragmento, con el
+    nombre del otro extremo y la vía. `camino()` lo recorre en vez de
+    decodificar descripciones enteras (`vecinosDe`); una empresa que solo es
+    su fila no se liga a nada.
+  - **Lo publicado por institución** (`datos/grafo/compras.json`): cuántos
+    procesos publicó cada una en la ventana de la tabla de procesos y por
+    cuánto (`publicadoPorInstitucion`, `lib/tablas-compras.ts`). Lo lee
+    `fetch` del MCP, que antes abría la tabla entera (11 MB) para dos cifras.
+  - **Contra la ontología, todo**: el compilador pasa cada sujeto con un tipo
+    de aquí, en los 536 196 nodos, por el esquema zod de su clase
+    (`esquemaClase`, `lib/ontologia-esquemas.ts`, de la misma definición que
+    el SHACL): tipos de dato y cardinalidad. El SHACL del gate cubre el
+    volcado y una muestra de personas; esto, cada nodo.
+  - El gate (paso 5d) repite todo: triples, grafos, schema.org, vecinos, lo
+    publicado y el esquema de cada nodo (~70 s).
 - **`lib/grafo-rdf.ts`** — `describir(nodo)` lee el compilado
   (`leerDescripcion`) y, para una empresa que no está, describe su fila del
   padrón. `relacionesDesdeTriples` lee las aristas
@@ -1241,12 +1271,16 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   `soc:Proveedor` y `soc:Contratacion`; la huella de `camino()` incluye
   `historico/instituciones.json` y `rnc.json` (versión del resultado 3).
 - **El volcado** (`scripts/build-grafo-volcado.mjs` →
-  `public/data/grafo/grafo.nt.gz` y `meta.json`, servidos por la CDN en
-  `/data/grafo/`). El grafo entero en
-  N-Triples comprimido, para cargarlo en un motor SPARQL propio (Oxigraph,
-  QLever, Apache Jena). Cada triple sale de la plataforma: el script pide a
-  `next start` la descripción de cada nodo por `/api/grafo`, la misma que
-  pintan el explorador y el MCP, así que no puede derivar. Entran las
+  `public/data/grafo/grafo.nt.gz`, `grafo.trig.gz` y `meta.json`, servidos
+  por la CDN en `/data/grafo/`). El grafo entero en N-Triples comprimido,
+  para cargarlo en un motor SPARQL propio (Oxigraph, QLever, Apache Jena), y
+  los mismos triples en **TriG**, cada uno en el grafo con nombre de su
+  fuente y su corte o de la regla que lo deriva, con PROV-O de cada grafo
+  (02-10-2026: 863 795 cuádruplos en 11 grafos, 3,7 MB). Cada triple sale de
+  la plataforma: el script lee cada nodo del compilado por `describir()`, el
+  mismo que sirve `/api/grafo` y el MCP, así que no puede derivar; ya no pide
+  nada a un servidor (34 s, antes 226 s por HTTP, y el N-Triples byte a byte
+  igual). Entran las
   instituciones, las entidades financieras, las provincias y las personas
   jurídicas que el grafo liga a algo (proveedoras con RNC, con medidas, en la
   OFAC o supervisadas), con sus contrataciones, medidas, supervisión y enlaces
@@ -1257,8 +1291,8 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   `/funcionarios/`. El resultado se relee con N3.js antes de escribirse. Se
   anuncia en el VoID (`void:subset` con `void:dataDump`, `void:triples` y su
   fecha), en la portada de `/grafo` y en `ontology` del MCP
-  (`volcadoDelGrafo`, que lee `meta.json`). Se rehace al final de las
-  instantáneas, sobre un build; mientras tanto dice su propia fecha.
+  (`volcadoDelGrafo`, que lee `meta.json`). Se rehace tras compilar el grafo;
+  mientras tanto dice su propia fecha.
 - **Rutas.** `/grafo` (portada con el inventario; `?nodo=` la red de una
   ficha, `components/graficos/red-vecinos.tsx`, y su lista de aristas por
   grupo; `?q=` elige una ficha por nombre, número de decreto o RNC),
@@ -1287,9 +1321,9 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   de Wikidata veta `/sparql` en su robots (docs/AUDITORIA.md §H.14).
 - **Trazado de archivos** (medido sobre cada `*.nft.json` el 02-10-2026):
   `/grafo` (la clave casa con `/grafo/camino` y `/api/grafo`) lleva el
-  compilado (`datos/grafo/nodos/`, ~19 MB) y lo que pide la búsqueda de
-  nodos —funcionarios, banca, decretos y el padrón, que también describe la
-  empresa que el compilado no trae—: ~57 MB por función. Cada ficha que es un
+  compilado (`datos/grafo/nodos/`, ~19 MB, y `vecinos/`, ~3,6 MB) y lo que
+  pide la búsqueda de nodos —funcionarios, banca, decretos y el padrón, que
+  también describe la empresa que el compilado no trae—: ~61 MB por función. Cada ficha que es un
   nodo lleva solo `datos/grafo/ld/` (~2,5 MB) además de sus propios datos.
   ✅ **La deuda de ~167 MB por ficha, saldada** (F2): la causaba
   `huellaDatos()`, que miraba las instantáneas con un nombre en una variable
@@ -1299,7 +1333,7 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   ficha importa `lib/grafo-ld.ts`, que no lee instantáneas. Antes y después:
   persona 162 → 24 MB, institución 162 → 46, provincia 163 → 16, banca
   162 → 11, decreto 163 → 28, empresa 162 → 22, `/api/grafo` y `/grafo`
-  161–162 → 56–57.
+  161–162 → 61.
 - **Las tablas** (`scripts/build-grafo-tablas.mjs` → `public/tablas/`: nueve
   Parquet con zstd, ~4 MB, y su `meta.json`; servidas por la CDN en
   `/tablas/`). El mismo grafo del volcado, sin personas naturales, en tablas
@@ -1310,9 +1344,16 @@ tablas, abajo). Sin servidor: nada corre entre un pedido y otro.
   `medidas`, `financieras`, `provincias` y `equivalencias`; más `procesos`
   (los de los últimos doce meses, de `procesos.json`). Se arman del volcado,
   de `historico/` y de `procesos.json`; cada texto pasa por las formas de
-  `sinCedula` y el script no escribe nada si queda una cédula. `meta.json`
-  guarda cada columna con su descripción: de ahí la lee la herramienta
-  `query`. Van fuera de `public/data` porque las funciones del grafo leen
+  `sinCedula` y el script no escribe nada si queda una cédula. **Las tablas
+  salen de la ontología** (02-10-2026, F0): `TABLAS` en
+  `lib/ontologia-esquemas.ts` dice cada tabla, su clase y cada columna con la
+  propiedad que guarda; el tipo de Parquet sale del rango de la propiedad (o
+  de la clave de la tabla a la que apunta), y una columna que no es una
+  propiedad —un total, una ficha— lo declara. El módulo lanza al cargar si
+  una columna nombra una propiedad que no existe, de otro dominio o con un
+  tipo que no cabe en su rango, y cada fila pasa por `esquemaFila` (zod)
+  antes de escribirse. `meta.json` guarda cada columna con su descripción y
+  su propiedad: de ahí la lee la herramienta `query`. Van fuera de `public/data` porque las funciones del grafo leen
   instantáneas por nombre variable y el trazado les mete `public/data`
   entero. Cotejadas el 30-09-2026 con su fuente: el MINERD, RD$102,150,965,011
   en 7,379 contratos; Viamar, RD$19,490,218,172.
@@ -1512,8 +1553,9 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   (título y línea en llano), sin dependencias; de ahí salen los títulos que
   registra el servidor y la lista de `/conectar`, así que no se desalinean.
 - **Trazado** (medido sobre cada `route.js.nft.json` el 02-10-2026): `/mcp`
-  pesa ~191 MB —el índice de búsqueda (sin `corpus.json`, que ya está en
-  `indice.bin`), el grafo compilado (~19 MB, que se sumó con F2), las
+  pesa ~195 MB —el índice de búsqueda (sin `corpus.json`, que ya está en
+  `indice.bin`), el grafo compilado con su índice de vecinos (~23 MB, que se
+  sumó con F2), las
   instantáneas que leen sus herramientas,
   `historico/`, `rnc/` y `procesos.json`, que se incluye aquí y se excluye de
   las fichas del grafo, que lo arrastraban sin leerlo—; `/api/sql`, ~77 MB
@@ -1544,10 +1586,12 @@ fichas, así que responde lo mismo que la página, con las mismas reglas.
   mismas respuestas byte a byte): `/api/grafo` de una institución 0,16–0,21 s
   → **0,02 s**; de una persona 0,20–0,27 → 0,02; de un decreto 0,12–0,15 →
   0,02; de una empresa sin vínculos 0,08–0,11 → 0,02–0,04. `path` del MCP
-  0,52–0,62 → **0,15–0,17 s**; `fetch` de una institución 0,54–0,58 →
-  **0,21 s**: su descripción cuesta 4 ms, y casi todo lo demás (~0,17 s) es
-  la tabla de procesos (`procesos.json`, 11 MB) de su sección de compras,
-  que entra al grafo con F3. Cotejo: 323 descripciones por `/api/grafo` y
+  0,52–0,62 → 0,15–0,17 s; `fetch` de una institución 0,54–0,58 →
+  0,21 s: su descripción costaba 4 ms y el resto (~0,17 s) era la tabla de
+  procesos (`procesos.json`, 11 MB) de su sección de compras. Con lo
+  publicado por institución compilado y `path` sobre el índice de vecinos
+  (el mismo día, las mismas respuestas): **`fetch` de una institución 0,06–0,07
+  s**, **`path` 0,09–0,11 s**. Cotejo: 323 descripciones por `/api/grafo` y
   el JSON-LD de 40 fichas, idénticos entre los dos builds. **En Vercel**
   (02-10-2026: el preview de F2 contra producción con el código anterior, primera
   llamada a cada función y ida y vuelta incluida): `/api/grafo` de una

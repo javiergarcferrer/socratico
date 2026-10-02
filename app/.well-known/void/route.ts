@@ -79,7 +79,10 @@ export async function GET() {
       t(v, "dct:title", lit("El grafo sin personas naturales, para descargar", "es")),
       t(v, "dct:description", lit(volcado.excluye, "es")),
       t(v, "void:dataDump", iri(volcado.url)),
+      // El mismo grafo en TriG: un grafo con nombre por fuente y corte, o por regla, con su PROV-O.
+      t(v, "void:dataDump", iri(volcado.urlTrig)),
       t(v, "void:feature", iri("http://www.w3.org/ns/formats/N-Triples")),
+      t(v, "void:feature", iri("http://www.w3.org/ns/formats/TriG")),
       t(v, "void:triples", entero(volcado.triples)),
       t(v, "dct:modified", fecha(volcado.generado)),
     );
