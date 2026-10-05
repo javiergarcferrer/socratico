@@ -220,6 +220,14 @@ export function institucionPorId(id: number | string): Institucion | null {
   return POR_ID.get(Number(id)) ?? null;
 }
 
+let porUnidad: Map<string, Institucion> | null = null;
+
+/** La institución de una unidad de compra, por su nombre: el cruce las nombra igual que la tabla de procesos de la DGCP. */
+export function institucionDeUnidad(unidad: string): Institucion | null {
+  porUnidad ??= new Map(INSTITUCIONES.map((i) => [plano(i.nombre), i]));
+  return porUnidad.get(plano(unidad)) ?? null;
+}
+
 /**
  * Las unidades de compra adscritas a un capítulo presupuestario. Solo las de
  * la DGCP: la institución del clasificador que es el capítulo entero (el

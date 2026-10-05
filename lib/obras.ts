@@ -119,6 +119,11 @@ export function getObras(): Promise<Instantanea | null> {
   return listado;
 }
 
+/** Los contratos y procesos de cada obra (`obras-detalle.json`), recortados a los 12 de mayor monto. */
+export async function getDetalleObras(): Promise<Detalle | null> {
+  return getDetalle();
+}
+
 async function getDetalle(): Promise<Detalle | null> {
   detalle ??= leer<Detalle>(
     "obras-detalle.json",

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { plano } from "@/lib/raiz";
 import { sinCedula } from "@/lib/padron";
+import { ETAPAS, ETAPA_DE_LA_DGCP, MODALIDADES, MODALIDAD_DE_LA_DGCP } from "@/lib/vocabulario-compras";
 
 /**
  * Las dos tablas enteras que ordena el servidor MCP (`procurement`,
@@ -25,20 +26,14 @@ import { sinCedula } from "@/lib/padron";
  * nota: calcula sus respuestas de las mismas instantáneas.
  */
 
-/** El literal de la DGCP, dicho corto (el mismo que `scripts/busqueda_procesos.py`). */
-const ETAPA: Record<string, string> = {
-  "Proceso publicado": "Abierto a ofertas",
-  "Proceso con etapa cerrada": "Recepción cerrada",
-  "Sobres estan abriendose": "En evaluación",
-  "Sobres abiertos o aperturados": "En evaluación",
-  "Proceso adjudicado y celebrado": "Adjudicado",
-  "Proceso desierto": "Desierto",
-  Cancelado: "Cancelado",
-  Suspendido: "Suspendido",
+/** El literal de la DGCP, dicho corto (`lib/vocabulario-compras.ts`, el mismo que `scripts/busqueda_procesos.py`); uno que la lista no tiene, tal cual. */
+const etapaCorta = (estado: string) => {
+  const k = ETAPA_DE_LA_DGCP[estado];
+  return k ? ETAPAS[k] : estado;
 };
-const MODALIDAD: Record<string, string> = {
-  "Compras por Debajo del Umbral": "Compra menor al umbral",
-  "Procesos de Excepción": "Excepción",
+const modalidadCorta = (modalidad: string) => {
+  const k = MODALIDAD_DE_LA_DGCP[modalidad];
+  return k ? MODALIDADES[k] : modalidad;
 };
 
 /** Un proceso de compra de la DGCP, con sus campos por separado. */
@@ -115,8 +110,8 @@ export function todosLosProcesos(): Promise<{ procesos: ProcesoIndexado[]; corte
         codigo,
         titulo,
         unidad: t.unidades[iu] ?? "",
-        modalidad: MODALIDAD[modalidad] ?? modalidad,
-        etapa: ETAPA[estado] ?? estado,
+        modalidad: modalidadCorta(modalidad),
+        etapa: etapaCorta(estado),
         objeto: t.objetos[io] || null,
         fecha,
         valor: monto || null,

@@ -52,6 +52,7 @@ export async function GET() {
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.institucion(4)}#id`)),
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.norma("decreto", "339-20")}#id`)),
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.provincia("santiago")}#id`)),
+    t(ds, "void:exampleResource", iri(`${SITIO}${enlace.obra("3731")}#id`)),
     t(ls, "rdf:type", iri("void:Linkset")),
     t(ls, "void:linkPredicate", iri("owl:sameAs")),
     t(ls, "void:subjectsTarget", iri(ds)),

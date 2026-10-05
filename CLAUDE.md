@@ -12,7 +12,7 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/INFR
 
 | Vertical | Ruta | Fuente | Capa de datos |
 |---|---|---|---|
-| Compras públicas | `/licitaciones`, `/historico`, `/proveedores/inhabilitados` | API abierta de la DGCP + tablas completas desde 2015, medidas sobre proveedores, lista SDN de la OFAC y padrón RNC (instantáneas) | `lib/dgcp.ts`, `lib/historico.ts`, `lib/rnc.ts`, `lib/sanciones.ts` (con `medidas`) |
+| Compras públicas | `/licitaciones`, `/historico`, `/proveedores/inhabilitados` | API abierta de la DGCP + tablas completas desde 2015, medidas sobre proveedores, lista SDN de la OFAC y padrón RNC (instantáneas) | `lib/dgcp.ts`, `lib/historico.ts`, `lib/rnc.ts`, `lib/sanciones.ts` (con `medidas`), `lib/vocabulario-compras.ts` |
 | Finanzas públicas | `/finanzas` | SIGEF: ejecución y subsidio eléctrico (instantáneas) | `lib/fiscal.ts`, `lib/capitulos.ts`, `lib/subsidio.ts` |
 | Congreso Nacional | `/congreso` | SIL Diputados + consultante del Senado | `lib/congreso.ts`, `lib/senado.ts` |
 | Normativa y justicia | `/normativa`, `/constitucional`, `/tse`, `/audiencias`, `/inmobiliario`; decretos en `/`, boletín del PJ en `/indicadores` | Consultoría Jurídica (API JSON + instantánea; registro completo de decretos con su firmante, por año); TC y TSE (HTML); boletín del Poder Judicial (instantánea); rol de audiencias del PJ y expedientes del Registro Inmobiliario (POST en vivo, solo por número exacto) | `lib/normativa.ts`, `lib/decretos.ts` (con `decretos-base`), `lib/tc.ts`, `lib/tse.ts`, `lib/justicia.ts`, `lib/audiencias.ts`, `lib/inmobiliario.ts` |

@@ -58,7 +58,9 @@ export type ClaveGrafo =
   | "vigente"
   | "identidad"
   | "firma"
-  | "materia";
+  | "materia"
+  | "procesos"
+  | "obras";
 
 /** Lo que afirma una descripción mientras se arma: cada triple con el grafo de donde sale. */
 export class Afirmaciones {
@@ -83,8 +85,9 @@ export const FORMATO_GRAFO = 2;
 /**
  * La clave de un nodo en el compilado: el identificador como lo leen los
  * constructores. Una institución es su número (`"05"` es la 5), una empresa
- * su RNC sin guiones, un decreto su número sin espacios. `null` si no puede
- * ser un nodo.
+ * su RNC sin guiones, un decreto su número sin espacios, un proveedor su RPE
+ * y una obra su SNIP sin ceros a la izquierda, un proceso su código tal cual.
+ * `null` si no puede ser un nodo.
  */
 export function claveCompilada(n: NodoRdf): string | null {
   switch (n.tipo) {
@@ -95,7 +98,11 @@ export function claveCompilada(n: NodoRdf): string | null {
     case "empresa":
       return soloCifras(n.id);
     case "decreto":
+    case "proceso":
       return n.id.trim();
+    case "proveedor":
+    case "obra":
+      return /^\d{1,10}$/.test(n.id) ? String(Number(n.id)) : null;
     default:
       return n.id;
   }
@@ -126,7 +133,17 @@ export const compararClaves = (a: string, b: string) => (a < b ? -1 : a > b ? 1 
 export const archivoFragmento = (i: number) => `${String(i).padStart(3, "0")}.json.br`;
 
 /** Los tipos de nodo, en el orden en que se compilan. */
-export const TIPOS_COMPILADOS: readonly TipoNodoRdf[] = ["provincia", "institucion", "entidad-financiera", "funcionario", "decreto", "empresa"];
+export const TIPOS_COMPILADOS: readonly TipoNodoRdf[] = [
+  "provincia",
+  "institucion",
+  "entidad-financiera",
+  "funcionario",
+  "decreto",
+  "empresa",
+  "proveedor",
+  "obra",
+  "proceso",
+];
 
 /*
   La codificación. Cada fragmento lleva su propia tabla de términos y cada

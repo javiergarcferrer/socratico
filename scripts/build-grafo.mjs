@@ -105,6 +105,8 @@ async function claves() {
       if (linea) rncs.push(linea.slice(0, linea.indexOf("\t")));
     }
   }
+  // Los proveedores, los procesos de compra y las obras: el conjunto que sus constructores describen.
+  const compras = await C.clavesDeCompras();
   // En el orden de los fragmentos: así se escriben y así se recorren.
   const orden = (xs) => [...xs].sort(N.compararClaves);
   return {
@@ -114,6 +116,9 @@ async function claves() {
     funcionario: orden(f.personas.map((p) => p.id)),
     decreto: orden(numeros),
     empresa: orden(rncs),
+    proveedor: orden(compras.proveedor),
+    obra: orden(compras.obra),
+    proceso: orden(compras.proceso),
   };
 }
 

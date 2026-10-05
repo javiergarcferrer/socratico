@@ -54,7 +54,7 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
   {
     nombre: "query",
     titulo: "Consulta SQL",
-    llano: "Una consulta SQL de lectura sobre el grafo entero sin personas naturales y los procesos de compra, para contar, cruzar y ordenar lo que las demás no ordenan, en DuckDB (abierto).",
+    llano: "Una consulta SQL de lectura sobre las tablas del grafo sin personas naturales y los procesos de compra, para contar, cruzar y ordenar lo que las demás no ordenan, en DuckDB (abierto).",
   },
   {
     nombre: "path",

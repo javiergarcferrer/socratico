@@ -13,27 +13,30 @@ import type { Empresa } from "@/lib/empresas";
  * en el explorador y a su RDF. La ficha de una empresa pasa la fila del
  * padrón que ya leyó: la mayoría no está en el compilado y sale de ella.
  *
+ * Una ficha que lee su fuente en vivo (un proceso de compra, un proveedor)
+ * puede no ser un nodo: si el compilado no la trae, no se pinta nada, ni un
+ * enlace a un nodo que el explorador no encontraría.
+ *
  * Componente de servidor: lee el compilado, no las instantáneas.
  */
 export async function EnElGrafo({ nodo, empresa, className }: { nodo: NodoRdf; empresa?: Empresa; className?: string }) {
   const ld = await schemaOrgDe(nodo, empresa);
+  if (!ld) return null;
   const ruta = rutaDeNodo(nodo);
   return (
     <>
-      {ld && (
-        <script
-          type="application/ld+json"
-          // `<` escapado: un nombre del Estado no puede cerrar el script.
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, "\\u003c") }}
-        />
-      )}
+      <script
+        type="application/ld+json"
+        // `<` escapado: un nombre del Estado no puede cerrar el script.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, "\\u003c") }}
+      />
       <section aria-labelledby="en-el-grafo" className={cn("border-t border-hairline pt-4", className)}>
         <h2 id="en-el-grafo" className="text-sm font-bold text-ink">
           En el grafo
         </h2>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-soft">
-          Esta ficha es un nodo: los registros del Estado la ligan con personas, instituciones, decretos y lugares.
-          Su red dibuja esas aristas y busca el camino hacia otra ficha.
+          Esta ficha es un nodo: los registros del Estado la ligan con otras —personas, instituciones, empresas,
+          compras, obras, decretos, lugares—. Su red dibuja esas aristas y busca el camino hacia otra ficha.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           {/* `nofollow`: la vista de un nodo repite la ficha y robots.txt no la deja rastrear. */}

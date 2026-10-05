@@ -38,6 +38,8 @@ import { obrasDeProceso } from "@/lib/obras";
 import { enlace } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { schemaOrgDe } from "@/lib/grafo-ld";
 
 const DOC_CLAVE =
   /pliego|ficha tecnica|especificacion|termino de referencia|tdr|condiciones/;
@@ -62,9 +64,12 @@ export async function generateMetadata({
   try {
     const { proceso: p } = await cargarProceso(limpio);
     if (p) {
+      // Su RDF solo si el grafo compilado lo trae: la ficha lee la DGCP en vivo y conoce procesos que el grafo no.
+      const nodo = { tipo: "proceso" as const, id: p.codigo_proceso.trim() };
+      const enGrafo = (await schemaOrgDe(nodo)) != null;
       return {
         title: p.titulo ? tituloLegible(p.titulo) : limpio,
-        alternates: { canonical: enlace.proceso(limpio) },
+        alternates: { canonical: enlace.proceso(limpio), ...(enGrafo ? { types: alternasRdf(nodo) } : {}) },
         description: [
           p.unidad_compra,
           p.modalidad,
@@ -776,6 +781,7 @@ export default async function ProcesoPage({
         abierto={abiertoParaOfertar}
         huella={huellaDe({ estado: p.estado_proceso })}
       />
+      <EnElGrafo nodo={{ tipo: "proceso", id: p.codigo_proceso.trim() }} className="mt-6" />
       <Conversacion className="mt-6" referencia={{ tipo: "proceso", ref: enlace.proceso(p.codigo_proceso), titulo: p.titulo, href: enlace.proceso(p.codigo_proceso) }} />
     </div>
   );

@@ -145,14 +145,19 @@ export const CLASE_DE_TIPO: Record<TipoNodoRdf, string> = {
   empresa: "Persona jurídica",
   decreto: "Decreto",
   provincia: "Provincia",
+  proveedor: "Proveedor del Estado",
+  proceso: "Proceso de compra",
+  obra: "Obra o proyecto de inversión",
 };
 
 /** Los grupos de aristas, en el orden en que se leen. */
-export type GrupoRelacion = "cargos" | "compras" | "decretos" | "entidades" | "lugares" | "registros";
+export type GrupoRelacion = "cargos" | "compras" | "procesos" | "obras" | "decretos" | "entidades" | "lugares" | "registros";
 
 export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "cargos", etiqueta: "Cargos" },
   { id: "compras", etiqueta: "Mayores contrataciones desde 2015" },
+  { id: "procesos", etiqueta: "Procesos de compra" },
+  { id: "obras", etiqueta: "Obras públicas y sus contratos" },
   { id: "decretos", etiqueta: "Decretos" },
   { id: "entidades", etiqueta: "La misma entidad y quien la supervisa" },
   { id: "lugares", etiqueta: "Provincias" },
@@ -175,10 +180,14 @@ export interface Relacion {
   nombre: string;
   /** Lo que precisa la arista: el cargo. */
   detalle: string | null;
-  /** El movimiento del cargo, en llano: «Designación». */
+  /** El movimiento del cargo, en llano («Designación»), o «Publicado» si la fecha es la de un proceso de compra. */
   movimiento: string | null;
   fecha: string | null;
-  /** Una contratación: el valor contratado en pesos (no pagado). */
+  /**
+   * Un monto en pesos: lo contratado (una contratación, un contrato de obra),
+   * el valor estimado de un proceso o el declarado de una obra; `detalle`
+   * dice cuál. Nunca lo pagado.
+   */
   monto: number | null;
 }
 
@@ -213,6 +222,17 @@ const V = {
   fuente: expandir("dct:source"),
   codificacion: expandir("schema:encoding"),
   subida: expandir("schema:uploadDate"),
+  proveedor: expandir("soc:Proveedor"),
+  proyecto: expandir("soc:ProyectoDeInversion"),
+  contrato: expandir("soc:Contrato"),
+  comprador: expandir("soc:comprador"),
+  ejecutadoPor: expandir("soc:ejecutadoPor"),
+  paraProyecto: expandir("soc:paraProyecto"),
+  delProceso: expandir("soc:delProceso"),
+  codigo: expandir("soc:codigo"),
+  monto: expandir("soc:monto"),
+  valorEstimado: expandir("soc:valorEstimado"),
+  estado: expandir("soc:estado"),
 } as const;
 
 /**
@@ -232,10 +252,33 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
   const uno = (s: string, p: string, tipo: Termino["tipo"]) =>
     salen.get(s)?.find((x) => x.p === p && x.o.tipo === tipo)?.o.valor ?? null;
   const nombre = (s: string) => uno(s, V.etiqueta, "literal") ?? uno(s, V.titulo, "literal") ?? uno(s, V.nombre, "literal") ?? s;
-  const esCargo = (s: string) => salen.get(s)?.some((x) => x.p === V.tipo && x.o.valor === V.cargo) ?? false;
+  const esDe = (s: string, clase: string) => salen.get(s)?.some((x) => x.p === V.tipo && x.o.valor === clase) ?? false;
+  const esCargo = (s: string) => esDe(s, V.cargo);
   const movimiento = (c: string) => {
     const m = uno(c, V.movimiento, "iri")?.split("#movimiento-")[1] as Movimiento | undefined;
     return m ? (ETIQUETA_MOVIMIENTO[m] ?? null) : null;
+  };
+  const montoDe = (k: string, p: string) => {
+    const m = uno(k, p, "literal");
+    return m ? Number(m) : null;
+  };
+  /** Una obra vecina: su valor declarado como monto, y su estado. */
+  const obraVecina = (o: string) => {
+    const monto = montoDe(o, V.valorEstimado);
+    const detalle = [uno(o, V.estado, "literal"), monto != null ? "valor declarado del proyecto" : null].filter(Boolean).join(" · ") || null;
+    return { monto, detalle };
+  };
+  /** Un proceso vecino: su valor estimado como monto y su fecha de publicación. */
+  const procesoVecino = (p: string) => {
+    const monto = montoDe(p, V.valorEstimado);
+    const fecha = uno(p, V.fecha, "literal");
+    return { monto, detalle: monto != null ? "valor estimado al publicarlo, no lo adjudicado" : null, fecha, movimiento: fecha ? "Publicado" : null };
+  };
+  /** Un contrato de obra: su monto, su código y su estado. */
+  const contratoVecino = (k: string) => {
+    const c = uno(k, V.codigo, "literal");
+    const e = uno(k, V.estado, "literal");
+    return { monto: montoDe(k, V.monto), detalle: [c ? `Contrato ${c}` : null, e, "monto del contrato, no lo pagado"].filter(Boolean).join(" · ") };
   };
   const hacia = (valor: string) => {
     const nodo = nodoDeIri(valor);
@@ -344,6 +387,19 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
         }
         break;
       }
+      case V.comprador:
+        agregar({ grupo: "procesos", verbo: "Lo convoca", neutro: "Quien convoca el proceso", ...hacia(o), nombre: nombre(o) });
+        break;
+      case V.ejecutadoPor:
+        agregar({ grupo: "obras", verbo: "La ejecuta", neutro: "Quien ejecuta la obra", ...hacia(o), nombre: nombre(o) });
+        break;
+      case V.paraProyecto:
+        agregar({ grupo: "obras", verbo: "Para la obra", neutro: "Un proceso para la obra", ...hacia(o), nombre: nombre(o), ...obraVecina(o) });
+        break;
+      case V.enProvincia:
+        // La provincia de una obra; la de un cargo se lee atravesando el cargo.
+        agregar({ grupo: "lugares", verbo: "En la provincia", neutro: "Una obra en la provincia", ...hacia(o), nombre: nombre(o) });
+        break;
     }
   }
 
@@ -371,6 +427,23 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       agregar({ grupo: "cargos", verbo: "La dirige", neutro: "La dirige", ...hacia(s), nombre: nombre(s) });
     } else if (x.p === V.publicadaPor) {
       agregar({ grupo: "registros", verbo: "Publica la declaración", neutro: "Una declaración que publica", nodo: null, href: s, externo: true, nombre: nombre(s) });
+    } else if (x.p === V.comprador) {
+      agregar({ grupo: "procesos", verbo: "Convocó", neutro: "Quien convoca el proceso", ...hacia(s), nombre: nombre(s), ...procesoVecino(s) });
+    } else if (x.p === V.ejecutadoPor) {
+      agregar({ grupo: "obras", verbo: "Ejecuta", neutro: "Quien ejecuta la obra", ...hacia(s), nombre: nombre(s), ...obraVecina(s) });
+    } else if (x.p === V.enProvincia && esDe(s, V.proyecto)) {
+      agregar({ grupo: "obras", verbo: "Obra en la provincia", neutro: "Una obra en la provincia", ...hacia(s), nombre: nombre(s), ...obraVecina(s) });
+    } else if (x.p === V.paraProyecto && !esDe(s, V.contrato)) {
+      agregar({ grupo: "procesos", verbo: "Proceso de compra", neutro: "Un proceso para la obra", ...hacia(s), nombre: nombre(s), ...procesoVecino(s) });
+    } else if (x.p === V.paraProyecto) {
+      // Un contrato de la obra: a quién se le contrató.
+      const pr = uno(s, V.contratista, "iri");
+      if (pr) agregar({ grupo: "obras", verbo: "Contrato con", neutro: "Un contrato de la obra", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) });
+    } else if (x.p === V.delProceso) {
+      const pr = uno(s, V.contratista, "iri");
+      if (pr) agregar({ grupo: "procesos", verbo: "Contrato con", neutro: "Un contrato del proceso", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) });
+    } else if (x.p === V.inscritaComo && esDe(sujeto, V.proveedor)) {
+      agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) });
     }
   }
 
@@ -392,12 +465,26 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
     const empresa = entran.get(pr)?.find((y) => y.p === V.inscritaComo && y.s.tipo === "iri")?.s.valor ?? null;
     agregar({ grupo: "compras", verbo: "Contrató a", neutro: "Una contratación", ...hacia(empresa ?? pr), nombre: nombre(pr), ...cuanto(x.s.valor) });
   }
-  for (const x of salen.get(sujeto) ?? []) {
-    if (x.p !== V.inscritaComo || x.o.tipo !== "iri") continue;
-    for (const y of entran.get(x.o.valor) ?? []) {
+  // Las inscripciones de proveedor del nodo: él mismo si es una, o las de la empresa.
+  const propias = esDe(sujeto, V.proveedor)
+    ? [sujeto]
+    : (salen.get(sujeto) ?? []).flatMap((x) => (x.p === V.inscritaComo && x.o.tipo === "iri" ? [x.o.valor] : []));
+  for (const pr of propias) {
+    for (const y of entran.get(pr) ?? []) {
       if (y.p !== V.contratista || y.s.tipo !== "iri") continue;
-      const inst = uno(y.s.valor, V.contratante, "iri");
-      if (inst) agregar({ grupo: "compras", verbo: "Le contrató", neutro: "Una contratación", ...hacia(inst), nombre: nombre(inst), ...cuanto(y.s.valor) });
+      const k = y.s.valor;
+      const inst = uno(k, V.contratante, "iri");
+      if (inst) {
+        agregar({ grupo: "compras", verbo: "Le contrató", neutro: "Una contratación", ...hacia(inst), nombre: nombre(inst), ...cuanto(k) });
+        continue;
+      }
+      // Un contrato de obra: las obras que paga y el proceso del que sale.
+      const base = contratoVecino(k);
+      for (const z of salen.get(k) ?? []) {
+        if (z.o.tipo !== "iri") continue;
+        if (z.p === V.paraProyecto) agregar({ grupo: "obras", verbo: "Contrato en la obra", neutro: "Un contrato de la obra", ...hacia(z.o.valor), nombre: nombre(z.o.valor), ...base });
+        else if (z.p === V.delProceso) agregar({ grupo: "procesos", verbo: "Contrato del proceso", neutro: "Un contrato del proceso", ...hacia(z.o.valor), nombre: nombre(z.o.valor), ...base });
+      }
     }
   }
 
@@ -601,13 +688,37 @@ export interface Candidatos {
   truncado: boolean;
 }
 
+/**
+ * Un proceso por su código, un proveedor por «RPE 123» o una obra por «SNIP
+ * 12416», si el compilado lo trae: su nombre sale de su descripción.
+ */
+async function nodoPorIdentificador(texto: string): Promise<Candidato | null> {
+  const rpe = /^rpe\s*(?:n[uú]m(?:ero)?\.?\s*|no\.?\s*)?(\d{1,8})$/i.exec(texto)?.[1];
+  const snip = /^snip\s*(?:n[uú]m(?:ero)?\.?\s*|no\.?\s*|:\s*)?(\d{1,8})$/i.exec(texto)?.[1];
+  const candidatos: NodoRdf[] = rpe
+    ? [{ tipo: "proveedor", id: String(Number(rpe)) }]
+    : snip
+      ? [{ tipo: "obra", id: String(Number(snip)) }]
+      : /-\d{4}-\d{3,5}$/.test(texto)
+        ? [...new Set([texto, texto.toUpperCase()])].map((id) => ({ tipo: "proceso" as const, id }))
+        : [];
+  for (const n of candidatos) {
+    const d = await leerDescripcion(n);
+    if (!d) continue;
+    const detalle = n.tipo === "proceso" ? n.id : n.tipo === "obra" ? `SNIP ${n.id}` : `RPE ${n.id}`;
+    return { nodo: n, nombre: d.titulo, clase: CLASE_DE_TIPO[n.tipo], detalle };
+  }
+  return null;
+}
+
 /** Cuántos candidatos de cada tipo, como mucho. */
 const TOPE_CANDIDATOS = { personas: 8, instituciones: 5, financieras: 4, total: 16 } as const;
 
 /**
  * Los nodos que se llaman así, para elegir uno en el explorador: un número de
- * decreto o un RNC exactos primero; luego personas, instituciones, entidades
- * financieras y provincias por todas las palabras tecleadas. No es el
+ * decreto, un RNC, un código de proceso, un RPE o un SNIP exactos primero;
+ * luego personas, instituciones, entidades financieras y provincias por todas
+ * las palabras tecleadas. No es el
  * buscador de la plataforma (`/buscar`): solo nombres de nodos del grafo.
  * Cada tipo tiene su tope, y `truncado` dice si alguno se pasó.
  */
@@ -626,6 +737,8 @@ export async function buscarNodos(q: string): Promise<Candidatos> {
     const e = await empresaPorRnc(cifras);
     if (e) salida.push({ nodo: { tipo: "empresa", id: e.rnc }, nombre: e.razonSocial, clase: CLASE_DE_TIPO.empresa, detalle: `RNC ${e.rnc}` });
   }
+  const porId = await nodoPorIdentificador(texto);
+  if (porId) salida.push(porId);
   if (salida.length) return { candidatos: salida, truncado: false };
 
   let truncado = false;

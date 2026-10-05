@@ -2,6 +2,7 @@ import { MATERIAS } from "@/lib/materias-decreto";
 import { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP } from "@/lib/cargos";
 import { SECTORES } from "@/lib/instituciones";
 import { TIPOS_MEDIDA } from "@/lib/medidas";
+import { ETAPAS, ETAPA_DE_LA_DGCP, MODALIDADES, MODALIDAD_DE_LA_DGCP, OBJETOS, SECTORES_INVERSION } from "@/lib/vocabulario-compras";
 import {
   ESPACIO_V1,
   ONTOLOGIA,
@@ -54,8 +55,10 @@ import {
  * en followthemoney.tech el 01-10-2026; los de ePO, en su documentación.
  */
 
-export const VERSION = "2.0.0";
-export const PUBLICADA = "2026-10-01";
+export const VERSION = "2.1.0";
+export const PUBLICADA = "2026-10-05";
+/** La versión anterior de los dos módulos (`owl:priorVersion`). */
+export const ANTERIOR = "2.0.0";
 
 /** El núcleo, neutral de país, o el módulo de la República Dominicana. */
 export type Modulo = "soc" | "do";
@@ -392,11 +395,12 @@ export const CLASES: Clase[] = [
     etiqueta: "Proceso de contratación",
     etiquetaEn: "Procurement procedure",
     sinonimos: ["licitación", "proceso de compra"],
-    comentario: "Un proceso de compra de una institución, desde su convocatoria: su objeto, su modalidad, su valor estimado y su estado.",
+    comentario:
+      "Un proceso de compra de una institución, desde su convocatoria: su código, su objeto, su modalidad, su valor estimado y la etapa en que estaba el día del corte. Uno que el grafo conoce solo por un proyecto de inversión, fuera de la tabla de procesos de su fuente, puede no traer comprador.",
     subClaseDe: ["epo:Procedure"],
     corto: "Proceso",
     ftm: "Contract",
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "Adjudicacion",
@@ -411,10 +415,11 @@ export const CLASES: Clase[] = [
     id: "Contrato",
     etiqueta: "Contrato",
     etiquetaEn: "Contract",
-    comentario: "El contrato que resulta de una adjudicación: las partes, el monto y su vigencia.",
+    comentario:
+      "El contrato que resulta de una adjudicación: su código, su contratista, su monto y su estado; el proceso del que sale y los proyectos de inversión para los que se firmó, si la fuente los dice.",
     subClaseDe: ["epo:Contract"],
     ftm: "Contract",
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "Contratacion",
@@ -454,10 +459,11 @@ export const CLASES: Clase[] = [
     etiquetaEn: "Public investment project",
     sinonimos: ["obra pública"],
     corto: "Proyecto",
-    comentario: "Una obra o proyecto de inversión pública con su código (en la República Dominicana, el SNIP), quien lo ejecuta, su valor y su avance.",
+    comentario:
+      "Una obra o proyecto de inversión pública con su código (en la República Dominicana, el SNIP), quien lo ejecuta, dónde, su sector, su valor, su avance, sus fechas, sus procesos de compra y sus contratos.",
     subClaseDe: [],
     ftm: "Project",
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "PartidaPresupuestaria",
@@ -576,8 +582,8 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "objeto",
     etiqueta: "en la provincia",
     etiquetaEn: "in province",
-    comentario: "El ámbito territorial del cargo: una gobernación, una alcaldía, una regiduría.",
-    dominio: ["soc:Cargo"],
+    comentario: "El ámbito territorial del cargo (una gobernación, una alcaldía, una regiduría) o la provincia donde está un proyecto de inversión.",
+    dominio: ["soc:Cargo", "soc:ProyectoDeInversion"],
     rango: ["soc:Provincia"],
     estado: "en-uso",
     v1: true,
@@ -636,24 +642,25 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "dato",
     etiqueta: "desde",
     etiquetaEn: "from",
-    comentario: "El primer día del intervalo: de la ocupación, la membresía, el contrato o la vigencia de una norma.",
-    dominio: ["soc:Ocupacion", "soc:Membresia", "soc:Contrato", "soc:Norma"],
+    comentario: "El primer día del intervalo: de la ocupación, la membresía, el contrato, la vigencia de una norma o el proyecto de inversión.",
+    dominio: ["soc:Ocupacion", "soc:Membresia", "soc:Contrato", "soc:Norma", "soc:ProyectoDeInversion"],
     rango: ["xsd:date"],
     subPropiedadDe: ["schema:startDate"],
     funcional: true,
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "hasta",
     tipo: "dato",
     etiqueta: "hasta",
     etiquetaEn: "until",
-    comentario: "El último día del intervalo. Sin este dato el intervalo está abierto, que no es lo mismo que vigente: puede que la fuente no registre el cierre.",
-    dominio: ["soc:Ocupacion", "soc:Membresia", "soc:Contrato", "soc:Norma"],
+    comentario:
+      "El último día del intervalo. Sin este dato el intervalo está abierto, que no es lo mismo que vigente: puede que la fuente no registre el cierre. En un proyecto de inversión, el fin que declara, que puede haber pasado sin que el proyecto termine.",
+    dominio: ["soc:Ocupacion", "soc:Membresia", "soc:Contrato", "soc:Norma", "soc:ProyectoDeInversion"],
     rango: ["xsd:date"],
     subPropiedadDe: ["schema:endDate"],
     funcional: true,
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "abiertaPor",
@@ -825,8 +832,8 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "fecha",
     etiquetaEn: "date",
     comentario:
-      "La fecha que registra la fuente: la de una norma según la Consultoría Jurídica, la del movimiento de un cargo (su designación, su cese), la de una medida, la de un evento. Un año solo, si la fuente no da el día.",
-    dominio: ["soc:Norma", "soc:Cargo", "soc:Sancion", "soc:Evento"],
+      "La fecha que registra la fuente: la de una norma según la Consultoría Jurídica, la del movimiento de un cargo (su designación, su cese), la de una medida, la de un evento, la de publicación de un proceso de compra. Un año solo, si la fuente no da el día.",
+    dominio: ["soc:Norma", "soc:Cargo", "soc:Sancion", "soc:Evento", "soc:ProcesoDeContratacion"],
     rango: ["xsd:date", "xsd:gYear"],
     estado: "en-uso",
     v1: true,
@@ -896,8 +903,8 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "estado según su fuente",
     etiquetaEn: "status per source",
     comentario:
-      "El estado que publica la fuente, tal cual y en español: el de la DGII para una empresa («ACTIVO», «DADO DE BAJA»), el de su supervisor para una entidad financiera («Operando», «Cancelado»).",
-    dominio: ["soc:Empresa", "soc:EntidadFinanciera"],
+      "El estado que publica la fuente, tal cual y en español: el de la DGII para una empresa («ACTIVO», «DADO DE BAJA»), el de su supervisor para una entidad financiera («Operando», «Cancelado»), el del sistema de inversión para un proyecto («En ejecución», «Paralizado»), el de la DGCP para un contrato («Activo», «Cerrado»).",
+    dominio: ["soc:Empresa", "soc:EntidadFinanciera", "soc:ProyectoDeInversion", "soc:Contrato"],
     rango: ["rdf:langString"],
     estado: "en-uso",
     v1: true,
@@ -935,10 +942,10 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "contratista",
     etiquetaEn: "contractor",
     comentario: "La inscripción de proveedor a la que se contrató. Si su RNC es de una persona jurídica, esa empresa está inscrita como ella (soc:inscritaComo).",
-    dominio: ["soc:Contratacion"],
+    dominio: ["soc:Contratacion", "soc:Contrato"],
     rango: ["soc:Proveedor"],
     funcional: true,
-    obligatoriaEn: ["soc:Contratacion"],
+    obligatoriaEn: ["soc:Contratacion", "soc:Contrato"],
     estado: "en-uso",
     v1: true,
   },
@@ -973,35 +980,91 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "objeto",
     etiqueta: "comprador",
     etiquetaEn: "buyer",
-    comentario: "La institución que convoca el proceso.",
+    comentario: "La institución que convoca el proceso: la de su unidad de compra, por el nombre con que la tabla de procesos la registra.",
     dominio: ["soc:ProcesoDeContratacion"],
     rango: ["soc:Institucion"],
     funcional: true,
-    obligatoriaEn: ["soc:ProcesoDeContratacion"],
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "valorEstimado",
     tipo: "dato",
     etiqueta: "valor estimado",
     etiquetaEn: "estimated value",
-    comentario: "El valor que la institución estimó al publicar el proceso, en pesos.",
-    dominio: ["soc:ProcesoDeContratacion"],
+    comentario:
+      "El valor que la institución estimó al publicar el proceso, o el valor que declara un proyecto de inversión, en pesos: no es lo adjudicado ni lo pagado.",
+    dominio: ["soc:ProcesoDeContratacion", "soc:ProyectoDeInversion"],
     rango: ["xsd:decimal"],
     funcional: true,
-    estado: "definido",
+    estado: "en-uso",
+  },
+  {
+    id: "codigo",
+    tipo: "dato",
+    etiqueta: "código",
+    etiquetaEn: "code",
+    comentario: "El código que el sistema de compras da al proceso o al contrato: «MOPC-CCC-LPN-2026-0013», «INDRHI-2023-00444».",
+    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato"],
+    rango: ["xsd:string"],
+    subPropiedadDe: ["dct:identifier"],
+    funcional: true,
+    obligatoriaEn: ["soc:ProcesoDeContratacion", "soc:Contrato"],
+    estado: "en-uso",
+  },
+  {
+    id: "modalidad",
+    tipo: "objeto",
+    etiqueta: "modalidad",
+    etiquetaEn: "procedure type",
+    comentario: "Cómo se compra, según la ley de compras del país (`do:modalidades`).",
+    dominio: ["soc:ProcesoDeContratacion"],
+    rango: ["skos:Concept"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "etapa",
+    tipo: "objeto",
+    etiqueta: "etapa",
+    etiquetaEn: "stage",
+    comentario: "Dónde estaba el proceso el día del corte de su fuente (`do:etapas`): no es su estado de hoy.",
+    dominio: ["soc:ProcesoDeContratacion"],
+    rango: ["skos:Concept"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "objetoDeCompra",
+    tipo: "objeto",
+    etiqueta: "objeto de la compra",
+    etiquetaEn: "contract nature",
+    comentario: "Qué se compra: bienes, obras o servicios (`soc:objetosDeCompra`).",
+    dominio: ["soc:ProcesoDeContratacion"],
+    rango: ["skos:Concept"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "paraProyecto",
+    tipo: "objeto",
+    etiqueta: "para el proyecto",
+    etiquetaEn: "for project",
+    comentario: "El proyecto de inversión para el que se convoca el proceso o se firma el contrato, según el sistema de inversión.",
+    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato"],
+    rango: ["soc:ProyectoDeInversion"],
+    estado: "en-uso",
   },
   {
     id: "delProceso",
     tipo: "objeto",
     etiqueta: "del proceso",
     etiquetaEn: "of procedure",
-    comentario: "El proceso que la adjudicación resuelve.",
-    dominio: ["soc:Adjudicacion"],
+    comentario: "El proceso que la adjudicación resuelve, o del que sale el contrato.",
+    dominio: ["soc:Adjudicacion", "soc:Contrato"],
     rango: ["soc:ProcesoDeContratacion"],
     funcional: true,
     obligatoriaEn: ["soc:Adjudicacion"],
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "adjudicadaA",
@@ -1028,11 +1091,11 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "dato",
     etiqueta: "monto",
     etiquetaEn: "amount",
-    comentario: "El monto en pesos de la adjudicación o del contrato.",
+    comentario: "El monto en pesos de la adjudicación o del contrato, como lo registra la fuente: no es lo pagado.",
     dominio: ["soc:Adjudicacion", "soc:Contrato"],
     rango: ["xsd:decimal"],
     funcional: true,
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "tieneMedida",
@@ -1050,10 +1113,34 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "objeto",
     etiqueta: "ejecutado por",
     etiquetaEn: "executed by",
-    comentario: "La institución que ejecuta el proyecto de inversión.",
+    comentario: "La institución que ejecuta el proyecto de inversión: la entidad ejecutora del sistema de inversión, atada a su unidad de compra.",
     dominio: ["soc:ProyectoDeInversion"],
     rango: ["soc:Institucion"],
-    estado: "definido",
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "avance",
+    tipo: "dato",
+    etiqueta: "avance",
+    etiquetaEn: "progress",
+    comentario:
+      "El avance que declara el proyecto de inversión, en por ciento, tal como lo publica su fuente: casi siempre de 0 a 100, pero la fuente publica también valores mayores, que no se corrigen. Da el mismo valor como físico y como financiero.",
+    dominio: ["soc:ProyectoDeInversion"],
+    rango: ["xsd:decimal"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "sectorDeInversion",
+    tipo: "objeto",
+    etiqueta: "sector de la inversión",
+    etiquetaEn: "investment sector",
+    comentario: "El sector del proyecto en el sistema de inversión: la clasificación funcional del gasto (`do:sectoresDeInversion`).",
+    dominio: ["soc:ProyectoDeInversion"],
+    rango: ["skos:Concept"],
+    funcional: true,
+    estado: "en-uso",
   },
   {
     id: "partidaDe",
@@ -1259,7 +1346,8 @@ export const PROPIEDADES: Propiedad[] = [
     dominio: ["soc:ProyectoDeInversion"],
     rango: ["xsd:string"],
     funcional: true,
-    estado: "definido",
+    obligatoriaEn: ["soc:ProyectoDeInversion"],
+    estado: "en-uso",
   },
   {
     id: "tipoDeMedida",
@@ -1324,6 +1412,14 @@ const ESQUEMAS_DE_IDENTIFICADOR: [string, string, string][] = [
   ["capitulo", "Capítulo presupuestario", "Capítulo del Clasificador Institucional de DIGEPRES."],
 ];
 
+/** Cómo escribe la DGCP un concepto: sus literales en la tabla de procesos. */
+function literalesDgcp(tabla: Readonly<Record<string, string>>, clave: string): string {
+  const xs = Object.entries(tabla)
+    .filter(([, k]) => k === clave)
+    .map(([literal]) => `«${literal}»`);
+  return `En la tabla de procesos de la DGCP: ${xs.join(" y ")}.`;
+}
+
 /** Los esquemas de conceptos, de las mismas tablas que usa la interfaz. */
 export function esquemas(): Esquema[] {
   return [
@@ -1378,6 +1474,33 @@ export function esquemas(): Esquema[] {
       v1: true,
     },
     {
+      id: "objetosDeCompra",
+      etiqueta: "Objeto de la compra",
+      comentario: "Lo que se compra: la naturaleza del contrato.",
+      conceptos: Object.entries(OBJETOS).map(([k, v]) => ({ id: `objeto-${k}`, etiqueta: v })),
+    },
+    {
+      id: "modalidades",
+      modulo: "do",
+      etiqueta: "Modalidades de compra",
+      comentario: "Las modalidades de la Ley 340-06 como las registra la DGCP, dichas como las dice la plataforma.",
+      conceptos: Object.entries(MODALIDADES).map(([k, v]) => ({ id: `modalidad-${k}`, etiqueta: v, definicion: literalesDgcp(MODALIDAD_DE_LA_DGCP, k) })),
+    },
+    {
+      id: "etapas",
+      modulo: "do",
+      etiqueta: "Etapas de un proceso de compra",
+      comentario: "Dónde está un proceso en la tabla de procesos de la DGCP el día del corte. Dos de sus literales son una misma etapa.",
+      conceptos: Object.entries(ETAPAS).map(([k, v]) => ({ id: `etapa-${k}`, etiqueta: v, definicion: literalesDgcp(ETAPA_DE_LA_DGCP, k) })),
+    },
+    {
+      id: "sectoresDeInversion",
+      modulo: "do",
+      etiqueta: "Sectores de la inversión pública",
+      comentario: "El sector de un proyecto en el Sistema Nacional de Inversión Pública, como lo publica MapaInversiones: la clasificación funcional del gasto.",
+      conceptos: SECTORES_INVERSION.map((x) => ({ id: `inversion-${x.clave}`, etiqueta: x.nombre })),
+    },
+    {
       id: "esquemasDeIdentificador",
       modulo: "do",
       etiqueta: "Registros que emiten identificadores",
@@ -1430,6 +1553,7 @@ function cabeceras(): Triple[] {
     t(o, "rdfs:seeAlso", iri(PAGINA_ONTOLOGIA)),
     t(o, "rdfs:seeAlso", iri(`${PAGINA_ONTOLOGIA}.ttl`)),
     t(o, "dct:license", iri("https://creativecommons.org/licenses/by/4.0/")),
+    t(o, "owl:priorVersion", iri(`${o}/${ANTERIOR}`)),
   ];
   return [
     ...comun(ONTOLOGIA, "soc"),

@@ -88,6 +88,10 @@ const nextConfig: NextConfig = {
     "/instituciones": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/banca": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/provincias": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    // Las fichas de proceso, de proveedor y de obra son nodos del grafo: incrustan su schema.org.
+    "/procesos": ["./datos/grafo/ld/**"],
+    "/proveedores/": ["./datos/grafo/ld/**"],
+    "/obras": ["./datos/grafo/ld/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus (los procesos, además,
@@ -145,13 +149,17 @@ const nextConfig: NextConfig = {
       "/empresas/:rnc",
       "/normativa/decreto/:numero",
       "/provincias/:slug",
+      "/proveedores/:rpe(\\d+)",
+      "/procesos/:codigo",
+      "/obras/:snip(\\d+)",
     ];
     return [
       ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>
         fichas.map((ficha) => ({
           source: ficha,
           has: [{ type: "header" as const, key: "accept", value: acepta }],
-          destination: `/api/grafo?nodo=${ficha}&formato=${formato}`,
+          // El destino nombra los parámetros sin su patrón: `/proveedores/:rpe`.
+          destination: `/api/grafo?nodo=${ficha.replace(/\([^)]*\)/g, "")}&formato=${formato}`,
           statusCode: 303 as const,
         })),
       ),

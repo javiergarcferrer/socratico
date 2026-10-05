@@ -46,7 +46,7 @@ import {
   type PersonaCompilada,
 } from "@/lib/grafo-compilado";
 import { getResumenHistorico, historiaDeInstitucion, historiaDeProveedor, prefijoSinAsignar } from "@/lib/historico";
-import { FUENTES_DEL_CRUCE, INSTITUCIONES, institucionPorId, type Institucion } from "@/lib/instituciones";
+import { FUENTES_DEL_CRUCE, INSTITUCIONES, institucionDeUnidad, institucionPorId, type Institucion } from "@/lib/instituciones";
 import { buscarEmpresas, empresaPorRnc, padronEmpresas, type Empresa } from "@/lib/empresas";
 import { AVISO_DECRETO, hrefDecreto, type AvisoDecreto } from "@/lib/decretos-base";
 import { MATERIAS } from "@/lib/materias-decreto";
@@ -56,6 +56,7 @@ import { PREFIJOS, aNTriples, compactar, expandir, type Triple } from "@/lib/rdf
 import { desdeMayusculas } from "@/lib/congreso";
 import { agujas, contieneTodas, palabrasDeContenido, plano } from "@/lib/raiz";
 import { tituloHerramienta } from "@/lib/mcp-herramientas";
+import { ETAPAS, MODALIDADES, OBJETOS, type ClaveEtapa, type ClaveModalidad } from "@/lib/vocabulario-compras";
 import { llevaCedula, sinCedula } from "@/lib/padron";
 import { NOMBRES_TABLAS, TABLAS_GENERADAS, TABLAS_GRAFO, esquemaCompacto } from "@/lib/grafo-tablas";
 
@@ -80,25 +81,25 @@ import { NOMBRES_TABLAS, TABLAS_GENERADAS, TABLAS_GRAFO, esquemaCompacto } from 
  */
 
 /** Cambia cuando cambia la forma de una herramienta. */
-export const VERSION_MCP = "2.0.0";
+export const VERSION_MCP = "2.1.0";
 
 const AVISO =
   "Socrático.do es una herramienta independiente y no oficial: ordena lo que publica el Estado dominicano, con su fuente y su fecha de corte.";
 
 const INSTRUCCIONES = `Socrático.do ordena lo que publica el Estado dominicano. Es una herramienta independiente y no oficial.
 
-Qué hay: un grafo de personas con cargo público, instituciones del Estado, decretos, entidades financieras supervisadas, personas jurídicas del padrón de la DGII y provincias, con sus relaciones (cargos, firmas, supervisión, declaraciones juradas publicadas, medidas de la DGCP, la lista SDN de la OFAC, Wikidata); y un índice de búsqueda de compras públicas, proveedores, normas, iniciativas del Congreso, sentencias, obras, documentos institucionales y datos abiertos. Todo sale de instantáneas de fuentes públicas (del Estado dominicano, más la lista SDN de la OFAC y los identificadores de Wikidata): cada respuesta dice su fuente y su fecha de corte.
+Qué hay: un grafo de personas con cargo público, instituciones del Estado, decretos, entidades financieras supervisadas, personas jurídicas del padrón de la DGII, provincias, proveedores del Estado, procesos de compra y obras públicas, con sus relaciones (cargos, firmas, supervisión, declaraciones juradas publicadas, medidas de la DGCP, la lista SDN de la OFAC, Wikidata, quién convoca cada proceso, quién ejecuta cada obra y dónde, y a quién se le contrató); y un índice de búsqueda de compras públicas, proveedores, normas, iniciativas del Congreso, sentencias, obras, documentos institucionales y datos abiertos. Todo sale de instantáneas de fuentes públicas (del Estado dominicano, más la lista SDN de la OFAC y los identificadores de Wikidata): cada respuesta dice su fuente y su fecha de corte.
 
 Cómo se usa:
 0. Para una pregunta en llano, empieza por retrieve: trae en una llamada la evidencia con que contestarla (registros del buscador, las entidades del grafo que nombra con sus datos, relaciones y compras, y la consulta de compras que pide, si pide una), cada pieza con su fuente y su fecha, y las llamadas exactas para seguir.
 1. search con palabras: un nombre, un RNC de nueve cifras, «Decreto 497-25», un tema. Cada resultado trae un id. Ordena por parecido, no por monto ni fecha; con type se queda en un solo tipo (proceso, proveedor, norma…).
 2. fetch con ese id: el registro, con su fuente, su fecha y, si es un nodo del grafo, sus relaciones.
 3. Compras públicas: procurement filtra y ordena por monto o por fecha todos los procesos de compra de los últimos doce meses (por año, institución, estado, modalidad, objeto y palabras de la carátula) y da su total y su suma; contracting_history da lo contratado desde 2015 por un proveedor, por una institución o por el país, con sus mayores contrapartes. Para «la mayor», «las más recientes», «las abiertas» o «cuánto compra», usa estas, no search.
-4. query corre SQL de solo lectura sobre el grafo entero sin personas naturales (instituciones, proveedores, empresas, contrataciones, medidas, financieras) y los procesos de compra: para contar, cruzar y ordenar lo que las demás no ordenan. fetch con group y page recorre todas las relaciones de un nodo por páginas (quién dirige una institución: group cargos; a quién le contrató: group compras); path busca la cadena más corta de relaciones entre dos nodos, también a través de lo que una institución le contrató a una empresa; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo y dice dónde descargarlo.
+4. query corre SQL de solo lectura sobre las tablas del grafo sin personas naturales (instituciones, proveedores, empresas, contrataciones, medidas, financieras, provincias) y los procesos de compra: para contar, cruzar y ordenar lo que las demás no ordenan. fetch con group y page recorre todas las relaciones de un nodo por páginas (quién dirige una institución: group cargos; a quién le contrató: group compras; sus procesos y sus obras con sus contratos: group procesos y group obras); path busca la cadena más corta de relaciones entre dos nodos, también a través de lo que una institución le contrató a una empresa; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo y dice dónde descargarlo.
 
 Reglas al usar estos datos:
 - Cita la fuente y la fecha de corte de cada dato; son instantáneas, no tiempo real.
-- El valor de un proceso de compra es el estimado al publicarlo, no lo adjudicado ni lo pagado. Quién ganó un proceso no está en las instantáneas: la ficha del proceso (su url) lo lee en vivo de la DGCP.
+- El valor de un proceso de compra es el estimado al publicarlo, no lo adjudicado ni lo pagado. Quién ganó un proceso solo está en el grafo si el proceso es de una obra (sus contratos, de MapaInversiones); si no, la ficha del proceso (su url) lo lee en vivo de la DGCP.
 - «Persona expuesta políticamente» (PEP) es una categoría legal (Ley 155-17, art. 2, num. 19): quien ocupa, u ocupó en los últimos tres años, un cargo obligado a declarar patrimonio. No es una acusación.
 - Una persona se identifica por su nombre normalizado, nunca por su cédula. Dos grafías son dos nodos, y dos personas con el mismo nombre pueden ser distintas: no afirmes que dos registros son la misma persona si la respuesta no lo dice.
 - Una relación dice lo que registra su fuente (un cargo, una firma, una supervisión); no implica parentesco, sociedad ni conducta indebida.
@@ -232,7 +233,7 @@ function nodoDe(id: string, para: string): NodoRdf {
   const d = resolver(id);
   if (d?.clase === "nodo") return d.nodo;
   throw new Aviso(
-    `«${recortar(id, 120)}» no es un nodo del grafo. ${para} funciona con personas con cargo público, instituciones, entidades financieras, empresas, decretos con ficha y provincias: usa el id que devuelve search (por ejemplo «/funcionarios/luis-rodolfo-abinader-corona» o «/instituciones/5»).`,
+    `«${recortar(id, 120)}» no es un nodo del grafo. ${para} funciona con personas con cargo público, instituciones, entidades financieras, empresas, decretos con ficha, provincias, proveedores, procesos de compra y obras: usa el id que devuelve search (por ejemplo «/funcionarios/luis-rodolfo-abinader-corona», «/instituciones/5» u «/obras/12416»).`,
   );
 }
 
@@ -245,6 +246,9 @@ const CLASE_RDF: Record<TipoNodoRdf, string> = {
   empresa: "soc:Empresa",
   decreto: "soc:Decreto",
   provincia: "soc:Provincia",
+  proveedor: "soc:Proveedor",
+  proceso: "soc:ProcesoDeContratacion",
+  obra: "soc:ProyectoDeInversion",
 };
 
 /** De dónde sale un nodo y de cuándo es, y los cortes de todas las instantáneas del grafo (de ahí salen sus relaciones). */
@@ -323,6 +327,8 @@ function datosDe(triples: Triple[], sujeto: string): { dato: string; valor: stri
       else if (x.o.datatype === ENTERO_XSD) valor = ENTERO.format(Number(x.o.valor));
       else if (p === "dct:title" || p === "schema:description" || p === "do:etiquetaConsultoria") valor = desdeMayusculas(x.o.valor);
       else if (p === "do:aviso") valor = AVISO_DECRETO[x.o.valor as AvisoDecreto]?.llano ?? x.o.valor;
+      else if (p === "soc:valorEstimado" || p === "soc:monto") valor = `RD$ ${ENTERO.format(Number(x.o.valor))}`;
+      else if (p === "soc:avance") valor = `${x.o.valor} % (declarado)`;
       else valor = x.o.valor;
       if (p === "soc:pepVigente" && valor === "sí") {
         valor = "sí (ocupa, u ocupó en los últimos tres años, un cargo obligado a declarar patrimonio: Ley 155-17, art. 2, num. 19; es una categoría legal, no una acusación)";
@@ -596,6 +602,13 @@ async function comprasDelNodo(n: NodoRdf): Promise<Seccion | null> {
     const i = institucionPorId(n.id);
     return i ? comprasDeInstitucion(i) : null;
   }
+  // De un proceso, sus campos ya están en los datos del nodo: queda lo que la instantánea no trae (y los campos, en metadata).
+  if (n.tipo === "proceso") {
+    const s = await detalleDeProceso(n.id);
+    return s && { lineas: s.lineas.slice(Math.max(0, s.lineas.indexOf("## Lo que esta instantánea no trae") - 1)), metadata: s.metadata };
+  }
+  // De un proveedor, lo que se le contrató desde 2015.
+  if (n.tipo === "proveedor") return comprasDeProveedor(n.id);
   if (n.tipo !== "empresa") return null;
   const { proveedores } = await todosLosProveedores();
   const inscritos = proveedores.filter((x) => x.rnc === n.id).sort((a, b) => (b.contratos ?? 0) - (a.contratos ?? 0));
@@ -695,7 +708,10 @@ const Vecino = z.object({
   detalle: z.string().nullable(),
   movimiento: z.string().nullable(),
   fecha: z.string().nullable(),
-  monto: z.number().nullable().describe("Una contratación: el valor contratado desde 2015 en pesos (no pagado)."),
+  monto: z
+    .number()
+    .nullable()
+    .describe("Un monto en pesos, nunca lo pagado: lo contratado (una contratación desde 2015, un contrato de obra) o el valor estimado de un proceso o declarado de una obra; detalle dice cuál."),
   id: z
     .string()
     .nullable()
@@ -964,35 +980,7 @@ async function decretosFirmados(
 
 /* ------------------------------------------------------------ procurement */
 
-/** Las etapas de un proceso tal como las escribe el índice (`scripts/busqueda_procesos.py`, del literal de la DGCP). */
-const ETAPAS = {
-  abierto: "Abierto a ofertas",
-  cerrado: "Recepción cerrada",
-  evaluacion: "En evaluación",
-  adjudicado: "Adjudicado",
-  desierto: "Desierto",
-  cancelado: "Cancelado",
-  suspendido: "Suspendido",
-} as const;
-
-/** Las modalidades tal como las escribe el índice: el literal de la DGCP, dos dichas corto. */
-const MODALIDADES = {
-  lpn: "Licitación Pública Nacional",
-  lpi: "Licitación Pública Internacional",
-  lpa: "Licitación Pública Abreviada",
-  restringida: "Licitación Restringida",
-  comparacion: "Comparación de Precios",
-  subasta: "Subasta Inversa",
-  sorteo: "Sorteo de Obras",
-  menor: "Contratación Menor",
-  umbral: "Compra menor al umbral",
-  excepcion: "Excepción",
-} as const;
-
-const OBJETOS = { bienes: "Bienes", obras: "Obras", servicios: "Servicios" } as const;
-
-type ClaveEtapa = keyof typeof ETAPAS;
-type ClaveModalidad = keyof typeof MODALIDADES;
+// Las etapas, las modalidades y el objeto, como los escribe el índice: `lib/vocabulario-compras.ts`.
 const CLAVES_ETAPA = Object.keys(ETAPAS) as [ClaveEtapa, ...ClaveEtapa[]];
 const CLAVES_MODALIDAD = Object.keys(MODALIDADES) as [ClaveModalidad, ...ClaveModalidad[]];
 const CLAVES_OBJETO = Object.keys(OBJETOS) as [keyof typeof OBJETOS, ...(keyof typeof OBJETOS)[]];
@@ -1007,15 +995,7 @@ const FUENTE_PROCESOS = "Tabla de procesos de los datos abiertos de la DGCP (dat
 const NOTA_VALOR =
   "El valor es el estimado que la unidad de compra registró al publicar el proceso: no es lo adjudicado ni lo pagado, y puede traer errores de captura.";
 const NOTA_ADJUDICATARIO =
-  "Quién ganó un proceso y por cuánto no está en esta instantánea: la ficha del proceso (su url) lo lee en vivo de la DGCP. Lo contratado desde 2015 por proveedor e institución, agregado, lo da contracting_history.";
-
-/** La institución de cada unidad de compra, por su nombre: el cruce las nombra igual que la tabla de procesos. */
-let institucionPorUnidad: Map<string, Institucion> | null = null;
-
-function institucionDeUnidad(unidad: string): Institucion | null {
-  institucionPorUnidad ??= new Map(INSTITUCIONES.map((i) => [plano(i.nombre), i]));
-  return institucionPorUnidad.get(plano(unidad)) ?? null;
-}
+  "Quién ganó un proceso y por cuánto no lo dice la tabla de procesos: si el proceso es de una obra, sus contratos están en sus relaciones (MapaInversiones); si no, la ficha del proceso (su url) lo lee en vivo de la DGCP. Lo contratado desde 2015 por proveedor e institución, agregado, lo da contracting_history.";
 
 const rutaInstitucion = (i: Institucion) => rutaDeNodo({ tipo: "institucion", id: String(i.id) });
 
@@ -1831,6 +1811,9 @@ const NO_ES_OBJETO = new Set(
 
 const TOPE_RECUPERAR = { entidades: 3, evidencias: 10, compras: 5, relacionesPorGrupo: 5, hechos: 12, nombres: 3 } as const;
 
+/** Los nodos que son registros y no actores: entre los resultados del buscador, van como evidencia y no como entidad. */
+const REGISTROS: ReadonlySet<TipoNodoRdf> = new Set(["proceso", "obra", "proveedor"]);
+
 /** Lo que una pregunta escribe con mayúscula y no es un nombre: la palabra que la abre, o el Estado mismo. */
 const INTERROGATIVA = /^(qu[eé]|qui[eé]n(es)?|cu[aá]l(es)?|cu[aá]nt[oa]s?|d[oó]nde|c[oó]mo|cu[aá]ndo|por|dame|dime|lista|busca|hay|existe|existen)$/i;
 const GENERICAS = new Set(["estado", "pais", "gobierno", "republica", "republica dominicana", "dominicana", "dominicano", "rd", "socratico"]);
@@ -1974,7 +1957,9 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
   for (const r of h.resultados.slice(0, 10)) {
     if (!r.href) continue;
     const n = nodoDeRuta(r.href);
-    if (n) sumarNodo(n, "el buscador la trae entre los primeros resultados", false);
+    // Un proceso, una obra o un proveedor que trae el buscador ya va como evidencia:
+    // como entidad lo acompaña quien se nombra (una institución, una empresa), no el registro.
+    if (n && !REGISTROS.has(n.tipo)) sumarNodo(n, "el buscador la trae entre los primeros resultados", false);
     else if (r.tipo === "proveedor") {
       const rnc = /\bRNC (\d{9})\b/.exec(r.detalle ?? "")?.[1];
       if (rnc) sumarNodo({ tipo: "empresa", id: rnc }, "el buscador trae al proveedor, y su RNC es de esta empresa", false);
@@ -2489,7 +2474,7 @@ export function servidorMcp(): McpServer {
     "query",
     {
       title: tituloHerramienta("query"),
-      description: `SQL de solo lectura (DuckDB) sobre el grafo entero sin personas naturales y los procesos de compra: para lo que las otras herramientas no ordenan, cuentan ni cruzan (empresas con medidas de la DGCP que siguen contratando, las instituciones que más procesos de excepción publicaron, proveedores activos desde tal año). Una sola consulta SELECT (o WITH … SELECT); devuelve hasta ${TOPE_FILAS_SQL} filas; cada una se corta a los 10 s. Las tablas, con sus columnas:
+      description: `SQL de solo lectura (DuckDB) sobre las tablas del grafo sin personas naturales y los procesos de compra: para lo que las otras herramientas no ordenan, cuentan ni cruzan (empresas con medidas de la DGCP que siguen contratando, las instituciones que más procesos de excepción publicaron, proveedores activos desde tal año). Una sola consulta SELECT (o WITH … SELECT); devuelve hasta ${TOPE_FILAS_SQL} filas; cada una se corta a los 10 s. Las tablas, con sus columnas:
 ${esquemaCompacto()}
 Notas: contrataciones son solo los pares mayores (12 proveedores por institución, 8 clientes por empresa): para totales usa instituciones.monto_contratado o proveedores.monto_contratado; un NULL ahí no es cero (instituciones.sin_asignar dice cuándo sus contratos existen pero no se le atribuyen, como los del MOPC). Montos en pesos, contratados (no pagados); procesos.valor_estimado es el estimado al publicar. procesos.unidad_compra es texto: cruza con instituciones por nombre o siglas con cuidado. Las personas naturales no están en estas tablas: se leen una a una con fetch.`,
       inputSchema: z.strictObject({

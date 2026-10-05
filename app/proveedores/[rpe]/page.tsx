@@ -20,6 +20,8 @@ import { enlace } from "@/lib/grafo";
 import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import Conversacion from "@/components/espacios/conversacion";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { schemaOrgDe } from "@/lib/grafo-ld";
 import { MedidasDelProveedor, NotaBancoMundial, NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
 import { bancoMundialDeRpe, medidasDeRnc, medidasDeRpe, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
 
@@ -68,9 +70,12 @@ export async function generateMetadata({
     description: nombre
       ? `Contratos de ${nombre} con el Estado dominicano: a quién le vende, cuánto y desde cuándo, con su ficha del Registro de Proveedores (RPE ${rpe}).`
       : `Contratos del proveedor RPE ${rpe} con el Estado dominicano.`,
-    alternates: { canonical: enlace.proveedor(rpe) },
+    alternates: { canonical: enlace.proveedor(rpe), ...((await schemaOrgDe(nodoProveedor(rpe))) ? { types: alternasRdf(nodoProveedor(rpe)) } : {}) },
   };
 }
+
+/** El nodo del grafo de un RPE: sin ceros a la izquierda, como su IRI. */
+const nodoProveedor = (rpe: string) => ({ tipo: "proveedor" as const, id: String(Number(rpe)) });
 
 export default async function ProveedorPage({
   params,
@@ -533,6 +538,7 @@ export default async function ProveedorPage({
           </Card>
         </div>
       )}
+      <EnElGrafo nodo={nodoProveedor(rpe)} className="mt-6" />
       {/* El RPE sin ceros a la izquierda: un proveedor, una conversación. */}
       <Conversacion className="mt-6" referencia={{ tipo: "proveedor", ref: enlace.proveedor(String(Number(rpe))), titulo: nombre ?? `RPE ${rpe}`, href: enlace.proveedor(String(Number(rpe))) }} />
     </div>

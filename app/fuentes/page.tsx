@@ -864,6 +864,16 @@ export default async function FuentesPage() {
             , sin red): unos 22.8 mil de los 32 mil proveedores con contratos. El resto son
             personas físicas o proveedores de fuera, y quedan como proveedor, sin empresa.
           </p>
+          <p className="mt-3">
+            Cada proceso de esa tabla es también un nodo del grafo, con la institución que lo
+            convoca, su modalidad y su etapa el día del corte. Lo son también cada obra de
+            MapaInversiones, con los procesos y los contratos de obra que esa fuente le asocia,
+            y cada inscripción de proveedor que el registro cruza con un RNC del padrón o que
+            tiene contratos desde 2015, medidas de la DGCP o contratos de obra: quien se
+            inscribió con su cédula y no tiene nada de eso no es un nodo. Así el grafo dice de
+            qué obra es un proceso y a quién se le contrató, cuando MapaInversiones lo publica;
+            del resto de los procesos, quién ganó lo dice su ficha, en vivo.
+          </p>
         </Fuente>
 
         <Fuente nombre="DGCP · medidas sobre proveedores" estado="activa" etiqueta="Instantánea local">

@@ -156,10 +156,20 @@ function enRuta(ruta: string): string {
  * Los nodos que el grafo semántico describe en RDF (`lib/grafo-rdf.ts`,
  * `/api/grafo`): los que tienen ficha y se leen de una instantánea. El `id`
  * es el de su dirección: el slug de la persona, el código de la institución,
- * el slug de la entidad financiera, el RNC, el número «NNN-AA» del decreto o
- * el slug de la provincia.
+ * el slug de la entidad financiera, el RNC, el número «NNN-AA» del decreto,
+ * el slug de la provincia, el RPE del proveedor, el código del proceso de
+ * compra (tal cual, con sus espacios si los trae) o el SNIP de la obra.
  */
-export type TipoNodoRdf = "funcionario" | "institucion" | "entidad-financiera" | "empresa" | "decreto" | "provincia";
+export type TipoNodoRdf =
+  | "funcionario"
+  | "institucion"
+  | "entidad-financiera"
+  | "empresa"
+  | "decreto"
+  | "provincia"
+  | "proveedor"
+  | "proceso"
+  | "obra";
 
 export interface NodoRdf {
   tipo: TipoNodoRdf;
@@ -185,8 +195,21 @@ export function rutaDeNodo(n: NodoRdf): string {
       return enlace.norma("decreto", n.id) ?? `/normativa?q=${encodeURIComponent(n.id)}`;
     case "provincia":
       return enlace.provincia(n.id);
+    case "proveedor":
+      return enlace.proveedor(n.id);
+    case "proceso":
+      return enlace.proceso(n.id);
+    case "obra":
+      return enlace.obra(n.id);
   }
 }
+
+/**
+ * Un código de proceso de la DGCP como lo escribe su tabla: casi siempre
+ * `SIGLAS-XXX-MOD-AAAA-NNNN`, pero una unidad de compra puede escribir sus
+ * siglas con espacios, puntos o minúsculas («Inst. Nac. de Cancer-DAF-CM-2026-0247»).
+ */
+const CODIGO_DE_PROCESO = /^[\p{L}\p{N}][\p{L}\p{N} .,&()/_-]{2,79}$/u;
 
 /** El nodo que describe una ruta de la plataforma, o `null`. Acepta la ruta con o sin `#id`. */
 export function nodoDeRuta(ruta: string): NodoRdf | null {
@@ -207,6 +230,13 @@ export function nodoDeRuta(ruta: string): NodoRdf | null {
     return { tipo: "decreto", id: numeroCanonico("decreto", m[1]) };
   }
   if ((m = /^\/provincias\/([a-z0-9-]{3,60})$/.exec(r))) return { tipo: "provincia", id: m[1] };
+  // Sin ceros a la izquierda: «/proveedores/007» es el RPE 7, con un solo IRI.
+  if ((m = /^\/proveedores\/(\d{1,8})$/.exec(r))) return { tipo: "proveedor", id: String(Number(m[1])) };
+  if ((m = /^\/obras\/(\d{1,8})$/.exec(r))) return { tipo: "obra", id: String(Number(m[1])) };
+  if ((m = /^\/procesos\/([^/]+)$/.exec(r))) {
+    const codigo = d(m[1]).trim();
+    return CODIGO_DE_PROCESO.test(codigo) ? { tipo: "proceso", id: codigo } : null;
+  }
   return null;
 }
 

@@ -182,29 +182,31 @@ El layout envuelve el cuerpo en `NuqsAdapter` y `ProveedorConsultas`
 | `app/api/sql/route.ts` | 30 |
 
 **Tamaño del trazado por función** (suma de los archivos que lista cada
-`.next/server/app/**/*.nft.json`, en MB de 10⁶ bytes; medido 2026-10-02 sobre
+`.next/server/app/**/*.nft.json`, en MB de 10⁶ bytes; medido 2026-10-05 sobre
 el `next build` del árbol actual). Vercel admite hasta 250 MB por función.
 
 | Función | MB |
 |---|---|
-| `/mcp` | 163.0 |
+| `/mcp` | 184.9 |
 | `/buscar` | 99.7 |
 | `/proveedores` | 99.2 |
 | `/api/buscar` | 98.5 |
 | `/api/sql` | 76.7 |
-| `/.well-known/void` | 49.2 |
-| `/instituciones/[id]` | 45.9 |
-| `/grafo`, `/grafo/camino` | 44.5 |
-| `/api/grafo` | 43.8 |
+| `/.well-known/void` | 71.1 |
+| `/grafo`, `/grafo/camino` | 66.5 |
+| `/api/grafo` | 65.7 |
+| `/instituciones/[id]` | 49.6 |
 | `/fuentes` | 39.4 |
-| `/normativa/[tipo]/[numero]` | 28.2 |
-| `/funcionarios/[slug]` | 23.8 |
-| `/funcionarios/[slug]/decretos` | 23.1 |
-| `/empresas/[rnc]` | 22.1 |
-| `/empresas` | 20.9 |
-| `/provincias/[slug]` | 15.6 |
-| `/proveedores/[rpe]` | 15.1 |
-| `/banca/[slug]` | 11.4 |
+| `/normativa/[tipo]/[numero]` | 31.9 |
+| `/funcionarios/[slug]` | 27.4 |
+| `/funcionarios/[slug]/decretos` | 26.8 |
+| `/empresas/[rnc]` | 25.7 |
+| `/empresas` | 24.5 |
+| `/proveedores/[rpe]` | 21.3 |
+| `/provincias/[slug]` | 19.3 |
+| `/banca/[slug]` | 15.1 |
+| `/procesos/[codigo]` | 12.8 |
+| `/obras/[snip]` | 12.7 |
 
 **Primera llamada en Vercel** (vistas previas recién desplegadas, primera
 llamada a cada función, ida y vuelta incluida):
@@ -267,7 +269,7 @@ y los tipos de `.next/`; excluye `node_modules`, `supabase/functions` (Deno) y
 
 ### 2.4 Módulos de `lib/` por capa
 
-101 archivos. 33 leen archivos del disco (`fs` o `node:fs`, con rutas desde
+102 archivos. 33 leen archivos del disco (`fs` o `node:fs`, con rutas desde
 `process.cwd()`) y solo corren en el servidor; 5 llevan `"use client"`
 (`busquedas.ts`, `espacios-cliente.ts`, `recientes.ts`, `sesion.ts`,
 `supabase.ts`); 18 leen la red con `lib/pedir.ts` (§4.2). Ningún módulo usa
@@ -276,7 +278,7 @@ el paquete `server-only`.
 | Capa | Archivos | Módulos |
 |---|---|---|
 | Lectura (§4) | 5 | `pedir.ts`, `html.ts`, `xlsx.ts`, `documentos.ts`, `consultas.ts` |
-| Adaptadores de fuente (§5) | 52 | Por vertical, en la tabla siguiente |
+| Adaptadores de fuente (§5) | 53 | Por vertical, en la tabla siguiente |
 | Grafo (§7) | 14 | `grafo.ts`, `grafo-servidor.ts`, `grafo-rdf.ts`, `grafo-compilado.ts`, `grafo-constructores.ts`, `grafo-ld.ts`, `grafo-nodo.ts`, `grafo-sql.ts`, `sql-hijo.cjs`, `grafo-tablas.ts`, `rdf.ts`, `ontologia.ts`, `ontologia-esquemas.ts`, `wikidata.ts` |
 | Búsqueda (§8) | 5 | `busqueda.ts`, `busqueda-esquema.ts`, `buscar.ts` (atajos de `/buscar` y del middleware), `pantallas.ts`, `raiz.ts` (raíz de una palabra, con `@orama/stemmers` y `@orama/stopwords`) |
 | MCP (§9) | 3 | `mcp.ts`, `mcp-herramientas.ts`, `tablas-compras.ts` |
@@ -291,7 +293,7 @@ ejecución; «Disco»: lee instantáneas de `public/data/`; «—»: no lee nada
 
 | Vertical | Módulos (lectura) |
 |---|---|
-| Compras públicas (5) | `dgcp.ts` (red), `historico.ts` (disco), `rnc.ts` (disco), `sanciones.ts` (disco), `medidas.ts` (—) |
+| Compras públicas (6) | `dgcp.ts` (red), `historico.ts` (disco), `rnc.ts` (disco), `sanciones.ts` (disco), `medidas.ts` (—), `vocabulario-compras.ts` (—: modalidades, etapas, objeto de la compra y sectores de la inversión, con el literal de la fuente de cada uno) |
 | Finanzas públicas (3) | `fiscal.ts` (disco), `capitulos.ts` (—), `subsidio.ts` (disco) |
 | Deuda (2) | `deuda.ts` (red y disco), `subastas.ts` (disco) |
 | Dinero (2) | `banco-central.ts` (red), `tenedores.ts` (disco) |
@@ -409,9 +411,9 @@ Columnas de las tablas de §3.2 y §3.3:
 | Ruta | Qué muestra | Parámetros | Lee de | Render |
 |---|---|---|---|---|
 | `/licitaciones` | Buscador de procesos de la DGCP; `app/buscador.tsx` (cliente) dentro de `Suspense`, con la silueta del buscador en el HTML | `q`, `etapa`, `estado` (literal de la DGCP, se traduce a su etapa), `modalidad`, `desde`, `hasta`, `mipyme`, `orden`, `uc`, `page` (`components/licitaciones-url.ts`) | navegador: `/api/procesos`, `/api/procesos/csv`, `/api/unidades`, `/api/feed` | ○ |
-| `/procesos/[codigo]` | Ficha de un proceso: datos, documentos en el visor, competencia, precios de la subclase, obra ligada, seguimiento, conversación | código del proceso | `dgcp` (`getProceso`, `getCompetencia`), `obras` (`obrasDeProceso`) | ƒ |
+| `/procesos/[codigo]` | Ficha de un proceso: datos, documentos en el visor, competencia, precios de la subclase, obra ligada, seguimiento, schema.org si es nodo del grafo, conversación | código del proceso | `dgcp` (`getProceso`, `getCompetencia`), `obras` (`obrasDeProceso`), `grafo-ld` | ƒ |
 | `/proveedores` | Quién le vende al Estado: búsqueda exacta por RPE, RNC o cédula en el registro, o por nombre; los que más se adjudican, los que más contratos ganan, la ficha del registro de los 10 mayores | `q` | `dgcp` (`buscarProveedores`, `muestrearProveedores`, `contarProveedoresRegistrados`, `registrosDeProveedores`), `busqueda` (`buscarEnTodo`, tipo `proveedor`) | ƒ · 1800 |
-| `/proveedores/[rpe]` | Ficha de proveedor: contratos, ficha del RPE, registro tributario, medidas de la DGCP, OFAC y Banco Mundial, compras desde 2015 | RPE `^\d{1,10}$`; 404 si no hay historial, registro ni medidas | `dgcp` (`getHistorialProveedor`, `getProveedorRegistro`), `rnc` (`getRegistroTributario`), `sanciones`, `historico` (vía `historia-compras.tsx`) | ƒ |
+| `/proveedores/[rpe]` | Ficha de proveedor: contratos, ficha del RPE, registro tributario, medidas de la DGCP, OFAC y Banco Mundial, compras desde 2015, schema.org si es nodo del grafo | RPE `^\d{1,10}$`; 404 si no hay historial, registro ni medidas | `dgcp` (`getHistorialProveedor`, `getProveedorRegistro`), `rnc` (`getRegistroTributario`), `sanciones`, `historico` (vía `historia-compras.tsx`), `grafo-ld` | ƒ |
 | `/proveedores/inhabilitados` | Medidas de la DGCP sobre proveedores (tipo, fecha, resolución, motivo), entidades ligadas al país en la lista de la OFAC y en la del Banco Mundial | `q`, `grupo`, `tipo`, `anio`, `p` | `sanciones` (`getSanciones`) | ƒ · 86400 |
 | `/estadisticas` | Procesos de los últimos 30 días agregados | — | `dgcp` (`dgcpFetch`) | ○ · 1800 |
 | `/contratos` | Los contratos más recientes del registro de la DGCP: montos, adjudicatarios, instituciones; descarga en `/contratos/csv` | — | `dgcp` (`muestrearContratos`) | ○ · 1800 |
@@ -520,7 +522,7 @@ Componentes compartidos que leen por su cuenta en varias fichas: `components/esp
 | Ruta | Qué muestra | Parámetros | Lee de | Render |
 |---|---|---|---|---|
 | `/obras` | Proyectos de inversión de MapaInversiones | `q`, `estado`, `provincia`, `uc`, `pagina` | `obras` (`getObras`), `mapa` (`getMapa`) | ƒ · 86400 |
-| `/obras/[snip]` | Una obra: estado, valor, avance declarado, contratos y procesos | SNIP `^\d{1,7}$` | `obras` (`getObra`) | ƒ · 86400 |
+| `/obras/[snip]` | Una obra: estado, valor, avance declarado, contratos y procesos, schema.org | SNIP `^\d{1,7}$` | `obras` (`getObra`), `grafo-ld` | ƒ · 86400 |
 
 #### El país y sus datos
 
@@ -2728,9 +2730,9 @@ node --no-warnings scripts/build-indice-busqueda.mjs
 
 | Directorio | Qué hay | Cómo se alcanza |
 |---|---|---|
-| `public/data/` | 754 archivos, 241,118,798 B | archivo estático en `/data/<ruta>` con `Cache-Control: public, max-age=3600, stale-while-revalidate=86400` (`headers()` de `next.config.ts`, fuente `/:dir(data\|tablas)/:path*`); los módulos de `lib/` lo leen además con `node:fs` desde las funciones |
-| `public/tablas/` | 9 tablas Parquet y `meta.json`, 3,985,819 B | `/tablas/<archivo>`, misma cabecera; `/api/sql` las abre con DuckDB (§7) |
-| `datos/grafo/` | 1,688 archivos, 27,984,955 B | fuera de `public/`: no tiene URL; viaja en las funciones que lo declaran en `outputFileTracingIncludes` (§1, §7) |
+| `public/data/` | 754 archivos, 255,557,139 B | archivo estático en `/data/<ruta>` con `Cache-Control: public, max-age=3600, stale-while-revalidate=86400` (`headers()` de `next.config.ts`, fuente `/:dir(data\|tablas)/:path*`); los módulos de `lib/` lo leen además con `node:fs` desde las funciones |
+| `public/tablas/` | 9 tablas Parquet y `meta.json`, 3,996,866 B | `/tablas/<archivo>`, misma cabecera; `/api/sql` las abre con DuckDB (§7) |
+| `datos/grafo/` | 3,251 archivos, 53,574,303 B | fuera de `public/`: no tiene URL; viaja en las funciones que lo declaran en `outputFileTracingIncludes` (§1, §7) |
 
 El navegador pide directamente `/data/nomina.json` (`lib/nomina.ts`, con `preload` en `/nomina`); `/proveedores/inhabilitados` enlaza `/data/sanciones.json` para descargar, y el grafo publica `/data/grafo/grafo.nt.gz`. `outputFileTracingExcludes` deja fuera de toda función `congreso.json`, `sentencias.json`, `busqueda/corpus.json` y los dos volcados del grafo: se sirven solo como archivo.
 
@@ -2777,9 +2779,9 @@ El navegador pide directamente `/data/nomina.json` (`lib/nomina.ts`, con `preloa
 | `build-modelo-semantico.py` | Hugging Face, `minishlab/potion-multilingual-128M`; `wordfreq`; títulos de las instantáneas (§8) | `public/data/busqueda/tokenizer.json`, `modelo.bin`, `modelo.json` | 2,741,288 B + 9,614,484 B + 162 B | `modelo.json` no lleva fecha (72,837 piezas, 128 dimensiones) | `nomina.json`, `catalogo.json`, `obras.json`, `normativa.json`, `documentos/filas.json`, `instituciones.json` |
 | `build-busqueda.py` | sin red (§8) | `public/data/busqueda/corpus.json`, `vectores.bin` | 47,422,621 B + 20,539,728 B | `corpus.json`: `generado` 2026-09-30, `huella` `ad382ba3b866b275`, 204,685 entradas | `instituciones.json`, `normativa.json`, `leyes.json`, `obras.json`, `documentos/`, `catalogo.json`, `nomina.json`, `procesos.json`, `sentencias.json`, `congreso.json`, `funcionarios.json`, `banca.json`, `rnc/`, `historico/proveedores/`, el modelo de `busqueda/` |
 | `build-indice-busqueda.mjs` | sin red (§8) | `public/data/busqueda/indice.bin` | 64,152,504 B | cabecera `SIB2`, etiqueta `2026-09-30\|ad382ba3b866b275\|204685` | `busqueda/corpus.json`, `busqueda/vectores.bin` |
-| `build-grafo.mjs` | sin red: `lib/grafo-constructores.ts` sobre las instantáneas (§7) | `datos/grafo/` (1,688 archivos) | 27,984,955 B | `meta.json`: `generado` 2026-10-02, `aFecha` 2026-09-29 | todas las instantáneas que leen los constructores |
-| `build-grafo-volcado.mjs` | sin red: el grafo compilado (§7) | `public/data/grafo/`: `grafo.nt.gz`, `grafo.trig.gz`, `meta.json` | 11,193,069 B | `generado` 2026-10-02; `cortes` de cada fuente | `datos/grafo/`, `instituciones.json`, `banca.json`, `historico/resumen.json`, `historico/rnc.json`, `empresas/meta.json`, `sanciones.json`, `wikidata.json` |
-| `build-grafo-tablas.mjs` | sin red: el volcado y las instantáneas (§7) | `public/tablas/` (9 Parquet y `meta.json`) | 3,985,819 B | `meta.json`: `generado` 2026-10-02 | `grafo/grafo.nt.gz`, `historico/`, `instituciones.json`, `procesos.json`, `empresas/meta.json`, `sanciones.json`, `banca.json`, `wikidata.json` |
+| `build-grafo.mjs` | sin red: `lib/grafo-constructores.ts` sobre las instantáneas (§7) | `datos/grafo/` (3,251 archivos) | 53,574,303 B | `meta.json`: `generado` 2026-10-05, `aFecha` 2026-09-29 | todas las instantáneas que leen los constructores |
+| `build-grafo-volcado.mjs` | sin red: el grafo compilado (§7) | `public/data/grafo/`: `grafo.nt.gz`, `grafo.trig.gz`, `meta.json` | 25,631,410 B | `generado` 2026-10-05; `cortes` de cada fuente | `datos/grafo/` (y `clavesDeCompras` de los constructores), `instituciones.json`, `banca.json`, `historico/resumen.json`, `historico/rnc.json`, `historico/proveedores/`, `rnc/`, `obras.json`, `obras-detalle.json`, `procesos.json`, `empresas/meta.json`, `sanciones.json`, `wikidata.json` |
+| `build-grafo-tablas.mjs` | sin red: el volcado y las instantáneas (§7) | `public/tablas/` (9 Parquet y `meta.json`) | 3,996,866 B | `meta.json`: `generado` 2026-10-05 | `grafo/grafo.nt.gz`, `historico/`, `instituciones.json`, `procesos.json`, `empresas/meta.json`, `sanciones.json`, `banca.json`, `wikidata.json` |
 
 Los demás archivos de `scripts/` no escriben instantáneas: `busqueda_*.py` son lectores de entradas del corpus que importa `build-busqueda.py`; `privacidad.py` (`sin_cedula`) y `consultoria_decretos.py` son módulos compartidos; `eval-mcp.mjs`, `validar-grafo.mjs`, `probar-pantallas.mjs` y `menciones-sin-enlace.mjs` comprueban sin escribir; `aplicar-auth-supabase.sh` es de §10; `certificados/sectigo-ov-r36.pem` es el intermedio que usa `build-funcionarios.py`.
 
@@ -2828,11 +2830,11 @@ Reconocimiento de menciones en un texto (`Mencion`: inicio, fin, tipo, `href`):
 - `components/conectado-con.tsx` (`ConectadoCon`, tipo `Arista`: etiqueta, `href`, cuenta, nombre, fuente) es el bloque «Conectado con» de 13 fichas (`app/{empresas,procesos,banca,normativa,funcionarios,instituciones,obras,proveedores,provincias,finanzas}/…` y las tres del Congreso); una arista con cuenta cero no se pinta.
 - `app/normativa/[tipo]/[numero]/page.tsx` responde a una norma que no está en la Consultoría con `NormaFueraDeAlcance`.
 
-Los nodos del grafo semántico son seis (`TipoNodoRdf`): `funcionario`, `institucion`, `entidad-financiera`, `empresa`, `decreto`, `provincia`. `rutaDeNodo` da su ruta estable (la institución sin sufijo de nombre: `/instituciones/5`) y `nodoDeRuta` hace lo inverso, con o sin `#id` y canonizando el número de decreto.
+Los nodos del grafo semántico son nueve (`TipoNodoRdf`): `funcionario`, `institucion`, `entidad-financiera`, `empresa`, `decreto`, `provincia`, `proveedor` (por su RPE), `proceso` (por su código) y `obra` (por su SNIP). `rutaDeNodo` da su ruta estable (la institución sin sufijo de nombre: `/instituciones/5`) y `nodoDeRuta` hace lo inverso, con o sin `#id`, canonizando el número de decreto, quitando los ceros a la izquierda del RPE y del SNIP y decodificando el código de proceso, que se acepta si casa con `CODIGO_DE_PROCESO` (letra o cifra, luego hasta 79 letras, cifras, espacios o `.,&()/_-`: hay unidades de compra que escriben sus siglas con espacios, puntos o tildes, como «Inst. Nac. de Cancer-DAF-CM-2026-0247»).
 
 ### 7.2 Ontología (`lib/ontologia.ts`)
 
-Una sola definición (`CLASES`, `PROPIEDADES`, `esquemas()`) de la que salen todas las formas. `VERSION = "2.0.0"`, `PUBLICADA = "2026-10-01"`. Al cargar el módulo se comprueba que ningún nombre local se repite entre clases, propiedades, esquemas y conceptos de los dos módulos (lanza si se repite).
+Una sola definición (`CLASES`, `PROPIEDADES`, `esquemas()`) de la que salen todas las formas. `VERSION = "2.1.0"`, `PUBLICADA = "2026-10-05"`, `ANTERIOR = "2.0.0"` (la cabecera de los dos módulos lleva `owl:priorVersion` a `…/<módulo>/2.0.0`). Al cargar el módulo se comprueba que ningún nombre local se repite entre clases, propiedades, esquemas y conceptos de los dos módulos (lanza si se repite). Los vocabularios cerrados de compras y obras (modalidades, etapas, objeto de la compra, sectores de la inversión) salen de `lib/vocabulario-compras.ts`, módulo puro que comparten la ontología, `lib/tablas-compras.ts`, `procurement` del MCP y los constructores.
 
 Espacios de nombres (`lib/rdf.ts`, escritos así en el código):
 
@@ -2848,17 +2850,18 @@ Espacios de nombres (`lib/rdf.ts`, escritos así en el código):
 
 `do:` declara `dct:requires` del núcleo (no `owl:imports`). Los dos módulos se sirven en un mismo documento. `PREFIJOS` declara 23 prefijos (`soc`, `do`, `rdf`, `rdfs`, `owl`, `xsd`, `skos`, `dct`, `foaf`, `schema`, `org`, `rov`, `eli`, `void`, `vann`, `vs`, `prov`, `oa`, `adms`, `epo`, `sh`, `fabric`, `wd`).
 
-Conteo (calculado del módulo el 2026-10-02; `resumenOntologia()` da los mismos):
+Conteo (calculado del módulo el 2026-10-05; `resumenOntologia()` da los mismos):
 
 | | Total | Núcleo `soc:` | `do:` | En uso | Definido | Con término de la v1 |
 |---|---|---|---|---|---|---|
-| Clases | 35 | 34 | 1 (`MedidaDGCP`) | 17 | 18 | 14 |
-| Propiedades | 65 (43 de objeto, 22 de dato) | 58 | 7 (`rnc`, `rpe`, `numeralLey311`, `snip`, `tipoDeMedida`, `etiquetaConsultoria`, `aviso`) | 33 | 32 | 33 |
-| Esquemas SKOS | 7, con 74 conceptos | 1 (`tiposDeEvento`, 9) | 6: `materias` (17), `movimientos` (9), `sectores` (8), `familiasPep` (9), `tiposDeMedida` (15), `esquemasDeIdentificador` (7) | — | — | 5 esquemas |
+| Clases | 35 | 34 | 1 (`MedidaDGCP`) | 20 | 15 | 14 |
+| Propiedades | 72 (48 de objeto, 24 de dato) | 65 | 7 (`rnc`, `rpe`, `numeralLey311`, `snip`, `tipoDeMedida`, `etiquetaConsultoria`, `aviso`) | 48 | 24 | 33 |
+| Esquemas SKOS | 11, con 113 conceptos | 2: `tiposDeEvento` (9), `objetosDeCompra` (3) | 9: `materias` (17), `movimientos` (9), `sectores` (8), `familiasPep` (9), `tiposDeMedida` (15), `modalidades` (10), `etapas` (7), `sectoresDeInversion` (19), `esquemasDeIdentificador` (7) | — | — | 5 esquemas |
 
-- **Estado** (`vs:term_status`): «en uso» → `stable`; «definido» → `testing`. Clases en uso: `soc:Persona`, `PersonaExpuestaPoliticamente`, `Organizacion`, `Institucion`, `EntidadFinanciera`, `Empresa`, `Proveedor`, `Cargo`, `Norma`, `Decreto`, `Documento`, `DeclaracionJurada`, `Contratacion`, `Sancion`, `Lugar`, `Provincia` y `do:MedidaDGCP`. Definidas sin instancias: `Partido`, `Puesto`, `Ocupacion`, `Membresia`, `Evento`, `Ley`, `Iniciativa`, `Votacion`, `Sentencia`, `Mencion`, `ProcesoDeContratacion`, `Adjudicacion`, `Contrato`, `ProyectoDeInversion`, `PartidaPresupuestaria`, `Municipio`, `Identificador`, `Instantanea`.
+- **Estado** (`vs:term_status`): «en uso» → `stable`; «definido» → `testing`. Clases en uso: `soc:Persona`, `PersonaExpuestaPoliticamente`, `Organizacion`, `Institucion`, `EntidadFinanciera`, `Empresa`, `Proveedor`, `Cargo`, `Norma`, `Decreto`, `Documento`, `DeclaracionJurada`, `ProcesoDeContratacion`, `Contrato`, `Contratacion`, `Sancion`, `ProyectoDeInversion`, `Lugar`, `Provincia` y `do:MedidaDGCP`. Definidas sin instancias: `Partido`, `Puesto`, `Ocupacion`, `Membresia`, `Evento`, `Ley`, `Iniciativa`, `Votacion`, `Sentencia`, `Mencion`, `Adjudicacion`, `PartidaPresupuestaria`, `Municipio`, `Identificador`, `Instantanea`.
+- **Compras y obras** (en uso desde la 2.1.0). Propiedades nuevas: `codigo` (proceso y contrato, `rdfs:subPropertyOf dct:identifier`, funcional y obligatoria), `modalidad`, `etapa`, `objetoDeCompra` (proceso → concepto, funcionales), `paraProyecto` (proceso o contrato → proyecto), `avance` (`xsd:decimal`, en por ciento tal como lo publica la fuente: 112 de las 3,609 obras del corte del 2026-09-22 declaran más de 100, hasta 500) y `sectorDeInversion` (proyecto → concepto). Ampliadas de dominio: `fecha` (+ proceso: la de publicación), `estado` (+ proyecto y contrato), `valorEstimado` (+ proyecto), `enProvincia` (+ proyecto), `desde` y `hasta` (+ proyecto), `contratista` (+ contrato, obligatoria en él), `delProceso` (+ contrato). `comprador` deja de ser obligatoria: un proceso que el grafo conoce solo por un proyecto de MapaInversiones, fuera de la tabla de procesos, no trae comprador. `ejecutadoPor` pasa a funcional; `snip`, a obligatoria en el proyecto. Los conceptos de `do:modalidades` y `do:etapas` llevan en `skos:definition` los literales de la DGCP que les corresponden («Sobres estan abriendose» y «Sobres abiertos o aperturados» son `do:etapa-evaluacion`).
 - **Herencia interna** (`padre`, una por clase, 13 clases): Institución, Entidad financiera, Empresa y Partido → `soc:Organizacion`; Decreto y Ley → `soc:Norma`; PEP → `soc:Persona`; Votación → `soc:Evento`; Declaración jurada y Sentencia → `soc:Documento`; `do:MedidaDGCP` → `soc:Sancion`; Provincia y Municipio → `soc:Lugar`.
-- **Alineaciones externas**: `rdfs:subClassOf` hacia 26 clases de schema.org, FOAF, W3C ORG, ROV, PROV-O, ELI, Web Annotation (`oa:`), ePO y ADMS (`subClaseDe`); `rdfs:subPropertyOf` hacia 22 propiedades de ORG, schema.org, Dublin Core, ELI, Web Annotation, ADMS y SKOS (`subPropiedadDe`); `skos:closeMatch`/`skos:broadMatch` a Wikidata en 10 clases (Q5, Q106155, Q327333, Q650241, Q43229, Q294414, Q2571972, Q820655, Q454263, Q913337); esquema de FollowTheMoney (`ftm`) en 28 clases; `owl:hasKey` en `soc:Empresa` (`do:rnc`) y `soc:Proveedor` (`do:rpe`); inversas `ocupa`↔`titular` y `firmadoPor`↔`firmo`; 27 propiedades funcionales; 16 propiedades obligatorias en alguna clase (`obligatoriaEn`).
+- **Alineaciones externas**: `rdfs:subClassOf` hacia 26 clases de schema.org, FOAF, W3C ORG, ROV, PROV-O, ELI, Web Annotation (`oa:`), ePO y ADMS (`subClaseDe`); `rdfs:subPropertyOf` hacia 23 propiedades de ORG, schema.org, Dublin Core, ELI, Web Annotation, ADMS y SKOS (`subPropiedadDe`); `skos:closeMatch`/`skos:broadMatch` a Wikidata en 10 clases (Q5, Q106155, Q327333, Q650241, Q43229, Q294414, Q2571972, Q820655, Q454263, Q913337); esquema de FollowTheMoney (`ftm`) en 28 clases; `owl:hasKey` en `soc:Empresa` (`do:rnc`) y `soc:Proveedor` (`do:rpe`); inversas `ocupa`↔`titular` y `firmadoPor`↔`firmo`; 34 propiedades funcionales; 17 propiedades obligatorias en alguna clase (`obligatoriaEn`).
 - **Versión 1**: cada término con `v1: true` se declara en `ESPACIO_V1` con su tipo, como `rdfs:subClassOf`/`rdfs:subPropertyOf` del de ahora y `owl:deprecated true`; cada concepto de los 5 esquemas con `v1`, `skos:exactMatch` a su IRI de la v1. La cabecera del núcleo lleva `owl:priorVersion` a la v1.
 - **Varios dominios o rangos**: `owl:unionOf` en un nodo en blanco (`owl:Class` o `rdfs:Datatype`).
 
@@ -2866,9 +2869,9 @@ Salidas de la misma definición:
 
 | Salida | Función | Ruta | Contenido |
 |---|---|---|---|
-| OWL 2 y RDFS | `triplesOntologia()` | `/ontologia.ttl`, `/ontologia.jsonld`, `/ontologia.nt` | 1,562 triples |
-| SHACL | `triplesFormas()` | `/ontologia.shacl.ttl` | 537 triples: una `sh:NodeShape` por clase (35), 84 formas de propiedad (tipo de dato, o `sh:class` con `sh:nodeKind sh:BlankNodeOrIRI`; `sh:or` en 11; `sh:maxCount 1` en 36; `sh:minCount 1` en 18) |
-| Perfil Microsoft Fabric IQ | `triplesFabric()` | `/ontologia.fabric.ttl` | 970 triples: 35 tipos y 92 propiedades (51 de objeto, 41 de dato) en `fabric:`; nombres `^[A-Za-z0-9_-]{1,26}$` (`NOMBRE_FABRIC`), únicos (lanza si no); una propiedad por par dominio-rango (`fecha_Norma`); rango a concepto, texto con idioma o unión de datos → `xsd:string`; cada término con `rdfs:seeAlso` al suyo de `soc:`/`do:`. El comentario de `triplesFabric` declara que el perfil no se verificó con una importación real. |
+| OWL 2 y RDFS | `triplesOntologia()` | `/ontologia.ttl`, `/ontologia.jsonld`, `/ontologia.nt` | 1,863 triples |
+| SHACL | `triplesFormas()` | `/ontologia.shacl.ttl` | 622 triples: una `sh:NodeShape` por clase (35), 102 formas de propiedad (tipo de dato, o `sh:class` con `sh:nodeKind sh:BlankNodeOrIRI`; `sh:or` en 12; `sh:maxCount 1` en 49; `sh:minCount 1` en 21) |
+| Perfil Microsoft Fabric IQ | `triplesFabric()` | `/ontologia.fabric.ttl` | 1,114 triples: 35 tipos y 110 propiedades (56 de objeto, 54 de dato) en `fabric:`; nombres `^[A-Za-z0-9_-]{1,26}$` (`NOMBRE_FABRIC`), únicos (lanza si no); una propiedad por par dominio-rango (`fecha_Norma`); rango a concepto, texto con idioma o unión de datos → `xsd:string`; cada término con `rdfs:seeAlso` al suyo de `soc:`/`do:`. El comentario de `triplesFabric` declara que el perfil no se verificó con una importación real. |
 | Página | `CLASES`, `PROPIEDADES`, `esquemas()`, `resumenOntologia()` | `/ontologia` (`app/ontologia/page.tsx`) | un ancla por término |
 | MCP | — | herramienta `ontology` (§9.2) | |
 
@@ -2890,13 +2893,13 @@ Módulo puro, sin dependencias. `Termino` (IRI, literal con idioma o tipo, nodo 
 
 `serializar(triples, formato, cabecera?)` elige (la cabecera, como comentario, solo en Turtle y TriG). `formatoDeAccept` devuelve `null` si `Accept` está vacío o incluye `text/html`; ninguna ruta la llama: la negociación la hace `redirects()` (abajo).
 
-IRIs de las cosas (`iriDe` en `lib/grafo-nodo.ts`): `${SITIO}${rutaDeNodo(n)}#id`, con `SITIO = "https://socratico.vercel.app"` (`lib/sitio.ts`). Nodos intermedios: un cargo, `/funcionarios/<slug>#cargo-<huella>` (FNV-1a en base 36, `lib/grafo-constructores.ts`); una medida de la DGCP, `/proveedores/<rpe>#medida-<huella>`; una contratación, `/proveedores/<rpe>#contratacion-<id de institución>`, el mismo IRI desde la institución y desde el proveedor. Un decreto sin ficha usa la URL de su PDF (`CONSULTORIA_PDF = "https://www.consultoria.gov.do/api/document/"`).
+IRIs de las cosas (`iriDe` en `lib/grafo-nodo.ts`): `${SITIO}${rutaDeNodo(n)}#id`, con `SITIO = "https://socratico.vercel.app"` (`lib/sitio.ts`); el de un proceso lleva su código codificado (`/procesos/Inst.%20Nac.%20de%20Cancer-DAF-CM-2026-0247#id`). Nodos intermedios: un cargo, `/funcionarios/<slug>#cargo-<huella>` (FNV-1a en base 36, `lib/grafo-constructores.ts`); una medida de la DGCP, `/proveedores/<rpe>#medida-<huella>`; una contratación, `/proveedores/<rpe>#contratacion-<id de institución>`, el mismo IRI desde la institución y desde el proveedor; un contrato de obra, `/proveedores/<rpe>#contrato-<código del contrato>`, el mismo desde la obra, el proceso, el proveedor y la empresa. Un decreto sin ficha usa la URL de su PDF (`CONSULTORIA_PDF = "https://www.consultoria.gov.do/api/document/"`).
 
 Negociación de contenido (`redirects()` de `next.config.ts`; el resto del archivo en §1):
 
 | Ruta pedida | Condición (`has` sobre `accept`, sin `text/html`) | Destino (303) |
 |---|---|---|
-| `/funcionarios/:slug`, `/instituciones/:id`, `/banca/:slug`, `/empresas/:rnc`, `/normativa/decreto/:numero`, `/provincias/:slug` | `text/turtle` o `application/x-turtle`, `application/ld+json`, `application/n-triples`, `application/trig`, `application/n-quads` | `/api/grafo?nodo=<ficha>&formato=<ttl\|jsonld\|nt\|trig\|nq>` |
+| `/funcionarios/:slug`, `/instituciones/:id`, `/banca/:slug`, `/empresas/:rnc`, `/normativa/decreto/:numero`, `/provincias/:slug`, `/proveedores/:rpe(\d+)`, `/procesos/:codigo`, `/obras/:snip(\d+)` | `text/turtle` o `application/x-turtle`, `application/ld+json`, `application/n-triples`, `application/trig`, `application/n-quads` | `/api/grafo?nodo=<ficha>&formato=<ttl\|jsonld\|nt\|trig\|nq>` (el destino nombra el parámetro sin su patrón) |
 | `/ontologia` | Turtle, JSON-LD o N-Triples | `/ontologia.<ttl\|jsonld\|nt>` |
 | `/def/:modulo(core\|do)/:version?` | Turtle, JSON-LD o N-Triples | `/ontologia.<formato>`; sin esa cabecera, `/ontologia` |
 | `/def/formas` · `/def/fabric` | siempre | `/ontologia.shacl.ttl` · `/ontologia.fabric.ttl` |
@@ -2906,42 +2909,47 @@ Ni `next.config.ts` ni las rutas declaran `Vary: Accept`.
 
 ### 7.4 El grafo compilado (`datos/grafo/`)
 
-**Constructores** (`lib/grafo-constructores.ts`). `describirEnVivo(n, ligero)` arma los triples de un nodo desde las instantáneas (`describirPersona`, `describirInstitucion`, `describirFinanciera`, `describirEmpresa`, `describirDecreto`, `describirProvincia`); cada vecino lleva su `rdfs:label`. `ligero` deja el nodo con sus datos propios (de ahí sale el schema.org de la ficha). Topes que la descripción declara en `nota`: `TOPE_CARGOS = 200` cargos vigentes de una institución; `TOPE_FIRMADOS = 20` decretos más recientes de un firmante; los 12 mayores proveedores de una institución (de `lib/historico.ts`). También exporta `grafosEnVivo()`, `inventarioEnVivo()` y `enlacesWikidataEnVivo()`. Ninguna ruta lo importa: el paso 2g de `verificar.sh` falla si algún archivo de `app`, `components` o `lib` importa `@/lib/grafo-constructores`.
+**Constructores** (`lib/grafo-constructores.ts`). `describirEnVivo(n, ligero)` arma los triples de un nodo desde las instantáneas (`describirPersona`, `describirInstitucion`, `describirFinanciera`, `describirEmpresa`, `describirDecreto`, `describirProvincia`, `describirProveedor`, `describirProceso`, `describirObra`); cada vecino lleva su `rdfs:label` y, si es un proveedor, un proceso o una obra, su tipo y sus datos obligatorios (RPE, código, SNIP) y los mismos valor, fecha y estado que dice su propia descripción. `ligero` deja el nodo con sus datos propios (de ahí sale el schema.org de la ficha). Topes que la descripción declara en `nota`: `TOPE_CARGOS = 200` cargos vigentes de una institución; `TOPE_FIRMADOS = 20` decretos más recientes de un firmante; los 12 mayores proveedores de una institución (de `lib/historico.ts`); `TOPE_COMPRAS = 12`: los procesos de mayor valor estimado (a igual valor, el más reciente) y las obras de mayor valor de una institución, las obras de mayor valor de una provincia, los contratos de obra de mayor monto de un proveedor o de una empresa. También exporta `grafosEnVivo()`, `inventarioEnVivo()`, `enlacesWikidataEnVivo()` y `clavesDeCompras()`. Ninguna ruta lo importa: el paso 2g de `verificar.sh` falla si algún archivo de `app`, `components` o `lib` importa `@/lib/grafo-constructores`.
 
-**Compilador** (`scripts/build-grafo.mjs`, tras las demás instantáneas; §6). Corre en Node sin Next: `scripts/cargador-ts.mjs` (`registrarTs`) quita los tipos con `module.stripTypeScriptTypes`, resuelve `@/`, carga un JSON como módulo y sustituye `next/cache` por un `unstable_cache` que no guarda. Recorre cada nodo de cada tipo en orden `TIPOS_COMPILADOS` (`provincia`, `institucion`, `entidad-financiera`, `funcionario`, `decreto`, `empresa`); un decreto es nodo si su fila del registro tiene ficha; las empresas salen de `public/data/empresas/filas/`. Por nodo:
+**Compras y obras en los constructores.** `indiceProcesos()` indexa la tabla de procesos (`todosLosProcesos`) por código y por institución compradora (`institucionDeUnidad` de `lib/instituciones.ts`: el nombre de la unidad de compra en `plano()`). `indiceObras()` indexa `obras.json` y `obras-detalle.json`: por SNIP, por institución ejecutora (`uc`) y por provincia (`provinciaDeTexto`); proceso ↔ obras (el índice de procesos de MapaInversiones, los procesos del detalle y el proceso de cada contrato), y los contratos de obra unidos por RPE y código —MapaInversiones repite un contrato en cada proyecto que paga (uno llega a 101) y uno modificado con el monto original y el modificado: queda uno, con todos sus proyectos y el mayor monto; 5,587 filas son 985 contratos—. `clavesDeCompras()` da el conjunto exacto de nodos: proveedores del cruce del registro con el padrón (`public/data/rnc/`, 80,877), de la historia de contratos, de las medidas y de los contratos de obra (90,555); procesos de la tabla y los que nombran las obras (79,674: 77,790 y 1,884); obras (3,609). Un proceso fuera de la tabla dice lo que MapaInversiones trae de él (título, valor estimado, y modalidad y etapa si su literal está en el vocabulario: «Compras Menores» y «No Definido» no lo están), sin comprador ni fecha. El nombre de un proveedor es uno en todas las descripciones (`nombreDeProveedor`): el de su historia de contratos, el de sus medidas, el que escribe MapaInversiones, la razón social de su RNC o «RPE n», cada uno en el grafo de su fuente. Un literal de modalidad, etapa, objeto o sector de inversión que `lib/vocabulario-compras.ts` no tiene detiene el compilador.
+
+**Compilador** (`scripts/build-grafo.mjs`, tras las demás instantáneas; §6). Corre en Node sin Next: `scripts/cargador-ts.mjs` (`registrarTs`) quita los tipos con `module.stripTypeScriptTypes`, resuelve `@/`, carga un JSON como módulo y sustituye `next/cache` por un `unstable_cache` que no guarda. Recorre cada nodo de cada tipo en orden `TIPOS_COMPILADOS` (`provincia`, `institucion`, `entidad-financiera`, `funcionario`, `decreto`, `empresa`, `proveedor`, `obra`, `proceso`); un decreto es nodo si su fila del registro tiene ficha; las empresas salen de `public/data/empresas/filas/`; los proveedores, las obras y los procesos, de `clavesDeCompras()`. Por nodo:
 - pasa cada sujeto con un tipo `soc:`/`do:` por `esquemaClase` de su clase (`contraLaOntologia`); si uno no cabe, no escribe nada;
 - una empresa cuya descripción es idéntica a `describirEmpresaSola(fila del padrón)` (la empresa que el grafo no liga a nada) no se escribe;
 - reparte en fragmentos en orden de clave (`BYTES_POR_FRAGMENTO = 160_000` estimados; `BYTES_POR_FRAGMENTO_LD = 96_000`), brotli calidad 11, en paralelo en el pool de libuv.
 
-Luego escribe `meta.json`, `ld/meta.json`, `nombres.json.br`, `firmados/` y `compras.json`, y ejecuta la comprobación. `node scripts/build-grafo.mjs --comprobar` solo comprueba: relee cada nodo por `describir()` y `schemaOrgDe()` (los lectores del servidor) y lo compara triple a triple, grafo a grafo, con `describirEnVivo`; compara el índice de vecinos, el inventario, los grafos con nombre, `compras.json`, `nombres.json.br`, cada archivo de `firmados/`, cada decreto por número y una batería de búsquedas por nombre contra `filtrarPersonas`/`filtrarEntidades`; sale con 1 si algo difiere. Lo corre el paso 5d del gate completo (§12). Medido el 2026-10-02 sobre este árbol: «idéntico a los constructores: 536,196 nodos y el schema.org de 536,196 fichas, 3,390,509 triples compilados», 438 búsquedas, 49 firmas y 27,544 decretos por número, 104 s.
+Luego escribe `meta.json`, `ld/meta.json`, `nombres.json.br`, `firmados/` y `compras.json`, y ejecuta la comprobación. `node scripts/build-grafo.mjs --comprobar` solo comprueba: relee cada nodo por `describir()` y `schemaOrgDe()` (los lectores del servidor) y lo compara triple a triple, grafo a grafo, con `describirEnVivo`; compara el índice de vecinos, el inventario, los grafos con nombre, `compras.json`, `nombres.json.br`, cada archivo de `firmados/`, cada decreto por número y una batería de búsquedas por nombre contra `filtrarPersonas`/`filtrarEntidades`; sale con 1 si algo difiere. Lo corre el paso 5d del gate completo (§12). Medido el 2026-10-05 sobre este árbol: «idéntico a los constructores: 710,034 nodos y el schema.org de 710,034 fichas, 6,203,483 triples compilados», 438 búsquedas, 49 firmas y 27,544 decretos por número, 184 s; compilar y comprobar, 519 s.
 
 **Formato** (`lib/grafo-nodo.ts`, módulo puro). `FORMATO_GRAFO = 2`; `metaGrafo()` y `metaLd()` rechazan otro número. `claveCompilada`: institución → su número sin ceros a la izquierda; empresa → RNC en cifras; decreto → número sin espacios; los demás, su `id`. `fragmentoDe(clave, limites)` es una búsqueda binaria sobre la primera clave de cada fragmento. Archivo de fragmento: `archivoFragmento(i)` → `NNN.json.br`.
 - `FragmentoNodos`: `terminos` (tabla de términos codificados: IRI como cadena; literal `["v"]`, `["v","es"]`, `["v",0,"<tipo>"]`; nodo en blanco `{b}`) y `nodos[clave] = [título, nota, índices]`, cuatro enteros por triple (sujeto, predicado, objeto en la tabla; grafo en `meta.grafos`).
 - `FragmentoVecinos` (filas comprimidas, CSR): `cadenas`, `claves`, `titulos`, `inicio`, `aristas` en tríos `[destino tipo:id, vía sin dirección, nombre]`.
 
-Contenido de `datos/grafo/` (versionado en git: 1,688 archivos, 27,984,955 bytes):
+Contenido de `datos/grafo/` (versionado en git: 3,251 archivos, 53,574,303 bytes):
 
 | Ruta | Archivos | Bytes | Qué es |
 |---|---|---|---|
-| `meta.json` | 1 | 25,408 | formato, fechas, grafos con nombre, firmantes, tipos, inventario, Wikidata, huella |
-| `nodos/<tipo>/NNN.json.br` | 668 (provincia 2, institución 44, entidad financiera 3, funcionario 89, decreto 181, empresa 349) | 19,040,418 | la descripción entera de cada nodo |
-| `vecinos/<tipo>/NNN.json.br` | 668 (mismos fragmentos) | 3,963,148 | aristas de cada nodo hacia otros nodos |
-| `ld/<tipo>/NNN.json.br` + `ld/meta.json` | 299 + 1 | 2,509,983 | el JSON-LD de schema.org de cada ficha |
+| `meta.json` | 1 | 36,617 | formato, fechas, grafos con nombre, firmantes, tipos, inventario, Wikidata, huella |
+| `nodos/<tipo>/NNN.json.br` | 1,248 (provincia 3, institución 52, entidad financiera 3, funcionario 89, decreto 181, empresa 361, proveedor 274, obra 40, proceso 245) | 34,615,325 | la descripción entera de cada nodo |
+| `vecinos/<tipo>/NNN.json.br` | 1,248 (mismos fragmentos) | 10,313,367 | aristas de cada nodo hacia otros nodos |
+| `ld/<tipo>/NNN.json.br` + `ld/meta.json` | 702 + 1 | 6,162,996 | el JSON-LD de schema.org de cada ficha |
 | `nombres.json.br` | 1 | 435,055 | 15,612 personas `[id, nombre, texto plano, puntaje, cargo principal, firma]` y 1,300 entidades financieras `[slug, nombre, tipo, rnc, texto plano]` |
 | `firmados/NNN.json.br` | 49 (uno por firma, en el orden de `meta.firmantes`) | 1,997,017 | 77,099 filas `[número, fecha, título, materia, institución, aviso, año, ficha, docId]` |
 | `compras.json` | 1 | 13,926 | `publicadoPorInstitucion`: corte 2026-09-25, cobertura 2025-09-25 → 2026-09-25, `[procesos, suma estimada]` de 667 instituciones |
 
-`meta.json` (`generado` 2026-10-02; `aFecha` 2026-09-29, el corte de personas con que se calcula el estado PEP vía `haceTresAnios` de `lib/funcionarios.ts`):
+`meta.json` (`generado` 2026-10-05; `aFecha` 2026-09-29, el corte de personas con que se calcula el estado PEP vía `haceTresAnios` de `lib/funcionarios.ts`):
 
 | Tipo | Nodos con registro | Triples | Fragmentos |
 |---|---|---|---|
-| `provincia` | 32 | 8,153 | 2 |
-| `institucion` | 894 | 220,277 | 44 |
+| `provincia` | 32 | 10,457 | 3 |
+| `institucion` | 894 | 260,713 | 52 |
 | `entidad-financiera` | 1,300 | 13,270 | 3 |
 | `funcionario` | 15,612 | 405,888 | 89 |
 | `decreto` | 27,544 | 841,543 | 181 |
-| `empresa` | 79,291 | 1,901,378 | 349 |
-| **Total** | **124,673** | **3,390,509** | **668** |
+| `empresa` | 79,291 | 1,946,375 | 361 |
+| `proveedor` | 90,555 | 1,440,104 | 274 |
+| `obra` | 3,609 | 194,171 | 40 |
+| `proceso` | 79,674 | 1,090,962 | 245 |
+| **Total** | **298,511** | **6,203,483** | **1,248** |
 
 `empresasSolas`: 411,523 empresas del padrón sin registro (las describe `describirEmpresaSola`). `huella`: sha256 de las rutas y bytes de los fragmentos. `firmantes`: 49 firmas. `wikidata`: 109 enlaces (45 personas, 30 instituciones, 2 entidades financieras, 32 provincias), consultados el 2026-09-30. `inventario` (lo que leen `/grafo`, VoID y `fetch`):
 
@@ -2956,13 +2964,16 @@ Contenido de `datos/grafo/` (versionado en git: 1,688 archivos, 27,984,955 bytes
 | `soc:Provincia` | 32 | ONE | — |
 | `soc:DeclaracionJurada` | 105 | Portales de transparencia | 2026-09-30 |
 | `do:MedidaDGCP` | 2,263 | DGCP | 2026-09-30 |
-| `soc:Proveedor` | 22,872 | DGCP (contratos) | 2026-09-22 |
+| `soc:Proveedor` | 90,555 | DGCP (registro de proveedores, contratos y medidas) y MapaInversiones | 2026-09-22 |
 | `soc:Contratacion` | 71,965 | DGCP (contratos) | 2026-09-22 |
+| `soc:ProcesoDeContratacion` | 79,674 | DGCP (procesos de los últimos doce meses) y MapaInversiones | 2026-09-25 |
+| `soc:ProyectoDeInversion` | 3,609 | MapaInversiones | 2026-09-22 |
+| `soc:Contrato` | 985 | MapaInversiones | 2026-09-22 |
 
 **Lectores del servidor.**
 - `lib/grafo-compilado.ts`: `metaGrafo()` (memoizado por instancia), `leerDescripcion(n)` (abre un fragmento; caché de 128 fragmentos por instancia, `MAX_FRAGMENTOS`, se descarta el más viejo), `leerVecinos(n)` (misma caché para `vecinos/`), `triplesDeGrafos` (PROV-O de los grafos), `comprasPublicadas()`, `buscarPersonas(q)`, `personaCompilada(id)`, `buscarFinancieras(q)` (sobre `nombres.json.br`), `decretosFirmados(clave)` (un archivo de `firmados/`) y `decretoCompilado(numero)`. Lanza si el compilado no está.
 - `lib/grafo-ld.ts`: `aSchemaOrg(triples, sujeto)` convierte los triples de schema.org del sujeto (más `owl:sameAs` → `sameAs`, `foaf:page` → `url`) en un objeto JSON-LD; `schemaOrgDe(n, empresa?)` lo lee de `ld/` (caché de 64 fragmentos) o, para una empresa sin registro, lo calcula de su fila del padrón.
-- `components/en-el-grafo.tsx` (`EnElGrafo`, componente de servidor) incrusta ese JSON-LD en un `<script type="application/ld+json">` (con `<` escapado) y enlaza a `enlace.grafo` y a Turtle, JSON-LD y TriG. `alternasRdf(nodo)` da los cinco `<link rel="alternate">` para `metadata.alternates.types`. Lo usan las seis fichas de nodo: `app/{funcionarios/[slug],instituciones/[id],banca/[slug],empresas/[rnc],normativa/[tipo]/[numero],provincias/[slug]}/page.tsx`.
+- `components/en-el-grafo.tsx` (`EnElGrafo`, componente de servidor) incrusta ese JSON-LD en un `<script type="application/ld+json">` (con `<` escapado) y enlaza a `enlace.grafo` y a Turtle, JSON-LD y TriG; si el compilado no trae el nodo, no pinta nada. `alternasRdf(nodo)` da los cinco `<link rel="alternate">` para `metadata.alternates.types`. Lo usan las nueve fichas de nodo: `app/{funcionarios/[slug],instituciones/[id],banca/[slug],empresas/[rnc],normativa/[tipo]/[numero],provincias/[slug],proveedores/[rpe],procesos/[codigo],obras/[snip]}/page.tsx`. Las de proceso y de proveedor leen su fuente en vivo y conocen registros que el grafo no: declaran sus alternas RDF solo si `schemaOrgDe` encuentra el nodo.
 
 `datos/grafo/` está fuera de `public/` y no se sirve por la CDN; llega a las funciones por `outputFileTracingIncludes` de `next.config.ts`:
 
@@ -2971,16 +2982,16 @@ Contenido de `datos/grafo/` (versionado en git: 1,688 archivos, 27,984,955 bytes
 | `/grafo` (casa también `/grafo/camino` y `/api/grafo`) | `meta.json`, `nodos/**`, `vecinos/**`, `nombres.json.br` (más `public/data/empresas/**` y `wikidata.json`) |
 | `/mcp` | `meta.json`, `nodos/**`, `vecinos/**`, `compras.json`, `nombres.json.br`, `firmados/**` |
 | `/.well-known` | `meta.json` |
-| `/funcionarios`, `/normativa`, `/instituciones`, `/banca`, `/provincias`, `/empresas` | `ld/**` |
+| `/funcionarios`, `/normativa`, `/instituciones`, `/banca`, `/provincias`, `/empresas`, `/procesos`, `/proveedores/`, `/obras` | `ld/**` |
 
 ### 7.5 Grafos con nombre
 
-Cada constructor registra cada triple con la clave de su grafo (`Afirmaciones.de(grafo, …)`, `ClaveGrafo` en `lib/grafo-nodo.ts`); el compilado guarda la clave como cuarto índice. `grafosEnVivo()` define cada grafo con su etiqueta, su descripción, sus URLs de origen (`prov:wasDerivedFrom`) y su corte, leídos de las instantáneas. El IRI lo pone el compilador (`conIri`): `${W3ID}/fuente/<clave>/<corte>` para una fuente; `${W3ID}/derivado/<clave>/<día de compilación>` para una regla. `meta.json` trae 30 grafos:
+Cada constructor registra cada triple con la clave de su grafo (`Afirmaciones.de(grafo, …)`, `ClaveGrafo` en `lib/grafo-nodo.ts`); el compilado guarda la clave como cuarto índice. `grafosEnVivo()` define cada grafo con su etiqueta, su descripción, sus URLs de origen (`prov:wasDerivedFrom`) y su corte, leídos de las instantáneas. El IRI lo pone el compilador (`conIri`): `${W3ID}/fuente/<clave>/<corte>` para una fuente; `${W3ID}/derivado/<clave>/<día de compilación>` para una regla. `meta.json` trae 32 grafos:
 
 | Clase | Claves | Corte |
 |---|---|---|
-| Fuente (23) | `instituciones`; `cargos-map`, `cargos-decreto`, `cargos-scj`, `cargos-cpj`, `cargos-tc`, `cargos-tse`, `cargos-jce`, `cargos-jce-suplentes`, `cargos-defensor`, `cargos-jce2024`, `cargos-congreso`, `cargos-bcrd`; `decretos`; `declaraciones`; `banca`; `padron`; `proveedores`; `contratos`; `medidas`; `ofac`; `wikidata`; `provincias` | 2026-09-29, salvo `declaraciones` y `wikidata` (2026-09-30), `padron` (2026-09-19), `contratos` y `medidas` (2026-09-22) y `provincias` (sin corte) |
-| Regla de Socrático (7) | `personas` (identidad por nombre normalizado), `pep` (Ley 155-17 art. 2 num. 19 y Ley 311-14), `vigente` (cargos de hoy y quién encabeza), `identidad` (un mismo ente en dos registros), `firma` (firma y designación de decretos), `materia` (materia de cada decreto), `plataforma` (ficha de cada nodo y nombre provisional) | derivado de los grafos que lista `derivado.de`; IRI con 2026-10-02 |
+| Fuente (25) | `instituciones`; `cargos-map`, `cargos-decreto`, `cargos-scj`, `cargos-cpj`, `cargos-tc`, `cargos-tse`, `cargos-jce`, `cargos-jce-suplentes`, `cargos-defensor`, `cargos-jce2024`, `cargos-congreso`, `cargos-bcrd`; `decretos`; `declaraciones`; `banca`; `padron`; `proveedores`; `contratos`; `medidas`; `procesos` (la tabla de procesos de la DGCP); `obras` (los CSV de MapaInversiones en `…/opendata/`); `ofac`; `wikidata`; `provincias` | 2026-09-29, salvo `declaraciones` y `wikidata` (2026-09-30), `padron` (2026-09-19), `contratos` y `medidas` (2026-09-22), `procesos` (2026-09-25), `obras` (2026-09-22) y `provincias` (sin corte) |
+| Regla de Socrático (7) | `personas` (identidad por nombre normalizado), `pep` (Ley 155-17 art. 2 num. 19 y Ley 311-14), `vigente` (cargos de hoy y quién encabeza), `identidad` (un mismo ente en dos registros), `firma` (firma y designación de decretos), `materia` (materia de cada decreto), `plataforma` (ficha de cada nodo y nombre provisional) | derivado de los grafos que lista `derivado.de`; IRI con 2026-10-05 |
 
 `cuadruplesDe(d)` (`lib/grafo-rdf.ts`) pone cada triple en el IRI de su grafo y antepone, en el grafo por omisión, lo que `triplesDeGrafos` dice de los grafos usados: `prov:Entity`, `rdfs:label`, `dct:description`, `dct:date`, `prov:wasDerivedFrom` y, en una regla, `prov:wasAttributedTo` el sitio. Lo sirve `/api/grafo` con `formato=trig` o `nq`. Un IRI de grafo pedido al sitio (`/fuente/…`, `/derivado/…`) redirige a `/fuentes` (§7.3).
 
@@ -2988,10 +2999,10 @@ Cada constructor registra cada triple con la clave de su grafo (`Afirmaciones.de
 
 - `describir(n)`: `leerDescripcion`; si es una empresa que no está, `describirEmpresaSola` sobre `empresaPorRnc`. `describirRuta(ruta)` la combina con `nodoDeRuta`.
 - `inventario()`, `enlacesWikidata()`: de `meta.json`. `volcadoDelGrafo()`: de `public/data/grafo/meta.json` (§7.8).
-- `relacionesDesdeTriples(triples, sujeto)`: las aristas del nodo leídas de sus triples, atravesando el nodo de cargo. Cada `Relacion` lleva grupo, verbo, forma sin dirección (`neutro`), nodo de destino si es uno, `href`, nombre, detalle, movimiento, fecha y monto. `GRUPOS` (6, en orden): `cargos`, `compras` («Mayores contrataciones desde 2015»: «Contrató a» desde la institución, «Le contrató» desde la empresa), `decretos`, `entidades`, `lugares`, `registros`. `CLASE_DE_TIPO` da la clase en llano de cada tipo.
+- `relacionesDesdeTriples(triples, sujeto)`: las aristas del nodo leídas de sus triples, atravesando los nodos intermedios (cargo, contratación, contrato de obra). Cada `Relacion` lleva grupo, verbo, forma sin dirección (`neutro`), nodo de destino si es uno, `href`, nombre, detalle, movimiento, fecha y monto. `GRUPOS` (8, en orden): `cargos`, `compras` («Mayores contrataciones desde 2015»: «Contrató a» desde la institución, «Le contrató» desde la empresa o el proveedor), `procesos` («Procesos de compra»: «Lo convoca» y «Convocó» por `soc:comprador`; «Proceso de compra» desde la obra; «Contrato con» desde el proceso; «Contrato del proceso» desde el proveedor o la empresa), `obras` («Obras públicas y sus contratos»: «La ejecuta» y «Ejecuta» por `soc:ejecutadoPor`; «Para la obra» desde el proceso; «Obra en la provincia»; «Contrato con» desde la obra; «Contrato en la obra» desde el proveedor o la empresa), `decretos`, `entidades` (con «Es la inscripción de», del proveedor a su empresa), `lugares` (con «En la provincia», de la obra), `registros`. El detalle de una obra vecina es su valor y su estado; el de un proceso que convocó una institución, su valor estimado y su fecha; el de un contrato, su código y su estado, con su monto. `CLASE_DE_TIPO` da la clase en llano de cada tipo.
 - `vecindario(n)`: título, clase, nota y relaciones. `vecinosDe(n)`: del índice de vecinos; si no está (empresa sin registro), de `vecindario`.
 - `camino(de, a)`: búsqueda en anchura desde los dos extremos (avanza el lado con menos frontera; un lado agotado no cierra el otro), aristas sin dirección, `TOPE_CAMINO = { saltos: 6, fichas: 300 }`; devuelve `pasos`, `exploradas` y `motivo` (`agotado`, `saltos`, `fichas` o `null`). Se cachea con `unstable_cache` por par sin orden, clave `["grafo-camino", VERSION_CAMINO ("3"), huella del compilado, nodo, nodo]`, `revalidate: 86400`.
-- `buscarNodos(q)`: número de decreto (de `decretoCompilado`) o RNC de nueve cifras primero; si no, personas y entidades financieras del índice de nombres, instituciones (`buscarInstituciones`) y provincias por todas las palabras; topes `TOPE_CANDIDATOS` (8 personas, 5 instituciones, 4 financieras, 16 en total) y `truncado`; el nombre exacto va primero.
+- `buscarNodos(q)`: número de decreto (de `decretoCompilado`), RNC de nueve cifras, código de proceso (tal cual o en mayúsculas), «RPE 123» o «SNIP 12416» primero (`nodoPorIdentificador`, que lee el nodo del compilado); si no, personas y entidades financieras del índice de nombres, instituciones (`buscarInstituciones`) y provincias por todas las palabras; topes `TOPE_CANDIDATOS` (8 personas, 5 instituciones, 4 financieras, 16 en total) y `truncado`; el nombre exacto va primero.
 
 ### 7.7 Rutas del grafo
 
@@ -3007,25 +3018,25 @@ Cada constructor registra cada triple con la clave de su grafo (`Afirmaciones.de
 
 ### 7.8 Volcado sin personas naturales (`public/data/grafo/`)
 
-`scripts/build-grafo-volcado.mjs` (tras el compilador) lee cada nodo con `describir()` del compilado. Nodos de entrada: las 894 instituciones, las 1,300 entidades financieras, las 32 provincias y las empresas con RNC de nueve cifras que aparecen en `historico/rnc.json`, en `banca.json` o en `sanciones.json` (medidas de personas jurídicas y OFAC). Filtro (`esPersonal`): se descarta todo triple cuyo sujeto u objeto sea un IRI bajo `/funcionarios/`, `/normativa/decreto/`, `/congreso/` o `CONSULTORIA_PDF`, una declaración jurada, o un proveedor (`/proveedores/<rpe>#…`) que no esté atado a una empresa por `soc:inscritaComo`. Antes de escribir, relee el N-Triples y el TriG con N3.js, exige el mismo número de triples y cuádruplos, y lanza si algún triple toca `/funcionarios/`.
+`scripts/build-grafo-volcado.mjs` (tras el compilador) lee cada nodo con `describir()` del compilado. Nodos de entrada: las 894 instituciones, las 1,300 entidades financieras, las 32 provincias; las empresas con RNC de nueve cifras que aparecen en `historico/rnc.json`, en `banca.json` o en `sanciones.json` (medidas de personas jurídicas y OFAC), y las de los contratistas de obra (por el cruce de `public/data/rnc/`); los proveedores que el grafo liga a algo (con contratos desde 2015, con medidas o con contratos de obra), y los 79,674 procesos y las 3,609 obras de `clavesDeCompras`. Filtro (`esPersonal`): se descarta todo triple cuyo sujeto u objeto sea un IRI bajo `/funcionarios/`, `/normativa/decreto/`, `/congreso/` o `CONSULTORIA_PDF`, una declaración jurada, o un IRI de proveedor (`/proveedores/<rpe>#…`: el proveedor, sus contrataciones, sus medidas y sus contratos de obra) cuyo RPE no está atado a una empresa por `soc:inscritaComo`. Antes de escribir, relee el N-Triples y el TriG con N3.js, exige el mismo número de triples y cuádruplos, y lanza si algún triple toca `/funcionarios/`.
 
-| Archivo | Bytes | Contenido (generado 2026-10-02) |
+| Archivo | Bytes | Contenido (generado 2026-10-05) |
 |---|---|---|
-| `grafo.nt.gz` | 7,454,609 | 816,229 triples, N-Triples, gzip nivel 9 |
-| `grafo.trig.gz` | 3,736,978 | 863,795 cuádruplos en 11 grafos: `contratos` 496,560, `padron` 236,679, `proveedores` 73,380, `plataforma` 27,532, `medidas` 11,889, `banca` 10,572, `instituciones` 6,850, `provincias` 162, `identidad` 96, `wikidata` 64, `ofac` 11; PROV-O de cada grafo en el grafo por omisión |
-| `meta.json` | 1,482 | nodos (894 instituciones, 1,300 financieras, 32 provincias, 23,672 empresas, 4 sin ficha), clases (Contratacion 71,466; Proveedor 24,460; Empresa 23,668; MedidaDGCP 1,732; EntidadFinanciera 1,300; Institucion 894; Provincia 32), cortes y `excluye` |
+| `grafo.nt.gz` | 16,611,632 | 1,851,935 triples, N-Triples, gzip nivel 9 |
+| `grafo.trig.gz` | 9,017,971 | 1,900,667 cuádruplos en 13 grafos: `procesos` 855,547, `contratos` 496,560, `padron` 237,558, `plataforma` 134,180, `proveedores` 73,395, `obras` 72,974, `medidas` 12,698, `banca` 10,572, `instituciones` 6,850, `provincias` 162, `identidad` 96, `wikidata` 64, `ofac` 11; PROV-O de cada grafo en el grafo por omisión |
+| `meta.json` | 1,807 | nodos (894 instituciones, 1,300 financieras, 32 provincias, 23,677 empresas, 24,465 proveedores, 79,674 procesos, 3,609 obras, 4 sin ficha), clases (ProcesoDeContratacion 79,674; Contratacion 71,466; Proveedor 24,465; Empresa 23,673; ProyectoDeInversion 3,609; MedidaDGCP 1,732; EntidadFinanciera 1,300; Contrato 925; Institucion 894; Provincia 32), cortes y `excluye` |
 
 Se sirve como archivo estático en `/data/grafo/` (cabecera `Cache-Control` de `/data/*`, §1) y `outputFileTracingExcludes` lo saca de toda función. Lo anuncian VoID, la portada de `/grafo` y `ontology` del MCP (`volcadoDelGrafo`).
 
 ### 7.9 Tablas Parquet y SQL
 
-`scripts/build-grafo-tablas.mjs` (tras el volcado) escribe `public/tablas/`, servido en `/tablas/`: nueve Parquet con zstd (3,985,819 bytes en total con `meta.json`) que salen del volcado (`grafo.nt.gz`), de `public/data/historico/` (totales desde 2015) y de `procesos.json`. Tablas, columnas y tipos salen de `TABLAS` (§7.2); cada fila pasa por `esquemaFila`; cada texto por `sinCedula`, y no escribe nada si queda una cédula. `meta.json` (generado 2026-10-02) guarda por tabla descripción, fuente, corte, filas y columnas con su tipo, descripción y propiedad.
+`scripts/build-grafo-tablas.mjs` (tras el volcado) escribe `public/tablas/`, servido en `/tablas/`: nueve Parquet con zstd (3,996,866 bytes en total con `meta.json`) que salen del volcado (`grafo.nt.gz`), de `public/data/historico/` (totales desde 2015) y de `procesos.json`. Tablas, columnas y tipos salen de `TABLAS` (§7.2); cada fila pasa por `esquemaFila`; cada texto por `sinCedula`, y no escribe nada si queda una cédula. `meta.json` (generado 2026-10-05) guarda por tabla descripción, fuente, corte, filas y columnas con su tipo, descripción y propiedad.
 
 | Tabla | Filas | Columnas | Corte |
 |---|---|---|---|
 | `instituciones` | 894 | `id`, `nombre`, `siglas`, `sector`, `capitulo`, `contratos`, `monto_contratado`, `sin_asignar`, `url` | 2026-09-22 |
-| `empresas` | 23,668 | `rnc`, `nombre`, `estado`, `inicio_operaciones`, `actividad`, `url` | 2026-09-19 |
-| `proveedores` | 24,460 | `rpe`, `nombre`, `rnc`, `contratos`, `monto_contratado`, `primer_contrato`, `ultimo_contrato`, `url` | 2026-09-22 |
+| `empresas` | 23,673 | `rnc`, `nombre`, `estado`, `inicio_operaciones`, `actividad`, `url` | 2026-09-19 |
+| `proveedores` | 24,465 | `rpe`, `nombre`, `rnc`, `contratos`, `monto_contratado`, `primer_contrato`, `ultimo_contrato`, `url` | 2026-09-22 |
 | `contrataciones` | 71,466 (solo pares mayores: 12 proveedores por institución, 8 clientes por empresa) | `institucion_id`, `proveedor_rpe`, `contratos`, `monto` | 2026-09-22 |
 | `medidas` | 1,732 | `proveedor_rpe`, `tipo`, `fecha`, `titulo`, `descripcion` | 2026-09-30 |
 | `financieras` | 1,300 | `slug`, `nombre`, `razon_social`, `supervisor_id`, `url` | 2026-09-29 |
@@ -3049,7 +3060,7 @@ SQL (`lib/grafo-sql.ts`, `lib/sql-hijo.cjs`, `app/api/sql/route.ts`):
 
 | Salida | Personas naturales | Acceso |
 |---|---|---|
-| `datos/grafo/` (compilado) | sí: personas, cargos, decretos, declaraciones | no se sirve como archivo; se lee nodo a nodo en funciones |
+| `datos/grafo/` (compilado) | sí: personas, cargos, decretos, declaraciones, proveedores que son personas físicas con sus contratos | no se sirve como archivo; se lee nodo a nodo en funciones |
 | `/api/grafo`, fichas, `fetch` y `path` del MCP | sí, de a un nodo | por consulta |
 | `nombres.json.br` | sí (nombre, cargo principal, firma) | solo en funciones (`/grafo`, `/mcp`); lo consultan `buscarNodos` (hasta 8 personas) y `signed_decrees` (una firma, o hasta 8 candidatos para elegir) |
 | `grafo.nt.gz`, `grafo.trig.gz` | no | descarga entera |
@@ -3172,7 +3183,7 @@ Prueba: `node --no-warnings scripts/probar-pantallas.mjs` lleva cada una de las 
 - `GET` con `Accept` que incluye `text/html` → 303 a `/conectar`. `POST`, `GET` y `DELETE` pasan al manejador; `OPTIONS` → 204.
 - Cabeceras de toda respuesta: CORS `*` (métodos GET, POST, DELETE, OPTIONS; expone `Mcp-Session-Id` y `Mcp-Protocol-Version`; `Max-Age` 86400) y `Cache-Control: no-store`. `dynamic = "force-dynamic"`, `maxDuration = 60`. `onerror` registra solo el mensaje.
 - `origenDe(req)`: el origen del pedido si es `SITIO`, `http://localhost`/`127.0.0.1` o un `https://socratico*.vercel.app`; si no, `SITIO`. `conOrigen` lo guarda en un `AsyncLocalStorage` para `query` (§9.4).
-- Servidor (`servidorMcp`, `lib/mcp.ts`): `name` `socratico`, `title` «Socrático.do», `version` `VERSION_MCP = "2.0.0"`, `websiteUrl`, icono `/icon.svg`, `instructions` (`INSTRUCCIONES`: qué hay, cómo usar cada herramienta y reglas de cita, PEP, homónimos y relaciones), `capabilities.tools.listChanged: false`, `cacheHints` de una hora, públicos, para `tools/list` y `server/discover`.
+- Servidor (`servidorMcp`, `lib/mcp.ts`): `name` `socratico`, `title` «Socrático.do», `version` `VERSION_MCP = "2.1.0"`, `websiteUrl`, icono `/icon.svg`, `instructions` (`INSTRUCCIONES`: qué hay, cómo usar cada herramienta y reglas de cita, PEP, homónimos y relaciones), `capabilities.tools.listChanged: false`, `cacheHints` de una hora, públicos, para `tools/list` y `server/discover`.
 - La dirección (`DIRECCION_MCP = ${SITIO}/mcp`) y la tabla de herramientas con título y línea en llano (`HERRAMIENTAS_MCP`) viven en `lib/mcp-herramientas.ts`, sin dependencias; `lib/mcp.ts` toma de ahí el título de cada herramienta (`tituloHerramienta`) y `/conectar` la lista.
 
 ### 9.2 Herramientas
@@ -3182,8 +3193,8 @@ Nueve, registradas en este orden. Todas con `annotations` `{ readOnlyHint: true,
 | Herramienta | Argumentos | Lee de |
 |---|---|---|
 | `search` | `query` (1–1000), `type` (uno de los 13 de `TIPOS_RESULTADO`), `page` (1–100) | `buscarEnTodo` (20 por página; 30 con `type`); en la primera página sin tipo, además: decreto por número (`decretoCompilado`), empresa por RNC (`empresaPorRnc`), provincias por nombre (hasta 4) y empresas del padrón por nombre (`buscarEmpresas`, hasta 5); tope 30. Devuelve `results` (`id`, `title`, `url`, `text`), `tipo`, `total`, `pagina`, `paginas`. |
-| `fetch` | `id` (1–500), `group` (uno de los 6 `GRUPOS`), `page` (1–1000) | Un nodo: `describir`, `relacionesDesdeTriples` (hasta 15 por grupo, `POR_GRUPO_FETCH`), datos en llano, medidas de la DGCP, compras (institución: `historiaDeInstitucion`, `getResumenHistorico`, `comprasPublicadas`; empresa inscrita: `todosLosProveedores` e `historiaDeProveedor`) y procedencia del `inventario`. Otro registro: `resultadoPorHref`, con el detalle de un proceso (`todosLosProcesos`) o lo contratado a un proveedor. Con `group`/`page`, el grupo entero de 50 en 50 (`POR_PAGINA_RELACIONES`). Devuelve `id`, `title`, `text`, `url`, `metadata`. |
-| `retrieve` | `query` (1–300), `limit` (1–20; 10 por omisión) | `buscarEnTodo` y `buscarPantallas` con la pregunta; por cada nombre propio (`nombresPropios`), `buscarNodos` y `buscarEnTodo`; siglas en mayúsculas de una institución; hasta 3 entidades con 12 hechos, 5 relaciones por grupo y sus compras (`contextoDeNodo`); según `INTENCION` (expresiones sobre la forma plana: compras, mayor, reciente, abierta, contratado, dirige, decretos, vínculo) corre `compras()`, `historial()` o `cadena()`; `todosLosProveedores` solo si nombra a alguien que el grafo no ata, `todosLosProcesos` solo si dice un año. Topes `TOPE_RECUPERAR`. |
+| `fetch` | `id` (1–500), `group` (uno de los 8 `GRUPOS`), `page` (1–1000) | Un nodo: `describir`, `relacionesDesdeTriples` (hasta 15 por grupo, `POR_GRUPO_FETCH`), datos en llano (valores y montos en pesos, el avance en %, los conceptos por su etiqueta), medidas de la DGCP, compras (institución: `historiaDeInstitucion`, `getResumenHistorico`, `comprasPublicadas`; empresa inscrita: `todosLosProveedores` e `historiaDeProveedor`; proveedor: `comprasDeProveedor`; proceso: lo que la tabla no trae, con sus campos en `metadata` (`detalleDeProceso`)) y procedencia del `inventario`. Otro registro (una norma, una iniciativa, una sentencia, un documento…): `resultadoPorHref`. Con `group`/`page`, el grupo entero de 50 en 50 (`POR_PAGINA_RELACIONES`). Devuelve `id`, `title`, `text`, `url`, `metadata`. |
+| `retrieve` | `query` (1–300), `limit` (1–20; 10 por omisión) | `buscarEnTodo` y `buscarPantallas` con la pregunta; por cada nombre propio (`nombresPropios`), `buscarNodos` y `buscarEnTodo`; siglas en mayúsculas de una institución; hasta 3 entidades con 12 hechos, 5 relaciones por grupo y sus compras (`contextoDeNodo`): las que la pregunta nombra y, de los diez primeros resultados del buscador, los nodos que no son registros (`REGISTROS`: un proceso, una obra o un proveedor van como evidencia; un proveedor con RNC trae como entidad a su empresa); según `INTENCION` (expresiones sobre la forma plana: compras, mayor, reciente, abierta, contratado, dirige, decretos, vínculo) corre `compras()`, `historial()` o `cadena()`; `todosLosProveedores` solo si nombra a alguien que el grafo no ata, `todosLosProcesos` solo si dice un año. Topes `TOPE_RECUPERAR`. |
 | `procurement` | `text` (alternativas con « \| »), `institution`, `year`, `from`, `to`, `status[]` (`abierto`, `cerrado`, `evaluacion`, `adjudicado`, `desierto`, `cancelado`, `suspendido`), `method[]` (`lpn`, `lpi`, `lpa`, `restringida`, `comparacion`, `subasta`, `sorteo`, `menor`, `umbral`, `excepcion`), `category` (`bienes`, `obras`, `servicios`), `minAmount`, `maxAmount`, `sort` (`monto`, `monto_asc`, `fecha`, `fecha_asc`), `page` | `todosLosProcesos` (`public/data/procesos.json`, `lib/tablas-compras.ts`): total, suma, desglose por estado, 10 instituciones que más suman, 25 por página. |
 | `contracting_history` | `supplier`, `institution`, `page` (1–4) | `lib/historico.ts` (`public/data/historico/`) y `todosLosProveedores` (`historico/proveedores/` y `public/data/rnc/`): un proveedor (id, RPE, RNC o nombre), una institución, el par, o el país con los 100 mayores proveedores de 25 en 25. Un nombre o RNC con varios registros devuelve la lista; once cifras se rechazan. |
 | `query` | `sql` (1–8000) | `/api/sql` del despliegue que atiende (§9.4); la descripción incluye `esquemaCompacto()` y notas sobre las tablas. Devuelve `columnas`, `filas`, `truncada`, `ms`, `tablas` nombradas con fuente y corte, `descarga`, `aviso`. |
@@ -3206,7 +3217,7 @@ Nueve, registradas en este orden. Todas con `annotations` `{ readOnlyHint: true,
 
 ### 9.5 Evaluación (`scripts/eval-mcp.mjs`)
 
-53 casos (`CASOS`), cada uno una pregunta hecha con la herramienta que le toca y un oráculo calculado aparte de `public/data` (`procesos.json`, `historico/`, `busqueda/corpus.json`, `grafo/meta.json`), no con el código del servidor. Habla JSON-RPC sobre HTTP a mano, con `mcp-protocol-version: 2025-06-18`, sin dependencias. Además, `reglasGenerales()` revisa cada respuesta: ninguna cadena con forma de cédula; el aviso en toda respuesta que no es de `search`; en `search`, una fecha de instantánea en cada resultado; que ninguna respuesta nombre `neighbors`, `sparql` ni un argumento en castellano (`con institucion «…»`). Casos que tocan la seguridad de `query`: escrituras, archivos, red, dos sentencias, `SET`, `enable_logging`, `duckdb_logs`, `query(...)`, `pragma_version`, `repeat` de 2,000 millones y `range` de mil millones, rechazados, y el motor responde después. Sale con 1 si un caso falla. Corre en el paso 6b de `verificar.sh --completo` contra `next start` sobre el build recién hecho (timeout 300 s); contra otro despliegue, `node scripts/eval-mcp.mjs --url https://…/mcp`.
+56 casos (`CASOS`), cada uno una pregunta hecha con la herramienta que le toca y un oráculo calculado aparte de `public/data` (`procesos.json`, `historico/`, `busqueda/corpus.json`, `grafo/meta.json`, `obras.json`, `obras-detalle.json`, `sanciones.json`), no con el código del servidor. Tres son del grafo de compras y obras: `fetch` de la obra con ejecutora y más contratos dice quién la ejecuta y a quién se le contrató, con el código del contrato; `fetch` del proceso del mayor contrato de obra que está en la tabla dice quién lo convoca, su valor estimado y su contratista; `path` del contratista a la provincia de su obra encuentra el camino. Habla JSON-RPC sobre HTTP a mano, con `mcp-protocol-version: 2025-06-18`, sin dependencias. Además, `reglasGenerales()` revisa cada respuesta: ninguna cadena con forma de cédula; el aviso en toda respuesta que no es de `search`; en `search`, una fecha de instantánea en cada resultado; que ninguna respuesta nombre `neighbors`, `sparql` ni un argumento en castellano (`con institucion «…»`). Casos que tocan la seguridad de `query`: escrituras, archivos, red, dos sentencias, `SET`, `enable_logging`, `duckdb_logs`, `query(...)`, `pragma_version`, `repeat` de 2,000 millones y `range` de mil millones, rechazados, y el motor responde después. Sale con 1 si un caso falla. Corre en el paso 6b de `verificar.sh --completo` contra `next start` sobre el build recién hecho (timeout 300 s); contra otro despliegue, `node scripts/eval-mcp.mjs --url https://…/mcp`.
 
 ### 9.6 `/conectar` (`app/conectar/page.tsx`)
 
@@ -3214,7 +3225,7 @@ Página estática con la dirección `DIRECCION_MCP` y botón de copiar (`CopiarT
 
 ### 9.7 Tamaño de la función y tiempos (medidas fechadas)
 
-- Trazado de archivos, medido sobre `route.js.nft.json` el 2026-10-02: `/mcp` ~163 MB (índice de búsqueda ~97 MB, grafo compilado con sus índices ~25 MB, padrón 16 MB, `procesos.json` 11 MB, `historico/` y `rnc/`); `/api/sql` ~77 MB. Límite de Vercel: 250 MB por función.
+- Trazado de archivos, medido sobre `route.js.nft.json` el 2026-10-05: `/mcp` ~185 MB (índice de búsqueda ~97 MB, grafo compilado con sus índices ~47 MB, padrón 16 MB, `procesos.json` 11 MB, `historico/` y `rnc/`); `/api/sql` ~77 MB. Límite de Vercel: 250 MB por función.
 - Primera llamada en `next start` recién arrancado, disco en caché:
 
 | Herramienta | Tiempo | Fecha |

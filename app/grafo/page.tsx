@@ -72,7 +72,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return {
     title: "El grafo",
     description:
-      "Cómo se ligan las personas con cargo, las instituciones, los decretos, los bancos, las empresas y las provincias en los registros del Estado dominicano. Con su ontología y en RDF.",
+      "Cómo se ligan las personas con cargo, las instituciones, los decretos, los bancos, las empresas, los proveedores, las compras, las obras y las provincias en los registros del Estado dominicano. Con su ontología y en RDF.",
     alternates: { canonical: enlace.grafo(), types: { "text/turtle": "/.well-known/void" } },
   };
 }
@@ -93,6 +93,7 @@ const EJEMPLOS: { nodo: NodoRdf; nombre: string; porque: string }[] = [
   { nodo: { tipo: "decreto", id: "339-20" }, nombre: "Decreto 339-20", porque: "Quién lo firma y los cargos que registra" },
   { nodo: { tipo: "entidad-financiera", id: "banreservas" }, nombre: "Banreservas", porque: "Quién lo supervisa y su misma ficha como empresa y como institución" },
   { nodo: { tipo: "provincia", id: "santiago" }, nombre: "Santiago", porque: "Su gobernación y las alcaldías y juntas de distrito electas" },
+  { nodo: { tipo: "obra", id: "3731" }, nombre: "Presa de Monte Grande", porque: "Quién la ejecuta, dónde, sus procesos de compra y a quién se le contrató" },
 ];
 
 const LISTADO_DE_CLASE: Record<string, string> = {
@@ -104,8 +105,11 @@ const LISTADO_DE_CLASE: Record<string, string> = {
   "soc:Provincia": "/provincias",
   "soc:DeclaracionJurada": "/auditorias",
   "do:MedidaDGCP": "/proveedores/inhabilitados",
-  "soc:Proveedor": "/historico",
+  "soc:Proveedor": "/proveedores",
   "soc:Contratacion": "/historico",
+  "soc:ProcesoDeContratacion": "/licitaciones",
+  "soc:ProyectoDeInversion": "/obras",
+  "soc:Contrato": "/obras",
 };
 
 async function Portada({ consulta }: { consulta: string }) {
@@ -137,8 +141,8 @@ async function Portada({ consulta }: { consulta: string }) {
         </h2>
         <BuscadorUrl
           etiqueta="Buscar una ficha del grafo"
-          placeholder="Un nombre, una institución, 339-20 o un RNC"
-          ayuda="Busca entre los nodos del grafo: personas con cargo, instituciones, entidades financieras y provincias por su nombre; un decreto por su número; una empresa por su RNC."
+          placeholder="Un nombre, 339-20, un RNC o SNIP 3731"
+          ayuda="Busca entre los nodos del grafo: personas con cargo, instituciones, entidades financieras y provincias por su nombre; un decreto por su número; una empresa por su RNC; un proceso de compra por su código; un proveedor por «RPE 32369»; una obra por «SNIP 3731»."
         />
         {candidatos && <ListaCandidatos resultado={candidatos} consulta={consulta} hacia={(c) => enlace.grafo(rutaDeNodo(c.nodo))} />}
       </section>
@@ -338,8 +342,8 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
       <div className="mx-auto max-w-4xl">
         <Ruta raiz={{ href: enlace.grafo(), label: "El grafo" }} actual="Nodo no encontrado" />
         <EstadoVacio como="h1" titulo="Esa dirección no es un nodo del grafo." className="mt-6">
-          El grafo tiene personas con cargo, instituciones, entidades financieras, empresas, decretos con ficha y
-          provincias. Búscalo por su nombre en{" "}
+          El grafo tiene personas con cargo, instituciones, entidades financieras, empresas, decretos con ficha,
+          provincias, proveedores, procesos de compra y obras. Búscalo en{" "}
           <Link href={enlace.grafo()} className="text-brand-700 underline">
             la portada del grafo
           </Link>
@@ -453,7 +457,7 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
         </h2>
         <BuscadorUrl
           etiqueta="Buscar la otra ficha del camino"
-          placeholder="Otra persona, institución, decreto o provincia"
+          placeholder="Otra persona, institución, empresa u obra"
           ayuda={`Elige la otra ficha y se busca el camino más corto desde ${v.titulo}, de hasta seis saltos.`}
         />
         {candidatos && (

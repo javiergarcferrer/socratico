@@ -147,6 +147,37 @@ const compartidaConSerie =
     .map((u) => instituciones.find((x) => plano(x.nombre) === plano(u)))
     .find((x) => x && historicoInstituciones[String(x.id)]?.serie.some((f) => f[1] > 0)) ?? null;
 
+// Las obras de MapaInversiones con sus contratos: la ejecutora, la provincia y
+// el contratista, como los ata el grafo (un contrato es uno por RPE y código,
+// con el mayor de sus montos), y el nombre del proveedor como lo dice el grafo
+// (el de su historia de contratos; si no tiene, el de sus medidas; si no, el
+// de MapaInversiones).
+const obras = leer("obras.json").proyectos;
+const detalleObras = leer("obras-detalle.json").obras;
+const historiaDe = (rpe) => leer(`historico/proveedores/${String(rpe).slice(-1)}.json`).filas[rpe] ?? null;
+const sancionados = new Map(leer("sanciones.json").proveedores.map((p) => [String(Number(p.rpe)), p]));
+const nombreProveedor = (rpe, enObra) => historiaDe(rpe)?.n ?? sancionados.get(String(Number(rpe)))?.razonSocial ?? enObra;
+const contratosDeObra = (snip) => {
+  const m = new Map();
+  for (const c of detalleObras[snip]?.contratos ?? []) {
+    const k = `${c.rpe}|${c.codigo}`;
+    if (!m.has(k) || c.monto > m.get(k).monto) m.set(k, c);
+  }
+  return [...m.values()].sort((a, b) => b.monto - a.monto || (a.codigo < b.codigo ? -1 : 1));
+};
+// La obra con ejecutora y más contratos (a igual cuenta, el SNIP menor).
+const obraEjemplo = obras
+  .filter((o) => o.uc != null && instituciones.some((x) => x.id === o.uc) && o.provincias.length)
+  .map((o) => ({ o, n: contratosDeObra(o.snip).length }))
+  .sort((a, b) => b.n - a.n || Number(a.o.snip) - Number(b.o.snip))[0].o;
+const contratoEjemplo = contratosDeObra(obraEjemplo.snip)[0];
+// El mayor contrato de obra cuyo proceso está en la tabla de procesos: un proceso con comprador.
+const codigosTabla = new Set(procesos.map((p) => p.codigo));
+const contratoConProceso = Object.values(detalleObras)
+  .flatMap((d) => d.contratos)
+  .filter((c) => codigosTabla.has(c.proceso))
+  .sort((a, b) => b.monto - a.monto || (a.codigo < b.codigo ? -1 : 1))[0];
+
 /* ------------------------------------------------------------------ casos */
 
 class Fallo extends Error {}
@@ -413,6 +444,48 @@ const CASOS = [
       exigir(!error, error);
       exigir(datos.metadata.contratado?.monto === suma(filaProveedor.s, 2), "no trae lo contratado, o no cuadra");
       return pesos(datos.metadata.contratado.monto);
+    },
+  },
+  {
+    pregunta: "Una obra es un nodo del grafo: quién la ejecuta, dónde y a quién se le contrató",
+    async correr() {
+      const { datos, error } = await llamar("fetch", { id: `/obras/${obraEjemplo.snip}` });
+      exigir(!error, error);
+      exigir(datos.metadata.claseRdf === "soc:ProyectoDeInversion", `clase ${datos.metadata.claseRdf}`);
+      const ejecutora = instituciones.find((x) => x.id === obraEjemplo.uc);
+      exigir(datos.text.includes(`La ejecuta: ${ejecutora.nombre}`), `no dice que la ejecuta ${ejecutora.nombre}`);
+      const nombre = nombreProveedor(contratoEjemplo.rpe, contratoEjemplo.proveedor);
+      exigir(datos.text.includes(`Contrato con: ${nombre}`), `no trae el contrato con ${nombre}`);
+      exigir(datos.text.includes(`Contrato ${contratoEjemplo.codigo}`), `no nombra el contrato ${contratoEjemplo.codigo}`);
+      return `SNIP ${obraEjemplo.snip}: ${ejecutora.acronimo || ejecutora.nombre}; ${nombre}, ${pesos(Math.round(contratoEjemplo.monto))}`;
+    },
+  },
+  {
+    pregunta: "Un proceso de compra lleva a quien lo convoca y a sus contratos de obra",
+    async correr() {
+      const p = procesos.find((x) => x.codigo === contratoConProceso.proceso);
+      const { datos, error } = await llamar("fetch", { id: `/procesos/${encodeURIComponent(p.codigo)}` });
+      exigir(!error, error);
+      exigir(datos.metadata.valorEstimado === p.valor, `valor ${datos.metadata.valorEstimado}; debía ser ${p.valor}`);
+      const comprador = instituciones.find((x) => plano(x.nombre) === plano(p.unidad));
+      exigir(comprador && datos.text.includes(`Lo convoca: ${comprador.nombre}`), `no dice que lo convoca ${comprador?.nombre ?? p.unidad}`);
+      const nombre = nombreProveedor(contratoConProceso.rpe, contratoConProceso.proveedor);
+      exigir(datos.text.includes(`Contrato con: ${nombre}`), `no trae el contrato con ${nombre}`);
+      return `${p.codigo}: ${nombre}`;
+    },
+  },
+  {
+    pregunta: "¿Cómo se liga un contratista con la provincia de su obra?",
+    async correr() {
+      // Una provincia de la obra cuyo nombre es su slug (lib/provincias.ts escribe «Bahoruco» donde MapaInversiones «Baoruco»).
+      const slugs = new Set([...readFileSync(path.join(RAIZ, "lib", "provincias.ts"), "utf8").matchAll(/\{ slug: "([a-z0-9-]+)"/g)].map((m) => m[1]));
+      const slug = obraEjemplo.provincias.map((n) => sinTildes(n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")).find((x) => slugs.has(x));
+      exigir(slug, `ninguna provincia de la obra ${obraEjemplo.snip} casa con un slug`);
+      const { datos, error } = await llamar("path", { from: `/proveedores/${contratoEjemplo.rpe}`, to: `/provincias/${slug}` });
+      exigir(!error, error);
+      exigir(datos.encontrado, datos.explicacion);
+      exigir(datos.pasos.some((x) => x.id === `/obras/${obraEjemplo.snip}`) || datos.saltos <= 2, "el camino no pasa por una obra");
+      return `${datos.saltos} saltos`;
     },
   },
   {

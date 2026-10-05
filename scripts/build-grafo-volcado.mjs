@@ -23,12 +23,15 @@
  *  - Entran las instituciones, las entidades financieras, las provincias y las
  *    personas jurídicas que el grafo liga a algo (proveedoras del Estado con
  *    RNC, con medidas de la DGCP, en la lista de la OFAC o supervisadas), con
- *    sus contrataciones, sus medidas, su supervisión y sus enlaces a Wikidata.
+ *    sus contrataciones, sus medidas, su supervisión y sus enlaces a Wikidata;
+ *    los procesos de compra, las obras con sus contratos y las inscripciones
+ *    de proveedor de una empresa.
  *  - No entra ninguna persona natural: ni las personas con cargo ni sus
  *    cargos, ni los decretos (sus títulos nombran a quien designan), ni las
  *    declaraciones juradas, ni las fichas del Congreso, ni un proveedor que no
  *    esté atado a una empresa (puede ser una persona física), con todo lo que
- *    cuelga de él. Un triple que toca cualquiera de esos nodos no entra.
+ *    cuelga de él: sus contrataciones, sus medidas y sus contratos de obra.
+ *    Un triple que toca cualquiera de esos nodos no entra.
  *
  * Se corre después de `scripts/build-grafo.mjs`. Los dos archivos se releen
  * con N3.js antes de escribirse: un volcado que no parsea no se guarda.
@@ -49,7 +52,7 @@ const DATOS = path.join(RAIZ, "public", "data");
 const SALIDA = path.join(DATOS, "grafo");
 const leer = (ruta) => JSON.parse(readFileSync(path.join(DATOS, ruta), "utf8"));
 const SITIO = /SITIO = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "sitio.ts"), "utf8"))[1];
-const CONSULTORIA_PDF = /CONSULTORIA_PDF = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "decretos.ts"), "utf8"))[1];
+const CONSULTORIA_PDF = /CONSULTORIA_PDF = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "decretos-base.ts"), "utf8"))[1];
 // Los espacios de nombres de la ontología (lib/rdf.ts): el núcleo y el módulo dominicano.
 const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
 const SOC = `${W3ID}/def/core#`;
@@ -63,10 +66,11 @@ const R = await lib("grafo-rdf");
 const G = await lib("grafo");
 const RDF = await lib("rdf");
 const C = await lib("grafo-compilado");
+const K = await lib("grafo-constructores");
 
 /* ---------------------------------------------------------------- los nodos */
 
-function nodos() {
+async function nodos() {
   const instituciones = leer("instituciones.json").instituciones.map((i) => `/instituciones/${i.id}`);
   const banca = leer("banca.json").entidades;
   const financieras = banca.map((e) => `/banca/${e.slug}`);
@@ -81,8 +85,33 @@ function nodos() {
   const sanciones = leer("sanciones.json");
   for (const p of sanciones.proveedores) if (!p.fisica) sumar(p.rnc);
   for (const o of sanciones.ofac) sumar(o.rnc);
+  // Los proveedores que el grafo liga a algo: con contratos desde 2015, con
+  // medidas o con contratos de obra (no cada inscripción del registro); y la
+  // empresa de los de obra. El filtro deja fuera al que no es una empresa.
+  const conAlgo = new Set();
+  const rncDe = {};
+  for (let n = 0; n < 10; n++) {
+    for (const rpe of Object.keys(leer(`historico/proveedores/${n}.json`).filas)) conAlgo.add(String(Number(rpe)));
+    Object.assign(rncDe, leer(`rnc/${n}.json`).filas);
+  }
+  for (const p of sanciones.proveedores) conAlgo.add(String(Number(p.rpe)));
+  for (const o of Object.values(leer("obras-detalle.json").obras)) {
+    for (const c of o.contratos) {
+      conAlgo.add(String(Number(c.rpe)));
+      sumar(rncDe[c.rpe]?.[0]);
+    }
+  }
   const empresas = [...rnc].sort().map((x) => `/empresas/${x}`);
-  return { instituciones, financieras, provincias, empresas };
+  const compras = await K.clavesDeCompras();
+  return {
+    instituciones,
+    financieras,
+    provincias,
+    empresas,
+    proveedores: compras.proveedor.filter((x) => conAlgo.has(x)).map((x) => G.enlace.proveedor(x)),
+    procesos: compras.proceso.map((x) => G.enlace.proceso(x)),
+    obras: compras.obra.map((x) => G.enlace.obra(x)),
+  };
 }
 
 /* ------------------------------------------------------------- las lecturas */
@@ -164,10 +193,11 @@ function filtrar(porNodo) {
 /* ------------------------------------------------------------------ correr */
 
 const t0 = Date.now();
-const lista = nodos();
-const todos = [...lista.instituciones, ...lista.financieras, ...lista.provincias, ...lista.empresas];
+const lista = await nodos();
+const todos = [...lista.instituciones, ...lista.financieras, ...lista.provincias, ...lista.empresas, ...lista.proveedores, ...lista.procesos, ...lista.obras];
 console.error(
-  `Nodos: ${lista.instituciones.length} instituciones, ${lista.financieras.length} financieras, ${lista.provincias.length} provincias, ${lista.empresas.length} empresas`,
+  `Nodos: ${lista.instituciones.length} instituciones, ${lista.financieras.length} financieras, ${lista.provincias.length} provincias, ${lista.empresas.length} empresas, ` +
+    `${lista.proveedores.length} proveedores, ${lista.procesos.length} procesos, ${lista.obras.length} obras`,
 );
 const porNodo = [];
 for (const ruta of todos) porNodo.push(await lineasDe(ruta));
@@ -224,6 +254,10 @@ const meta = {
     financieras: lista.financieras.length,
     provincias: lista.provincias.length,
     empresas: lista.empresas.length,
+    // Los proveedores que entran: los que una empresa tiene inscritos (los demás pueden ser personas físicas).
+    proveedores: new Set(entradas.map((e) => LINEA.exec(e.linea)?.[1]).filter((x) => x && /\/proveedores\/\d+#id>$/.test(x))).size,
+    procesos: lista.procesos.length,
+    obras: lista.obras.length,
     sinFicha: sinFicha.length,
   },
   clases,
@@ -234,9 +268,11 @@ const meta = {
     padron: leer("empresas/meta.json").corteDgii,
     sanciones: leer("sanciones.json").generado,
     wikidata: leer("wikidata.json").generado,
+    procesos: leer("procesos.json").hasta,
+    obras: leer("obras.json").corte,
   },
   excluye:
-    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, ni las declaraciones juradas, ni las fichas del Congreso, ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos.",
+    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, ni las declaraciones juradas, ni las fichas del Congreso, ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra).",
 };
 writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
 console.error(

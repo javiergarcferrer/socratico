@@ -1,5 +1,5 @@
 {
-  "generado": "2026-10-02",
+  "generado": "2026-10-05",
   "formato": "Apache Parquet (zstd)",
   "tablas": {
     "instituciones": {
@@ -60,7 +60,7 @@
       "descripcion": "Personas jurídicas del padrón de la DGII que el grafo liga a algo: proveedoras del Estado, con medidas de la DGCP, en la lista de la OFAC o supervisadas. Ninguna persona física.",
       "fuente": "DGII, padrón de contribuyentes (RNC)",
       "corte": "2026-09-19",
-      "filas": 23668,
+      "filas": 23673,
       "columnas": [
         {
           "nombre": "rnc",
@@ -101,7 +101,7 @@
       "descripcion": "Proveedores del Estado inscritos en la DGCP y atados a una empresa por su RNC, con lo que contrataron desde 2015. No incluye a los proveedores personas físicas.",
       "fuente": "DGCP, registro de proveedores y tabla de contratos",
       "corte": "2026-09-22",
-      "filas": 24460,
+      "filas": 24465,
       "columnas": [
         {
           "nombre": "rpe",
