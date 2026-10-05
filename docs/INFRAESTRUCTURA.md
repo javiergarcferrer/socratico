@@ -189,10 +189,10 @@ el `next build` del árbol actual). Vercel admite hasta 250 MB por función.
 
 | Función | MB |
 |---|---|
-| `/mcp` | 188.6 |
-| `/buscar` | 99.7 |
-| `/proveedores` | 99.2 |
-| `/api/buscar` | 98.5 |
+| `/mcp` | 201.5 |
+| `/buscar` | 112.6 |
+| `/proveedores` | 112.1 |
+| `/api/buscar` | 111.4 |
 | `/api/sql` | 76.7 |
 | `/.well-known/void` | 74.8 |
 | `/grafo`, `/grafo/camino` | 70.1 |
@@ -235,7 +235,7 @@ Conteos de archivos versionados (`git ls-files`), 2026-10-05.
 | `app/` | 162 | Rutas del App Router: 77 `page.tsx`, 29 `route.ts` (17 bajo `app/api/`), 29 `loading.tsx`, `layout.tsx`, `globals.css`, `error.tsx`, `not-found.tsx`, `sitemap.ts`, `robots.ts`, `manifest.ts`, `icon.svg` y componentes propios de cada ruta (§3) |
 | `components/` | 138 | 43 en la raíz; `ui/` 22 (shadcn/ui), `espacios/` 27, `fuentes-nuevas/` 23, `graficos/` 13, `congreso/` 4, `dinero/` 3, `nomina/` 2, `democracia/` 1 (§11) |
 | `lib/` | 103 | 102 módulos `.ts` y `sql-hijo.cjs` (§2.4) |
-| `scripts/` | 56 | Generadores de instantáneas y comprobaciones (§2.5, §6) |
+| `scripts/` | 58 | Generadores de instantáneas y comprobaciones (§2.5, §6) |
 | `public/` | 764 | `public/data/` (instantáneas servidas en `/data/*`) y `public/tablas/` (10 archivos, servidos en `/tablas/*`) (§6, §7) |
 | `datos/` | 3,619 | `datos/grafo/`: el grafo compilado (`meta.json`, `compras.json`, `nombres.json.br`, `nodos/` 1,368, `vecinos/` 1,368, `ld/` 831, `firmados/` 49) (§7) |
 | `supabase/` | 18 | `config.toml`, 8 migraciones, dos Edge Functions (`functions/vincular-cuenta-unica/` y `functions/metricas-uso/`, esta con dos archivos), 4 pruebas, 2 plantillas de correo (§10) |
@@ -310,12 +310,13 @@ ejecución; «Disco»: lee instantáneas de `public/data/`; «—»: no lee nada
 
 ### 2.5 `scripts/`
 
-56 archivos versionados:
+58 archivos versionados:
 
 | Archivos | Qué hacen |
 |---|---|
 | 38 `build-*` (34 `.py`, 4 `.mjs`: `build-grafo.mjs`, `build-grafo-volcado.mjs`, `build-grafo-tablas.mjs`, `build-indice-busqueda.mjs`) | Escriben las instantáneas de `public/data/`, `public/tablas/` y `datos/grafo/` (§6, §7) |
-| `busqueda_*.py` (6), `consultoria_decretos.py`, `privacidad.py` | Módulos que importan los `build-*.py`: entradas del corpus de búsqueda; la lectura del registro de decretos (compartida por `build-decretos.py` y `build-funcionarios.py`); el reemplazo de cédulas por «[omitida]» |
+| `busqueda_*.py` (7), `consultoria_decretos.py`, `privacidad.py` | Módulos que importan los `build-*.py`: entradas del corpus de búsqueda; la lectura del registro de decretos (compartida por `build-decretos.py` y `build-funcionarios.py`); el reemplazo de cédulas por «[omitida]» |
+| `busqueda-grafo.mjs` | Las entradas del corpus que salen del grafo compilado, para `busqueda_grafo.py`; con `--comprobar`, el corpus contra el grafo (paso 5e del gate, §8.2) |
 | `cargador-ts.mjs` | Carga módulos `.ts` de `lib/` desde Node (quita tipos con `module.stripTypeScriptTypes`, resuelve `@/`, sustituye `next/cache`) |
 | `eval-mcp.mjs`, `validar-grafo.mjs`, `probar-pantallas.mjs` (+ `bateria-pantallas.json`), `menciones-sin-enlace.mjs` | Comprobaciones: evaluación del MCP (§9), SHACL del grafo (§7), batería de pantallas del buscador (§8), menciones sin enlace en fichas |
 | `aplicar-auth-supabase.sh` | Aplica al proyecto de Supabase la URL del sitio, las redirecciones y las plantillas de `supabase/templates/` (§10) |
@@ -2733,7 +2734,7 @@ node --no-warnings scripts/build-indice-busqueda.mjs
 
 | Directorio | Qué hay | Cómo se alcanza |
 |---|---|---|
-| `public/data/` | 754 archivos, 255,557,221 B | archivo estático en `/data/<ruta>` con `Cache-Control: public, max-age=3600, stale-while-revalidate=86400` (`headers()` de `next.config.ts`, fuente `/:dir(data\|tablas)/:path*`); los módulos de `lib/` lo leen además con `node:fs` desde las funciones |
+| `public/data/` | 754 archivos, 274,978,260 B | archivo estático en `/data/<ruta>` con `Cache-Control: public, max-age=3600, stale-while-revalidate=86400` (`headers()` de `next.config.ts`, fuente `/:dir(data\|tablas)/:path*`); los módulos de `lib/` lo leen además con `node:fs` desde las funciones |
 | `public/tablas/` | 9 tablas Parquet y `meta.json`, 3,996,866 B | `/tablas/<archivo>`, misma cabecera; `/api/sql` las abre con DuckDB (§7) |
 | `datos/grafo/` | 3,619 archivos, 58,390,675 B | fuera de `public/`: no tiene URL; viaja en las funciones que lo declaran en `outputFileTracingIncludes` (§1, §7) |
 
@@ -2743,7 +2744,7 @@ El navegador pide directamente `/data/nomina.json` (`lib/nomina.ts`, con `preloa
 
 **Dependencias de Python fuera de la biblioteca estándar** (no están en `package.json` ni en el despliegue): `xlrd` (`build-bcrd.py`, `build-subastas.py`, para `.xls` BIFF), `numpy` y `tokenizers` (`build-busqueda.py`), `numpy`, `safetensors`, `tokenizers` y `wordfreq` (`build-modelo-semantico.py`), `pypdf` y `pdfminer.six` (`build-instituciones.py`, `build-funcionarios.py`), `openpyxl` y, si el origen fuerza brotli, `brotli` (`build-funcionarios.py`). Los `.mjs` cargan módulos de `lib/` sin compilar con `scripts/cargador-ts.mjs` (`registrarTs`: `module.stripTypeScriptTypes`, alias `@/`, y un `unstable_cache` que no guarda nada).
 
-**Inventario.** Tamaños medidos con `du -sb` el 2026-10-02; la fecha es la que figura dentro del archivo. «Lee» es lo que el script abre de otras instantáneas.
+**Inventario.** Tamaños medidos con `du -sb` el 2026-10-02 (los del grafo y de la búsqueda, el 2026-10-05); la fecha es la que figura dentro del archivo. «Lee» es lo que el script abre de otras instantáneas.
 
 | Script | Fuente | Salida | Tamaño | Fecha en el archivo | Lee |
 |---|---|---|---|---|---|
@@ -2780,13 +2781,13 @@ El navegador pide directamente `/data/nomina.json` (`lib/nomina.ts`, con `preloa
 | `build-documentos.py` | bibliotecas WordPress de 23 hosts (§5.10) | `public/data/documentos/` (`indice.json`, `filas.json`) | 3,246,098 B | `generado` 2026-09-24 | — |
 | `build-catalogo.py` | datos.gob.do, búsqueda HTML (§5.10) | `public/data/catalogo.json` | 243,886 B | `generado` 2026-09-24 | — |
 | `build-modelo-semantico.py` | Hugging Face, `minishlab/potion-multilingual-128M`; `wordfreq`; títulos de las instantáneas (§8) | `public/data/busqueda/tokenizer.json`, `modelo.bin`, `modelo.json` | 2,741,288 B + 9,614,484 B + 162 B | `modelo.json` no lleva fecha (72,837 piezas, 128 dimensiones) | `nomina.json`, `catalogo.json`, `obras.json`, `normativa.json`, `documentos/filas.json`, `instituciones.json` |
-| `build-busqueda.py` | sin red (§8) | `public/data/busqueda/corpus.json`, `vectores.bin` | 47,422,621 B + 20,539,728 B | `corpus.json`: `generado` 2026-09-30, `huella` `ad382ba3b866b275`, 204,685 entradas | `instituciones.json`, `normativa.json`, `leyes.json`, `obras.json`, `documentos/`, `catalogo.json`, `nomina.json`, `procesos.json`, `sentencias.json`, `congreso.json`, `funcionarios.json`, `banca.json`, `rnc/`, `historico/proveedores/`, el modelo de `busqueda/` |
-| `build-indice-busqueda.mjs` | sin red (§8) | `public/data/busqueda/indice.bin` | 64,152,504 B | cabecera `SIB2`, etiqueta `2026-09-30\|ad382ba3b866b275\|204685` | `busqueda/corpus.json`, `busqueda/vectores.bin` |
+| `build-busqueda.py` | sin red (§8) | `public/data/busqueda/corpus.json`, `vectores.bin` | 53,946,512 B + 23,816,892 B | `corpus.json`: `generado` 2026-10-05, `huella` `91d94c57a73040b9`, 230,676 entradas | `datos/grafo/` (por `scripts/busqueda-grafo.mjs`), `instituciones.json`, `normativa.json`, `leyes.json`, `obras.json`, `documentos/`, `catalogo.json`, `nomina.json`, `procesos.json`, `sentencias.json`, `congreso.json`, `funcionarios.json`, `banca.json`, `rnc/`, `historico/proveedores/`, el modelo de `busqueda/` |
+| `build-indice-busqueda.mjs` | sin red (§8) | `public/data/busqueda/indice.bin` | 73,772,488 B | cabecera `SIB2`, etiqueta `2026-10-05\|91d94c57a73040b9\|230676` | `busqueda/corpus.json`, `busqueda/vectores.bin` |
 | `build-grafo.mjs` | sin red: `lib/grafo-constructores.ts` sobre las instantáneas (§7) | `datos/grafo/` (3,619 archivos) | 58,390,675 B | `meta.json`: `generado` 2026-10-05, `aFecha` 2026-09-29 | todas las instantáneas que leen los constructores |
 | `build-grafo-volcado.mjs` | sin red: el grafo compilado (§7) | `public/data/grafo/`: `grafo.nt.gz`, `grafo.trig.gz`, `meta.json` | 25,631,492 B | `generado` 2026-10-05; `cortes` de cada fuente | `datos/grafo/` (y `clavesDeCompras` de los constructores), `instituciones.json`, `banca.json`, `historico/resumen.json`, `historico/rnc.json`, `historico/proveedores/`, `rnc/`, `obras.json`, `obras-detalle.json`, `procesos.json`, `empresas/meta.json`, `sanciones.json`, `wikidata.json` |
 | `build-grafo-tablas.mjs` | sin red: el volcado y las instantáneas (§7) | `public/tablas/` (9 Parquet y `meta.json`) | 3,996,866 B | `meta.json`: `generado` 2026-10-05 | `grafo/grafo.nt.gz`, `historico/`, `instituciones.json`, `procesos.json`, `empresas/meta.json`, `sanciones.json`, `banca.json`, `wikidata.json` |
 
-Los demás archivos de `scripts/` no escriben instantáneas: `busqueda_*.py` son lectores de entradas del corpus que importa `build-busqueda.py`; `privacidad.py` (`sin_cedula`) y `consultoria_decretos.py` son módulos compartidos; `eval-mcp.mjs`, `validar-grafo.mjs`, `probar-pantallas.mjs` y `menciones-sin-enlace.mjs` comprueban sin escribir; `aplicar-auth-supabase.sh` es de §10; `certificados/sectigo-ov-r36.pem` es el intermedio que usa `build-funcionarios.py`.
+Los demás archivos de `scripts/` no escriben instantáneas: `busqueda_*.py` son lectores de entradas del corpus que importa `build-busqueda.py`, y `busqueda_grafo.py` lee las suyas de `busqueda-grafo.mjs`, que con `--comprobar` coteja el corpus con el grafo (§8.2); `privacidad.py` (`sin_cedula`) y `consultoria_decretos.py` son módulos compartidos; `eval-mcp.mjs`, `validar-grafo.mjs`, `probar-pantallas.mjs` y `menciones-sin-enlace.mjs` comprueban sin escribir; `aplicar-auth-supabase.sh` es de §10; `certificados/sectigo-ov-r36.pem` es el intermedio que usa `build-funcionarios.py`.
 
 **Orden.** Se deduce de lo que cada script lee:
 
@@ -2795,10 +2796,10 @@ Los demás archivos de `scripts/` no escriben instantáneas: `busqueda_*.py` son
 3. Tras `instituciones`: `obras`, `sismap`, `auditorias`, `nomina-general` y `funcionarios` (este, además, tras `congreso`).
 4. Tras `funcionarios`: `declaraciones`; y `wikidata` (además, tras `banca`).
 5. `historico-rnc`, tras `historico` y `empresas`.
-6. `modelo-semantico` (solo cuando se rehace el modelo), `busqueda` tras todo lo que entra al corpus, y `build-indice-busqueda.mjs` tras `busqueda`.
-7. `build-grafo.mjs` tras todas; `build-grafo-volcado.mjs` tras él; `build-grafo-tablas.mjs` tras el volcado.
+6. `build-grafo.mjs` tras todas las anteriores; `build-grafo-volcado.mjs` tras él; `build-grafo-tablas.mjs` tras el volcado.
+7. `modelo-semantico` (solo cuando se rehace el modelo), `busqueda` tras `build-grafo.mjs` y todo lo que entra al corpus, y `build-indice-busqueda.mjs` tras `busqueda`.
 
-El gate (§12) comprueba que la etiqueta de `indice.bin` sea la de `corpus.json` y que guarde el sha256 de `vectores.bin`; que `node scripts/build-grafo.mjs --comprobar` encuentre en `datos/grafo/` lo mismo que dicen los constructores sobre las instantáneas actuales; y que ninguna cédula aparezca en `public/data`, `public/tablas` ni `datos`. También rechaza un archivo versionado de más de 90 MB; el mayor, el 2026-10-02, es `public/data/busqueda/indice.bin` (64,152,504 B).
+El gate (§12) comprueba que la etiqueta de `indice.bin` sea la de `corpus.json` y que guarde el sha256 de `vectores.bin`; que `node scripts/build-grafo.mjs --comprobar` encuentre en `datos/grafo/` lo mismo que dicen los constructores sobre las instantáneas actuales; que `node scripts/busqueda-grafo.mjs --comprobar` encuentre el corpus de acuerdo con el grafo (§8.2); y que ninguna cédula aparezca en `public/data`, `public/tablas` ni `datos`. También rechaza un archivo versionado de más de 90 MB; el mayor, el 2026-10-05, es `public/data/busqueda/indice.bin` (73,772,488 B).
 
 **Comportamiento de la interfaz.**
 
@@ -3089,22 +3090,26 @@ Comprobaciones:
 
 ### 8.1 Archivos (`public/data/busqueda/`)
 
-Todos versionados en git (corte del corpus: 2026-09-30).
+Todos versionados en git (corte del corpus: 2026-10-05).
 
 | Archivo | Bytes | Lo escribe | Lo lee el servidor |
 |---|---|---|---|
-| `corpus.json` | 47,422,621 | `scripts/build-busqueda.py` | no (excluido de toda función por `outputFileTracingExcludes`); lo leen `build-indice-busqueda.mjs`, el paso 5a del gate y `scripts/eval-mcp.mjs` |
-| `indice.bin` | 64,152,504 | `scripts/build-indice-busqueda.mjs` | sí |
-| `vectores.bin` | 20,539,728 | `scripts/build-busqueda.py` | sí |
+| `corpus.json` | 53,946,512 | `scripts/build-busqueda.py` | no (excluido de toda función por `outputFileTracingExcludes`); lo leen `build-indice-busqueda.mjs`, los pasos 5a y 5e del gate y `scripts/eval-mcp.mjs` |
+| `indice.bin` | 73,772,488 | `scripts/build-indice-busqueda.mjs` | sí |
+| `vectores.bin` | 23,816,892 | `scripts/build-busqueda.py` | sí |
 | `modelo.bin` | 9,614,484 | `scripts/build-modelo-semantico.py` | sí |
 | `modelo.json` | 162 | ídem | sí |
 | `tokenizer.json` | 2,741,288 | ídem | sí |
 
-Orden de construcción: las instantáneas de origen (§6) → `python3 scripts/build-busqueda.py` (requiere `numpy` y `tokenizers`) → `node --no-warnings scripts/build-indice-busqueda.mjs`. El paso 5a de `verificar.sh` (en `--rapido` y en `--completo`) exige que `indice.bin` empiece por `SIB2`, que su etiqueta sea `generado|huella|nº de entradas` de `corpus.json` y que su campo `vectores` sea el sha256 de `vectores.bin`.
+Orden de construcción: las instantáneas de origen (§6) → `node scripts/build-grafo.mjs` (§7) → `python3 scripts/build-busqueda.py` (requiere `numpy` y `tokenizers`; corre `node scripts/busqueda-grafo.mjs`) → `node --no-warnings scripts/build-indice-busqueda.mjs`. El paso 5a de `verificar.sh` (en `--rapido` y en `--completo`) exige que `indice.bin` empiece por `SIB2`, que su etiqueta sea `generado|huella|nº de entradas` de `corpus.json` y que su campo `vectores` sea el sha256 de `vectores.bin`; el paso 5e (solo en `--completo`) coteja el corpus con el grafo (§8.2).
 
 ### 8.2 Corpus
 
-`scripts/build-busqueda.py` no lee fuentes: junta entradas de las instantáneas, con lectores propios en `scripts/busqueda_{congreso,funcionarios,financieras,leyes,procesos,sentencias}.py` (`entradas(datos)`), repara texto UTF-8 leído como Windows-1252 (`reparar`) y quita cédulas de `ti`, `x` y `d` (`sin_cedula` de `scripts/privacidad.py`). Cabecera de `corpus.json`: `generado` 2026-09-30; `huella` `ad382ba3b866b275` (sha256 de las entradas, 16 hex); `instantaneas` (fecha por tipo, más `ley`); `dimensiones` 128; `piezas` 72,837; `vectorizados` 155,604; `origenes` (1,024 nombres de quien publica); `frases` (346 textos de `d` o `x` que se repiten 20 veces o más; la entrada lleva su índice y `resolverFrases` los devuelve a texto); `docs` (204,685 entradas).
+`scripts/build-busqueda.py` no lee fuentes: junta entradas del grafo compilado y de las instantáneas, con lectores propios en `scripts/busqueda_{congreso,funcionarios,financieras,grafo,leyes,procesos,sentencias}.py` (`entradas(datos)`; `busqueda_grafo.entradas(raiz)`), repara texto UTF-8 leído como Windows-1252 (`reparar`) y quita cédulas de `ti`, `x` y `d` (`sin_cedula` de `scripts/privacidad.py`). Cabecera de `corpus.json`: `generado` 2026-10-05; `huella` `91d94c57a73040b9` (sha256 de las entradas, 16 hex); `instantaneas` (fecha por tipo, más `ley`); `dimensiones` 128; `piezas` 72,837; `vectorizados` 180,431; `origenes` (1,024 nombres de quien publica); `frases` (347 textos de `d` o `x` que se repiten 20 veces o más; la entrada lleva su índice y `resolverFrases` los devuelve a texto); `docs` (230,676 entradas).
+
+**Lo que sale del grafo.** `scripts/busqueda-grafo.mjs` lee `datos/grafo/` con `lib/grafo-compilado.ts` (`clavesCompiladas`, `leerDescripcion`) y escribe en la salida estándar `{generado, cortes, entradas}`; `busqueda_grafo.py` lo corre (~4 s). Escribe una entrada por nodo de decreto, ley y resolución (27,544, 2,213 y 148: `t` `norma`, `ti` su `dct:title`, `x` y `d` «Decreto 641-26» con su `soc:numero`, `h` su ficha por `rutaDeNodo`, `f` su `soc:fecha`), de la más reciente a la más vieja, y una por proveedor sin cuádruplos del grafo `contratos` que tiene `soc:tieneMedida` o es `soc:contratista` de un contrato de obra (1,164: `r` el RPE; `c` el RNC de la empresa del padrón que lo tiene por `soc:inscritaComo`, en 814; `d` «Medidas de la DGCP» en 1,159 y «Contratos de obra» en 5; `p` 1); estos se ordenan por RPE con los de la historia de contratos. `fuera_del_grafo` quita de las normas de `normas()` y de `busqueda_leyes.py` las que llevan a la ficha de un nodo (5,076) y el PDF de una norma cuyo número y título son los de un nodo (2: los decretos 108-23 y 544-23, que `normativa.json` da a dos decretos cada uno); quedan de las instantáneas 9,920 PDF de la Consultoría (9,913 leyes sin ficha, 6 fes de errata de decretos y el «Decreto 692--24») y 3 reglamentos. Contra las entradas que reemplazan, los títulos del grafo no llevan el punto final en 2,557 decretos ni espacios dobles en 15; fechas y números son los mismos. La fecha de un tipo es la más vieja de sus fuentes: la de `norma`, entre `normativa.json` y los cortes de los grafos `decretos`, `leyes` y `resoluciones`; la de `proveedor`, entre la historia de contratos y los de `medidas` y `obras`.
+
+**Contra el grafo** (`node scripts/busqueda-grafo.mjs --comprobar`, paso 5e del gate). Cada entrada cuyo enlace (`h`, o el que se deriva de `r` en procesos y proveedores) es la ficha de un nodo (`nodoDeRuta`, `claveCompilada`) tiene que llevar a un nodo del compilado, y a uno que ninguna otra entrada nombra; cada nodo de institución, persona, entidad financiera, decreto, ley, resolución, iniciativa, obra, proceso y proveedor tiene que tener su entrada, salvo los que `FUERA` reconoce: una persona cuyo `owl:sameAs` es la ficha de un legislador que el corpus trae, un proceso sin cuádruplos del grafo `procesos` (el buscador trae la tabla de los doce meses; los demás los nombran los contratos de obra) y un proveedor cuyos cuádruplos son todos de `proveedores`, `padron` o `plataforma`. Provincias y empresas del padrón no son tipos del buscador. Si algo no casa, dice cuántos y cuáles y sale con 1. Medido el 2026-10-05 (8 s): 180,079 entradas, cada una con su nodo; fuera por alcance, 204 legisladores, 57,239 proveedores solo inscritos y 1,884 procesos de obra; no buscables, 32 provincias y 79,291 empresas.
 
 Campos de una entrada (`COLUMNAS_TEXTO`, `COLUMNAS_NUMERO` en `lib/busqueda-esquema.ts`): `t` tipo, `ti` título, `x` texto auxiliar, `d` detalle, `o` índice de origen, `h` enlace, `f` fecha, `r` identificador del que se deriva la ficha (RPE o código de proceso), `c` RNC, `v` valor, `n` plazas, `m` instituciones, `p` nivel de rebaja (0, 1, 2), `e` externo (1), `k` contratos, `a` años (2), `s` sueldo P10, mediana, P90 (3).
 
@@ -3113,11 +3118,11 @@ Composición, contada en `corpus.json` (`t` y destino del campo `h`):
 | `t` | Entradas | `h` ruta propia (`/…`) | `h` URL externa | Sin `h` | Vector | Instantánea |
 |---|---|---|---|---|---|---|
 | `proceso` | 77,790 | — | — | 77,790 (ruta derivada de `r`: `enlace.proceso`) | sí | 2026-09-25 |
-| `proveedor` | 32,152 | — | — | 32,152 (ruta derivada de `r`: `enlace.proveedor`) | no | 2026-09-22 |
+| `proveedor` | 33,316 | — | — | 33,316 (ruta derivada de `r`: `enlace.proveedor`) | no | 2026-09-22 |
 | `documento` | 18,726 | — | 18,726 (23 sitios institucionales) | — | sí | 2026-09-24 |
 | `iniciativa` | 17,857 | 17,857 | — | — | sí | 2026-09-27 |
 | `funcionario` | 15,408 | 15,408 | — | — | no | 2026-09-29 |
-| `norma` | 15,001 | 5,079 (`/normativa/decreto/…` 2,715, `ley` 2,213, `resolucion` 148, `reglamento` 3) | 9,922 (`www.consultoria.gov.do`) | — | sí | 2026-09-23 (normativa), 2026-09-27 (leyes) |
+| `norma` | 39,828 | 29,908 (`/normativa/decreto/…` 27,544, `ley` 2,213, `resolucion` 148, `reglamento` 3) | 9,920 (`www.consultoria.gov.do`) | — | sí | 2026-09-23 (`ley`: 2026-09-27) |
 | `sentencia` | 12,106 | — | 12,106 (`tc.gob.do` 11,393; `visorpdf.tse.do` 713) | — | sí | 2026-09-27 |
 | `cargo` | 8,556 | 8,556 | — | — | sí | 2026-09-24 |
 | `obra` | 3,609 | 3,609 | — | — | sí | 2026-09-23 |
@@ -3125,20 +3130,20 @@ Composición, contada en `corpus.json` (`t` y destino del campo `h`):
 | `dato` | 1,065 | — | 1,065 (`datos.gob.do`) | — | sí | 2026-09-24 |
 | `institucion` | 894 | 894 | — | — | sí | — (las fija el cruce) |
 | `legislador` | 221 | 221 | — | — | no | 2026-09-27 |
-| **Total** | **204,685** | **52,924** | **41,819** | **109,942** | **155,604** | |
+| **Total** | **230,676** | **77,753** | **41,817** | **111,106** | **180,431** | |
 
-Las entradas sin vector (legisladores, funcionarios, financieras y proveedores: 49,081) van al final del corpus; `vectorizados` marca dónde empiezan. Las 41,819 con URL externa llevan `e = 1`. Un documento que agrupa copias abre `/documentos?q=<título>&inst=<sitio>` (`hrefCopias`).
+Las entradas sin vector (legisladores, funcionarios, financieras y proveedores: 50,245) van al final del corpus; `vectorizados` marca dónde empiezan. Las 41,817 con URL externa llevan `e = 1`. Un documento que agrupa copias abre `/documentos?q=<título>&inst=<sitio>` (`hrefCopias`).
 
 ### 8.3 `indice.bin` (formato SIB2, `lib/busqueda-esquema.ts`)
 
 Bytes 0–3 `SIB2`; bytes 4–7 un `u32` little-endian con el largo de la cabecera JSON; la cabecera (etiqueta, `vectores` sha256, `generado`, `instantaneas`, `dimensiones`, `piezas`, `vectorizados`, `entradas`, y `secciones` como `[nombre, tipo, largo]`); luego cada sección alineada a 8 bytes. Tipos `u8`, `u16`, `u32`, `f64`; «no hay» es el máximo del entero o NaN.
 
-Cabecera actual: etiqueta `2026-09-30|ad382ba3b866b275|204685`, 204,685 entradas, 155,604 con vector.
+Cabecera actual: etiqueta `2026-10-05|91d94c57a73040b9|230676`, 230,676 entradas, 180,431 con vector.
 
 | Parte | Secciones | Bytes |
 |---|---|---|
-| Índice por palabra | `terminos` (185,267 raíces ordenadas, unidas por `\n`), `inicio` (`u32`), `entrada` (`u32`, 3,619,553 apariciones), `campoFrecuencia` (`u8`: campo en dos bits altos, frecuencia en seis, tope 63), `largo` (`u16`, raíces por entrada y campo) | 21,684,864 |
-| Corpus por columnas | por campo de texto `<campo>.texto` (UTF-8), `<campo>.bordes` (`u32`), `<campo>.cual` (el entero más chico que cabe); por campo numérico una tabla con su aridad | 42,465,990 |
+| Índice por palabra | `terminos` (212,717 raíces ordenadas, unidas por `\n`), `inicio` (`u32`), `entrada` (`u32`, 4,047,085 apariciones), `campoFrecuencia` (`u8`: campo en dos bits altos, frecuencia en seis, tope 63), `largo` (`u16`, raíces por entrada y campo) | 24,283,473 |
+| Corpus por columnas | por campo de texto `<campo>.texto` (UTF-8), `<campo>.bordes` (`u32`), `<campo>.cual` (el entero más chico que cabe); por campo numérico una tabla con su aridad | 49,487,401 |
 
 `serializarIndice` escribe; `leerIndice` lee con vistas sobre el búfer (copia alineada si el búfer no lo está) y lanza si falta una sección o los largos no casan. La clase `Columnas` descodifica un texto la primera vez que se pide y lo guarda; `donde(campo, valor)` compara bytes. `build-indice-busqueda.mjs` exige `r` recortado, construye (`construirIndice`), escribe y relee campo por campo y entrada por entrada contra el corpus.
 
@@ -3146,7 +3151,7 @@ Indexación (`raicesParaIndice`): palabras en minúsculas sin tildes (la ñ pasa
 
 ### 8.4 Modelo y vectores
 
-`modelo.json`: `minishlab/potion-multilingual-128M` (Model2Vec, MIT), 72,837 piezas, 128 dimensiones, varianza 0.7919, especiales `[0, 1]`. `modelo.bin` y `vectores.bin` tienen la misma forma: `n × 128` `int8` seguidos de una escala `float32` por fila (`modelo.bin`: 72,837 × 132 bytes; `vectores.bin`: 155,604 × 132 bytes). Un vector de entrada es el promedio de las filas de las piezas de su título en minúsculas, normalizado y cuantizado por fila (`build-busqueda.py`, con `tokenizers` de Rust). La consulta se tokeniza con `@huggingface/tokenizers` 0.2.0 (`embeber` en `lib/busqueda.ts`), sin especiales, se promedia y se normaliza. Al cargar, `lib/busqueda.ts` exige que `piezas` y `dimensiones` de `modelo.json` sean las del corpus, que `vectores.bin` mida `vectorizados × (dim + 4)` y que su sha256 sea el de la cabecera; si no, lanza.
+`modelo.json`: `minishlab/potion-multilingual-128M` (Model2Vec, MIT), 72,837 piezas, 128 dimensiones, varianza 0.7919, especiales `[0, 1]`. `modelo.bin` y `vectores.bin` tienen la misma forma: `n × 128` `int8` seguidos de una escala `float32` por fila (`modelo.bin`: 72,837 × 132 bytes; `vectores.bin`: 180,431 × 132 bytes). Un vector de entrada es el promedio de las filas de las piezas de su título en minúsculas, normalizado y cuantizado por fila (`build-busqueda.py`, con `tokenizers` de Rust). La consulta se tokeniza con `@huggingface/tokenizers` 0.2.0 (`embeber` en `lib/busqueda.ts`), sin especiales, se promedia y se normaliza. Al cargar, `lib/busqueda.ts` exige que `piezas` y `dimensiones` de `modelo.json` sean las del corpus, que `vectores.bin` mida `vectorizados × (dim + 4)` y que su sha256 sea el de la cabecera; si no, lanza.
 
 ### 8.5 Consulta (`lib/busqueda.ts`)
 
@@ -3154,7 +3159,7 @@ Indexación (`raicesParaIndice`): palabras en minúsculas sin tildes (la ñ pasa
 
 1. **`analizarConsulta`**: `requeridas` (todas tienen que estar, en cualquier campo) y `opcionales` (solo ordenan): las de un sueldo (`DE_SUELDO`), las de una compra (`DE_COMPRA`) y, si la consulta es pregunta (`¿?` o empieza por una de `INTERROGATIVAS`), las de `DE_PREGUNTA`. Si no queda ninguna requerida y no es pregunta, las opcionales pasan a requeridas. `preferido`: `cargo` o `proceso` cuando hay palabras de sueldo o de compra junto a otras requeridas; si no, `legislador` o `funcionario` cuando una requerida está en `DE_LEGISLADOR` o `DE_FUNCIONARIO`. La última palabra admite prefijo si el lematizador no la tocó, no es número y tiene 3 letras o más.
 2. **`porPalabra`**: cruza las entradas de cada requerida desde el conjunto más chico; BM25+ (`K1` 1.2, `B` 0.75, `D` 0.5) con idf por campo y, por término, el campo de mayor puntaje (`puntuar`); las opcionales suman. Si lo exacto trae menos de 3 (`MINIMO_SIN_ERRATA`) y la consulta tiene una o dos requeridas de seis letras o más, prueba raíces a una edición (peso 0.5 para la errata) y se queda con eso si trae más. Tope `TOPE_PALABRA = 20_000` ids a la fusión; `todos` guarda el conjunto completo.
-3. **`porTema`**: coseno contra las 155,604 filas, umbral `UMBRAL_TEMA = 0.55`, `VECINOS = 150`. No se embebe si no hay palabra con contenido, si la consulta es una cita (`ES_CITA`) o si son solo números.
+3. **`porTema`**: coseno contra las 180,431 filas, umbral `UMBRAL_TEMA = 0.55`, `VECINOS = 150`. No se embebe si no hay palabra con contenido, si la consulta es una cita (`ES_CITA`) o si son solo números.
 4. **`fundir`**: RRF con `K_RRF = 60`: palabra `1/(60+rango)`, tema `0.6/(60+rango)` (`PESO_TEMA`). +1 si lo tecleado es el título, las siglas de una institución, la cita de una norma o el número de una sentencia, o si es legislador con `preferido` legislador; ×1.6 (`PESO_PREFERIDO`) si es del tipo preferido; ×0.8 si es un documento titulado como un archivo (`TITULO_ARCHIVO`); ÷(1 + 0.15·`p`). Vía de cada resultado: `palabra`, `tema` o `ambas`. Copias de un documento (`clavesDeCopia`): mismo sitio y nombre de archivo sin extensión ni sufijo `-N`, o mismo título del mismo sitio con la misma fecha; se juntan en una fila con sus formatos y su cuenta.
 5. **`buscarEnTodo(q, {tipo, pagina, porPagina})`**: devuelve `Hallazgos` (resultados de la página, `grupos` con hasta 4 por tipo, `total`, `porTipo`, `truncado`, `soloTema`, `conErrata`, `soloOrdenan`, `pregunta`, `generado`, `instantaneas`). Con `tipo`, palabra y tema se calculan dentro del tipo. Si hay más coincidencias que el tope, `porTipo` se cuenta en una pasada sobre todas, con copias juntadas. `POR_PAGINA = 20`. Una consulta con forma de cédula (`llevaCedula`) devuelve vacío. Si el índice no carga, devuelve `null`.
 6. **`resultadoPorHref(href)`**: el resultado cuyo enlace es exactamente ese (por `h`, o por `r` para proveedores y procesos, o la biblioteca de copias); lo usa `fetch` del MCP. Lanza si el índice no carga.
@@ -3180,11 +3185,11 @@ Prueba: `node --no-warnings scripts/probar-pantallas.mjs` lleva cada una de las 
 | `app/proveedores/page.tsx` | `buscarEnTodo(q, { tipo: "proveedor", porPagina: 1000 })` |
 | `lib/mcp.ts` | `search`, `fetch`, `retrieve` (§9) |
 
-`outputFileTracingIncludes` lleva `public/data/busqueda/**` a `/buscar`, `/api/buscar`, `/proveedores` y `/mcp` (97,048,166 bytes sin `corpus.json`, que se excluye en toda función); `outputFileTracingExcludes` lo quita de `/proveedores/*` y `/api/proveedores`.
+`outputFileTracingIncludes` lleva `public/data/busqueda/**` a `/buscar`, `/api/buscar`, `/proveedores` y `/mcp` (109,945,314 bytes sin `corpus.json`, que se excluye en toda función); `outputFileTracingExcludes` lo quita de `/proveedores/*` y `/api/proveedores`.
 
 ### 8.9 Tiempos (medidas fechadas)
 
-- 2026-10-01, Node, disco en caché: carga del motor y primera consulta ~0.32 s con ≈205 mil entradas, de los que armar el tokenizador ~0.14 s; leer `indice.bin` ~70 ms y su sha256 de vectores ~13 ms; ~325 MB de memoria residente (~71 MB de montón); 30–190 ms por consulta en caliente.
+- 2026-10-05, Node, disco en caché, el mismo método sobre el corpus anterior (204,685 entradas) y este (230,676), tres corridas cada uno: carga del motor y primera consulta 0.49–0.55 s y 0.52–0.57 s; 288 y 303 MB de memoria residente (68 y 70 MB de montón); 41–192 ms y 49–156 ms por consulta en caliente (diez consultas).
 - 2026-10-01, Vercel (preview recién desplegado, ida y vuelta de ~0.22 s incluida): primera llamada a `search` del MCP 1.71 s.
 
 ## 9. Servidor MCP
@@ -3229,7 +3234,7 @@ Nueve, registradas en este orden. Todas con `annotations` `{ readOnlyHint: true,
 
 ### 9.5 Evaluación (`scripts/eval-mcp.mjs`)
 
-59 casos (`CASOS`), cada uno una pregunta hecha con la herramienta que le toca y un oráculo calculado aparte de `public/data` (`procesos.json`, `historico/`, `busqueda/corpus.json`, `grafo/meta.json`, `obras.json`, `obras-detalle.json`, `sanciones.json`, `leyes.json`, `congreso.json`), no con el código del servidor. Tres son del grafo de compras y obras: `fetch` de la obra con ejecutora y más contratos dice quién la ejecuta y a quién se le contrató, con el código del contrato; `fetch` del proceso del mayor contrato de obra que está en la tabla dice quién lo convoca, su valor estimado y su contratista; `path` del contratista a la provincia de su obra encuentra el camino. Tres son de normas e iniciativas: `fetch` del proyecto de ley más reciente que se promulgó como una ley con nodo y cuyo título modifica otra dice las dos («Se promulgó como», «Propone modificar»); `fetch` de esa ley, pedida como «Ley NNN-AA», dice de qué proyecto nació; `path` entre los dos primeros proyectos de ley que modifican la Ley 87-01 da dos saltos, por una ley. Habla JSON-RPC sobre HTTP a mano, con `mcp-protocol-version: 2025-06-18`, sin dependencias. Además, `reglasGenerales()` revisa cada respuesta: ninguna cadena con forma de cédula; el aviso en toda respuesta que no es de `search`; en `search`, una fecha de instantánea en cada resultado; que ninguna respuesta nombre `neighbors`, `sparql` ni un argumento en castellano (`con institucion «…»`). Casos que tocan la seguridad de `query`: escrituras, archivos, red, dos sentencias, `SET`, `enable_logging`, `duckdb_logs`, `query(...)`, `pragma_version`, `repeat` de 2,000 millones y `range` de mil millones, rechazados, y el motor responde después. Sale con 1 si un caso falla. Corre en el paso 6b de `verificar.sh --completo` contra `next start` sobre el build recién hecho (timeout 300 s); contra otro despliegue, `node scripts/eval-mcp.mjs --url https://…/mcp`.
+61 casos (`CASOS`), cada uno una pregunta hecha con la herramienta que le toca y un oráculo calculado aparte de `public/data` (`procesos.json`, `historico/`, `busqueda/corpus.json`, `grafo/meta.json`, `obras.json`, `obras-detalle.json`, `sanciones.json`, `leyes.json`, `congreso.json`, `decretos/`), no con el código del servidor. Dos son del buscador que lee el grafo: `search` del título de un decreto de 1986 (número único en su año, sin fe de errata, el título más corto de 40 letras o más que ningún otro decreto del registro repite) lo trae primero, con ese título; `search` de la razón social de la empresa de RPE menor con medidas de la DGCP y sin contratos desde 2015 la trae y dice «Medidas de la DGCP». Tres son del grafo de compras y obras: `fetch` de la obra con ejecutora y más contratos dice quién la ejecuta y a quién se le contrató, con el código del contrato; `fetch` del proceso del mayor contrato de obra que está en la tabla dice quién lo convoca, su valor estimado y su contratista; `path` del contratista a la provincia de su obra encuentra el camino. Tres son de normas e iniciativas: `fetch` del proyecto de ley más reciente que se promulgó como una ley con nodo y cuyo título modifica otra dice las dos («Se promulgó como», «Propone modificar»); `fetch` de esa ley, pedida como «Ley NNN-AA», dice de qué proyecto nació; `path` entre los dos primeros proyectos de ley que modifican la Ley 87-01 da dos saltos, por una ley. Habla JSON-RPC sobre HTTP a mano, con `mcp-protocol-version: 2025-06-18`, sin dependencias. Además, `reglasGenerales()` revisa cada respuesta: ninguna cadena con forma de cédula; el aviso en toda respuesta que no es de `search`; en `search`, una fecha de instantánea en cada resultado; que ninguna respuesta nombre `neighbors`, `sparql` ni un argumento en castellano (`con institucion «…»`). Casos que tocan la seguridad de `query`: escrituras, archivos, red, dos sentencias, `SET`, `enable_logging`, `duckdb_logs`, `query(...)`, `pragma_version`, `repeat` de 2,000 millones y `range` de mil millones, rechazados, y el motor responde después. Sale con 1 si un caso falla. Corre en el paso 6b de `verificar.sh --completo` contra `next start` sobre el build recién hecho (timeout 300 s); contra otro despliegue, `node scripts/eval-mcp.mjs --url https://…/mcp`.
 
 ### 9.6 `/conectar` (`app/conectar/page.tsx`)
 
@@ -3237,7 +3242,7 @@ Página estática con la dirección `DIRECCION_MCP` y botón de copiar (`CopiarT
 
 ### 9.7 Tamaño de la función y tiempos (medidas fechadas)
 
-- Trazado de archivos, medido sobre `route.js.nft.json` el 2026-10-05: `/mcp` ~189 MB (índice de búsqueda ~97 MB, grafo compilado con sus índices ~51 MB, padrón 16 MB, `procesos.json` 11 MB, `historico/` y `rnc/`); `/api/sql` ~77 MB. Límite de Vercel: 250 MB por función.
+- Trazado de archivos, medido sobre `route.js.nft.json` el 2026-10-05: `/mcp` ~202 MB (índice de búsqueda ~110 MB, grafo compilado con sus índices ~51 MB, padrón 16 MB, `procesos.json` 11 MB, `historico/` y `rnc/`); `/api/sql` ~77 MB. Límite de Vercel: 250 MB por función.
 - Primera llamada en `next start` recién arrancado, disco en caché:
 
 | Herramienta | Tiempo | Fecha |
@@ -4160,6 +4165,7 @@ Todos cargan `lib.sh`; leen el JSON del evento por la entrada estándar con `jq`
 | 5b | ambos | `harness.sh` sin hallazgos |
 | 5c | `--completo` | `cedulas.py` y `cedulas-tablas.mjs` sin hallazgos |
 | 5d | `--completo` | `node scripts/build-grafo.mjs --comprobar`: el grafo compilado de `datos/grafo/` igual a lo que producen sus constructores (§7) |
+| 5e | `--completo`, si existe `corpus.json` | `node --no-warnings scripts/busqueda-grafo.mjs --comprobar`: cada entrada del corpus que lleva a un nodo, a uno del compilado y solo ella; cada nodo de un tipo buscable, con su entrada o fuera por una regla de `FUERA` (§8.2) |
 | 6 | `--completo` | `timeout 600 npm run build`; el registro va a `${TMPDIR:-/tmp}/socratico-build.log` y se borra si pasa |
 | 6b | `--completo`, si el build pasó | `next start` en un puerto libre; espera hasta 60 s a que conteste `/robots.txt`; `timeout 300 node scripts/eval-mcp.mjs --url http://localhost:<puerto>/mcp` (§9) |
 | 6c | íd., mismo servidor | `timeout 300 node scripts/validar-grafo.mjs --url http://localhost:<puerto> --personas 300`: SHACL de `lib/ontologia.ts` (§7). Un `trap` mata el servidor al salir |

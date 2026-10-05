@@ -44,9 +44,10 @@ export const metadata: Metadata = {
  * Buscar en toda la plataforma. Si lo tecleado tiene forma inequívoca —un RNC,
  * «Ley 47-20», un código de proceso, unas siglas— lleva directo
  * (`lib/buscar.ts`). Si no, el índice de `lib/busqueda.ts` ordena en una sola
- * lista, por palabra y por tema, lo que traen las instantáneas —los
- * proveedores, los que tienen contratos desde 2015; los procesos, los del
- * último año; las iniciativas de Diputados, las de los dos períodos que
+ * lista, por palabra y por tema, lo que traen las instantáneas y el grafo
+ * —los proveedores, los que tienen contratos desde 2015, medidas o contratos
+ * de obra; los procesos, los del último año; las normas con ficha, todas las
+ * que son nodo; las iniciativas de Diputados, las de los dos períodos que
  * expone el SIL—. Lo que el índice no cubre (el Senado, los procesos más
  * viejos, lo publicado después de la instantánea) se ofrece como enlace a su
  * vertical con su alcance, no se finge.
@@ -85,7 +86,7 @@ export default async function BuscarPage({
         <BuscadorUrl
           etiqueta="Buscar en toda la plataforma"
           placeholder="MINERD, Ley 47-20, agua potable, computadoras, sueldo de un médico…"
-          ayuda="Instituciones, personas con cargo público, bancos y financieras, legisladores, proveedores con contratos desde 2015, compras del último año, leyes desde 1844 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, documentos, datos abiertos y cargos de nómina con su sueldo, por palabra y por tema. El Senado se abre en su vertical."
+          ayuda="Instituciones, personas con cargo público, bancos y financieras, legisladores, proveedores con contratos desde 2015, medidas de la DGCP o contratos de obra, compras del último año, leyes desde 1844, decretos desde 1986 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, documentos, datos abiertos y cargos de nómina con su sueldo, por palabra y por tema. El Senado se abre en su vertical."
         />
       </Suspense>
 
@@ -146,11 +147,11 @@ const NOTA_CARGOS =
   "Plazas contadas en la foto de nómina de las instituciones que la publican en formato procesable, no en todo el Estado.";
 
 /**
- * Qué proveedores están y cuáles no: los inscritos que nunca contrataron no
- * tienen ficha que enseñar, y un nombre de empresa no dice de qué trata.
+ * Qué proveedores están y cuáles no: un inscrito sin contratos, medidas ni
+ * obras no tiene ficha que enseñar, y un nombre de empresa no dice de qué trata.
  */
 const NOTA_PROVEEDORES =
-  "Los que tienen al menos un contrato desde 2015 en el registro de la DGCP, por nombre, RNC o RPE; no los inscritos que nunca contrataron. Se encuentran por palabra, no por tema.";
+  "Los que tienen al menos un contrato desde 2015 en el registro de la DGCP, medidas de la DGCP o contratos de obra en MapaInversiones, por nombre, RNC o RPE; no los inscritos sin nada de eso. Se encuentran por palabra, no por tema.";
 
 const NOTAS: Partial<Record<TipoResultado, string>> = {
   cargo: `${NOTA_CARGOS} El sueldo es el mensual bruto de esas plazas.`,
@@ -162,7 +163,7 @@ const NOTAS: Partial<Record<TipoResultado, string>> = {
     "Bancos, asociaciones y corporaciones de crédito de la Superintendencia de Bancos, AFP, aseguradoras y cooperativas de ahorro del IDECOOP, por nombre, razón social, siglas o RNC. Se encuentran por palabra, no por tema.",
   iniciativa: "Proyectos de ley y de resolución del SIL de la Cámara de Diputados, por su título y número de expediente.",
   sentencia: "Del Tribunal Constitucional (desde 2012) y del Tribunal Superior Electoral (desde 2021), por lo que dice su listado; el texto de la sentencia no se busca. Abren la ficha del Tribunal.",
-  norma: "Decretos, reglamentos y resoluciones de los últimos cuatro años y todas las leyes desde 1844. Las leyes sin ficha propia abren su PDF en la Consultoría Jurídica.",
+  norma: "Los decretos con número y año del registro de la Consultoría Jurídica (desde 1986), todas las leyes desde 1844 y los reglamentos y resoluciones de los últimos cuatro años. Las leyes sin ficha propia abren su PDF en la Consultoría Jurídica.",
 };
 
 /**

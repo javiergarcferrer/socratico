@@ -486,11 +486,12 @@ async function Resultados({ q }: { q: string }) {
   // recorrerían y agregarían seis mil contratos dos veces por render.
   //
   // Por nombre hay dos lecturas, y se dicen por separado: la ventana de
-  // contratos recientes (en vivo, con monto y fecha) y el índice de todos los
-  // que han contratado desde 2015 (la instantánea de `/historico`, el mismo
-  // de `/buscar`). Hasta el 2026-09-26 solo existía la primera, y quien
-  // buscaba por nombre a un proveedor que no había ganado nada en el último
-  // mes —Plaza Lama, con 865 contratos— no lo encontraba nunca.
+  // contratos recientes (en vivo, con monto y fecha) y el índice de
+  // proveedores de `/buscar`: todos los que han contratado desde 2015 (la
+  // instantánea de `/historico`) y, del grafo, los que sin eso tienen medidas
+  // de la DGCP o contratos de obra. Hasta el 2026-09-26 solo existía la
+  // primera, y quien buscaba por nombre a un proveedor que no había ganado
+  // nada en el último mes —Plaza Lama, con 865 contratos— no lo encontraba nunca.
   const [r, historico] = await Promise.all([
     buscarProveedores(q, mercado()),
     q.replace(/[^\p{L}]/gu, "").length >= 3 && /\p{L}/u.test(q)
@@ -567,11 +568,11 @@ async function Resultados({ q }: { q: string }) {
               (del {formatFecha(r.desde)} al {formatFecha(r.hasta)})
             </>
           )}
-          , y entre los que tienen algún contrato desde 2015 en la instantánea
-          de compras. El registro de la DGCP no admite búsqueda por razón social
-          ni se puede recorrer entero, así que un inscrito que nunca ha
-          contratado no aparece por nombre: búscalo por su RNC o su número de
-          RPE y verás su ficha completa.
+          , y entre los que tienen algún contrato desde 2015, medidas de la DGCP
+          o contratos de obra en las instantáneas. El registro de la DGCP no
+          admite búsqueda por razón social ni se puede recorrer entero, así que
+          un inscrito sin nada de eso no aparece por nombre: búscalo por su RNC
+          o su número de RPE y verás su ficha completa.
         </p>
       )}
     </div>
@@ -682,10 +683,11 @@ function FichaEncontrada({
 const MAX_HISTORICO = 60;
 
 /**
- * Los que se llaman así entre todos los que han contratado desde 2015
- * (`lib/busqueda.ts`, tipo `proveedor`): el camino por nombre que no depende
- * de haber ganado algo este mes. Solo coincidencias por palabra —un nombre de
- * empresa no tiene «tema»—, con la fecha de la instantánea al lado.
+ * Los que se llaman así entre todos los que han contratado desde 2015 y los
+ * que tienen medidas de la DGCP o contratos de obra (`lib/busqueda.ts`, tipo
+ * `proveedor`; el detalle de cada uno dice cuál): el camino por nombre que no
+ * depende de haber ganado algo este mes. Solo coincidencias por palabra —un
+ * nombre de empresa no tiene «tema»—, con la fecha de la instantánea al lado.
  */
 function CoincidenciasHistoricas({
   consulta,
@@ -703,7 +705,7 @@ function CoincidenciasHistoricas({
       <CardHeader>
         <div className="min-w-0">
           <p className="rotulo text-ink-soft">{`Coincidencias con «${consulta}»`}</p>
-          <CardTitle>Proveedores con contratos desde 2015</CardTitle>
+          <CardTitle>Con contratos desde 2015, medidas o contratos de obra</CardTitle>
         </div>
         <CardAction>
           {total > filas.length ? `${filas.length} de ${formatInt(total)}` : formatInt(filas.length)}
@@ -725,7 +727,7 @@ function CoincidenciasHistoricas({
       </ul>
       {corte && (
         <p className="border-t border-hairline px-5 py-2.5 text-xs text-ink-soft">
-          De la instantánea de compras del {formatFecha(corte)}; la ficha de cada uno se lee en vivo.
+          De las instantáneas de compras y de obras, la más vieja del {formatFecha(corte)}; la ficha de cada uno se lee en vivo.
         </p>
       )}
     </Card>

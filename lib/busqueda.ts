@@ -986,7 +986,8 @@ const ENTERO = new Intl.NumberFormat("es-DO");
 function detalleProveedor(d: Entrada): string {
   const contratos = d.k ? `${ENTERO.format(d.k)} ${d.k === 1 ? "contrato" : "contratos"}` : null;
   const anios = d.a ? (d.a[0] === d.a[1] ? `${d.a[0]}` : `${d.a[0]}–${d.a[1]}`) : null;
-  return [d.c && `RNC ${d.c}`, [contratos, anios].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+  // Uno sin contratos desde 2015 dice por qué está: «Medidas de la DGCP», «Contratos de obra».
+  return [d.c && `RNC ${d.c}`, [contratos, anios].filter(Boolean).join(", "), d.d].filter(Boolean).join(" · ");
 }
 
 /**

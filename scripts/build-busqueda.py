@@ -2,12 +2,14 @@
 """Genera public/data/busqueda/{corpus.json,vectores.bin}: el índice del
 buscador de toda la plataforma (`/buscar`, la paleta ⌘K, `/api/buscar`).
 
-No lee ninguna fuente: junta en un solo corpus lo que ya traen las
-instantáneas —instituciones, normativa reciente y todas las leyes, obras,
-documentos, datos abiertos, cargos de nómina (con su sueldo), procesos de
-compra del último año, sentencias del TC y del TSE, iniciativas y
-legisladores del Congreso, personas con cargo público (`busqueda_funcionarios`)
-y proveedores con contratos desde 2015— y calcula
+No lee ninguna fuente: junta en un solo corpus lo que ya traen el grafo
+compilado y las instantáneas —instituciones, los decretos, las leyes y las
+resoluciones con ficha tal como los describe el grafo (`busqueda_grafo`), el
+resto de la normativa reciente y de las leyes, obras, documentos, datos
+abiertos, cargos de nómina (con su sueldo), procesos de compra del último
+año, sentencias del TC y del TSE, iniciativas y legisladores del Congreso,
+personas con cargo público (`busqueda_funcionarios`) y proveedores con
+contratos desde 2015, medidas de la DGCP o contratos de obra— y calcula
 para cada entrada su vector semántico con el modelo podado de
 `scripts/build-modelo-semantico.py`. Las fuentes nuevas traen su propio
 lector de entradas (`scripts/busqueda_*.py`, `entradas(datos)`). Legisladores,
@@ -18,9 +20,10 @@ raíces del español, erratas; `scripts/build-indice-busqueda.mjs`) y compara
 vectores por coseno; `lib/busqueda.ts` funde las dos listas. Nada de esto es
 una base de datos: es un archivo versionado más.
 
-Se corre **después** de regenerar cualquiera de esas instantáneas (el orden
-semanal: normativa → instituciones → leyes, procesos, sentencias, congreso →
-este), y **detrás** de él `node scripts/build-indice-busqueda.mjs`, que
+Se corre **después** de regenerar cualquiera de esas instantáneas y el grafo
+(el orden semanal: normativa → instituciones → leyes, procesos, sentencias,
+congreso → `node scripts/build-grafo.mjs` → este), y **detrás** de él
+`node scripts/build-indice-busqueda.mjs`, que
 guarda el índice por palabra ya construido. Si no se corre, el buscador
 sigue funcionando con el corpus anterior y dice su fecha.
 
@@ -53,6 +56,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import busqueda_congreso  # noqa: E402
 import busqueda_funcionarios  # noqa: E402
 import busqueda_financieras  # noqa: E402
+import busqueda_grafo  # noqa: E402
 import busqueda_leyes  # noqa: E402
 import busqueda_procesos  # noqa: E402
 import busqueda_sentencias  # noqa: E402
@@ -391,7 +395,15 @@ def main() -> None:
     docs += instituciones()
     recientes, fechas["norma"] = normas()
     historicas, fechas["ley"] = busqueda_leyes.entradas(DATOS)
-    docs += recientes + de_modulo(sin_repetidas(recientes, historicas))
+    # Una norma que es nodo del grafo se busca como la describe el grafo; de
+    # las instantáneas, solo lo que no es nodo (`busqueda_grafo`).
+    grafo, cortes = busqueda_grafo.entradas(RAIZ)
+    normas_grafo = [e for e in grafo if e["t"] == "norma"]
+    docs += normas_grafo + busqueda_grafo.fuera_del_grafo(
+        normas_grafo, recientes + de_modulo(sin_repetidas(recientes, historicas)), reparar
+    )
+    # Cada tipo dice una sola fecha: la de la más vieja de sus fuentes.
+    fechas["norma"] = min(fechas["norma"], cortes["decretos"], cortes["leyes"], cortes["resoluciones"])
     congreso, fechas["congreso"] = busqueda_congreso.entradas(DATOS)
     for tipo, (lista, fecha) in {
         "obra": obras(),
@@ -414,7 +426,10 @@ def main() -> None:
     financieras, fechas["financiera"] = busqueda_financieras.entradas(DATOS)
     docs += de_modulo(financieras)
     lista, fechas["proveedor"] = proveedores()
-    docs += lista
+    # Y los que el grafo dice con medidas de la DGCP o contratos de obra y sin
+    # contratos desde 2015, en el mismo orden por RPE.
+    docs += sorted(lista + [e for e in grafo if e["t"] == "proveedor"], key=lambda d: int(d["r"]))
+    fechas["proveedor"] = min(fechas["proveedor"], cortes["medidas"], cortes["obras"])
 
     # El vector es el del título en minúsculas —la consulta también se
     # embebe en minúsculas: un título en MAYÚSCULAS se trocea en piezas

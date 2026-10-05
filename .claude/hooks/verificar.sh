@@ -153,6 +153,19 @@ if [ "$modo" = "--completo" ]; then
   fi
 fi
 
+# 5e. The search says what the graph says (docs/INFRAESTRUCTURA.md §8.2): every
+#     corpus entry that leads to a node's ficha leads to one compiled node, and
+#     every node of a type the search carries has its entry, save those its
+#     scope leaves out by a stated rule (`FUERA` in scripts/busqueda-grafo.mjs,
+#     recognized by the graphs that assert them). ~10 s: completo only.
+if [ "$modo" = "--completo" ] && [ -f public/data/busqueda/corpus.json ]; then
+  if coh="$(node --no-warnings scripts/busqueda-grafo.mjs --comprobar 2>&1)"; then
+    ok "search ↔ graph: $(printf '%s\n' "$coh" | tail -1)"
+  else
+    mal "search and graph disagree — python3 scripts/build-busqueda.py (after build-grafo.mjs), then build-indice-busqueda.mjs"; printf '%s\n' "$coh" | tail -10 | sed 's/^/       /'
+  fi
+fi
+
 # 6. Build (completo only).
 LOG="${TMPDIR:-/tmp}/socratico-build.log"
 construido=0

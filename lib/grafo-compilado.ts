@@ -164,6 +164,23 @@ export async function leerDescripcion(n: NodoRdf): Promise<Descripcion | undefin
 }
 
 /**
+ * Las claves de todos los nodos de un tipo que el compilado describe,
+ * fragmento a fragmento: lo recorren el buscador (`scripts/busqueda-grafo.mjs`)
+ * y su comprobación contra el grafo. Lanza si un fragmento no se lee.
+ */
+export async function clavesCompiladas(tipo: TipoNodoRdf): Promise<string[]> {
+  const meta = await metaGrafo();
+  if (!meta) throw new Error("el grafo compilado no está (datos/grafo/): node scripts/build-grafo.mjs");
+  const salida: string[] = [];
+  for (let i = 0; i < (meta.tipos[tipo]?.limites.length ?? 0); i++) {
+    const f = await leerFragmento(tipo, i);
+    if (!f) throw new Error(`no se pudo leer el fragmento ${i} de ${tipo}`);
+    salida.push(...Object.keys(f.nodos));
+  }
+  return salida;
+}
+
+/**
  * Lo que se dice de unos grafos con nombre, en PROV-O: qué son, de qué
  * fuente o de qué grafos se derivan y de qué corte. Va en el grafo por
  * omisión de un TriG o unos N-Quads.

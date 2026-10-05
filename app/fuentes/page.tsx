@@ -1069,7 +1069,14 @@ export default async function FuentesPage() {
             junta en un índice las instantáneas de instituciones, legisladores,
             proveedores, procesos de compra, normativa y leyes, iniciativas del
             Congreso, sentencias, obras, documentos, datos abiertos y cargos de
-            nómina, y dice la fecha en que se armó. Busca por palabra (sin
+            nómina, y dice la fecha en que se armó. Los decretos, las leyes y
+            las resoluciones con ficha propia, y los proveedores sin contratos
+            desde 2015 que tienen medidas o contratos de obra, los toma del{" "}
+            <Link href="/grafo" className="font-medium text-brand-700 hover:underline">
+              grafo
+            </Link>
+            , con el mismo título, la misma fecha y el mismo enlace que da su
+            nodo. Busca por palabra (sin
             tildes, con plurales y conjugaciones, y una errata admitida en
             palabras largas cuando lo exacto trae casi nada) y por tema, con un
             modelo abierto de vectores (Model2Vec, licencia MIT) reducido al
@@ -1079,12 +1086,14 @@ export default async function FuentesPage() {
             exigen, y la página lo dice.
           </p>
           <p className="mt-3">
-            <strong>Cobertura:</strong> de los proveedores, los 32 mil con al
-            menos un contrato desde 2015 en el registro de la DGCP, por nombre,
-            RNC o RPE (no los inscritos que nunca contrataron); de los procesos,
-            los publicados en los doce meses anteriores a la tabla abierta de la
-            DGCP; de la normativa, todas las leyes desde 1844 y los decretos,
-            reglamentos y resoluciones de los últimos cuatro años; del Congreso,
+            <strong>Cobertura:</strong> de los proveedores, los 33 mil con al
+            menos un contrato desde 2015 en el registro de la DGCP, medidas de la
+            DGCP o contratos de obra en MapaInversiones, por nombre, RNC o RPE
+            (no los inscritos sin nada de eso); de los procesos, los publicados
+            en los doce meses anteriores a la tabla abierta de la DGCP; de la
+            normativa, todas las leyes desde 1844, los 27 mil decretos con número
+            y año del registro de la Consultoría (desde 1986) y los reglamentos y
+            resoluciones de los últimos cuatro años; del Congreso,
             los legisladores con ficha y las iniciativas de Diputados de los
             períodos 2020–2024 y 2024–2028, los dos que expone el SIL; de las
             sentencias, las del Tribunal Constitucional desde 2012 y las del

@@ -28,7 +28,7 @@
  *     node scripts/eval-mcp.mjs --url https://socratico.vercel.app/mcp
  * Sale con 1 si un caso falla.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -202,6 +202,28 @@ const proyectoPromulgado = proyectosDeLey
   .sort((a, b) => b.f[5].localeCompare(a.f[5]) || b.f[0] - a.f[0])[0];
 // Dos proyectos de ley que modifican la misma ley: la de la seguridad social.
 const proyectosSobre8701 = proyectosDeLey.filter((f) => canonLey(LEY_QUE_MODIFICA.exec(f[2])?.[1] ?? "") === "87-01").slice(0, 2);
+
+// Un decreto de 1986 del registro completo, muy anterior a la normativa
+// reciente: el de número único en su año, sin fe de errata, con el título
+// más corto que ningún otro decreto del registro repite. El buscador lo trae
+// del grafo (`scripts/busqueda-grafo.mjs`).
+const titulosDecreto = new Map();
+for (const a of readdirSync(path.join(DATOS, "decretos")).filter((f) => /^(\d{4}|sin-fecha)\.json$/.test(f))) {
+  for (const f of leer(`decretos/${a}`).filas) titulosDecreto.set(plano(f[2]), (titulosDecreto.get(plano(f[2])) ?? 0) + 1);
+}
+const filas1986 = leer("decretos/1986.json").filas;
+const vecesNumero = new Map();
+for (const f of filas1986) vecesNumero.set(f[0], (vecesNumero.get(f[0]) ?? 0) + 1);
+const decretoViejo = filas1986
+  .filter((f) => /^\d{1,4}-86$/.test(f[0] ?? "") && vecesNumero.get(f[0]) === 1 && !/errata/i.test(f[2]) && titulosDecreto.get(plano(f[2])) === 1)
+  .sort((a, b) => a[2].length - b[2].length || a[0].localeCompare(b[0]))
+  .find((f) => f[2].length >= 40);
+// Una empresa con medidas de la DGCP y sin contratos desde 2015: la de RPE menor.
+const conContratos = new Set();
+for (let n = 0; n < 10; n++) for (const rpe of Object.keys(leer(`historico/proveedores/${n}.json`).filas)) conContratos.add(String(Number(rpe)));
+const sancionadoSinContratos = [...sancionados.values()]
+  .filter((p) => !p.fisica && p.rnc && p.razonSocial && !conContratos.has(String(Number(p.rpe))))
+  .sort((a, b) => Number(a.rpe) - Number(b.rpe))[0];
 
 /* ------------------------------------------------------------------ casos */
 
@@ -569,6 +591,30 @@ const CASOS = [
       exigir(datos.results.length > 0, "no encontró nada");
       exigir(datos.results.every((r) => r.id.startsWith("/procesos/")), "trae resultados que no son procesos");
       return `${datos.total} procesos`;
+    },
+  },
+  {
+    pregunta: "Un decreto de 1986 se encuentra por su título, como lo dice su nodo",
+    async correr() {
+      exigir(decretoViejo, "el registro no trae un decreto de 1986 que sirva de oráculo");
+      const { datos, error } = await llamar("search", { query: decretoViejo[2], type: "norma" });
+      exigir(!error, error);
+      const r = datos.results[0];
+      exigir(r?.id === `/normativa/decreto/${decretoViejo[0]}`, `el primero es ${r?.id}, no el Decreto ${decretoViejo[0]}`);
+      exigir(plano(r.title) === plano(decretoViejo[2]), `el título no es el del registro: ${r.title}`);
+      return `Decreto ${decretoViejo[0]}`;
+    },
+  },
+  {
+    pregunta: "Una empresa con medidas de la DGCP y sin contratos desde 2015 se encuentra por su nombre",
+    async correr() {
+      exigir(sancionadoSinContratos, "no hay oráculo: ninguna empresa con medidas sin contratos");
+      const { datos, error } = await llamar("search", { query: sancionadoSinContratos.razonSocial, type: "proveedor" });
+      exigir(!error, error);
+      const r = datos.results.find((x) => x.id === `/proveedores/${Number(sancionadoSinContratos.rpe)}`);
+      exigir(r, `no la trae: ${datos.results.map((x) => x.id).slice(0, 5).join(", ")}`);
+      exigir(/Medidas de la DGCP/.test(r.text), "no dice por qué está");
+      return `RPE ${Number(sancionadoSinContratos.rpe)}`;
     },
   },
   {
