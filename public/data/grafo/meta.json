@@ -55,5 +55,5 @@
     "procesos": "2026-09-25",
     "obras": "2026-09-22"
   },
-  "excluye": "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, ni las declaraciones juradas, ni las fichas del Congreso, ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra)."
+  "excluye": "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, las leyes y las resoluciones (sus títulos nombran personas), ni las declaraciones juradas, ni las fichas del Congreso con sus iniciativas, ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra)."
 }

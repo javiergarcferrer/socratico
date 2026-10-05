@@ -157,8 +157,9 @@ function enRuta(ruta: string): string {
  * `/api/grafo`): los que tienen ficha y se leen de una instantánea. El `id`
  * es el de su dirección: el slug de la persona, el código de la institución,
  * el slug de la entidad financiera, el RNC, el número «NNN-AA» del decreto,
- * el slug de la provincia, el RPE del proveedor, el código del proceso de
- * compra (tal cual, con sus espacios si los trae) o el SNIP de la obra.
+ * de la ley o de la resolución, el slug de la provincia, el RPE del
+ * proveedor, el código del proceso de compra (tal cual, con sus espacios si
+ * los trae), el SNIP de la obra o el número del SIL de la iniciativa.
  */
 export type TipoNodoRdf =
   | "funcionario"
@@ -169,7 +170,10 @@ export type TipoNodoRdf =
   | "provincia"
   | "proveedor"
   | "proceso"
-  | "obra";
+  | "obra"
+  | "ley"
+  | "resolucion"
+  | "iniciativa";
 
 export interface NodoRdf {
   tipo: TipoNodoRdf;
@@ -201,6 +205,11 @@ export function rutaDeNodo(n: NodoRdf): string {
       return enlace.proceso(n.id);
     case "obra":
       return enlace.obra(n.id);
+    case "ley":
+    case "resolucion":
+      return enlace.norma(n.tipo, n.id) ?? `/normativa?q=${encodeURIComponent(n.id)}`;
+    case "iniciativa":
+      return enlace.iniciativa(n.id);
   }
 }
 
@@ -226,9 +235,11 @@ export function nodoDeRuta(ruta: string): NodoRdf | null {
   if ((m = /^\/instituciones\/(\d{1,7})(?:-[a-z0-9-]*)?$/.exec(r))) return { tipo: "institucion", id: m[1] };
   if ((m = /^\/banca\/([a-z0-9-]{1,120})$/.exec(r))) return { tipo: "entidad-financiera", id: m[1] };
   if ((m = /^\/empresas\/(\d{9})$/.exec(r))) return { tipo: "empresa", id: m[1] };
-  if ((m = /^\/normativa\/decreto\/(\d{1,4}-\d{2,4})$/.exec(d(r)))) {
-    return { tipo: "decreto", id: numeroCanonico("decreto", m[1]) };
+  if ((m = /^\/normativa\/(decreto|ley|resolucion)\/(\d{1,4}-\d{2,4})$/.exec(d(r)))) {
+    return { tipo: m[1] as "decreto" | "ley" | "resolucion", id: numeroCanonico(m[1], m[2]) };
   }
+  // El número del SIL, sin ceros a la izquierda: «/congreso/0158590» es la 158590.
+  if ((m = /^\/congreso\/(\d{1,8})$/.exec(r))) return { tipo: "iniciativa", id: String(Number(m[1])) };
   if ((m = /^\/provincias\/([a-z0-9-]{3,60})$/.exec(r))) return { tipo: "provincia", id: m[1] };
   // Sin ceros a la izquierda: «/proveedores/007» es el RPE 7, con un solo IRI.
   if ((m = /^\/proveedores\/(\d{1,8})$/.exec(r))) return { tipo: "proveedor", id: String(Number(m[1])) };

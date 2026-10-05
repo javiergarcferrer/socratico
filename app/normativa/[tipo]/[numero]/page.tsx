@@ -16,12 +16,13 @@ import AccionesFicha from "@/components/acciones-ficha";
 import { ProyectosDeLaNorma } from "@/components/congreso/cruces";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { Button } from "@/components/ui/button";
-import { enlace, numeroCanonico } from "@/lib/grafo";
+import { enlace, numeroCanonico, type NodoRdf } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 import { ETIQUETA_MOVIMIENTO, getFuncionarios, personaPorFirma, personasDelDecreto } from "@/lib/funcionarios";
 import { decretoPorNumero } from "@/lib/decretos";
+import { schemaOrgDe } from "@/lib/grafo-ld";
 
 export const revalidate = 86400;
 
@@ -34,18 +35,34 @@ const cargarNorma = cache((tipo: Parameters<typeof resolverNorma>[0], numero: st
   resolverNorma(tipo, numero),
 );
 
+/**
+ * El nodo del grafo de la ficha: un decreto del registro, o una ley o una
+ * resolución con ficha propia. Una ley cuyo número el registro da a dos leyes
+ * distintas no es un nodo: el compilado no la trae.
+ */
+const nodoDeLaNorma = cache(async (tipo: string, numero: string): Promise<NodoRdf | null> => {
+  if (tipo === "Decreto") {
+    const registro = await decretoPorNumero(numero);
+    return registro?.numero ? { tipo: "decreto", id: registro.numero } : null;
+  }
+  const t = tipo === "Ley" ? "ley" : tipo === "Resolución" ? "resolucion" : null;
+  if (!t) return null;
+  const nodo: NodoRdf = { tipo: t, id: numeroCanonico(t, numero) };
+  return (await schemaOrgDe(nodo)) ? nodo : null;
+});
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { tipo: slug, numero } = await params;
   const tipo = tipoDeRuta(slug);
   if (!tipo) return { title: "Norma no encontrada" };
   const norma = await cargarNorma(tipo, numero);
-  // Un decreto del registro es un nodo del grafo: su RDF es una alterna de la ficha.
-  const registro = tipo === "Decreto" ? await decretoPorNumero(numeroCanonico(slug, numero)) : null;
+  // Una norma que es un nodo del grafo: su RDF es una alterna de la ficha.
+  const nodo = await nodoDeLaNorma(tipo, numeroCanonico(slug, numero));
   return {
     title: `${tipo} ${numero}`,
     alternates: {
       canonical: enlace.norma(slug, numero) ?? undefined,
-      ...(registro?.numero ? { types: alternasRdf({ tipo: "decreto", id: registro.numero }) } : {}),
+      ...(nodo ? { types: alternasRdf(nodo) } : {}),
     },
     // Sin el texto, la página es un camino, no contenido: se sigue, no se indexa.
     ...(norma ? {} : { robots: { index: false, follow: true } }),
@@ -90,6 +107,7 @@ export default async function NormaPage({ params }: Props) {
   const registro = tipo === "Decreto" ? await decretoPorNumero(norma.numero) : null;
   const firmante =
     registro?.firmante && registro.aviso !== "fuera" ? await personaPorFirma(registro.firmante) : null;
+  const nodo = await nodoDeLaNorma(tipo, numero);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -190,7 +208,7 @@ export default async function NormaPage({ params }: Props) {
         </Link>
         .
       </p>
-      {registro?.numero && <EnElGrafo nodo={{ tipo: "decreto", id: registro.numero }} className="mt-6" />}
+      {nodo && <EnElGrafo nodo={nodo} className="mt-6" />}
       {enlace.norma(slug, numero) && (
         <Conversacion
           className="mt-6"

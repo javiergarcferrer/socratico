@@ -39,6 +39,8 @@ import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { schemaOrgDe } from "@/lib/grafo-ld";
 
 export const revalidate = 300;
 
@@ -66,10 +68,13 @@ export async function generateMetadata({ params }: Props) {
   const raw = await cargarIniciativa(Number(id));
   if (!raw) return { title: "Iniciativa no encontrada" };
   const ini = normalizarIniciativa(raw);
+  // Su RDF solo si el grafo compilado la trae: la ficha lee el SIL en vivo y conoce iniciativas más nuevas que la instantánea.
+  const nodo = { tipo: "iniciativa" as const, id: String(ini.id) };
+  const enGrafo = (await schemaOrgDe(nodo)) != null;
   return {
     title: `Iniciativa ${ini.numero?.completo ?? ini.id} · Diputados`,
     description: ini.titulo.slice(0, 160),
-    alternates: { canonical: enlace.iniciativa(ini.id) },
+    alternates: { canonical: enlace.iniciativa(ini.id), ...(enGrafo ? { types: alternasRdf(nodo) } : {}) },
   };
 }
 
@@ -462,6 +467,7 @@ export default async function IniciativaPage({ params }: Props) {
           />
         </dl>
       </Plegable>
+      <EnElGrafo nodo={{ tipo: "iniciativa", id: String(ini.id) }} className="mt-6" />
       <Conversacion className="mt-6" referencia={{ tipo: "proyecto", ref: enlace.iniciativa(ini.id), titulo, href: enlace.iniciativa(ini.id) }} />
     </div>
   );

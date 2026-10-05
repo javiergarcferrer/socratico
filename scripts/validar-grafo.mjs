@@ -8,24 +8,25 @@
  * Qué valida, contra `next start` (como `scripts/eval-mcp.mjs`):
  *
  *  · el volcado entero (`public/data/grafo/grafo.nt.gz`): instituciones,
- *    entidades financieras, empresas, proveedores, contrataciones, medidas y
- *    provincias, sin personas naturales;
- *  · una muestra de personas y de los decretos que las nombran, pedidos uno a
- *    uno a `/api/grafo` (el volcado no los trae);
+ *    entidades financieras, empresas, proveedores, contrataciones, medidas,
+ *    procesos de compra, obras y provincias, sin personas naturales;
+ *  · una muestra de personas y de los decretos que las nombran, y de
+ *    iniciativas del Congreso y de las leyes, resoluciones y decretos que
+ *    nombran, pedidos uno a uno a `/api/grafo` (el volcado no los trae);
  *  · unido todo con la ontología (`/ontologia.ttl`): SHACL lee de ahí las
  *    subclases, y los conceptos de las listas cerradas están ahí.
  *
  * Una forma con `sh:class` falla cuando el nodo de llegada no tiene ese
- * tipo. Si es una persona o un decreto sin **ningún** tipo, es que la
- * muestra no lo describe (el volcado no los trae y solo se piden algunos):
- * eso se cuenta aparte. Cualquier otro nodo sin tipo es una arista colgando
- * —el volcado sí trae todo lo demás— y cuenta como violación.
+ * tipo. Si es una persona, una norma o una iniciativa sin **ningún** tipo, es
+ * que la muestra no lo describe (el volcado no los trae y solo se piden
+ * algunos): eso se cuenta aparte. Cualquier otro nodo sin tipo es una arista
+ * colgando —el volcado sí trae todo lo demás— y cuenta como violación.
  *
  * Y ningún IRI del espacio de la versión 1 (`ESPACIO_V1` de `lib/rdf.ts`):
  * el grafo emite solo los de ahora.
  *
  * Uso:
- *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300]
+ *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200]
  * Sale con 1 si hay una violación o un término sin declarar.
  */
 import { readFileSync } from "node:fs";
@@ -43,17 +44,27 @@ const arg = (nombre, omision) => {
 };
 const URL_BASE = arg("url", "http://localhost:3000").replace(/\/$/, "");
 const N_PERSONAS = Number(arg("personas", "300"));
+const N_INICIATIVAS = Number(arg("iniciativas", "200"));
 const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
 const SOC = `${W3ID}/def/core#`;
 const DO = `${W3ID}/def/do#`;
 const V1 = /ESPACIO_V1 = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
-// Lo que la muestra puede no describir: personas y decretos (el volcado no los trae).
-const SOLO_EN_MUESTRA = /\/(funcionarios|normativa\/decreto)\//;
+// Lo que la muestra puede no describir: personas, normas e iniciativas (el volcado no los trae).
+const SOLO_EN_MUESTRA = /\/(funcionarios|normativa|congreso)\//;
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const CLASE_SH = "http://www.w3.org/ns/shacl#ClassConstraintComponent";
 
-const pedir = async (ruta) => {
-  const r = await fetch(`${URL_BASE}${ruta}`, { signal: AbortSignal.timeout(60_000) });
+const pedir = async (ruta, intento = 0) => {
+  let r;
+  try {
+    r = await fetch(`${URL_BASE}${ruta}`, { signal: AbortSignal.timeout(60_000) });
+  } catch (err) {
+    // Mientras se lee el volcado (segundos), el servidor cierra por inactivo el
+    // socket de la ontología, y el primer pedido que lo reusa falla al enviarse:
+    // un GET se repite, una sola vez y solo por eso. Lo demás es un fallo.
+    if (intento === 0 && err?.cause?.code === "UND_ERR_SOCKET") return pedir(ruta, 1);
+    throw err;
+  }
   if (!r.ok) throw new Error(`${ruta} respondió ${r.status}`);
   return r.text();
 };
@@ -95,6 +106,27 @@ await enLotes(muestra.slice(0, N_PERSONAS), 8, async (p) => {
 });
 await enLotes([...decretos].slice(0, N_PERSONAS), 8, async (n) => {
   qPersonas.push(...quads(await pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(`/normativa/decreto/${n}`)}`), "N-Triples"));
+});
+// Una muestra de iniciativas, las promulgadas primero (las que llevan a una
+// norma), luego el resto, en el orden del archivo; y las leyes, resoluciones
+// y decretos que nombran.
+const { iniciativas } = JSON.parse(readFileSync(path.join(RAIZ, "public", "data", "congreso.json"), "utf8"));
+const promulgadas = iniciativas.filas.filter((f) => f[7]);
+const muestraIniciativas = promulgadas.filter((_, i) => i % Math.max(1, Math.floor(promulgadas.length / (N_INICIATIVAS / 2))) === 0);
+for (let i = 0; muestraIniciativas.length < N_INICIATIVAS && i < iniciativas.filas.length; i += Math.max(1, Math.floor(iniciativas.filas.length / N_INICIATIVAS))) {
+  if (!muestraIniciativas.includes(iniciativas.filas[i])) muestraIniciativas.push(iniciativas.filas[i]);
+}
+const normas = new Set();
+await enLotes(muestraIniciativas.slice(0, N_INICIATIVAS), 8, async (f) => {
+  const q = quads(await pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(`/congreso/${f[0]}`)}`), "N-Triples");
+  qPersonas.push(...q);
+  for (const x of q) {
+    const m = /\/normativa\/(ley|resolucion|decreto)\/([^#/?]+)#id$/.exec(x.object.value);
+    if (m) normas.add(`/normativa/${m[1]}/${m[2]}`);
+  }
+});
+await enLotes([...normas].slice(0, N_INICIATIVAS), 8, async (ruta) => {
+  qPersonas.push(...quads(await pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(ruta)}`), "N-Triples"));
 });
 const msLeer = performance.now() - t0;
 
@@ -140,7 +172,8 @@ for (const r of informe.results) {
 const nodos = new Set([...volcado, ...qPersonas].map((q) => q.subject.value)).size;
 console.log(
   `${(volcado.length + qPersonas.length).toLocaleString("en-US")} triples de ${nodos.toLocaleString("en-US")} nodos ` +
-    `(volcado entero, ${muestra.length.toLocaleString("en-US")} personas y ${decretos.size.toLocaleString("en-US")} decretos) · ` +
+    `(volcado entero, ${muestra.length.toLocaleString("en-US")} personas, ${decretos.size.toLocaleString("en-US")} decretos, ` +
+    `${Math.min(muestraIniciativas.length, N_INICIATIVAS).toLocaleString("en-US")} iniciativas y ${Math.min(normas.size, N_INICIATIVAS).toLocaleString("en-US")} normas que nombran) · ` +
     `leer ${Math.round(msLeer / 1000)} s, validar ${Math.round(msValidar / 1000)} s`,
 );
 for (const [termino, n] of sinDeclarar) console.log(`SIN DECLARAR ${termino} (${n} veces)`);
@@ -153,6 +186,6 @@ const conforme = grupos.size === 0 && sinDeclarar.size === 0 && deV1.size === 0;
 console.log(
   `${conforme ? "conforme" : "no conforme"}: ` +
     `${[...grupos.values()].reduce((s, g) => s + g.n, 0).toLocaleString("en-US")} violaciones, ${sinDeclarar.size} términos sin declarar, ` +
-    `${deV1.size} IRIs de la v1, ${fueraDeMuestra.toLocaleString("en-US")} enlaces a personas o decretos fuera de la muestra`,
+    `${deV1.size} IRIs de la v1, ${fueraDeMuestra.toLocaleString("en-US")} enlaces a personas, normas o iniciativas fuera de la muestra`,
 );
 process.exit(conforme ? 0 : 1);

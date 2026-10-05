@@ -148,16 +148,20 @@ export const CLASE_DE_TIPO: Record<TipoNodoRdf, string> = {
   proveedor: "Proveedor del Estado",
   proceso: "Proceso de compra",
   obra: "Obra o proyecto de inversión",
+  ley: "Ley",
+  resolucion: "Resolución",
+  iniciativa: "Iniciativa legislativa",
 };
 
 /** Los grupos de aristas, en el orden en que se leen. */
-export type GrupoRelacion = "cargos" | "compras" | "procesos" | "obras" | "decretos" | "entidades" | "lugares" | "registros";
+export type GrupoRelacion = "cargos" | "compras" | "procesos" | "obras" | "normas" | "decretos" | "entidades" | "lugares" | "registros";
 
 export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "cargos", etiqueta: "Cargos" },
   { id: "compras", etiqueta: "Mayores contrataciones desde 2015" },
   { id: "procesos", etiqueta: "Procesos de compra" },
   { id: "obras", etiqueta: "Obras públicas y sus contratos" },
+  { id: "normas", etiqueta: "Normas que nombra y que la nombran" },
   { id: "decretos", etiqueta: "Decretos" },
   { id: "entidades", etiqueta: "La misma entidad y quien la supervisa" },
   { id: "lugares", etiqueta: "Provincias" },
@@ -180,7 +184,11 @@ export interface Relacion {
   nombre: string;
   /** Lo que precisa la arista: el cargo. */
   detalle: string | null;
-  /** El movimiento del cargo, en llano («Designación»), o «Publicado» si la fecha es la de un proceso de compra. */
+  /**
+   * Lo que pasó en `fecha`, concordado con lo que nombra: el movimiento de un
+   * cargo («Designación»), «Publicado» para un proceso de compra,
+   * «Promulgada», «Dictado» o «Depositada» para una norma o una iniciativa.
+   */
   movimiento: string | null;
   fecha: string | null;
   /**
@@ -233,6 +241,14 @@ const V = {
   monto: expandir("soc:monto"),
   valorEstimado: expandir("soc:valorEstimado"),
   estado: expandir("soc:estado"),
+  decreto: expandir("soc:Decreto"),
+  ley: expandir("soc:Ley"),
+  resolucion: expandir("soc:Resolucion"),
+  iniciativa: expandir("soc:Iniciativa"),
+  cita: expandir("soc:cita"),
+  deroga: expandir("soc:deroga"),
+  modifica: expandir("soc:modifica"),
+  promulgadaComo: expandir("soc:promulgadaComo"),
 } as const;
 
 /**
@@ -280,6 +296,31 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
     const e = uno(k, V.estado, "literal");
     return { monto: montoDe(k, V.monto), detalle: [c ? `Contrato ${c}` : null, e, "monto del contrato, no lo pagado"].filter(Boolean).join(" · ") };
   };
+  /**
+   * Una norma o una iniciativa vecina: lo que la precisa (el título de una
+   * norma, el expediente de una iniciativa, que ya se nombra por su título) y
+   * su fecha, con lo que pasó ese día.
+   */
+  const normaVecina = (n: string) => {
+    const proyecto = esDe(n, V.iniciativa);
+    const precisa = proyecto ? uno(n, V.codigo, "literal") : uno(n, V.titulo, "literal");
+    const fecha = uno(n, V.fecha, "literal");
+    return {
+      detalle: precisa ? (proyecto ? `Expediente ${precisa}` : recortar(desdeMayusculas(precisa), 160)) : null,
+      fecha,
+      movimiento: fecha ? (proyecto ? "Depositada" : esDe(n, V.decreto) ? "Dictado" : "Promulgada") : null,
+    };
+  };
+  // Una cita la hace una norma, que la dice, o una iniciativa, que la propone.
+  const CITA: Record<string, { verbo: string; neutro: string; propuesta: string }> = {
+    [V.deroga]: { verbo: "deroga", neutro: "Derogación, según el título", propuesta: "derogar" },
+    [V.modifica]: { verbo: "modifica", neutro: "Modificación, según el título", propuesta: "modificar" },
+    [V.cita]: { verbo: "cita", neutro: "Cita en el título", propuesta: "" },
+  };
+  const delSujetoEsProyecto = esDe(sujeto, V.iniciativa);
+  // Cómo se nombra al nodo en la cita que le llega: «lo» un decreto, «la» una ley o una resolución.
+  const pronombre = esDe(sujeto, V.decreto) ? "lo" : "la";
+  const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   const hacia = (valor: string) => {
     const nodo = nodoDeIri(valor);
     if (nodo) return { nodo, href: rutaDeNodo(nodo), externo: false };
@@ -400,6 +441,17 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
         // La provincia de una obra; la de un cargo se lee atravesando el cargo.
         agregar({ grupo: "lugares", verbo: "En la provincia", neutro: "Una obra en la provincia", ...hacia(o), nombre: nombre(o) });
         break;
+      case V.deroga:
+      case V.modifica:
+      case V.cita: {
+        const c = CITA[x.p];
+        const verbo = delSujetoEsProyecto && c.propuesta ? `Propone ${c.propuesta}` : mayuscula(c.verbo);
+        agregar({ grupo: "normas", verbo, neutro: c.neutro, ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
+        break;
+      }
+      case V.promulgadaComo:
+        agregar({ grupo: "normas", verbo: "Se promulgó como", neutro: "La norma en que se convirtió la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
+        break;
     }
   }
 
@@ -444,6 +496,17 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       if (pr) agregar({ grupo: "procesos", verbo: "Contrato con", neutro: "Un contrato del proceso", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) });
     } else if (x.p === V.inscritaComo && esDe(sujeto, V.proveedor)) {
       agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) });
+    } else if (x.p === V.deroga || x.p === V.modifica || x.p === V.cita) {
+      const c = CITA[x.p];
+      // «La deroga», «Lo modifica»; de una iniciativa, «Un proyecto propone derogarla», «Un proyecto lo cita».
+      const verbo = esDe(s, V.iniciativa)
+        ? c.propuesta
+          ? `Un proyecto propone ${c.propuesta}${pronombre}`
+          : `Un proyecto ${pronombre} ${c.verbo}`
+        : `${mayuscula(pronombre)} ${c.verbo}`;
+      agregar({ grupo: "normas", verbo, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...normaVecina(s) });
+    } else if (x.p === V.promulgadaComo) {
+      agregar({ grupo: "normas", verbo: "Nació del proyecto", neutro: "La norma en que se convirtió la iniciativa", ...hacia(s), nombre: nombre(s), ...normaVecina(s) });
     }
   }
 
@@ -689,26 +752,37 @@ export interface Candidatos {
 }
 
 /**
- * Un proceso por su código, un proveedor por «RPE 123» o una obra por «SNIP
- * 12416», si el compilado lo trae: su nombre sale de su descripción.
+ * Un proceso por su código, un proveedor por «RPE 123», una obra por «SNIP
+ * 12416», una ley o una resolución por «Ley 47-25» o «Resolución 48-26» (y,
+ * con el número solo, las dos), si el compilado las trae: su nombre sale de
+ * su descripción.
  */
-async function nodoPorIdentificador(texto: string): Promise<Candidato | null> {
+async function nodosPorIdentificador(texto: string): Promise<Candidato[]> {
   const rpe = /^rpe\s*(?:n[uú]m(?:ero)?\.?\s*|no\.?\s*)?(\d{1,8})$/i.exec(texto)?.[1];
   const snip = /^snip\s*(?:n[uú]m(?:ero)?\.?\s*|no\.?\s*|:\s*)?(\d{1,8})$/i.exec(texto)?.[1];
+  const norma = /^(?:(ley|resoluci[oó]n)\s+(?:org[aá]nica\s+)?(?:n[uú]m(?:ero)?\.?\s*|no\.?\s*)?)?(\d{1,4}-\d{2,4})$/i.exec(texto);
+  const tipos: ("ley" | "resolucion")[] = !norma ? [] : !norma[1] ? ["ley", "resolucion"] : /^ley/i.test(norma[1]) ? ["ley"] : ["resolucion"];
   const candidatos: NodoRdf[] = rpe
     ? [{ tipo: "proveedor", id: String(Number(rpe)) }]
     : snip
       ? [{ tipo: "obra", id: String(Number(snip)) }]
-      : /-\d{4}-\d{3,5}$/.test(texto)
-        ? [...new Set([texto, texto.toUpperCase()])].map((id) => ({ tipo: "proceso" as const, id }))
-        : [];
+      : norma
+        ? tipos.map((tipo) => ({ tipo, id: numeroCanonico(tipo, norma[2]) }))
+        : /-\d{4}-\d{3,5}$/.test(texto)
+          ? [...new Set([texto, texto.toUpperCase()])].map((id) => ({ tipo: "proceso" as const, id }))
+          : [];
+  const salida: Candidato[] = [];
   for (const n of candidatos) {
     const d = await leerDescripcion(n);
     if (!d) continue;
-    const detalle = n.tipo === "proceso" ? n.id : n.tipo === "obra" ? `SNIP ${n.id}` : `RPE ${n.id}`;
-    return { nodo: n, nombre: d.titulo, clase: CLASE_DE_TIPO[n.tipo], detalle };
+    const titulo = d.triples.find((x) => x.s.valor === iriDe(n) && x.p === V.titulo && x.o.tipo === "literal")?.o.valor;
+    const detalle =
+      n.tipo === "proceso" ? n.id : n.tipo === "obra" ? `SNIP ${n.id}` : n.tipo === "proveedor" ? `RPE ${n.id}` : titulo ? recortar(desdeMayusculas(titulo), 160) : null;
+    salida.push({ nodo: n, nombre: d.titulo, clase: CLASE_DE_TIPO[n.tipo], detalle });
+    // Un código de proceso escrito de dos maneras es un proceso.
+    if (n.tipo === "proceso") break;
   }
-  return null;
+  return salida;
 }
 
 /** Cuántos candidatos de cada tipo, como mucho. */
@@ -716,11 +790,11 @@ const TOPE_CANDIDATOS = { personas: 8, instituciones: 5, financieras: 4, total: 
 
 /**
  * Los nodos que se llaman así, para elegir uno en el explorador: un número de
- * decreto, un RNC, un código de proceso, un RPE o un SNIP exactos primero;
- * luego personas, instituciones, entidades financieras y provincias por todas
- * las palabras tecleadas. No es el
- * buscador de la plataforma (`/buscar`): solo nombres de nodos del grafo.
- * Cada tipo tiene su tope, y `truncado` dice si alguno se pasó.
+ * decreto, de ley o de resolución, un RNC, un código de proceso, un RPE o un
+ * SNIP exactos primero; luego personas, instituciones, entidades financieras
+ * y provincias por todas las palabras tecleadas. No es el buscador de la
+ * plataforma (`/buscar`): solo nombres de nodos del grafo. Cada tipo tiene su
+ * tope, y `truncado` dice si alguno se pasó.
  */
 export async function buscarNodos(q: string): Promise<Candidatos> {
   const texto = q.trim().slice(0, 120);
@@ -737,8 +811,7 @@ export async function buscarNodos(q: string): Promise<Candidatos> {
     const e = await empresaPorRnc(cifras);
     if (e) salida.push({ nodo: { tipo: "empresa", id: e.rnc }, nombre: e.razonSocial, clase: CLASE_DE_TIPO.empresa, detalle: `RNC ${e.rnc}` });
   }
-  const porId = await nodoPorIdentificador(texto);
-  if (porId) salida.push(porId);
+  salida.push(...(await nodosPorIdentificador(texto)));
   if (salida.length) return { candidatos: salida, truncado: false };
 
   let truncado = false;

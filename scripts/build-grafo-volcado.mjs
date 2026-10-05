@@ -27,11 +27,12 @@
  *    los procesos de compra, las obras con sus contratos y las inscripciones
  *    de proveedor de una empresa.
  *  - No entra ninguna persona natural: ni las personas con cargo ni sus
- *    cargos, ni los decretos (sus títulos nombran a quien designan), ni las
- *    declaraciones juradas, ni las fichas del Congreso, ni un proveedor que no
- *    esté atado a una empresa (puede ser una persona física), con todo lo que
- *    cuelga de él: sus contrataciones, sus medidas y sus contratos de obra.
- *    Un triple que toca cualquiera de esos nodos no entra.
+ *    cargos, ni los decretos, las leyes y las resoluciones (sus títulos
+ *    nombran a quien designan, pensionan o reconocen), ni las declaraciones
+ *    juradas, ni las fichas del Congreso con sus iniciativas, ni un proveedor
+ *    que no esté atado a una empresa (puede ser una persona física), con todo
+ *    lo que cuelga de él: sus contrataciones, sus medidas y sus contratos de
+ *    obra. Un triple que toca cualquiera de esos nodos no entra.
  *
  * Se corre después de `scripts/build-grafo.mjs`. Los dos archivos se releen
  * con N3.js antes de escribirse: un volcado que no parsea no se guarda.
@@ -149,7 +150,7 @@ const RPE_DE = new RegExp(`^${SITIO.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/prov
 function esPersonal(v, declaraciones) {
   return (
     v.startsWith(`${SITIO}/funcionarios/`) ||
-    v.startsWith(`${SITIO}/normativa/decreto/`) ||
+    v.startsWith(`${SITIO}/normativa/`) ||
     v.startsWith(`${SITIO}/congreso/`) ||
     v.startsWith(CONSULTORIA_PDF) ||
     declaraciones.has(v)
@@ -272,7 +273,7 @@ const meta = {
     obras: leer("obras.json").corte,
   },
   excluye:
-    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, ni las declaraciones juradas, ni las fichas del Congreso, ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra).",
+    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, las leyes y las resoluciones (sus títulos nombran personas), ni las declaraciones juradas, ni las fichas del Congreso con sus iniciativas, ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra).",
 };
 writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
 console.error(

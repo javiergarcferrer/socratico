@@ -3,6 +3,7 @@ import { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP } from "@/lib/cargos";
 import { SECTORES } from "@/lib/instituciones";
 import { TIPOS_MEDIDA } from "@/lib/medidas";
 import { ETAPAS, ETAPA_DE_LA_DGCP, MODALIDADES, MODALIDAD_DE_LA_DGCP, OBJETOS, SECTORES_INVERSION } from "@/lib/vocabulario-compras";
+import { CONDICIONES_LEGISLATIVAS, TEMAS_LEGISLATIVOS, TIPOS_INICIATIVA } from "@/lib/vocabulario-congreso";
 import {
   ESPACIO_V1,
   ONTOLOGIA,
@@ -55,10 +56,10 @@ import {
  * en followthemoney.tech el 01-10-2026; los de ePO, en su documentación.
  */
 
-export const VERSION = "2.1.0";
+export const VERSION = "2.2.0";
 export const PUBLICADA = "2026-10-05";
 /** La versión anterior de los dos módulos (`owl:priorVersion`). */
-export const ANTERIOR = "2.0.0";
+export const ANTERIOR = "2.1.0";
 
 /** El núcleo, neutral de país, o el módulo de la República Dominicana. */
 export type Modulo = "soc" | "do";
@@ -318,23 +319,35 @@ export const CLASES: Clase[] = [
     id: "Ley",
     etiqueta: "Ley",
     etiquetaEn: "Statute",
-    comentario: "Una ley del Congreso Nacional, promulgada por el Poder Ejecutivo.",
+    comentario: "Una ley del Congreso Nacional, promulgada por el Poder Ejecutivo, del registro que publica la Consultoría Jurídica.",
     padre: "soc:Norma",
     subClaseDe: [],
     wikidata: [{ qid: "Q820655", relacion: "closeMatch", nombre: "ley" }],
     ftm: "Document",
-    estado: "definido",
+    estado: "en-uso",
     v1: true,
+  },
+  {
+    id: "Resolucion",
+    etiqueta: "Resolución",
+    etiquetaEn: "Resolution",
+    comentario:
+      "Una resolución con número del registro de la Consultoría Jurídica. Casi todas son del Congreso Nacional: aprueban un contrato de préstamo, un acuerdo internacional o los actos del Poder Ejecutivo.",
+    padre: "soc:Norma",
+    subClaseDe: [],
+    ftm: "Document",
+    estado: "en-uso",
   },
   {
     id: "Iniciativa",
     etiqueta: "Iniciativa legislativa",
     etiquetaEn: "Bill",
     sinonimos: ["proyecto de ley"],
-    comentario: "Un proyecto de ley, de resolución o de otra norma depositado en una cámara del Congreso, con su trámite.",
+    comentario:
+      "Un proyecto de ley, de resolución o de otra norma depositado en una cámara del Congreso, con su trámite. La que se promulga lleva la norma en que se convirtió (`soc:promulgadaComo`).",
     subClaseDe: [],
     ftm: "Document",
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "Votacion",
@@ -832,8 +845,8 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "fecha",
     etiquetaEn: "date",
     comentario:
-      "La fecha que registra la fuente: la de una norma según la Consultoría Jurídica, la del movimiento de un cargo (su designación, su cese), la de una medida, la de un evento, la de publicación de un proceso de compra. Un año solo, si la fuente no da el día.",
-    dominio: ["soc:Norma", "soc:Cargo", "soc:Sancion", "soc:Evento", "soc:ProcesoDeContratacion"],
+      "La fecha que registra la fuente: la de una norma según la Consultoría Jurídica, la del movimiento de un cargo (su designación, su cese), la de una medida, la de un evento, la de publicación de un proceso de compra, la de depósito de una iniciativa. Un año solo, si la fuente no da el día.",
+    dominio: ["soc:Norma", "soc:Cargo", "soc:Sancion", "soc:Evento", "soc:ProcesoDeContratacion", "soc:Iniciativa"],
     rango: ["xsd:date", "xsd:gYear"],
     estado: "en-uso",
     v1: true,
@@ -849,6 +862,43 @@ export const PROPIEDADES: Propiedad[] = [
     funcional: true,
     estado: "en-uso",
     v1: true,
+  },
+
+  /* ------------------------------------------------------ citas entre normas */
+  {
+    id: "cita",
+    tipo: "objeto",
+    etiqueta: "cita",
+    etiquetaEn: "cites",
+    comentario:
+      "Una norma que nombra su título, leída con reglas fijas sobre la redacción oficial («…de la Ley núm. 87-01»). Si el verbo que la antecede dice qué le hace y quien la nombra puede hacerlo —una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos—, se afirma la propiedad más precisa (`soc:deroga`, `soc:modifica`); si no, esta. Solo se ata a una ley o a un decreto que tiene ficha.",
+    dominio: ["soc:Norma", "soc:Iniciativa"],
+    rango: ["soc:Norma"],
+    subPropiedadDe: ["dct:references"],
+    estado: "en-uso",
+  },
+  {
+    id: "deroga",
+    tipo: "objeto",
+    etiqueta: "deroga",
+    etiquetaEn: "repeals",
+    comentario: "La norma que deroga, según su título; en un proyecto de ley, la que propone derogar.",
+    dominio: ["soc:Norma", "soc:Iniciativa"],
+    rango: ["soc:Norma"],
+    subPropiedadDe: ["soc:cita"],
+    estado: "en-uso",
+  },
+  {
+    id: "modifica",
+    tipo: "objeto",
+    etiqueta: "modifica",
+    etiquetaEn: "amends",
+    comentario:
+      "La norma que cambia según su título —la modifica, la reforma, le sustituye o le adiciona un texto—; en un proyecto de ley, la que propone cambiar.",
+    dominio: ["soc:Norma", "soc:Iniciativa"],
+    rango: ["soc:Norma"],
+    subPropiedadDe: ["soc:cita"],
+    estado: "en-uso",
   },
 
   /* --------------------------------------------------- organizaciones */
@@ -1003,12 +1053,13 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "dato",
     etiqueta: "código",
     etiquetaEn: "code",
-    comentario: "El código que el sistema de compras da al proceso o al contrato: «MOPC-CCC-LPN-2026-0013», «INDRHI-2023-00444».",
-    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato"],
+    comentario:
+      "El código que el sistema de compras da al proceso o al contrato, o el número de expediente que la cámara da a una iniciativa: «MOPC-CCC-LPN-2026-0013», «INDRHI-2023-00444», «06360-2024-2028-CD».",
+    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa"],
     rango: ["xsd:string"],
     subPropiedadDe: ["dct:identifier"],
     funcional: true,
-    obligatoriaEn: ["soc:ProcesoDeContratacion", "soc:Contrato"],
+    obligatoriaEn: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa"],
     estado: "en-uso",
   },
   {
@@ -1174,6 +1225,17 @@ export const PROPIEDADES: Propiedad[] = [
     dominio: ["soc:Votacion"],
     rango: ["soc:Iniciativa"],
     estado: "definido",
+  },
+  {
+    id: "promulgadaComo",
+    tipo: "objeto",
+    etiqueta: "se promulgó como",
+    etiquetaEn: "enacted as",
+    comentario: "La norma en que se convirtió la iniciativa, por el número de promulgación que registra la cámara («Ley núm. 43-26»). Solo se ata a una norma que tiene ficha.",
+    dominio: ["soc:Iniciativa"],
+    rango: ["soc:Norma"],
+    funcional: true,
+    estado: "en-uso",
   },
 
   /* ------------------------------------------------------------ menciones */
@@ -1367,11 +1429,63 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "dato",
     etiqueta: "etiqueta de institución",
     etiquetaEn: "Consultoría label",
-    comentario: "La etiqueta de institución que la Consultoría Jurídica pone al decreto, tal cual y en español.",
-    dominio: ["soc:Decreto"],
+    comentario: "La etiqueta de institución que la Consultoría Jurídica pone a la norma, tal cual y en español.",
+    dominio: ["soc:Norma"],
     rango: ["rdf:langString"],
     estado: "en-uso",
     v1: true,
+  },
+  {
+    id: "gaceta",
+    modulo: "do",
+    tipo: "dato",
+    etiqueta: "Gaceta Oficial",
+    etiquetaEn: "Official Gazette issue",
+    comentario: "El número de la Gaceta Oficial que publicó la norma, según la Consultoría Jurídica.",
+    dominio: ["soc:Norma"],
+    rango: ["xsd:string"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "tipoDeIniciativa",
+    modulo: "do",
+    tipo: "objeto",
+    etiqueta: "tipo de iniciativa",
+    etiquetaEn: "bill type",
+    comentario: "Lo que es la pieza según el SIL de la Cámara de Diputados (`do:tiposDeIniciativa`): un proyecto de ley, o de resolución de una cámara o de las dos.",
+    dominio: ["soc:Iniciativa"],
+    rango: ["skos:Concept"],
+    funcional: true,
+    obligatoriaEn: ["soc:Iniciativa"],
+    estado: "en-uso",
+  },
+  {
+    id: "condicionLegislativa",
+    modulo: "do",
+    tipo: "objeto",
+    etiqueta: "condición",
+    etiquetaEn: "bill status",
+    comentario:
+      "Dónde estaba la pieza el día del corte, según la condición del SIL (`do:condicionesLegislativas`). Es gruesa: una iniciativa promulgada sigue «aprobada»; la promulgación la dice `soc:promulgadaComo`.",
+    dominio: ["soc:Iniciativa"],
+    rango: ["skos:Concept"],
+    funcional: true,
+    obligatoriaEn: ["soc:Iniciativa"],
+    estado: "en-uso",
+  },
+  {
+    id: "temaLegislativo",
+    modulo: "do",
+    tipo: "objeto",
+    etiqueta: "tema",
+    etiquetaEn: "legislative topic",
+    comentario: "El grupo temático que el SIL le da a la iniciativa (`do:temasLegislativos`).",
+    dominio: ["soc:Iniciativa"],
+    rango: ["skos:Concept"],
+    subPropiedadDe: ["dct:subject"],
+    funcional: true,
+    estado: "en-uso",
   },
   {
     id: "aviso",
@@ -1499,6 +1613,27 @@ export function esquemas(): Esquema[] {
       etiqueta: "Sectores de la inversión pública",
       comentario: "El sector de un proyecto en el Sistema Nacional de Inversión Pública, como lo publica MapaInversiones: la clasificación funcional del gasto.",
       conceptos: SECTORES_INVERSION.map((x) => ({ id: `inversion-${x.clave}`, etiqueta: x.nombre })),
+    },
+    {
+      id: "tiposDeIniciativa",
+      modulo: "do",
+      etiqueta: "Tipos de iniciativa",
+      comentario: "Lo que es una pieza en el SIL de la Cámara de Diputados.",
+      conceptos: TIPOS_INICIATIVA.map((x) => ({ id: `iniciativa-${x.clave}`, etiqueta: x.nombre, definicion: `En el SIL: «${x.sil}».` })),
+    },
+    {
+      id: "condicionesLegislativas",
+      modulo: "do",
+      etiqueta: "Condiciones de una iniciativa",
+      comentario: "Dónde está una pieza según la condición del SIL el día del corte: la gruesa, no el último trámite.",
+      conceptos: CONDICIONES_LEGISLATIVAS.map((x) => ({ id: `condicion-${x.clave}`, etiqueta: x.nombre, definicion: `En el SIL: «${x.sil}».` })),
+    },
+    {
+      id: "temasLegislativos",
+      modulo: "do",
+      etiqueta: "Temas legislativos",
+      comentario: "Los grupos temáticos en que el SIL de la Cámara de Diputados ordena las iniciativas.",
+      conceptos: TEMAS_LEGISLATIVOS.map((x) => ({ id: `tema-${x.clave}`, etiqueta: x.nombre, definicion: `En el SIL: «${x.sil}».` })),
     },
     {
       id: "esquemasDeIdentificador",

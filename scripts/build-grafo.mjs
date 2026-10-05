@@ -105,8 +105,9 @@ async function claves() {
       if (linea) rncs.push(linea.slice(0, linea.indexOf("\t")));
     }
   }
-  // Los proveedores, los procesos de compra y las obras: el conjunto que sus constructores describen.
-  const compras = await C.clavesDeCompras();
+  // Los proveedores, los procesos de compra y las obras; las leyes, las
+  // resoluciones y las iniciativas: el conjunto que sus constructores describen.
+  const [compras, normas] = await Promise.all([C.clavesDeCompras(), C.clavesDeNormas()]);
   // En el orden de los fragmentos: así se escriben y así se recorren.
   const orden = (xs) => [...xs].sort(N.compararClaves);
   return {
@@ -119,6 +120,9 @@ async function claves() {
     proveedor: orden(compras.proveedor),
     obra: orden(compras.obra),
     proceso: orden(compras.proceso),
+    ley: orden(normas.ley),
+    resolucion: orden(normas.resolucion),
+    iniciativa: orden(normas.iniciativa),
   };
 }
 

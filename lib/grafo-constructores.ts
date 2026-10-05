@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SITIO } from "@/lib/sitio";
-import { enlace, type NodoRdf } from "@/lib/grafo";
+import { enlace, numeroCanonico, rutaDeNodo, type NodoRdf } from "@/lib/grafo";
 import { booleano, decimal, entero, fecha, iri, lit, t } from "@/lib/rdf";
 import {
   ETIQUETA_ORIGEN,
@@ -17,7 +17,10 @@ import {
   type Persona,
 } from "@/lib/funcionarios";
 import { FUENTES_DEL_CRUCE, INSTITUCIONES, institucionDeUnidad, institucionPorId } from "@/lib/instituciones";
-import { decretoPorNumero, decretosDeFirmante, hrefDecreto, indiceDecretos, CONSULTORIA_PDF, type Decreto } from "@/lib/decretos";
+import { decretoPorNumero, decretosDeFirmante, decretosDelAnio, hrefDecreto, indiceDecretos, CONSULTORIA_PDF, type Decreto } from "@/lib/decretos";
+import { leyesConFicha, resolucionesConFicha, type Documento } from "@/lib/normativa";
+import { referenciasNormativas, numeroDeNorma, type RelacionNorma } from "@/lib/legislacion";
+import { TIPOS_INICIATIVA, claveCondicion, claveTema, claveTipoIniciativa } from "@/lib/vocabulario-congreso";
 import { declaracionesDe, declaracionesDeInstitucion, getDeclaraciones } from "@/lib/declaraciones";
 import { entidadDeInstitucion, entidadPorRnc, entidadPorSlug, getFinancieras, institucionDe } from "@/lib/financieras";
 import { empresaPorRnc, padronEmpresas } from "@/lib/empresas";
@@ -111,6 +114,11 @@ export async function describirEnVivo(n: NodoRdf, ligero = false): Promise<Descr
       return describirProceso(n.id, ligero);
     case "obra":
       return describirObra(n.id, ligero);
+    case "ley":
+    case "resolucion":
+      return describirNorma({ tipo: n.tipo, id: n.id }, ligero);
+    case "iniciativa":
+      return describirIniciativa(n.id, ligero);
   }
 }
 
@@ -160,10 +168,14 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
   ]);
   if (!ind || !fin || !padron || !historico) throw new Error("falta una instantánea: decretos, banca, padrón o histórico");
   const fuentesBanca = await leerInstantanea<{ fuentes: Record<string, string> }>("banca.json");
-  const [procesos, obras] = await Promise.all([
+  const [procesos, obras, leyes, resoluciones, congreso] = await Promise.all([
     leerInstantanea<{ fuente: string; hasta: string }>("procesos.json"),
     leerInstantanea<{ corte: string; fuente: string; archivos: Record<string, { nombre: string }> }>("obras.json"),
+    leyesConFicha(),
+    resolucionesConFicha(),
+    leerInstantanea<{ generado: string }>("congreso.json"),
   ]);
+  if (!leyes || !resoluciones) throw new Error("falta una instantánea: leyes.json o normativa.json");
   const cargo = (origen: OrigenCargo, url: string | null): DefinicionGrafo => ({
     clave: `cargos-${origen}`,
     etiqueta: `Cargos: ${ETIQUETA_ORIGEN[origen]}`,
@@ -260,6 +272,30 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       corte: dia(obras.corte),
     },
     {
+      clave: "leyes",
+      etiqueta: "Registro de leyes de la Consultoría Jurídica",
+      descripcion:
+        "Las leyes desde 1844 con número, título, fecha de promulgación, Gaceta Oficial, la etiqueta que les pone la Consultoría y su PDF. Son nodo las de número con año que el registro no repite para otra ley.",
+      fuentes: [ind.fuente.url],
+      corte: dia(leyes.generadoEn),
+    },
+    {
+      clave: "resoluciones",
+      etiqueta: "Resoluciones de la Consultoría Jurídica",
+      descripcion:
+        "Las resoluciones con número que registra la Consultoría en los años que trae la instantánea, casi todas del Congreso Nacional: número, título, fecha, Gaceta Oficial y PDF.",
+      fuentes: [ind.fuente.url],
+      corte: dia(resoluciones.generadoEn),
+    },
+    {
+      clave: "congreso",
+      etiqueta: "Iniciativas del SIL de la Cámara de Diputados",
+      descripcion:
+        "Las iniciativas de los períodos 2020-2024 y 2024-2028 en el SIL: expediente, título, tipo, condición el día del corte, tema, fecha de depósito, título modificado y número de promulgación.",
+      fuentes: [SIL],
+      corte: dia(congreso.generado),
+    },
+    {
       clave: "ofac",
       etiqueta: "Lista SDN de la OFAC",
       descripcion: "Las entradas de la lista de sanciones del Tesoro de los Estados Unidos atadas a un RNC dominicano.",
@@ -332,6 +368,15 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       fuentes: [],
       corte: dia(ind.generado),
       derivado: { de: ["decretos"] },
+    },
+    {
+      clave: "citas",
+      etiqueta: "Normas que nombra un título (regla)",
+      descripcion:
+        "Qué ley o qué decreto nombra el título de una ley, un decreto, una resolución o una iniciativa, y qué le hace según el verbo que lo antecede: la deroga, la modifica (o la reforma, le sustituye o le adiciona un texto) o solo la cita. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás queda como cita. Solo se ata a una ley o a un decreto con ficha.",
+      fuentes: [],
+      corte: dia(congreso.generado),
+      derivado: { de: ["leyes", "decretos", "resoluciones", "congreso"] },
     },
     {
       clave: "plataforma",
@@ -1149,6 +1194,328 @@ async function describirObra(snip: string, ligero = false): Promise<Descripcion 
   return { triples: x.triples, grafos: x.grafos, titulo: desdeMayusculas(nombre) };
 }
 
+/* ------------------------------------------------- normas e iniciativas */
+
+/** Una iniciativa del SIL como la trae la instantánea (`congreso.json`, `iniciativas`), con sus catálogos ya leídos. */
+interface Iniciativa {
+  id: string;
+  numero: string;
+  titulo: string;
+  tipo: string;
+  condicion: string;
+  fechaDeposito: string;
+  grupo: string;
+  promulgacion: string | null;
+  tituloModificado: string | null;
+}
+
+/** Lo que el título de una norma o de una iniciativa le hace a una norma con nodo. */
+type Cita = "deroga" | "modifica" | "cita";
+
+/** Sustituir, adicionar o reformar es modificar: las relaciones de `lib/legislacion.ts` en las tres de la ontología. */
+const CITA_DE_RELACION: Record<RelacionNorma, Cita> = {
+  deroga: "deroga",
+  modifica: "modifica",
+  sustituye: "modifica",
+  adiciona: "modifica",
+  reforma: "modifica",
+  cita: "cita",
+};
+
+/** La propiedad de cada cita y, cuando la dice una norma, la de ELI (una iniciativa no es todavía un recurso legal). */
+const PROPIEDAD_CITA: Record<Cita, { soc: string; eli: string }> = {
+  deroga: { soc: "soc:deroga", eli: "eli:repeals" },
+  modifica: { soc: "soc:modifica", eli: "eli:amends" },
+  cita: { soc: "soc:cita", eli: "eli:cites" },
+};
+
+/** Una cita: quién la hace, a qué norma, qué le hace, y la fecha de quien la hace (para ordenar las que llegan). */
+interface Arista {
+  de: NodoRdf;
+  a: NodoRdf;
+  cita: Cita;
+  fecha: string | null;
+}
+
+interface IndiceNormas {
+  leyes: Map<string, Documento>;
+  resoluciones: Map<string, Documento>;
+  iniciativas: Map<string, Iniciativa>;
+  /** Por nodo («ley:47-25»): las citas que hace y las que le llegan, estas de la más reciente a la más vieja. */
+  salen: Map<string, Arista[]>;
+  entran: Map<string, Arista[]>;
+  /** La norma en que se convirtió cada iniciativa, y de qué iniciativas nació cada norma. */
+  promulgada: Map<string, NodoRdf>;
+  origen: Map<string, string[]>;
+}
+
+const clave = (n: NodoRdf) => `${n.tipo}:${n.id}`;
+const porTexto = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+let normasMemo: Promise<IndiceNormas> | null = null;
+
+/**
+ * Las leyes y las resoluciones con ficha, las iniciativas del SIL y las citas
+ * entre ellas y los decretos: lo que nombra cada título, atado solo a una ley
+ * o a un decreto con ficha. Una resolución citada no se ata: la numeran
+ * muchos órganos y el registro solo trae las de los últimos años; sí se ata
+ * la que el SIL da como promulgación de una iniciativa.
+ */
+function indiceNormas(): Promise<IndiceNormas> {
+  normasMemo ??= (async () => {
+    const [leyes, resoluciones, congreso, ind] = await Promise.all([
+      leyesConFicha(),
+      resolucionesConFicha(),
+      leerInstantanea<{ iniciativas: { tipos: string[]; condiciones: string[]; grupos: string[]; filas: unknown[][] } }>("congreso.json"),
+      indiceDecretos(),
+    ]);
+    if (!leyes || !resoluciones || !ind) throw new Error("falta una instantánea: leyes.json, normativa.json o decretos/indice.json");
+    const cat = congreso.iniciativas;
+    const iniciativas = new Map<string, Iniciativa>();
+    for (const f of cat.filas) {
+      const [id, numero, titulo, tipo, condicion, fechaDeposito, grupo, promulgacion, tituloModificado] = f as [
+        number, string, string, number, number, string, number, string | undefined, string | undefined,
+      ];
+      iniciativas.set(String(id), {
+        id: String(id),
+        numero: numero.trim(),
+        titulo: sinCedula(titulo).trim(),
+        tipo: cat.tipos[tipo],
+        condicion: cat.condiciones[condicion],
+        fechaDeposito,
+        grupo: cat.grupos[grupo],
+        promulgacion: promulgacion?.trim() || null,
+        tituloModificado: tituloModificado ? sinCedula(tituloModificado).trim() || null : null,
+      });
+    }
+
+    // Una cita resuelve a una ley o a un decreto con ficha, o a nada.
+    const aNodo = async (tipo: string, numero: string | null): Promise<NodoRdf | null> => {
+      if (!numero) return null;
+      if (tipo === "Ley") {
+        const n = numeroCanonico("ley", numero);
+        return leyes.normas.has(n) ? { tipo: "ley", id: n } : null;
+      }
+      if (tipo === "Decreto") {
+        const d = await decretoPorNumero(numeroCanonico("decreto", numero));
+        return d?.numero ? { tipo: "decreto", id: d.numero } : null;
+      }
+      return null;
+    };
+    const salen = new Map<string, Arista[]>();
+    const entran = new Map<string, Arista[]>();
+    /*
+      Solo cambia una norma quien puede: una ley a una ley o a un decreto, un
+      decreto a otro decreto, un proyecto de ley a cualquiera de los dos. Lo
+      que un decreto dice de una ley («que modifica el reglamento de la Ley
+      340-06») y lo que dice una resolución, de una cámara o promulgada, no la
+      cambia: queda como cita.
+    */
+    const puedeCambiar = (de: NodoRdf, a: NodoRdf, proyectoDeLey: boolean) =>
+      de.tipo === "ley" || (de.tipo === "decreto" && a.tipo === "decreto") || (de.tipo === "iniciativa" && proyectoDeLey);
+    const citar = async (de: NodoRdf, texto: string, fecha: string | null, proyectoDeLey = false) => {
+      const vistas = new Set<string>([clave(de)]);
+      for (const r of referenciasNormativas(texto)) {
+        const a = await aNodo(r.tipo, r.numero);
+        if (!a || vistas.has(clave(a))) continue;
+        vistas.add(clave(a));
+        const arista: Arista = { de, a, cita: puedeCambiar(de, a, proyectoDeLey) ? CITA_DE_RELACION[r.relacion] : "cita", fecha };
+        salen.set(clave(de), [...(salen.get(clave(de)) ?? []), arista]);
+        entran.set(clave(a), [...(entran.get(clave(a)) ?? []), arista]);
+      }
+    };
+    for (const [n, d] of leyes.normas) await citar({ tipo: "ley", id: n }, d.titulo, d.fechaIso);
+    for (const [n, d] of resoluciones.normas) await citar({ tipo: "resolucion", id: n }, d.titulo, d.fechaIso);
+    for (const [id, i] of iniciativas) {
+      const texto = [i.titulo, i.tituloModificado].filter(Boolean).join(". ");
+      await citar({ tipo: "iniciativa", id }, texto, i.fechaDeposito, conceptoSil(i, "tipo") === "proyecto-de-ley");
+    }
+    // Los decretos con ficha, en el orden del registro: los mismos nodos que compila `scripts/build-grafo.mjs`.
+    for (const anio of [...Object.keys(ind.anios).sort(), "sin-fecha"]) {
+      for (const d of await decretosDelAnio(anio === "sin-fecha" ? anio : Number(anio))) {
+        if (d.ficha && d.numero) await citar({ tipo: "decreto", id: d.numero }, d.titulo, d.fecha);
+      }
+    }
+    for (const lista of entran.values()) lista.sort((x, y) => porTexto(y.fecha ?? "", x.fecha ?? "") || porTexto(clave(x.de), clave(y.de)));
+
+    // La promulgación que registra el SIL: «Ley núm. 43-26», «Res. núm. 48-26»; «N/A» no es ninguna.
+    const promulgada = new Map<string, NodoRdf>();
+    const origen = new Map<string, string[]>();
+    for (const [id, i] of iniciativas) {
+      const numero = numeroDeNorma(i.promulgacion);
+      if (!numero) continue;
+      const norma: NodoRdf | null = /^ley\b/i.test(i.promulgacion!)
+        ? leyes.normas.has(numeroCanonico("ley", numero))
+          ? { tipo: "ley", id: numeroCanonico("ley", numero) }
+          : null
+        : /^res\b/i.test(i.promulgacion!) && resoluciones.normas.has(numeroCanonico("resolucion", numero))
+          ? { tipo: "resolucion", id: numeroCanonico("resolucion", numero) }
+          : null;
+      if (!norma) continue;
+      promulgada.set(id, norma);
+      origen.set(clave(norma), [...(origen.get(clave(norma)) ?? []), id]);
+    }
+    return { leyes: leyes.normas, resoluciones: resoluciones.normas, iniciativas, salen, entran, promulgada, origen };
+  })();
+  return normasMemo;
+}
+
+/** Las leyes, las resoluciones y las iniciativas que son nodo, en orden de clave: el conjunto que sus constructores describen. */
+export async function clavesDeNormas(): Promise<{ ley: string[]; resolucion: string[]; iniciativa: string[] }> {
+  const ix = await indiceNormas();
+  return {
+    ley: [...ix.leyes.keys()].sort(porTexto),
+    resolucion: [...ix.resoluciones.keys()].sort(porTexto),
+    iniciativa: [...ix.iniciativas.keys()].sort(porTexto),
+  };
+}
+
+const TIPO_LEGIBLE = { ley: "Ley", resolucion: "Resolución" } as const;
+const CLASE_NORMA = { ley: "soc:Ley", resolucion: "soc:Resolucion" } as const;
+const GRAFO_NORMA = { ley: "leyes", resolucion: "resoluciones" } as const satisfies Record<string, ClaveGrafo>;
+const NOMBRE_TIPO_INICIATIVA = new Map(TIPOS_INICIATIVA.map((x) => [x.sil, x.nombre]));
+
+/**
+ * Una norma o una iniciativa como vecina: su tipo, su nombre, su título (una
+ * norma) o su expediente, tipo y condición (una iniciativa) y su fecha, los
+ * mismos que dice su descripción, con el grafo de la fuente de cada una.
+ */
+async function vecinaNormativa(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): Promise<void> {
+  const s = iriDe(n);
+  if (n.tipo === "decreto") {
+    const d = await decretoPorNumero(n.id);
+    if (!d?.numero) return;
+    x.de("decretos", t(s, "rdf:type", iri("soc:Decreto")), t(s, "rdfs:label", lit(nombreDecreto(d.numero), "es")), t(s, "dct:title", lit(d.titulo, "es")));
+    if (d.fecha) x.de("decretos", t(s, "soc:fecha", fecha(d.fecha)));
+    return;
+  }
+  if (n.tipo === "ley" || n.tipo === "resolucion") {
+    const d = (n.tipo === "ley" ? ix.leyes : ix.resoluciones).get(n.id);
+    if (!d) return;
+    const g = GRAFO_NORMA[n.tipo];
+    x.de(g, t(s, "rdf:type", iri(CLASE_NORMA[n.tipo])), t(s, "rdfs:label", lit(`${TIPO_LEGIBLE[n.tipo]} ${n.id}`, "es")));
+    if (d.titulo) x.de(g, t(s, "dct:title", lit(d.titulo, "es")));
+    if (d.fechaIso) x.de(g, t(s, "soc:fecha", fecha(d.fechaIso)));
+    return;
+  }
+  if (n.tipo === "iniciativa") {
+    const i = ix.iniciativas.get(n.id);
+    if (!i) return;
+    x.de(
+      "congreso",
+      t(s, "rdf:type", iri("soc:Iniciativa")),
+      t(s, "rdfs:label", lit(i.titulo, "es")),
+      t(s, "soc:codigo", lit(i.numero)),
+      t(s, "soc:fecha", fecha(i.fechaDeposito)),
+      t(s, "do:tipoDeIniciativa", iri(`do:iniciativa-${conceptoSil(i, "tipo")}`)),
+      t(s, "do:condicionLegislativa", iri(`do:condicion-${conceptoSil(i, "condicion")}`)),
+    );
+  }
+}
+
+/** El concepto de un literal del SIL, o un error que dice cuál falta en `lib/vocabulario-congreso.ts`. */
+function conceptoSil(i: Iniciativa, campo: "tipo" | "condicion" | "grupo"): string {
+  const k = campo === "tipo" ? claveTipoIniciativa(i.tipo) : campo === "condicion" ? claveCondicion(i.condicion) : claveTema(i.grupo);
+  if (!k) throw new Error(`iniciativa ${i.id}: «${i[campo]}» no está en lib/vocabulario-congreso.ts`);
+  return k;
+}
+
+/** Una cita como triples, en el grafo de la regla que la lee: la propiedad de aquí y, si la dice una norma, la de ELI. */
+function triplesCita(a: Arista, x: Afirmaciones): void {
+  const p = PROPIEDAD_CITA[a.cita];
+  x.de("citas", t(iriDe(a.de), p.soc, iri(iriDe(a.a))));
+  if (a.de.tipo !== "iniciativa") x.de("citas", t(iriDe(a.de), p.eli, iri(iriDe(a.a))));
+}
+
+/** Las citas que hace un nodo y las que le llegan, y la iniciativa de la que nació o la norma en que se convirtió. */
+async function normasAlrededor(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): Promise<void> {
+  const k = clave(n);
+  for (const a of ix.salen.get(k) ?? []) {
+    triplesCita(a, x);
+    await vecinaNormativa(a.a, x, ix);
+  }
+  for (const a of ix.entran.get(k) ?? []) {
+    triplesCita(a, x);
+    await vecinaNormativa(a.de, x, ix);
+  }
+  const norma = n.tipo === "iniciativa" ? ix.promulgada.get(n.id) : undefined;
+  if (norma) {
+    x.de("congreso", t(iriDe(n), "soc:promulgadaComo", iri(iriDe(norma))));
+    await vecinaNormativa(norma, x, ix);
+  }
+  for (const id of ix.origen.get(k) ?? []) {
+    const ini: NodoRdf = { tipo: "iniciativa", id };
+    x.de("congreso", t(iriDe(ini), "soc:promulgadaComo", iri(iriDe(n))));
+    await vecinaNormativa(ini, x, ix);
+  }
+}
+
+/* ------------------------------------------------------- ley, resolución */
+
+async function describirNorma(n: NodoRdf & { tipo: "ley" | "resolucion" }, ligero = false): Promise<Descripcion | null> {
+  const ix = await indiceNormas();
+  const d = (n.tipo === "ley" ? ix.leyes : ix.resoluciones).get(n.id);
+  if (!d) return null;
+  const s = iriDe(n);
+  const g = GRAFO_NORMA[n.tipo];
+  const nombre = `${TIPO_LEGIBLE[n.tipo]} ${n.id}`;
+  const x = new Afirmaciones();
+  x.de(
+    g,
+    t(s, "rdf:type", iri(CLASE_NORMA[n.tipo])),
+    t(s, "rdf:type", iri("eli:LegalResource")),
+    t(s, "rdf:type", iri("schema:Legislation")),
+    t(s, "rdfs:label", lit(nombre, "es")),
+    t(s, "soc:numero", lit(d.numero)),
+    t(s, "eli:id_local", lit(d.numero)),
+    t(s, "schema:legislationIdentifier", lit(nombre, "es")),
+    t(s, "schema:legislationType", lit(TIPO_LEGIBLE[n.tipo], "es")),
+    t(s, "schema:inLanguage", lit("es")),
+  );
+  if (d.titulo) x.de(g, t(s, "dct:title", lit(d.titulo, "es")), t(s, "schema:name", lit(desdeMayusculas(d.titulo), "es")));
+  if (d.fechaIso) x.de(g, t(s, "soc:fecha", fecha(d.fechaIso)), t(s, "eli:date_document", fecha(d.fechaIso)), t(s, "schema:legislationDate", fecha(d.fechaIso)));
+  if (d.gaceta) x.de(g, t(s, "do:gaceta", lit(d.gaceta)));
+  if (d.institucion) x.de(g, t(s, "do:etiquetaConsultoria", lit(d.institucion, "es")));
+  if (d.documentId) {
+    const pdf = `${CONSULTORIA_PDF}${d.documentId}`;
+    x.de(g, t(s, "schema:encoding", iri(pdf)), t(s, "eli:is_realized_by", iri(pdf)));
+  }
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${rutaDeNodo(n)}`)));
+  if (!ligero) await normasAlrededor(n, x, ix);
+  return { triples: x.triples, grafos: x.grafos, titulo: nombre };
+}
+
+/* ------------------------------------------------------------ iniciativa */
+
+async function describirIniciativa(id: string, ligero = false): Promise<Descripcion | null> {
+  const ix = await indiceNormas();
+  const i = ix.iniciativas.get(id);
+  if (!i) return null;
+  const n: NodoRdf = { tipo: "iniciativa", id };
+  const s = iriDe(n);
+  const x = new Afirmaciones();
+  x.de(
+    "congreso",
+    t(s, "rdf:type", iri("soc:Iniciativa")),
+    t(s, "rdf:type", iri("schema:Legislation")),
+    t(s, "rdfs:label", lit(i.titulo, "es")),
+    t(s, "dct:title", lit(i.titulo, "es")),
+    t(s, "schema:name", lit(i.titulo, "es")),
+    t(s, "soc:codigo", lit(i.numero)),
+    t(s, "schema:legislationIdentifier", lit(i.numero)),
+    t(s, "schema:legislationType", lit(NOMBRE_TIPO_INICIATIVA.get(i.tipo) ?? i.tipo, "es")),
+    t(s, "schema:inLanguage", lit("es")),
+    t(s, "soc:fecha", fecha(i.fechaDeposito)),
+    t(s, "do:tipoDeIniciativa", iri(`do:iniciativa-${conceptoSil(i, "tipo")}`)),
+    t(s, "do:condicionLegislativa", iri(`do:condicion-${conceptoSil(i, "condicion")}`)),
+    t(s, "do:temaLegislativo", iri(`do:tema-${conceptoSil(i, "grupo")}`)),
+  );
+  if (i.tituloModificado) x.de("congreso", t(s, "dct:alternative", lit(i.tituloModificado, "es")));
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.iniciativa(id)}`)));
+  if (!ligero) await normasAlrededor(n, x, ix);
+  return { triples: x.triples, grafos: x.grafos, titulo: i.titulo };
+}
+
 /* --------------------------------------------------------------- decreto */
 
 async function describirDecreto(numero: string, ligero = false): Promise<Descripcion | null> {
@@ -1213,6 +1580,8 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
       x.de("personas", t(pIri, "rdf:type", iri("soc:Persona")), t(pIri, "rdfs:label", lit(persona.nombre)));
     }
   }
+  // Las leyes y los decretos que su título deroga, modifica o cita, y quién lo nombra a él.
+  if (!ligero) await normasAlrededor({ tipo: "decreto", id: d.numero }, x, await indiceNormas());
   return { triples: x.triples, grafos: x.grafos, titulo: nombreDecreto(d.numero) };
 }
 
@@ -1263,20 +1632,25 @@ async function describirProvincia(slug: string, ligero = false): Promise<Descrip
 
 /** Cuántos nodos de cada clase tiene el grafo hoy: para VoID y para `/grafo`. */
 export async function inventarioEnVivo(): Promise<ClaseContada[]> {
-  const [f, indice, fin, padron, dj, sanc, contrataciones, historico, compras, procesos, obras, cabeceraObras] = await Promise.all([
-    getFuncionarios(),
-    indiceDecretos(),
-    getFinancieras(),
-    padronEmpresas(),
-    getDeclaraciones(),
-    getSanciones(),
-    contarContrataciones((uc) => institucionPorId(uc) != null),
-    getResumenHistorico(),
-    clavesDeCompras(),
-    indiceProcesos(),
-    indiceObras(),
-    leerInstantanea<{ corte: string }>("obras.json"),
-  ]);
+  const [f, indice, fin, padron, dj, sanc, contrataciones, historico, compras, procesos, obras, cabeceraObras, normas, leyes, resoluciones, congreso] =
+    await Promise.all([
+      getFuncionarios(),
+      indiceDecretos(),
+      getFinancieras(),
+      padronEmpresas(),
+      getDeclaraciones(),
+      getSanciones(),
+      contarContrataciones((uc) => institucionPorId(uc) != null),
+      getResumenHistorico(),
+      clavesDeCompras(),
+      indiceProcesos(),
+      indiceObras(),
+      leerInstantanea<{ corte: string }>("obras.json"),
+      indiceNormas(),
+      leyesConFicha(),
+      resolucionesConFicha(),
+      leerInstantanea<{ generado: string }>("congreso.json"),
+    ]);
   const cargos = f?.personas.reduce((n, p) => n + p.cargos.length, 0) ?? 0;
   const decretos = indice ? Object.values(indice.anios).reduce((a, b) => a + b, 0) + indice.sinFecha : 0;
   const medidas = sanc ? sanc.proveedores.reduce((n, p) => n + p.eventos.length, 0) : 0;
@@ -1320,6 +1694,9 @@ export async function inventarioEnVivo(): Promise<ClaseContada[]> {
     },
     { clase: "soc:ProyectoDeInversion", etiqueta: "Obras y proyectos de inversión", n: compras.obra.length, fuente: "MapaInversiones", corte: dia(cabeceraObras.corte) },
     { clase: "soc:Contrato", etiqueta: "Contratos de obra", n: obras.contratos, fuente: "MapaInversiones", corte: dia(cabeceraObras.corte) },
+    { clase: "soc:Ley", etiqueta: "Leyes con ficha", n: normas.leyes.size, fuente: "Consultoría Jurídica", corte: dia(leyes?.generadoEn) },
+    { clase: "soc:Resolucion", etiqueta: "Resoluciones con ficha", n: normas.resoluciones.size, fuente: "Consultoría Jurídica", corte: dia(resoluciones?.generadoEn) },
+    { clase: "soc:Iniciativa", etiqueta: "Iniciativas del Congreso", n: normas.iniciativas.size, fuente: "SIL de la Cámara de Diputados", corte: dia(congreso.generado) },
   ];
   return filas.filter((c) => c.n > 0);
 }

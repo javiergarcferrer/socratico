@@ -178,6 +178,31 @@ const contratoConProceso = Object.values(detalleObras)
   .filter((c) => codigosTabla.has(c.proceso))
   .sort((a, b) => b.monto - a.monto || (a.codigo < b.codigo ? -1 : 1))[0];
 
+// Las leyes y las iniciativas del Congreso. Una ley es nodo si su número con
+// año no lo dan a leyes de títulos distintos ni el registro entero ni la
+// instantánea reciente, que el buscador junta (`scripts/busqueda_leyes.py` y
+// `normas()` de `scripts/build-busqueda.py`).
+const leyesJson = leer("leyes.json");
+const canonLey = (n) => n.trim().replace(/\s+/g, "").replace(/^(\d{1,4})-(?:19|20)(\d{2})$/, "$1-$2");
+const huellaTitulo = (t) => (t ?? "").toLowerCase().replace(/[^\p{L}\p{N}_]+/gu, "");
+const titulosLey = new Map();
+const recientes = Object.entries(leer("normativa.json").busquedas).flatMap(([k, filas]) => (k.startsWith("1/") ? filas : []));
+for (const [numero, titulo] of [...leyesJson.leyes.map((f) => [f[1], f[2]]), ...recientes.map((f) => [f.Numero, f.Titulo])]) {
+  const n = canonLey(numero ?? "");
+  titulosLey.set(n, (titulosLey.get(n) ?? new Set()).add(huellaTitulo(titulo)));
+}
+const esLeyNodo = (n) => /^\d{1,4}-\d{2,4}$/.test(n) && !/^0+-\d+$/.test(n) && titulosLey.get(n)?.size === 1;
+const congreso = leer("congreso.json").iniciativas;
+const proyectosDeLey = congreso.filas.filter((f) => congreso.tipos[f[3]] === "Proyecto de Ley");
+const LEY_QUE_MODIFICA = /modifica (?:la )?Ley (?:n[uú]m\.?|No\.?)\s*(\d{1,4}-\d{2,4})/i;
+// El proyecto de ley más reciente que se promulgó como una ley con nodo y cuyo título modifica otra.
+const proyectoPromulgado = proyectosDeLey
+  .map((f) => ({ f, ley: canonLey(/(\d{1,4})\s*-\s*(\d{2,4})/.exec(f[7] ?? "")?.[0] ?? ""), modifica: canonLey(LEY_QUE_MODIFICA.exec(f[2])?.[1] ?? "") }))
+  .filter((x) => /^ley\b/i.test(x.f[7] ?? "") && esLeyNodo(x.ley) && esLeyNodo(x.modifica))
+  .sort((a, b) => b.f[5].localeCompare(a.f[5]) || b.f[0] - a.f[0])[0];
+// Dos proyectos de ley que modifican la misma ley: la de la seguridad social.
+const proyectosSobre8701 = proyectosDeLey.filter((f) => canonLey(LEY_QUE_MODIFICA.exec(f[2])?.[1] ?? "") === "87-01").slice(0, 2);
+
 /* ------------------------------------------------------------------ casos */
 
 class Fallo extends Error {}
@@ -489,6 +514,42 @@ const CASOS = [
     },
   },
   {
+    pregunta: "Una iniciativa dice qué ley propone modificar y en qué ley se convirtió",
+    async correr() {
+      const { f, ley, modifica } = proyectoPromulgado;
+      const { datos, error } = await llamar("fetch", { id: `/congreso/${f[0]}` });
+      exigir(!error, error);
+      exigir(datos.metadata.claseRdf === "soc:Iniciativa", `clase ${datos.metadata.claseRdf}`);
+      exigir(datos.text.includes(`Se promulgó como: Ley ${ley}`), `no dice que se promulgó como la Ley ${ley}`);
+      exigir(datos.text.includes(`Propone modificar: Ley ${modifica}`), `no dice que propone modificar la Ley ${modifica}`);
+      return `${f[1]}: modifica la ${modifica}, es la ${ley}`;
+    },
+  },
+  {
+    pregunta: "Una ley lleva al proyecto del que nació",
+    async correr() {
+      const { f, ley } = proyectoPromulgado;
+      const { datos, error } = await llamar("fetch", { id: `Ley ${ley}` });
+      exigir(!error, error);
+      exigir(datos.metadata.claseRdf === "soc:Ley", `clase ${datos.metadata.claseRdf}`);
+      exigir(datos.text.includes(`Nació del proyecto: ${f[2].trim()}`), `no dice que nació del proyecto ${f[1]}`);
+      return `Ley ${ley} ← ${f[1]}`;
+    },
+  },
+  {
+    pregunta: "¿Qué tienen en común dos proyectos que modifican la ley de seguridad social?",
+    async correr() {
+      exigir(proyectosSobre8701.length === 2, "no hay dos proyectos de ley que modifiquen la Ley 87-01");
+      const [a, b] = proyectosSobre8701;
+      const { datos, error } = await llamar("path", { from: `/congreso/${a[0]}`, to: `/congreso/${b[0]}` });
+      exigir(!error, error);
+      exigir(datos.encontrado, datos.explicacion);
+      exigir(datos.saltos === 2, `${datos.saltos} saltos; debían ser 2, por la ley que los dos modifican`);
+      exigir(datos.pasos.some((x) => x.id?.startsWith("/normativa/ley/")), "el camino no pasa por una ley");
+      return `${a[1]} y ${b[1]}: 2 saltos`;
+    },
+  },
+  {
     pregunta: "Abrir el MINERD: sus compras y quién lo dirige",
     async correr() {
       const { datos, error } = await llamar("fetch", { id: `/instituciones/${MINERD.id}` });
@@ -712,7 +773,8 @@ const CASOS = [
       exigir(lineas.length === meta.triples, `${lineas.length} triples; meta.json dice ${meta.triples}`);
       exigir(!nt.includes(`${SITIO}/funcionarios/`), "toca a una persona con cargo");
       exigir(!nt.includes(`${SOC}DeclaracionJurada`), "trae declaraciones juradas");
-      exigir(!nt.includes(`${SITIO}/normativa/decreto/`), "trae decretos");
+      exigir(!nt.includes(`${SITIO}/normativa/`), "trae decretos, leyes o resoluciones");
+      exigir(!nt.includes(`${SITIO}/congreso/`), "trae legisladores o iniciativas");
       const [rpe, , , monto] = topMinerd[0];
       const arista = `<${SITIO}/proveedores/${rpe}#contratacion-${MINERD.id}> <${SOC}montoContratado> "${monto}"`;
       if (rncDe[rpe]) exigir(nt.includes(arista), "no trae la mayor contratación del MINERD");

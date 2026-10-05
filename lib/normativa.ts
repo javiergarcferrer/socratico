@@ -311,6 +311,84 @@ async function leyHistorica(numero: string): Promise<Documento | null> {
   return null;
 }
 
+/** Las normas de un registro que tienen ficha propia, por su número canónico, con la fecha de la instantánea de la que salen. */
+export interface NormasConFicha {
+  generadoEn: string;
+  normas: Map<string, Documento>;
+}
+
+/**
+ * Las normas de unas filas que tienen ficha propia y son un nodo del grafo:
+ * las de número con año («47-25»), salvo el marcador «0-00» que comparten
+ * cuatro leyes de 1921, y salvo un número que el origen da a normas de
+ * títulos distintos (17-06 es el presupuesto de 2006 y la presa de Jigüey):
+ * su ficha resolvería una sola. La misma norma cargada con dos fechas es una,
+ * la de la fecha más reciente. Es la regla del buscador
+ * (`scripts/busqueda_leyes.py`, `normas()` de `scripts/build-busqueda.py`).
+ * `tambien` son filas de otra instantánea que el buscador junta con estas:
+ * cuentan para saber si un número tiene dos títulos, no como datos.
+ */
+function conFichaPropia(
+  filas: FilaBuscador[],
+  ruta: "ley" | "resolucion",
+  tipoDocumento: number,
+  generadoEn: string,
+  tambien: FilaBuscador[] = [],
+): NormasConFicha {
+  const huella = (t: string | null | undefined) => (t ?? "").toLowerCase().replace(/[^\p{L}\p{N}_]+/gu, "");
+  const titulos = new Map<string, Set<string>>();
+  const fila = new Map<string, FilaBuscador>();
+  const numero = (f: FilaBuscador) => {
+    const n = numeroCanonico(ruta, texto(f.Numero));
+    return /^\d{1,4}-\d{2,4}$/.test(n) && !/^0+-\d+$/.test(n) ? n : null;
+  };
+  for (const f of [...filas, ...tambien]) {
+    const n = numero(f);
+    if (n) titulos.set(n, (titulos.get(n) ?? new Set<string>()).add(huella(f.Titulo)));
+  }
+  for (const f of filas) {
+    const n = numero(f);
+    if (!n) continue;
+    const antes = fila.get(n);
+    if (!antes || (f.FechaPromulgacion ?? "") > (antes.FechaPromulgacion ?? "")) fila.set(n, f);
+  }
+  const normas = new Map<string, Documento>();
+  for (const [n, f] of fila) {
+    if (titulos.get(n)!.size === 1) normas.set(n, { ...aDocumento({ ...f, TipoDocumento: tipoDocumento }), instantanea: generadoEn });
+  }
+  return { generadoEn, normas };
+}
+
+let leyesMemo: Promise<NormasConFicha | null> | null = null;
+
+/**
+ * Las leyes con ficha propia, de todas las que registra la Consultoría desde
+ * 1844 (`leyes.json`). Un número que la instantánea reciente (`normativa.json`)
+ * da a dos títulos tampoco es una ley, como en el buscador, que junta las
+ * dos: la Ley 80-25 figura allí con su fe de errata y con su texto.
+ */
+export function leyesConFicha(): Promise<NormasConFicha | null> {
+  leyesMemo ??= Promise.all([leerLeyes(), leerInstantanea()]).then(([inst, reciente]) => {
+    if (!inst) return null;
+    const filas = inst.leyes.map((x) => Object.fromEntries(inst.campos.map((c, k) => [c, x[k]])) as FilaBuscador);
+    const recientes = Object.entries(reciente?.busquedas ?? {}).flatMap(([clave, xs]) => (clave.startsWith("1/") ? xs : []));
+    return conFichaPropia(filas, "ley", 1, inst.generadoEn, recientes);
+  });
+  return leyesMemo;
+}
+
+let resolucionesMemo: Promise<NormasConFicha | null> | null = null;
+
+/** Las resoluciones con ficha propia: las de los años que trae la instantánea reciente (`normativa.json`). */
+export function resolucionesConFicha(): Promise<NormasConFicha | null> {
+  resolucionesMemo ??= leerInstantanea().then((inst) => {
+    if (!inst) return null;
+    const filas = Object.entries(inst.busquedas).flatMap(([clave, xs]) => (clave.startsWith("7/") ? xs : []));
+    return conFichaPropia(filas, "resolucion", 7, inst.generadoEn);
+  });
+  return resolucionesMemo;
+}
+
 function ordenar(docs: Documento[]): Documento[] {
   return docs.sort((a, b) => (b.fechaIso ?? "").localeCompare(a.fechaIso ?? ""));
 }

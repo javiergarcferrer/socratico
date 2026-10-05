@@ -109,7 +109,7 @@ export default async function CaminoPage({ searchParams }: Props) {
       )}
 
       <p className="border-t border-hairline pt-4 text-xs leading-relaxed text-ink-soft">
-        Un camino dice que una cadena de registros del Estado (cargos, decretos, supervisiones, compras, obras) toca las dos fichas,
+        Un camino dice que una cadena de registros del Estado (cargos, decretos, supervisiones, compras, obras, normas que se citan) toca las dos fichas,
         no que haya una relación personal entre ellas. Se toman las aristas sin dirección y de las mismas instantáneas
         que pintan cada ficha.
       </p>

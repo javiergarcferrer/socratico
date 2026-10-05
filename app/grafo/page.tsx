@@ -72,7 +72,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return {
     title: "El grafo",
     description:
-      "Cómo se ligan las personas con cargo, las instituciones, los decretos, los bancos, las empresas, los proveedores, las compras, las obras y las provincias en los registros del Estado dominicano. Con su ontología y en RDF.",
+      "Cómo se ligan las personas con cargo, las instituciones, los decretos, las leyes, las iniciativas del Congreso, los bancos, las empresas, los proveedores, las compras, las obras y las provincias en los registros del Estado dominicano. Con su ontología y en RDF.",
     alternates: { canonical: enlace.grafo(), types: { "text/turtle": "/.well-known/void" } },
   };
 }
@@ -94,6 +94,7 @@ const EJEMPLOS: { nodo: NodoRdf; nombre: string; porque: string }[] = [
   { nodo: { tipo: "entidad-financiera", id: "banreservas" }, nombre: "Banreservas", porque: "Quién lo supervisa y su misma ficha como empresa y como institución" },
   { nodo: { tipo: "provincia", id: "santiago" }, nombre: "Santiago", porque: "Su gobernación y las alcaldías y juntas de distrito electas" },
   { nodo: { tipo: "obra", id: "3731" }, nombre: "Presa de Monte Grande", porque: "Quién la ejecuta, dónde, sus procesos de compra y a quién se le contrató" },
+  { nodo: { tipo: "ley", id: "87-01" }, nombre: "Ley 87-01", porque: "La de la seguridad social: los proyectos que proponen cambiarla y las normas que la nombran" },
 ];
 
 const LISTADO_DE_CLASE: Record<string, string> = {
@@ -110,6 +111,9 @@ const LISTADO_DE_CLASE: Record<string, string> = {
   "soc:ProcesoDeContratacion": "/licitaciones",
   "soc:ProyectoDeInversion": "/obras",
   "soc:Contrato": "/obras",
+  "soc:Ley": "/normativa?tipo=1",
+  "soc:Resolucion": "/normativa?tipo=7",
+  "soc:Iniciativa": "/congreso",
 };
 
 async function Portada({ consulta }: { consulta: string }) {
@@ -142,7 +146,7 @@ async function Portada({ consulta }: { consulta: string }) {
         <BuscadorUrl
           etiqueta="Buscar una ficha del grafo"
           placeholder="Un nombre, 339-20, un RNC o SNIP 3731"
-          ayuda="Busca entre los nodos del grafo: personas con cargo, instituciones, entidades financieras y provincias por su nombre; un decreto por su número; una empresa por su RNC; un proceso de compra por su código; un proveedor por «RPE 32369»; una obra por «SNIP 3731»."
+          ayuda="Busca entre los nodos del grafo: personas con cargo, instituciones, entidades financieras y provincias por su nombre; un decreto por su número; una ley o una resolución por «Ley 87-01» o «Resolución 48-26»; una empresa por su RNC; un proceso de compra por su código; un proveedor por «RPE 32369»; una obra por «SNIP 3731»."
         />
         {candidatos && <ListaCandidatos resultado={candidatos} consulta={consulta} hacia={(c) => enlace.grafo(rutaDeNodo(c.nodo))} />}
       </section>
@@ -252,8 +256,8 @@ async function Portada({ consulta }: { consulta: string }) {
               meta.json
             </a>
             ), y los asistentes de IA las consultan en SQL por el servidor MCP. Las personas
-            con cargo, sus cargos y los decretos no entran:
-            se leen una a una, en su ficha.
+            con cargo, sus cargos, los decretos, las leyes, las resoluciones y las iniciativas del
+            Congreso no entran (sus títulos nombran personas): se leen una a una, en su ficha.
           </p>
         )}
         <p>
@@ -298,7 +302,7 @@ function ListaCandidatos({
   if (candidatos.length === 0) {
     return (
       <EstadoVacio titulo={`Ningún nodo del grafo se llama «${consulta}».`}>
-        Prueba con menos palabras, con el nombre como lo escribe el Estado o con el número del decreto (339-20).
+        Prueba con menos palabras, con el nombre como lo escribe el Estado o con el número del decreto o de la ley (339-20).
       </EstadoVacio>
     );
   }
@@ -342,8 +346,9 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
       <div className="mx-auto max-w-4xl">
         <Ruta raiz={{ href: enlace.grafo(), label: "El grafo" }} actual="Nodo no encontrado" />
         <EstadoVacio como="h1" titulo="Esa dirección no es un nodo del grafo." className="mt-6">
-          El grafo tiene personas con cargo, instituciones, entidades financieras, empresas, decretos con ficha,
-          provincias, proveedores, procesos de compra y obras. Búscalo en{" "}
+          El grafo tiene personas con cargo, instituciones, entidades financieras, empresas, decretos, leyes y
+          resoluciones con ficha propia, iniciativas del Congreso, provincias, proveedores, procesos de compra y
+          obras. Búscalo en{" "}
           <Link href={enlace.grafo()} className="text-brand-700 underline">
             la portada del grafo
           </Link>

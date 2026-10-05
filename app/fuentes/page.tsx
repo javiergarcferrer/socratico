@@ -272,6 +272,13 @@ export default async function FuentesPage() {
             </Link>
             .
           </p>
+          <p className="mt-2 text-[13px] text-ink-soft sm:text-xs">
+            Cada iniciativa de esa instantánea es también un nodo del grafo, con su tipo, su
+            condición el día del corte y su tema como los escribe el SIL; la ley o la resolución
+            en que se convirtió, por el número de promulgación que guarda la cámara, si esa
+            norma tiene ficha; y las leyes y los decretos con ficha que su título nombra. Lo que
+            un proyecto de ley deroga o modifica, lo propone: no lo cambia.
+          </p>
         </Fuente>
 
         <Fuente
@@ -387,6 +394,16 @@ export default async function FuentesPage() {
             (errores de captura: se marcan, no se corrigen), y la fe de errata de un decreto es
             otra fila con el mismo número. Los decretos anteriores a los años ochenta llevan un
             número sin año que se repite: esos abren su PDF.
+          </p>
+          <p className="mt-3">
+            En el grafo, cada decreto con ficha, cada ley con ficha propia y cada resolución con
+            número de la instantánea reciente (casi todas del Congreso) es un nodo, con lo que
+            nombra su título: qué ley o qué decreto con ficha deroga, modifica o solo cita, leído
+            con reglas fijas sobre la redacción oficial («…que modifica la Ley núm. 87-01»). Solo cambia una
+            norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto; lo que
+            un decreto dice de una ley, o una resolución de cualquiera, queda como cita. Una
+            resolución nombrada en un título no se ata, porque la numeran muchos órganos. El título
+            no dice qué artículos cambian ni si el cambio sigue vigente: el texto oficial manda.
           </p>
           <p className="mt-3">
             Sus PDF traen capa de texto (no son escaneos) y cada norma tiene su

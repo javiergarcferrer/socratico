@@ -88,10 +88,13 @@ const nextConfig: NextConfig = {
     "/instituciones": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/banca": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/provincias": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
-    // Las fichas de proceso, de proveedor y de obra son nodos del grafo: incrustan su schema.org.
+    // Las fichas de proceso, de proveedor, de obra y de iniciativa son nodos del grafo: incrustan su schema.org.
     "/procesos": ["./datos/grafo/ld/**"],
     "/proveedores/": ["./datos/grafo/ld/**"],
     "/obras": ["./datos/grafo/ld/**"],
+    // La ficha de una iniciativa: los corchetes casan con la ruta tal cual, no con las otras de
+    // /congreso; como subcadena casan también con /api/feed/congreso/[id], que la excluye abajo.
+    "/congreso/[id]": ["./datos/grafo/ld/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus (los procesos, además,
@@ -117,6 +120,8 @@ const nextConfig: NextConfig = {
     "/provincias": ["./public/data/procesos.json"],
     "/proveedores/*": ["./public/data/busqueda/**"],
     "/api/proveedores": ["./public/data/busqueda/**"],
+    // Los RSS no leen el grafo; el de una iniciativa casa con la clave «/congreso/[id]» de arriba.
+    "/api/feed": ["./datos/grafo/**"],
   },
   experimental: {
     staleTimes: { dynamic: 30, static: 300 },
@@ -148,10 +153,13 @@ const nextConfig: NextConfig = {
       "/banca/:slug",
       "/empresas/:rnc",
       "/normativa/decreto/:numero",
+      "/normativa/ley/:numero",
+      "/normativa/resolucion/:numero",
       "/provincias/:slug",
       "/proveedores/:rpe(\\d+)",
       "/procesos/:codigo",
       "/obras/:snip(\\d+)",
+      "/congreso/:id(\\d+)",
     ];
     return [
       ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>
