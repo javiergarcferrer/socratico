@@ -142,6 +142,24 @@ function reset(loc, rem, comun) {
   await c.sincronizarSeguidos(u);
   ver("tras el fallo, se sube", local() + "|" + remoto(), "a,n|a,n");
 
+  // Personas con cargo, entidades financieras y empresas suben y bajan como
+  // las demás: el `check` de la tabla las admite desde 20260930120000.
+  const T = (tipo, id, ruta) => ({ tipo, id, titulo: id, href: `${ruta}/${id}` });
+  const tipos = (lista) => lista.map((s) => `${s.tipo}:${s.id ?? s.ref}`).sort().join(",");
+  reset([], [], null);
+  seg.reemplazarSeguidos([T("funcionario", "ana-perez", "/funcionarios"), T("entidad-financiera", "banco-x", "/banca"), T("empresa", "101000001", "/empresas")]);
+  db.rows.set("empresa:131000002", { ...F("131000002"), tipo: "empresa", href: "/empresas/131000002" });
+  await c.sincronizarSeguidos(u);
+  const todos = "empresa:101000001,empresa:131000002,entidad-financiera:banco-x,funcionario:ana-perez";
+  ver("personas, bancos y empresas suben y bajan", tipos(seg.getSeguidos()) + "|" + tipos([...db.rows.values()]), `${todos}|${todos}`);
+
+  reset([], [], []);
+  const dejarT = c.reflejarSeguidos(u);
+  seg.toggleSeguido(T("funcionario", "ana-perez", "/funcionarios"));
+  await espera(); await espera();
+  dejarT();
+  ver("el reflejo sube a una persona con cargo", tipos([...db.rows.values()]), "funcionario:ana-perez");
+
   // reflejar: cambios encolados
   reset(["a"], ["a"], ["a"]);
   const dejar = c.reflejarSeguidos(u);

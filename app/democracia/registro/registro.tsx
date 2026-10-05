@@ -6,7 +6,7 @@ import { supabase, db } from "@/lib/supabase";
 import { abrirSesion as abrirSesionCon, correoValido, leerEntrada, mensajeDeEnvio, type Entrada } from "@/lib/sesion";
 import { cedulaValida, formatearCedula, limpiarCedula } from "@/lib/cedula";
 import { rutaPropia } from "@/lib/espacios";
-import { IconArrowLeft, IconCheck, IconShield } from "@/components/icons";
+import { IconArrowLeft, IconCheck, IconShield, IconTrash } from "@/components/icons";
 import { cn } from "@/lib/cn";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,8 @@ type Paso =
   | "cedula-pendiente"
   | "registrando"
   | "listo"
-  | "sesion";
+  | "sesion"
+  | "borrado";
 
 export default function Registro() {
   const [paso, setPaso] = useState<Paso>("datos");
@@ -258,6 +259,38 @@ export default function Registro() {
         {cuentaUnicaHabilitada() && origen !== "cuenta_unica" && (
           <CuentaUnica onClick={irACuentaUnica} cargando={cargando} error={error} />
         )}
+        <BorrarRegistro
+          onBorrado={() => {
+            setCedula("");
+            setOrigen(null);
+            setError(null);
+            setPaso("borrado");
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (paso === "borrado") {
+    return (
+      <div className="mx-auto max-w-lg">
+        <VolverCongreso />
+        <Alert role="status" className="mt-4 p-6">
+          <h1 className="font-display text-lg text-ink">Borramos tu registro</h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+            Tu cédula ya no está vinculada a tu sesión y tus votos dejaron de contar en
+            los totales. Si quieres volver a votar, regístrate de nuevo: empiezas sin
+            votos.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4 w-full sm:w-auto"
+            onClick={() => setPaso("cedula-pendiente")}
+          >
+            Registrarme de nuevo
+          </Button>
+        </Alert>
       </div>
     );
   }
@@ -565,6 +598,66 @@ function CuentaUnica({
       >
         {cargando ? "Abriendo Cuenta Única…" : "Verificar con Cuenta Única"}
       </Button>
+    </Card>
+  );
+}
+
+/**
+ * El derecho al olvido que promete `/democracia/seguridad` (Ley 172-13):
+ * `eliminar_votante()` borra la fila propia de `votantes` y los votos caen en
+ * cascada. La sesión sigue abierta, así que registrarse otra vez es el paso de
+ * la cédula pendiente. Los comentarios de la conversación no dependen de esa
+ * fila: se borran uno a uno, y la huella de cédula que llevan se vacía a los
+ * 90 días (docs/INFRAESTRUCTURA.md §10).
+ */
+function BorrarRegistro({ onBorrado }: { onBorrado: () => void }) {
+  const [seguro, setSeguro] = useState(false);
+  const [borrando, setBorrando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function borrar() {
+    if (borrando) return;
+    setBorrando(true);
+    setError(null);
+    const { data, error: err } = await db().rpc("eliminar_votante");
+    const r = data as { ok?: boolean; error?: string } | null;
+    if (err || !r?.ok) {
+      setBorrando(false);
+      setError(
+        r?.error === "sesion_requerida"
+          ? "Tu sesión se cerró. Entra de nuevo con tu correo para borrar el registro."
+          : "No se pudo borrar el registro. Vuelve a intentarlo.",
+      );
+      return;
+    }
+    onBorrado();
+  }
+
+  return (
+    <Card as="section" className="mt-4 p-5">
+      <CardTitle className="text-base">Borrar tu registro y tus votos</CardTitle>
+      <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+        Se borran el código de tu cédula y todos tus votos, y los totales dejan de
+        contarlos. No se puede deshacer. Puedes registrarte otra vez, sin los votos de
+        antes; mientras tanto no podrás votar ni escribir en la conversación. Lo que
+        escribiste en ella se borra aparte, comentario por comentario.
+      </p>
+      {seguro ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button type="button" variant="destructive" disabled={borrando} onClick={borrar}>
+            {borrando ? "Borrando…" : "Sí, borrar mi registro y mis votos"}
+          </Button>
+          <Button type="button" variant="outline" disabled={borrando} onClick={() => setSeguro(false)}>
+            No
+          </Button>
+        </div>
+      ) : (
+        <Button type="button" variant="outline" className="mt-3" onClick={() => setSeguro(true)}>
+          <IconTrash className="h-4 w-4" />
+          Borrar mi registro
+        </Button>
+      )}
+      {error && <p role="alert" className="mt-2 text-xs text-alerta-700">{error}</p>}
     </Card>
   );
 }

@@ -6,7 +6,7 @@
     ["tasa de cambio del peso", "/indicadores"],
     ["inflación de este año", "/indicadores"],
     ["cuánto dinero mandan los dominicanos del exterior", "/indicadores"],
-    ["reservas del banco central", "/indicadores"],
+    ["reservas del banco central", "/dinero/banco-central"],
     ["llegada de turistas", "/indicadores"],
     ["hay apagones hoy en el país", "/indicadores"],
     ["viene una tormenta", "/indicadores"],

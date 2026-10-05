@@ -78,10 +78,15 @@ export default function SeguridadPage() {
           voto por persona, cambiable pero no acumulable.
         </Medida>
 
-        <Medida titulo="Puedes borrar todo cuando quieras">
-          Un botón elimina tu registro y, en cascada, todos tus votos, sin dejar
-          rastro reversible a tu cédula. Es el derecho al olvido de la Ley 172-13,
-          implementado como una función de la base.
+        <Medida titulo="Puedes borrar tu registro cuando quieras">
+          Un botón en{" "}
+          <Link href="/democracia/registro" className="font-medium text-brand-700 hover:underline">
+            la página del registro
+          </Link>
+          , con tu sesión abierta, elimina tu registro y, en cascada, todos tus
+          votos, sin dejar rastro reversible a tu cédula. Tus comentarios en la
+          conversación se borran aparte, uno a uno. Es el derecho al olvido de la
+          Ley 172-13, implementado como una función de la base.
         </Medida>
 
         {cuentaUnicaHabilitada() && (

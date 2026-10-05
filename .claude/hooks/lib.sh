@@ -32,6 +32,13 @@ es_archivo_con_estado() {
   esac
 }
 
+# What brings supabase-js into a bundle: the client, `lib/supabase.ts`, and the
+# two modules built on it (`lib/espacios-cliente.ts`, `lib/sesion.ts`). A
+# stateless file importing either of those would carry the client without
+# naming it. `lib/espacios.ts` and `lib/democracia.ts` read over HTTP with the
+# publishable key and stay importable (the congress fichas embed the vote).
+IMPORTA_CLIENTE='@supabase/supabase-js|@/lib/(supabase|espacios-cliente|sesion)["'"'"']'
+
 # Prohibitions from .claude/rules/identidad.md, as grep -E patterns. Comment lines are
 # stripped before matching so a code comment can name the sin it avoids.
 #

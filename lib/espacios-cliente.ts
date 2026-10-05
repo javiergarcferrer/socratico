@@ -30,7 +30,7 @@ import {
   type TipoEntrada,
   type TipoHilo,
 } from "@/lib/espacios";
-import { getSeguidos, onSeguimientoCambio, reemplazarSeguidos, type Seguido } from "@/lib/seguimiento";
+import { TIPOS_SEGUIDO, getSeguidos, onSeguimientoCambio, reemplazarSeguidos, type Seguido } from "@/lib/seguimiento";
 
 export type Hecho<T> = { ok: true; datos: T } | { ok: false; error: string; cerrado?: boolean };
 
@@ -509,8 +509,11 @@ function claves(lista: { tipo: string; id?: string; ref?: string }[]): Set<strin
   return new Set(lista.map(clave));
 }
 
-/** Los tipos que admite `espacios.seguimientos`. */
-const TIPOS_SEGUIMIENTO = new Set<string>(["proceso", "proyecto", "expediente-senado", "proveedor", "institucion", "norma"]);
+/**
+ * Los tipos que admite `espacios.seguimientos`: los de `TIPOS_SEGUIDO`, la
+ * misma lista que fija su `check` (`20260930120000_espacios_personas.sql`).
+ */
+const TIPOS_SEGUIMIENTO: ReadonlySet<string> = new Set(TIPOS_SEGUIDO);
 
 /** Lo que la tabla acepta: una ruta propia (el `check` de `espacios.seguimientos`). */
 const subible = (s: Seguido) =>

@@ -75,7 +75,7 @@ if [ -z "$constructores" ]; then ok "graph: no route imports the builders (lib/g
 
 # 3. Statelessness: env vars and Supabase confined to /democracia.
 fuera="$( { grep -rlE 'process\.env\.' app lib components --include=*.ts --include=*.tsx 2>/dev/null; \
-            grep -rlE '@supabase/supabase-js|@/lib/supabase["'"'"']' app lib components --include=*.ts --include=*.tsx 2>/dev/null; } \
+            grep -rlE "$IMPORTA_CLIENTE" app lib components --include=*.ts --include=*.tsx 2>/dev/null; } \
           | sort -u | while read -r f; do es_archivo_con_estado "$f" || echo "$f"; done)"
 if [ -z "$fuera" ]; then ok "stateless surfaces: no env/DB outside /democracia and the account spaces"; else mal "env/DB reached a stateless surface"; printf '%s\n' "$fuera" | sed 's/^/       /'; fi
 

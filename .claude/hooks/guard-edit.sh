@@ -36,7 +36,7 @@ case "$rel" in
     if ! es_archivo_con_estado "$rel"; then
       printf '%s' "$nuevo" | sin_comentarios | grep -qE 'process\.env\.' \
         && negar "'$rel' is a stateless surface: no environment variables outside /democracia (CLAUDE.md). If a source needs a key, that is an owner decision (CLAUDE.md §"Cómo opera una sesión") — stop and report."
-      printf '%s' "$nuevo" | sin_comentarios | grep -qE '@supabase/supabase-js|@/lib/supabase["'"'"']' \
+      printf '%s' "$nuevo" | sin_comentarios | grep -qE "$IMPORTA_CLIENTE" \
         && negar "'$rel' must not touch the database: only /democracia and the account spaces read or write Supabase (CLAUDE.md, docs/INFRAESTRUCTURA.md §10.10). A data surface renders a component from components/espacios/ instead."
     fi
     ;;
