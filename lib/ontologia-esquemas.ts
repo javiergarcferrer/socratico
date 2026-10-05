@@ -216,6 +216,129 @@ export const TABLAS: Tabla[] = [
       FICHA,
     ],
   },
+  {
+    nombre: "obras",
+    clase: "soc:ProyectoDeInversion",
+    descripcion: "Los proyectos de inversión pública que publica MapaInversiones: quién los ejecuta, su sector, su estado, su costo y su avance.",
+    fuente: "MapaInversiones (MEPyD)",
+    columnas: [
+      { nombre: "snip", propiedad: "do:snip", clave: true, descripcion: "Código SNIP del proyecto." },
+      { nombre: "nombre", tipo: "VARCHAR", descripcion: "Nombre del proyecto." },
+      { nombre: "ejecutora_id", propiedad: "soc:ejecutadoPor", descripcion: "La institución que lo ejecuta (instituciones.id); NULL si el cruce no la ata." },
+      { nombre: "sector", propiedad: "soc:sectorDeInversion", descripcion: "Sector de inversión: transporte, educacion, salud, agua…" },
+      { nombre: "estado", propiedad: "soc:estado", descripcion: "Estado en MapaInversiones: En ejecución, Paralizado, Terminado…" },
+      { nombre: "valor_estimado", propiedad: "soc:valorEstimado", descripcion: "Costo del proyecto en pesos, como lo publica MapaInversiones." },
+      { nombre: "avance", propiedad: "soc:avance", descripcion: "Avance físico en por ciento (0 a 100); NULL si no lo publica." },
+      { nombre: "desde", propiedad: "soc:desde", descripcion: "Fecha de inicio." },
+      { nombre: "hasta", propiedad: "soc:hasta", descripcion: "Fecha de fin prevista." },
+      FICHA,
+    ],
+  },
+  {
+    nombre: "obras_provincias",
+    descripcion: "Dónde está cada obra: una fila por obra y provincia (una obra puede estar en varias, y una nacional en ninguna).",
+    fuente: "MapaInversiones (MEPyD)",
+    columnas: [
+      { nombre: "obra_snip", tipo: "VARCHAR", clave: true, descripcion: "La obra (obras.snip)." },
+      { nombre: "provincia_slug", tipo: "VARCHAR", clave: true, descripcion: "La provincia (provincias.slug)." },
+    ],
+  },
+  {
+    nombre: "procesos_obra",
+    clase: "soc:ProcesoDeContratacion",
+    descripcion:
+      "Los procesos de compra que MapaInversiones asocia a alguna obra, de cualquier año: una fila por proceso (sus obras, en obras_procesos). Los de los doce meses de la tabla procesos están también allí, con su modalidad y su estado.",
+    fuente: "MapaInversiones (MEPyD)",
+    columnas: [
+      { nombre: "codigo", propiedad: "soc:codigo", clave: true, descripcion: "Código del proceso (procesos.codigo, si es de los doce meses de esa tabla)." },
+      { nombre: "titulo", tipo: "VARCHAR", descripcion: "Carátula del proceso; NULL si MapaInversiones no la trae." },
+      { nombre: "valor_estimado", propiedad: "soc:valorEstimado", descripcion: "Valor estimado del proceso en pesos, una vez aunque sea de varias obras." },
+      FICHA,
+    ],
+  },
+  {
+    nombre: "obras_procesos",
+    descripcion: "Qué procesos tiene cada obra: una fila por obra y proceso (un proceso puede ser de varias obras; su valor está una sola vez, en procesos_obra).",
+    fuente: "MapaInversiones (MEPyD)",
+    columnas: [
+      { nombre: "obra_snip", tipo: "VARCHAR", clave: true, descripcion: "La obra (obras.snip)." },
+      { nombre: "proceso_codigo", tipo: "VARCHAR", clave: true, descripcion: "El proceso (procesos_obra.codigo)." },
+    ],
+  },
+  {
+    nombre: "contratos_obra",
+    clase: "soc:Contrato",
+    descripcion:
+      "Los contratos que MapaInversiones asocia a alguna obra, con su contratista, su proceso y su monto: una fila por contrato (sus obras, en obras_contratos). Sin los de contratistas que no están atados a una empresa (pueden ser personas físicas).",
+    fuente: "MapaInversiones (MEPyD)",
+    columnas: [
+      { nombre: "codigo", propiedad: "soc:codigo", clave: true, descripcion: "Código del contrato." },
+      { nombre: "proveedor_rpe", propiedad: "soc:contratista", clave: true, descripcion: "El contratista (proveedores.rpe)." },
+      { nombre: "proceso_codigo", propiedad: "soc:delProceso", descripcion: "El proceso del que sale (procesos_obra.codigo)." },
+      { nombre: "monto", propiedad: "soc:monto", descripcion: "Monto del contrato en pesos, una vez aunque sea de varias obras." },
+      { nombre: "estado", propiedad: "soc:estado", descripcion: "Estado del contrato en MapaInversiones." },
+      { nombre: "descripcion", tipo: "VARCHAR", descripcion: "Objeto del contrato." },
+    ],
+  },
+  {
+    nombre: "obras_contratos",
+    descripcion:
+      "Qué contratos tiene cada obra: una fila por obra y contrato (un contrato puede ser de varias obras; su monto está una sola vez, en contratos_obra, y lo que le toca a cada obra no se publica).",
+    fuente: "MapaInversiones (MEPyD)",
+    columnas: [
+      { nombre: "obra_snip", tipo: "VARCHAR", clave: true, descripcion: "La obra (obras.snip)." },
+      { nombre: "contrato_codigo", tipo: "VARCHAR", clave: true, descripcion: "El contrato (contratos_obra.codigo)." },
+      { nombre: "proveedor_rpe", tipo: "VARCHAR", clave: true, descripcion: "Su contratista (contratos_obra.proveedor_rpe): con el código, la clave del contrato." },
+    ],
+  },
+  {
+    nombre: "normas",
+    clase: "soc:Norma",
+    descripcion:
+      "Los decretos, las leyes y las resoluciones que son nodo del grafo (número con año y ficha propia), sin su título: los títulos nombran a quien designan, pensionan o reconocen, y se leen uno a uno con fetch.",
+    fuente: "Consultoría Jurídica del Poder Ejecutivo: registros de decretos y de leyes, normativa reciente",
+    columnas: [
+      { nombre: "id", tipo: "VARCHAR", clave: true, descripcion: "La ruta de su ficha (/normativa/ley/87-01), que es su id en fetch." },
+      { nombre: "tipo", tipo: "VARCHAR", descripcion: "decreto, ley o resolucion." },
+      { nombre: "numero", propiedad: "soc:numero", descripcion: "Número como lo escribe la Consultoría (87-01, 15-2000)." },
+      { nombre: "fecha", propiedad: "soc:fecha", tipo: "DATE", descripcion: "Fecha de la norma: de firma o de promulgación." },
+      { nombre: "gaceta", propiedad: "do:gaceta", descripcion: "La Gaceta Oficial que la publica, si la Consultoría lo dice." },
+      { nombre: "etiqueta", propiedad: "do:etiquetaConsultoria", descripcion: "La etiqueta de institución que le pone la Consultoría, tal cual." },
+      { nombre: "materia", tipo: "VARCHAR", descripcion: "Solo decretos: su materia por la regla del grafo (nombramientos, pensiones, exequatur…)." },
+      {
+        nombre: "aviso",
+        tipo: "VARCHAR",
+        descripcion: "Solo decretos: «fecha» si la fecha no casa con el año del número (1900-01-01, por ejemplo), «fuera» si cae fuera de los períodos de su firmante. Errores de captura del registro: se marcan, no se corrigen.",
+      },
+    ],
+  },
+  {
+    nombre: "iniciativas",
+    clase: "soc:Iniciativa",
+    descripcion:
+      "Las iniciativas del SIL de la Cámara de Diputados de los períodos 2020-2024 y 2024-2028, sin su título (nombran a quien pensionan o reconocen; se leen una a una con fetch): su tipo, su condición el día del corte, su tema, su fecha de depósito y la norma en que se convirtió.",
+    fuente: "SIL de la Cámara de Diputados",
+    columnas: [
+      { nombre: "id", tipo: "VARCHAR", clave: true, descripcion: "La ruta de su ficha (/congreso/158590), que es su id en fetch." },
+      { nombre: "expediente", propiedad: "soc:codigo", descripcion: "Número de expediente en el SIL (00101-2020-2024-CD)." },
+      { nombre: "tipo", propiedad: "do:tipoDeIniciativa", descripcion: "proyecto-de-ley, resolucion-interna o resolucion-bicameral." },
+      { nombre: "condicion", propiedad: "do:condicionLegislativa", descripcion: "depositada, en-tramite, aprobada, retirada, perimida, fusionada u observada (por el Poder Ejecutivo), el día del corte." },
+      { nombre: "tema", propiedad: "do:temaLegislativo", descripcion: "Tema del SIL: economia, justicia, seguridad-social, agricultura…" },
+      { nombre: "fecha", propiedad: "soc:fecha", tipo: "DATE", descripcion: "Fecha de depósito." },
+      { nombre: "promulgada_como", propiedad: "soc:promulgadaComo", descripcion: "La norma en que se convirtió (normas.id), si el SIL guarda su número y esa norma es nodo." },
+    ],
+  },
+  {
+    nombre: "citas",
+    descripcion:
+      "Qué ley o qué decreto con ficha nombra el título de cada norma o iniciativa, y qué le hace según el verbo que lo antecede. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás es cita. En una iniciativa, deroga y modifica son lo que propone.",
+    fuente: "Socrático: regla sobre los títulos de la Consultoría Jurídica y del SIL",
+    columnas: [
+      { nombre: "de", tipo: "VARCHAR", clave: true, descripcion: "Quien la nombra: una norma (normas.id) o una iniciativa (iniciativas.id)." },
+      { nombre: "a", tipo: "VARCHAR", clave: true, descripcion: "La norma nombrada (normas.id)." },
+      { nombre: "relacion", tipo: "VARCHAR", descripcion: "deroga, modifica (modifica, reforma, sustituye o adiciona) o cita." },
+    ],
+  },
 ];
 
 /* --------------------------------------------------------------- tipos */

@@ -771,10 +771,90 @@ const CASOS = [
       const t = await llamar("query", { sql: "SELECT table_name FROM information_schema.tables ORDER BY 1" });
       exigir(!t.error, t.error);
       const tablas = t.datos.filas.map((f) => f[0]).join(",");
-      exigir(tablas === "contrataciones,empresas,equivalencias,financieras,instituciones,medidas,procesos,proveedores,provincias", `tablas: ${tablas}`);
+      exigir(
+        tablas ===
+          "citas,contrataciones,contratos_obra,empresas,equivalencias,financieras,iniciativas,instituciones,medidas,normas,obras,obras_contratos,obras_procesos,obras_provincias,procesos,procesos_obra,proveedores,provincias",
+        `tablas: ${tablas}`,
+      );
       const p = await llamar("query", { sql: "SELECT count(*) FROM proveedores WHERE rnc IS NULL OR NOT regexp_matches(rnc, '^[0-9]{9}$')" });
       exigir(!p.error && p.datos.filas[0][0] === 0, `${p.datos?.filas?.[0]?.[0] ?? p.error} proveedores sin empresa`);
-      return "9 tablas; cada proveedor, atado a una empresa";
+      // Un contrato de obra, solo si su contratista es uno de esos proveedores; una norma o una iniciativa, sin su título.
+      const c = await llamar("query", { sql: "SELECT count(*) FROM contratos_obra c LEFT JOIN proveedores p ON p.rpe = c.proveedor_rpe WHERE p.rpe IS NULL" });
+      exigir(!c.error && c.datos.filas[0][0] === 0, `${c.datos?.filas?.[0]?.[0] ?? c.error} contratos de obra sin empresa`);
+      const titulos = await llamar("query", {
+        sql: "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_name IN ('normas', 'iniciativas', 'citas') AND (column_name ILIKE '%titulo%' OR column_name ILIKE '%nombre%' OR column_name ILIKE '%firma%')",
+      });
+      exigir(!titulos.error && titulos.datos.filas.length === 0, `columnas que nombran: ${JSON.stringify(titulos.datos?.filas ?? titulos.error)}`);
+      return "18 tablas; cada proveedor y cada contratista, atados a una empresa; normas e iniciativas sin título";
+    },
+  },
+  {
+    pregunta: "SQL: las obras, por ejecutora y por provincia, contra obras.json",
+    async correr() {
+      // La ejecutora con más obras atadas a una institución (a igual cuenta, el id menor).
+      const porUc = new Map();
+      for (const o of obras) if (o.uc != null && instituciones.some((x) => x.id === o.uc)) porUc.set(o.uc, (porUc.get(o.uc) ?? 0) + 1);
+      const [uc, n] = [...porUc].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
+      const { datos, error } = await llamar("query", {
+        sql: "SELECT ejecutora_id, count(*) n FROM obras WHERE ejecutora_id IS NOT NULL GROUP BY 1 ORDER BY n DESC, ejecutora_id LIMIT 1",
+      });
+      exigir(!error, error);
+      exigir(datos.filas[0][0] === uc && datos.filas[0][1] === n, `da ${JSON.stringify(datos.filas[0])}, el oráculo ${uc} con ${n}`);
+      const total = await llamar("query", { sql: "SELECT count(*) FROM obras" });
+      exigir(total.datos?.filas?.[0]?.[0] === obras.length, `${total.datos?.filas?.[0]?.[0] ?? total.error} obras, el oráculo ${obras.length}`);
+      // Una obra en dos provincias, como la dice obras.json.
+      const dos = obras.find((o) => o.provincias.length >= 2);
+      const pr = await llamar("query", { sql: `SELECT count(*) FROM obras_provincias WHERE obra_snip = '${dos.snip}'` });
+      exigir(pr.datos?.filas?.[0]?.[0] === dos.provincias.length, `la obra ${dos.snip}: ${pr.datos?.filas?.[0]?.[0] ?? pr.error} provincias, el oráculo ${dos.provincias.length}`);
+      return `${obras.length} obras; la ejecutora ${uc} con ${n}`;
+    },
+  },
+  {
+    pregunta: "SQL: el mayor contrato de obra de una empresa, con sus obras, su proceso y su monto",
+    async correr() {
+      // El mayor contrato de obra de un contratista con RNC en la historia de
+      // contratos (una empresa, atada en el grafo). Un contrato es uno por RPE
+      // y código, con el mayor de sus montos, en cada obra que lo nombra.
+      const porContrato = new Map();
+      for (const [snip, d] of Object.entries(detalleObras)) {
+        for (const c of d.contratos) {
+          const rpe = String(Number(c.rpe));
+          if (!rncDe[rpe] && !rncDe[c.rpe]) continue;
+          const k = `${rpe}|${c.codigo}`;
+          const x = porContrato.get(k) ?? { rpe, codigo: c.codigo, monto: c.monto, proceso: c.proceso || null, obras: new Set() };
+          if (c.monto > x.monto) Object.assign(x, { monto: c.monto, proceso: c.proceso || null });
+          x.obras.add(snip);
+          porContrato.set(k, x);
+        }
+      }
+      const mayor = [...porContrato.values()].sort((a, b) => b.monto - a.monto || (a.codigo < b.codigo ? -1 : 1))[0];
+      const { datos, error } = await llamar("query", {
+        sql: `SELECT c.codigo, c.proceso_codigo, c.monto, string_agg(o.obra_snip, ',' ORDER BY o.obra_snip) FROM contratos_obra c JOIN obras_contratos o ON o.contrato_codigo = c.codigo AND o.proveedor_rpe = c.proveedor_rpe WHERE c.proveedor_rpe = '${mayor.rpe}' GROUP BY 1, 2, 3 ORDER BY c.monto DESC, c.codigo LIMIT 1`,
+      });
+      exigir(!error, error);
+      const [codigo, proceso, monto, obrasSql] = datos.filas[0] ?? [];
+      exigir(codigo === mayor.codigo, `da ${codigo}, el oráculo ${mayor.codigo} (RPE ${mayor.rpe})`);
+      exigir(Math.abs(monto - mayor.monto) < 0.01, `monto ${monto}, el oráculo ${mayor.monto}`);
+      exigir((proceso ?? null) === mayor.proceso, `proceso ${proceso}, el oráculo ${mayor.proceso}`);
+      const esperadas = [...mayor.obras].sort().join(",");
+      exigir(obrasSql === esperadas, `obras ${obrasSql}, el oráculo ${esperadas}`);
+      // Lo contratado por la empresa: cada contrato una vez, aunque sea de varias obras.
+      const suyo = [...porContrato.values()].filter((x) => x.rpe === mayor.rpe).reduce((t, x) => t + x.monto, 0);
+      const s = await llamar("query", { sql: `SELECT sum(monto) FROM contratos_obra WHERE proveedor_rpe = '${mayor.rpe}'` });
+      exigir(Math.abs((s.datos?.filas?.[0]?.[0] ?? 0) - suyo) < 0.5, `suma ${s.datos?.filas?.[0]?.[0] ?? s.error}, el oráculo ${suyo}`);
+      return `${codigo} (RPE ${mayor.rpe}), ${mayor.obras.size} obra${mayor.obras.size === 1 ? "" : "s"}`;
+    },
+  },
+  {
+    pregunta: "SQL: el proyecto promulgado dice en qué ley se convirtió y qué ley propone modificar",
+    async correr() {
+      const id = `/congreso/${proyectoPromulgado.f[0]}`;
+      const { datos, error } = await llamar("query", { sql: `SELECT promulgada_como FROM iniciativas WHERE id = '${id}'` });
+      exigir(!error, error);
+      exigir(datos.filas[0]?.[0] === `/normativa/ley/${proyectoPromulgado.ley}`, `promulgada como ${datos.filas[0]?.[0]}, el oráculo la Ley ${proyectoPromulgado.ley}`);
+      const c = await llamar("query", { sql: `SELECT relacion FROM citas WHERE de = '${id}' AND a = '/normativa/ley/${proyectoPromulgado.modifica}'` });
+      exigir(c.datos?.filas?.[0]?.[0] === "modifica", `la cita: ${JSON.stringify(c.datos?.filas ?? c.error)}`);
+      return `Ley ${proyectoPromulgado.ley}; propone modificar la ${proyectoPromulgado.modifica}`;
     },
   },
   {

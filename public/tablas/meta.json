@@ -336,6 +336,328 @@
           "descripcion": "Su ficha en Socrático."
         }
       ]
+    },
+    "obras": {
+      "descripcion": "Los proyectos de inversión pública que publica MapaInversiones: quién los ejecuta, su sector, su estado, su costo y su avance.",
+      "fuente": "MapaInversiones (MEPyD)",
+      "corte": "2026-09-22",
+      "filas": 3609,
+      "columnas": [
+        {
+          "nombre": "snip",
+          "tipo": "VARCHAR",
+          "descripcion": "Código SNIP del proyecto.",
+          "propiedad": "do:snip"
+        },
+        {
+          "nombre": "nombre",
+          "tipo": "VARCHAR",
+          "descripcion": "Nombre del proyecto."
+        },
+        {
+          "nombre": "ejecutora_id",
+          "tipo": "INTEGER",
+          "descripcion": "La institución que lo ejecuta (instituciones.id); NULL si el cruce no la ata.",
+          "propiedad": "soc:ejecutadoPor"
+        },
+        {
+          "nombre": "sector",
+          "tipo": "VARCHAR",
+          "descripcion": "Sector de inversión: transporte, educacion, salud, agua…",
+          "propiedad": "soc:sectorDeInversion"
+        },
+        {
+          "nombre": "estado",
+          "tipo": "VARCHAR",
+          "descripcion": "Estado en MapaInversiones: En ejecución, Paralizado, Terminado…",
+          "propiedad": "soc:estado"
+        },
+        {
+          "nombre": "valor_estimado",
+          "tipo": "DOUBLE",
+          "descripcion": "Costo del proyecto en pesos, como lo publica MapaInversiones.",
+          "propiedad": "soc:valorEstimado"
+        },
+        {
+          "nombre": "avance",
+          "tipo": "DOUBLE",
+          "descripcion": "Avance físico en por ciento (0 a 100); NULL si no lo publica.",
+          "propiedad": "soc:avance"
+        },
+        {
+          "nombre": "desde",
+          "tipo": "DATE",
+          "descripcion": "Fecha de inicio.",
+          "propiedad": "soc:desde"
+        },
+        {
+          "nombre": "hasta",
+          "tipo": "DATE",
+          "descripcion": "Fecha de fin prevista.",
+          "propiedad": "soc:hasta"
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
+        }
+      ]
+    },
+    "obras_provincias": {
+      "descripcion": "Dónde está cada obra: una fila por obra y provincia (una obra puede estar en varias, y una nacional en ninguna).",
+      "fuente": "MapaInversiones (MEPyD)",
+      "corte": "2026-09-22",
+      "filas": 3930,
+      "columnas": [
+        {
+          "nombre": "obra_snip",
+          "tipo": "VARCHAR",
+          "descripcion": "La obra (obras.snip)."
+        },
+        {
+          "nombre": "provincia_slug",
+          "tipo": "VARCHAR",
+          "descripcion": "La provincia (provincias.slug)."
+        }
+      ]
+    },
+    "procesos_obra": {
+      "descripcion": "Los procesos de compra que MapaInversiones asocia a alguna obra, de cualquier año: una fila por proceso (sus obras, en obras_procesos). Los de los doce meses de la tabla procesos están también allí, con su modalidad y su estado.",
+      "fuente": "MapaInversiones (MEPyD)",
+      "corte": "2026-09-22",
+      "filas": 2490,
+      "columnas": [
+        {
+          "nombre": "codigo",
+          "tipo": "VARCHAR",
+          "descripcion": "Código del proceso (procesos.codigo, si es de los doce meses de esa tabla).",
+          "propiedad": "soc:codigo"
+        },
+        {
+          "nombre": "titulo",
+          "tipo": "VARCHAR",
+          "descripcion": "Carátula del proceso; NULL si MapaInversiones no la trae."
+        },
+        {
+          "nombre": "valor_estimado",
+          "tipo": "DOUBLE",
+          "descripcion": "Valor estimado del proceso en pesos, una vez aunque sea de varias obras.",
+          "propiedad": "soc:valorEstimado"
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
+        }
+      ]
+    },
+    "obras_procesos": {
+      "descripcion": "Qué procesos tiene cada obra: una fila por obra y proceso (un proceso puede ser de varias obras; su valor está una sola vez, en procesos_obra).",
+      "fuente": "MapaInversiones (MEPyD)",
+      "corte": "2026-09-22",
+      "filas": 3378,
+      "columnas": [
+        {
+          "nombre": "obra_snip",
+          "tipo": "VARCHAR",
+          "descripcion": "La obra (obras.snip)."
+        },
+        {
+          "nombre": "proceso_codigo",
+          "tipo": "VARCHAR",
+          "descripcion": "El proceso (procesos_obra.codigo)."
+        }
+      ]
+    },
+    "contratos_obra": {
+      "descripcion": "Los contratos que MapaInversiones asocia a alguna obra, con su contratista, su proceso y su monto: una fila por contrato (sus obras, en obras_contratos). Sin los de contratistas que no están atados a una empresa (pueden ser personas físicas).",
+      "fuente": "MapaInversiones (MEPyD)",
+      "corte": "2026-09-22",
+      "filas": 925,
+      "columnas": [
+        {
+          "nombre": "codigo",
+          "tipo": "VARCHAR",
+          "descripcion": "Código del contrato.",
+          "propiedad": "soc:codigo"
+        },
+        {
+          "nombre": "proveedor_rpe",
+          "tipo": "VARCHAR",
+          "descripcion": "El contratista (proveedores.rpe).",
+          "propiedad": "soc:contratista"
+        },
+        {
+          "nombre": "proceso_codigo",
+          "tipo": "VARCHAR",
+          "descripcion": "El proceso del que sale (procesos_obra.codigo).",
+          "propiedad": "soc:delProceso"
+        },
+        {
+          "nombre": "monto",
+          "tipo": "DOUBLE",
+          "descripcion": "Monto del contrato en pesos, una vez aunque sea de varias obras.",
+          "propiedad": "soc:monto"
+        },
+        {
+          "nombre": "estado",
+          "tipo": "VARCHAR",
+          "descripcion": "Estado del contrato en MapaInversiones.",
+          "propiedad": "soc:estado"
+        },
+        {
+          "nombre": "descripcion",
+          "tipo": "VARCHAR",
+          "descripcion": "Objeto del contrato."
+        }
+      ]
+    },
+    "obras_contratos": {
+      "descripcion": "Qué contratos tiene cada obra: una fila por obra y contrato (un contrato puede ser de varias obras; su monto está una sola vez, en contratos_obra, y lo que le toca a cada obra no se publica).",
+      "fuente": "MapaInversiones (MEPyD)",
+      "corte": "2026-09-22",
+      "filas": 4986,
+      "columnas": [
+        {
+          "nombre": "obra_snip",
+          "tipo": "VARCHAR",
+          "descripcion": "La obra (obras.snip)."
+        },
+        {
+          "nombre": "contrato_codigo",
+          "tipo": "VARCHAR",
+          "descripcion": "El contrato (contratos_obra.codigo)."
+        },
+        {
+          "nombre": "proveedor_rpe",
+          "tipo": "VARCHAR",
+          "descripcion": "Su contratista (contratos_obra.proveedor_rpe): con el código, la clave del contrato."
+        }
+      ]
+    },
+    "normas": {
+      "descripcion": "Los decretos, las leyes y las resoluciones que son nodo del grafo (número con año y ficha propia), sin su título: los títulos nombran a quien designan, pensionan o reconocen, y se leen uno a uno con fetch.",
+      "fuente": "Consultoría Jurídica del Poder Ejecutivo: registros de decretos y de leyes, normativa reciente",
+      "corte": "2026-09-23",
+      "filas": 29905,
+      "columnas": [
+        {
+          "nombre": "id",
+          "tipo": "VARCHAR",
+          "descripcion": "La ruta de su ficha (/normativa/ley/87-01), que es su id en fetch."
+        },
+        {
+          "nombre": "tipo",
+          "tipo": "VARCHAR",
+          "descripcion": "decreto, ley o resolucion."
+        },
+        {
+          "nombre": "numero",
+          "tipo": "VARCHAR",
+          "descripcion": "Número como lo escribe la Consultoría (87-01, 15-2000).",
+          "propiedad": "soc:numero"
+        },
+        {
+          "nombre": "fecha",
+          "tipo": "DATE",
+          "descripcion": "Fecha de la norma: de firma o de promulgación.",
+          "propiedad": "soc:fecha"
+        },
+        {
+          "nombre": "gaceta",
+          "tipo": "VARCHAR",
+          "descripcion": "La Gaceta Oficial que la publica, si la Consultoría lo dice.",
+          "propiedad": "do:gaceta"
+        },
+        {
+          "nombre": "etiqueta",
+          "tipo": "VARCHAR",
+          "descripcion": "La etiqueta de institución que le pone la Consultoría, tal cual.",
+          "propiedad": "do:etiquetaConsultoria"
+        },
+        {
+          "nombre": "materia",
+          "tipo": "VARCHAR",
+          "descripcion": "Solo decretos: su materia por la regla del grafo (nombramientos, pensiones, exequatur…)."
+        },
+        {
+          "nombre": "aviso",
+          "tipo": "VARCHAR",
+          "descripcion": "Solo decretos: «fecha» si la fecha no casa con el año del número (1900-01-01, por ejemplo), «fuera» si cae fuera de los períodos de su firmante. Errores de captura del registro: se marcan, no se corrigen."
+        }
+      ]
+    },
+    "iniciativas": {
+      "descripcion": "Las iniciativas del SIL de la Cámara de Diputados de los períodos 2020-2024 y 2024-2028, sin su título (nombran a quien pensionan o reconocen; se leen una a una con fetch): su tipo, su condición el día del corte, su tema, su fecha de depósito y la norma en que se convirtió.",
+      "fuente": "SIL de la Cámara de Diputados",
+      "corte": "2026-09-27",
+      "filas": 17857,
+      "columnas": [
+        {
+          "nombre": "id",
+          "tipo": "VARCHAR",
+          "descripcion": "La ruta de su ficha (/congreso/158590), que es su id en fetch."
+        },
+        {
+          "nombre": "expediente",
+          "tipo": "VARCHAR",
+          "descripcion": "Número de expediente en el SIL (00101-2020-2024-CD).",
+          "propiedad": "soc:codigo"
+        },
+        {
+          "nombre": "tipo",
+          "tipo": "VARCHAR",
+          "descripcion": "proyecto-de-ley, resolucion-interna o resolucion-bicameral.",
+          "propiedad": "do:tipoDeIniciativa"
+        },
+        {
+          "nombre": "condicion",
+          "tipo": "VARCHAR",
+          "descripcion": "depositada, en-tramite, aprobada, retirada, perimida, fusionada u observada (por el Poder Ejecutivo), el día del corte.",
+          "propiedad": "do:condicionLegislativa"
+        },
+        {
+          "nombre": "tema",
+          "tipo": "VARCHAR",
+          "descripcion": "Tema del SIL: economia, justicia, seguridad-social, agricultura…",
+          "propiedad": "do:temaLegislativo"
+        },
+        {
+          "nombre": "fecha",
+          "tipo": "DATE",
+          "descripcion": "Fecha de depósito.",
+          "propiedad": "soc:fecha"
+        },
+        {
+          "nombre": "promulgada_como",
+          "tipo": "VARCHAR",
+          "descripcion": "La norma en que se convirtió (normas.id), si el SIL guarda su número y esa norma es nodo.",
+          "propiedad": "soc:promulgadaComo"
+        }
+      ]
+    },
+    "citas": {
+      "descripcion": "Qué ley o qué decreto con ficha nombra el título de cada norma o iniciativa, y qué le hace según el verbo que lo antecede. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás es cita. En una iniciativa, deroga y modifica son lo que propone.",
+      "fuente": "Socrático: regla sobre los títulos de la Consultoría Jurídica y del SIL",
+      "corte": "2026-09-23",
+      "filas": 3245,
+      "columnas": [
+        {
+          "nombre": "de",
+          "tipo": "VARCHAR",
+          "descripcion": "Quien la nombra: una norma (normas.id) o una iniciativa (iniciativas.id)."
+        },
+        {
+          "nombre": "a",
+          "tipo": "VARCHAR",
+          "descripcion": "La norma nombrada (normas.id)."
+        },
+        {
+          "nombre": "relacion",
+          "tipo": "VARCHAR",
+          "descripcion": "deroga, modifica (modifica, reforma, sustituye o adiciona) o cita."
+        }
+      ]
     }
   }
 }

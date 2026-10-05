@@ -27,6 +27,7 @@ import {
   type Candidatos,
   type Relacion,
 } from "@/lib/grafo-rdf";
+import { NOMBRES_TABLAS } from "@/lib/grafo-tablas";
 
 /**
  * El explorador del grafo: la plataforma vista como lo que es, nodos y
@@ -247,17 +248,18 @@ async function Portada({ consulta }: { consulta: string }) {
               grafo.trig.gz
             </a>{" "}
             (TriG, con un grafo por fuente). Las mismas entidades, con lo contratado desde 2015 y los procesos de compra del último año,
-            están también en nueve tablas para abrir en DuckDB, pandas o Polars (formato Parquet;{" "}
+            están también en {NOMBRES_TABLAS.length} tablas para abrir en DuckDB, pandas o Polars (formato Parquet;{" "}
             <a href="/tablas/procesos.parquet" className="text-brand-700 underline">
               la de procesos
             </a>
-            , por ejemplo; la lista de las nueve y sus columnas, en{" "}
+            , por ejemplo; la lista y sus columnas, en{" "}
             <a href="/tablas/meta.json" className="text-brand-700 underline">
               meta.json
             </a>
             ), y los asistentes de IA las consultan en SQL por el servidor MCP. Las personas
-            con cargo, sus cargos, los decretos, las leyes, las resoluciones y las iniciativas del
-            Congreso no entran (sus títulos nombran personas): se leen una a una, en su ficha.
+            con cargo y sus cargos no entran en ninguno de los dos; los decretos, las leyes, las
+            resoluciones y las iniciativas del Congreso, tampoco en el volcado, y en las tablas van
+            sin su título (los títulos nombran personas): se leen uno a uno, en su ficha.
           </p>
         )}
         <p>

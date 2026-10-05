@@ -193,7 +193,7 @@ el `next build` del árbol actual). Vercel admite hasta 250 MB por función.
 | `/buscar` | 112.6 |
 | `/proveedores` | 112.1 |
 | `/api/buscar` | 111.4 |
-| `/api/sql` | 76.7 |
+| `/api/sql` | 77.2 |
 | `/.well-known/void` | 74.8 |
 | `/grafo`, `/grafo/camino` | 70.1 |
 | `/api/grafo` | 69.3 |
@@ -236,7 +236,7 @@ Conteos de archivos versionados (`git ls-files`), 2026-10-05.
 | `components/` | 138 | 43 en la raíz; `ui/` 22 (shadcn/ui), `espacios/` 27, `fuentes-nuevas/` 23, `graficos/` 13, `congreso/` 4, `dinero/` 3, `nomina/` 2, `democracia/` 1 (§11) |
 | `lib/` | 103 | 102 módulos `.ts` y `sql-hijo.cjs` (§2.4) |
 | `scripts/` | 58 | Generadores de instantáneas y comprobaciones (§2.5, §6) |
-| `public/` | 764 | `public/data/` (instantáneas servidas en `/data/*`) y `public/tablas/` (10 archivos, servidos en `/tablas/*`) (§6, §7) |
+| `public/` | 773 | `public/data/` (instantáneas servidas en `/data/*`) y `public/tablas/` (19 archivos, servidos en `/tablas/*`) (§6, §7) |
 | `datos/` | 3,619 | `datos/grafo/`: el grafo compilado (`meta.json`, `compras.json`, `nombres.json.br`, `nodos/` 1,368, `vecinos/` 1,368, `ld/` 831, `firmados/` 49) (§7) |
 | `supabase/` | 18 | `config.toml`, 8 migraciones, dos Edge Functions (`functions/vincular-cuenta-unica/` y `functions/metricas-uso/`, esta con dos archivos), 4 pruebas, 2 plantillas de correo (§10) |
 | `types/` | 1 | `pdfjs.d.ts` |
@@ -2735,7 +2735,7 @@ node --no-warnings scripts/build-indice-busqueda.mjs
 | Directorio | Qué hay | Cómo se alcanza |
 |---|---|---|
 | `public/data/` | 754 archivos, 274,978,260 B | archivo estático en `/data/<ruta>` con `Cache-Control: public, max-age=3600, stale-while-revalidate=86400` (`headers()` de `next.config.ts`, fuente `/:dir(data\|tablas)/:path*`); los módulos de `lib/` lo leen además con `node:fs` desde las funciones |
-| `public/tablas/` | 9 tablas Parquet y `meta.json`, 3,996,866 B | `/tablas/<archivo>`, misma cabecera; `/api/sql` las abre con DuckDB (§7) |
+| `public/tablas/` | 18 tablas Parquet y `meta.json`, 4,525,344 B | `/tablas/<archivo>`, misma cabecera; `/api/sql` las abre con DuckDB (§7) |
 | `datos/grafo/` | 3,619 archivos, 58,390,675 B | fuera de `public/`: no tiene URL; viaja en las funciones que lo declaran en `outputFileTracingIncludes` (§1, §7) |
 
 El navegador pide directamente `/data/nomina.json` (`lib/nomina.ts`, con `preload` en `/nomina`); `/proveedores/inhabilitados` enlaza `/data/sanciones.json` para descargar, y el grafo publica `/data/grafo/grafo.nt.gz`. `outputFileTracingExcludes` deja fuera de toda función `congreso.json`, `sentencias.json`, `busqueda/corpus.json` y los dos volcados del grafo: se sirven solo como archivo.
@@ -2785,7 +2785,7 @@ El navegador pide directamente `/data/nomina.json` (`lib/nomina.ts`, con `preloa
 | `build-indice-busqueda.mjs` | sin red (§8) | `public/data/busqueda/indice.bin` | 73,772,488 B | cabecera `SIB2`, etiqueta `2026-10-05\|91d94c57a73040b9\|230676` | `busqueda/corpus.json`, `busqueda/vectores.bin` |
 | `build-grafo.mjs` | sin red: `lib/grafo-constructores.ts` sobre las instantáneas (§7) | `datos/grafo/` (3,619 archivos) | 58,390,675 B | `meta.json`: `generado` 2026-10-05, `aFecha` 2026-09-29 | todas las instantáneas que leen los constructores |
 | `build-grafo-volcado.mjs` | sin red: el grafo compilado (§7) | `public/data/grafo/`: `grafo.nt.gz`, `grafo.trig.gz`, `meta.json` | 25,631,492 B | `generado` 2026-10-05; `cortes` de cada fuente | `datos/grafo/` (y `clavesDeCompras` de los constructores), `instituciones.json`, `banca.json`, `historico/resumen.json`, `historico/rnc.json`, `historico/proveedores/`, `rnc/`, `obras.json`, `obras-detalle.json`, `procesos.json`, `empresas/meta.json`, `sanciones.json`, `wikidata.json` |
-| `build-grafo-tablas.mjs` | sin red: el volcado y las instantáneas (§7) | `public/tablas/` (9 Parquet y `meta.json`) | 3,996,866 B | `meta.json`: `generado` 2026-10-05 | `grafo/grafo.nt.gz`, `historico/`, `instituciones.json`, `procesos.json`, `empresas/meta.json`, `sanciones.json`, `banca.json`, `wikidata.json` |
+| `build-grafo-tablas.mjs` | sin red: el volcado, el grafo compilado y las instantáneas (§7) | `public/tablas/` (18 Parquet y `meta.json`) | 4,525,344 B | `meta.json`: `generado` 2026-10-05 | `grafo/grafo.nt.gz`, `datos/grafo/`, `historico/`, `instituciones.json`, `procesos.json`, `obras.json`, `empresas/meta.json`, `sanciones.json`, `banca.json`, `wikidata.json` |
 
 Los demás archivos de `scripts/` no escriben instantáneas: `busqueda_*.py` son lectores de entradas del corpus que importa `build-busqueda.py`, y `busqueda_grafo.py` lee las suyas de `busqueda-grafo.mjs`, que con `--comprobar` coteja el corpus con el grafo (§8.2); `privacidad.py` (`sin_cedula`) y `consultoria_decretos.py` son módulos compartidos; `eval-mcp.mjs`, `validar-grafo.mjs`, `probar-pantallas.mjs` y `menciones-sin-enlace.mjs` comprueban sin escribir; `aplicar-auth-supabase.sh` es de §10; `certificados/sectigo-ov-r36.pem` es el intermedio que usa `build-funcionarios.py`.
 
@@ -2882,7 +2882,7 @@ Salidas de la misma definición:
 
 Las cinco rutas de archivo (`app/ontologia.*/route.ts`) son `force-static` y responden con `Access-Control-Allow-Origin: *`.
 
-`lib/ontologia-esquemas.ts` deriva de la misma definición: `TABLAS` (las nueve tablas Parquet de §7.9: cada tabla con su clase y cada columna con la propiedad que guarda; el módulo lanza al cargar si una columna nombra una propiedad inexistente, de otro dominio o con un tipo que no cabe en su rango), `tipoDeColumna`, `esquemaFila(tabla)` (zod por fila) y `esquemaClase(clase)` (zod de un nodo: sus propiedades `soc:`/`do:` con tipo y cardinalidad).
+`lib/ontologia-esquemas.ts` deriva de la misma definición: `TABLAS` (las dieciocho tablas Parquet de §7.9: cada tabla con su clase y cada columna con la propiedad que guarda; el módulo lanza al cargar si una columna nombra una propiedad inexistente, de otro dominio o con un tipo que no cabe en su rango), `tipoDeColumna`, `esquemaFila(tabla)` (zod por fila) y `esquemaClase(clase)` (zod de un nodo: sus propiedades `soc:`/`do:` con tipo y cardinalidad).
 
 ### 7.3 RDF (`lib/rdf.ts`)
 
@@ -3043,7 +3043,7 @@ Se sirve como archivo estático en `/data/grafo/` (cabecera `Cache-Control` de `
 
 ### 7.9 Tablas Parquet y SQL
 
-`scripts/build-grafo-tablas.mjs` (tras el volcado) escribe `public/tablas/`, servido en `/tablas/`: nueve Parquet con zstd (3,996,866 bytes en total con `meta.json`) que salen del volcado (`grafo.nt.gz`), de `public/data/historico/` (totales desde 2015) y de `procesos.json`. Tablas, columnas y tipos salen de `TABLAS` (§7.2); cada fila pasa por `esquemaFila`; cada texto por `sinCedula`, y no escribe nada si queda una cédula. `meta.json` (generado 2026-10-05) guarda por tabla descripción, fuente, corte, filas y columnas con su tipo, descripción y propiedad.
+`scripts/build-grafo-tablas.mjs` (tras el volcado) escribe `public/tablas/`, servido en `/tablas/`: dieciocho Parquet con zstd (4,525,344 bytes en total con `meta.json`) que salen del volcado (`grafo.nt.gz`), de `public/data/historico/` (totales desde 2015), de `procesos.json` y, para normas, iniciativas y citas, que el volcado no trae, del grafo compilado (`clavesCompiladas` y `leerDescripcion` de `lib/grafo-compilado.ts`), sin el título ni el firmante. Tablas, columnas y tipos salen de `TABLAS` (§7.2); cada fila pasa por `esquemaFila`; cada texto por `sinCedula`, y no escribe nada si queda una cédula. `meta.json` (generado 2026-10-05) guarda por tabla descripción, fuente, corte, filas y columnas con su tipo, descripción y propiedad.
 
 | Tabla | Filas | Columnas | Corte |
 |---|---|---|---|
@@ -3056,8 +3056,19 @@ Se sirve como archivo estático en `/data/grafo/` (cabecera `Cache-Control` de `
 | `provincias` | 32 | `slug`, `nombre` | — |
 | `equivalencias` | 160 | `nodo`, `equivale_a` | 2026-09-30 |
 | `procesos` | 77,790 (publicados del 2025-09-25 al 2026-09-25) | `codigo`, `titulo`, `unidad_compra`, `modalidad`, `estado`, `objeto`, `fecha`, `valor_estimado`, `url` | 2026-09-25 |
+| `obras` | 3,609 (3,299 con ejecutora) | `snip`, `nombre`, `ejecutora_id`, `sector`, `estado`, `valor_estimado`, `avance`, `desde`, `hasta`, `url` | 2026-09-22 |
+| `obras_provincias` | 3,930 (una fila por obra y provincia) | `obra_snip`, `provincia_slug` | 2026-09-22 |
+| `procesos_obra` | 2,490 (una fila por proceso que MapaInversiones ata a alguna obra, de cualquier año; 606 están también en `procesos`) | `codigo`, `titulo`, `valor_estimado`, `url` | 2026-09-22 |
+| `obras_procesos` | 3,378 (una fila por obra y proceso; un proceso llega a 155 obras) | `obra_snip`, `proceso_codigo` | 2026-09-22 |
+| `contratos_obra` | 925 (una fila por contrato de obra cuyo contratista está atado a una empresa) | `codigo`, `proveedor_rpe`, `proceso_codigo`, `monto`, `estado`, `descripcion` | 2026-09-22 |
+| `obras_contratos` | 4,986 (una fila por obra y contrato: de los 5,347 pares de `obras-detalle.json`, los de esos contratos; un contrato llega a 101 obras) | `obra_snip`, `contrato_codigo`, `proveedor_rpe` | 2026-09-22 |
+| `normas` | 29,905 (27,544 decretos, 2,213 leyes, 148 resoluciones; sin título ni firmante) | `id`, `tipo`, `numero`, `fecha`, `gaceta`, `etiqueta`, `materia`, `aviso` | 2026-09-23 (la más vieja de `decretos`, `leyes` y `resoluciones`) |
+| `iniciativas` | 17,857 (373 con `promulgada_como`; sin título) | `id`, `expediente`, `tipo`, `condicion`, `tema`, `fecha`, `promulgada_como` | 2026-09-27 |
+| `citas` | 3,245 (1,114 `deroga`, 1,310 `modifica`, 821 `cita`) | `de`, `a`, `relacion` | 2026-09-23 |
 
-`lib/grafo-tablas.ts` importa `public/tablas/meta.json` (`TABLAS_GRAFO`, `TABLAS_GENERADAS`, `NOMBRES_TABLAS`, `esquemaCompacto()`), sin DuckDB.
+En `normas` e `iniciativas` el `id` es la ruta de la ficha (el `id` de `fetch`), y `citas.de`, `citas.a` e `iniciativas.promulgada_como` la usan: cada cita y cada promulgación lleva a una fila de `normas`, y cada `de` a una de `normas` o de `iniciativas`. `materia` y `aviso` son solo de decretos (los de las leyes y las resoluciones, NULL); `aviso` marca 64 fechas que no casan con el número y 19 fuera de los períodos de su firmante. Un proceso o un contrato de obra es una fila, con su valor o su monto una vez; las obras a que los ata MapaInversiones van en `obras_procesos` y `obras_contratos` (el contrato MOPC-2023-00275, de RD$600 millones, llega a 101 obras viales: repetido en cada una, se sumaría 101 veces). Con las mismas fuentes, el script escribe las mismas tablas byte a byte (comprobado el 2026-10-05 sobre las nueve que no cambiaron).
+
+`lib/grafo-tablas.ts` importa `public/tablas/meta.json` (`TABLAS_GRAFO`, `TABLAS_GENERADAS`, `NOMBRES_TABLAS`, `esquemaCompacto()`), sin DuckDB; `/grafo` dice cuántas tablas hay con `NOMBRES_TABLAS`.
 
 SQL (`lib/grafo-sql.ts`, `lib/sql-hijo.cjs`, `app/api/sql/route.ts`):
 - `@duckdb/node-api` 1.5.5-r.5 (versión exacta en `package.json`), en `serverExternalPackages`. `consultarSql` hace `fork` de `lib/sql-hijo.cjs` con `env: { NODE_ENV: "production" }`. El hijo abre DuckDB en memoria (`threads` 1, `memory_limit` 512MB, extensiones sin autoinstalar ni autocargar, sin extensiones de comunidad), crea cada tabla con `read_parquet` y fija `enable_external_access = false` y `lock_configuration = true`.
@@ -3077,13 +3088,13 @@ SQL (`lib/grafo-sql.ts`, `lib/sql-hijo.cjs`, `app/api/sql/route.ts`):
 | `/api/grafo`, fichas, `fetch` y `path` del MCP | sí, de a un nodo | por consulta |
 | `nombres.json.br` | sí (nombre, cargo principal, firma) | solo en funciones (`/grafo`, `/mcp`); lo consultan `buscarNodos` (hasta 8 personas) y `signed_decrees` (una firma, o hasta 8 candidatos para elegir) |
 | `grafo.nt.gz`, `grafo.trig.gz` | no | descarga entera |
-| `public/tablas/*.parquet`, `/api/sql`, `query` | no (proveedores solo atados a una empresa por RNC) | descarga entera y SQL |
+| `public/tablas/*.parquet`, `/api/sql`, `query` | no (proveedores y contratistas de obra solo atados a una empresa por RNC; normas e iniciativas sin título ni firmante) | descarga entera y SQL |
 
 Comprobaciones:
 - La clave de una persona es el slug de su nombre (`enlace.funcionario`, `nodoDeRuta`), no la cédula.
 - `build-grafo-volcado.mjs` lanza si un triple del volcado toca `/funcionarios/`; `build-grafo-tablas.mjs` no escribe si queda una cédula.
 - Gate completo, paso 5c: `.claude/hooks/cedulas.py` (JSON, TSV y `.gz` de `public/data`) y `.claude/hooks/cedulas-tablas.mjs` (cada texto de los Parquet de `public/tablas/`, leído con DuckDB, y cada archivo `.br`/`.json` de `datos/grafo/` descomprimido) buscan formas de cédula.
-- Gate completo, paso 6b (`scripts/eval-mcp.mjs` contra `next start`): el caso «El grafo entero se descarga, sin personas naturales, y ontology lo anuncia» descarga `/data/grafo/grafo.nt.gz`, exige el número de triples de `meta.json` y que el texto no contenga `${SITIO}/funcionarios/`, `soc:DeclaracionJurada`, `${SITIO}/normativa/` ni `${SITIO}/congreso/`; el caso «SQL: las tablas no guardan personas naturales» exige las nueve tablas y cero proveedores sin RNC de nueve cifras.
+- Gate completo, paso 6b (`scripts/eval-mcp.mjs` contra `next start`): el caso «El grafo entero se descarga, sin personas naturales, y ontology lo anuncia» descarga `/data/grafo/grafo.nt.gz`, exige el número de triples de `meta.json` y que el texto no contenga `${SITIO}/funcionarios/`, `soc:DeclaracionJurada`, `${SITIO}/normativa/` ni `${SITIO}/congreso/`; el caso «SQL: las tablas no guardan personas naturales» exige las dieciocho tablas, cero proveedores sin RNC de nueve cifras, cero contratos de obra cuyo contratista no está en `proveedores` y ninguna columna de título, nombre o firma en `normas`, `iniciativas` y `citas`.
 - Gate completo, paso 6c: `scripts/validar-grafo.mjs --url <next start> --personas 300` valida con `rdf-validate-shacl` (dependencia de desarrollo, con `@zazuko/env-node` y `n3`) el volcado entero más una muestra de personas (primero las que tienen numeral PEP) y de los decretos que las nombran, y una de iniciativas (`--iniciativas`, 200 por omisión: primero las promulgadas) y de las leyes, resoluciones y decretos que nombran, pedidas una a una a `/api/grafo`, unidas con `/ontologia.ttl`, contra `/ontologia.shacl.ttl`. Falla si hay una violación, un término `soc:`/`do:` usado y no declarado, o un IRI de `ESPACIO_V1`; un `sh:class` cuyo destino es una persona, una norma o una iniciativa sin tipo se cuenta aparte, como fuera de la muestra.
 
 ## 8. Búsqueda
@@ -3234,7 +3245,7 @@ Nueve, registradas en este orden. Todas con `annotations` `{ readOnlyHint: true,
 
 ### 9.5 Evaluación (`scripts/eval-mcp.mjs`)
 
-61 casos (`CASOS`), cada uno una pregunta hecha con la herramienta que le toca y un oráculo calculado aparte de `public/data` (`procesos.json`, `historico/`, `busqueda/corpus.json`, `grafo/meta.json`, `obras.json`, `obras-detalle.json`, `sanciones.json`, `leyes.json`, `congreso.json`, `decretos/`), no con el código del servidor. Dos son del buscador que lee el grafo: `search` del título de un decreto de 1986 (número único en su año, sin fe de errata, el título más corto de 40 letras o más que ningún otro decreto del registro repite) lo trae primero, con ese título; `search` de la razón social de la empresa de RPE menor con medidas de la DGCP y sin contratos desde 2015 la trae y dice «Medidas de la DGCP». Tres son del grafo de compras y obras: `fetch` de la obra con ejecutora y más contratos dice quién la ejecuta y a quién se le contrató, con el código del contrato; `fetch` del proceso del mayor contrato de obra que está en la tabla dice quién lo convoca, su valor estimado y su contratista; `path` del contratista a la provincia de su obra encuentra el camino. Tres son de normas e iniciativas: `fetch` del proyecto de ley más reciente que se promulgó como una ley con nodo y cuyo título modifica otra dice las dos («Se promulgó como», «Propone modificar»); `fetch` de esa ley, pedida como «Ley NNN-AA», dice de qué proyecto nació; `path` entre los dos primeros proyectos de ley que modifican la Ley 87-01 da dos saltos, por una ley. Habla JSON-RPC sobre HTTP a mano, con `mcp-protocol-version: 2025-06-18`, sin dependencias. Además, `reglasGenerales()` revisa cada respuesta: ninguna cadena con forma de cédula; el aviso en toda respuesta que no es de `search`; en `search`, una fecha de instantánea en cada resultado; que ninguna respuesta nombre `neighbors`, `sparql` ni un argumento en castellano (`con institucion «…»`). Casos que tocan la seguridad de `query`: escrituras, archivos, red, dos sentencias, `SET`, `enable_logging`, `duckdb_logs`, `query(...)`, `pragma_version`, `repeat` de 2,000 millones y `range` de mil millones, rechazados, y el motor responde después. Sale con 1 si un caso falla. Corre en el paso 6b de `verificar.sh --completo` contra `next start` sobre el build recién hecho (timeout 300 s); contra otro despliegue, `node scripts/eval-mcp.mjs --url https://…/mcp`.
+64 casos (`CASOS`), cada uno una pregunta hecha con la herramienta que le toca y un oráculo calculado aparte de `public/data` (`procesos.json`, `historico/`, `busqueda/corpus.json`, `grafo/meta.json`, `obras.json`, `obras-detalle.json`, `sanciones.json`, `leyes.json`, `congreso.json`, `decretos/`), no con el código del servidor. Dos son del buscador que lee el grafo: `search` del título de un decreto de 1986 (número único en su año, sin fe de errata, el título más corto de 40 letras o más que ningún otro decreto del registro repite) lo trae primero, con ese título; `search` de la razón social de la empresa de RPE menor con medidas de la DGCP y sin contratos desde 2015 la trae y dice «Medidas de la DGCP». Tres son del grafo de compras y obras: `fetch` de la obra con ejecutora y más contratos dice quién la ejecuta y a quién se le contrató, con el código del contrato; `fetch` del proceso del mayor contrato de obra que está en la tabla dice quién lo convoca, su valor estimado y su contratista; `path` del contratista a la provincia de su obra encuentra el camino. Tres son de normas e iniciativas: `fetch` del proyecto de ley más reciente que se promulgó como una ley con nodo y cuyo título modifica otra dice las dos («Se promulgó como», «Propone modificar»); `fetch` de esa ley, pedida como «Ley NNN-AA», dice de qué proyecto nació; `path` entre los dos primeros proyectos de ley que modifican la Ley 87-01 da dos saltos, por una ley. Tres son de las tablas de obras y normas: `query` cuenta las obras y las de la ejecutora con más obras como `obras.json`, y las provincias de la primera obra en dos o más; trae el mayor contrato de obra de un contratista con RNC en la historia de contratos con su monto, su proceso y todas sus obras, como `obras-detalle.json` (un contrato es uno por RPE y código, con el mayor de sus montos), y la suma de lo contratado a ese contratista, cada contrato una vez; y dice en qué ley se convirtió el proyecto promulgado de arriba y que propone modificar la otra (`iniciativas.promulgada_como`, `citas`). Habla JSON-RPC sobre HTTP a mano, con `mcp-protocol-version: 2025-06-18`, sin dependencias. Además, `reglasGenerales()` revisa cada respuesta: ninguna cadena con forma de cédula; el aviso en toda respuesta que no es de `search`; en `search`, una fecha de instantánea en cada resultado; que ninguna respuesta nombre `neighbors`, `sparql` ni un argumento en castellano (`con institucion «…»`). Casos que tocan la seguridad de `query`: escrituras, archivos, red, dos sentencias, `SET`, `enable_logging`, `duckdb_logs`, `query(...)`, `pragma_version`, `repeat` de 2,000 millones y `range` de mil millones, rechazados, y el motor responde después. Sale con 1 si un caso falla. Corre en el paso 6b de `verificar.sh --completo` contra `next start` sobre el build recién hecho (timeout 300 s); contra otro despliegue, `node scripts/eval-mcp.mjs --url https://…/mcp`.
 
 ### 9.6 `/conectar` (`app/conectar/page.tsx`)
 

@@ -8,9 +8,15 @@
  * De dónde sale cada tabla:
  *  - Del volcado del grafo (`grafo.nt.gz`, de `scripts/build-grafo-volcado.mjs`):
  *    instituciones, proveedores, empresas, contrataciones, medidas,
- *    financieras, provincias y equivalencias. Las mismas reglas que el
- *    volcado: ninguna persona natural, ningún proveedor que no esté atado a
- *    una empresa por su RNC.
+ *    financieras, provincias, equivalencias, y las obras con sus provincias,
+ *    sus procesos y sus contratos (cada proceso y cada contrato una vez, y
+ *    sus obras en una tabla de enlace). Las mismas reglas que el volcado: ninguna
+ *    persona natural, ningún proveedor que no esté atado a una empresa por
+ *    su RNC (ni sus contratos de obra).
+ *  - Del grafo compilado (`datos/grafo/`, de `scripts/build-grafo.mjs`): las
+ *    normas, las iniciativas y las citas entre ellas, que el volcado no trae
+ *    porque sus títulos nombran personas. Aquí van sin el título: número,
+ *    fecha, tipo, condición, tema, a qué norma llevan.
  *  - De `historico/` (`scripts/build-historico.py`): los totales desde 2015 de
  *    cada institución y cada proveedor, que el grafo no trae (el grafo guarda
  *    solo los pares mayores: los 12 mayores proveedores de cada institución y
@@ -255,6 +261,145 @@ tabla(
     url: `${SITIO}/procesos/${encodeURIComponent(codigo)}`,
   }));
   tabla("procesos", t.hasta, filas, { desde: t.desde, hasta: t.hasta });
+}
+
+// obras, sus provincias, sus procesos y sus contratos
+{
+  const corte = leer("obras.json").corte;
+  const obra = (iri) => clave(iri, "obras");
+  /** La clave corta de un concepto del módulo dominicano: `do:inversion-transporte` → `transporte`. */
+  const concepto = (iri, prefijo) => (iri?.startsWith(`${DO}${prefijo}`) ? iri.slice(DO.length + prefijo.length) : null);
+  const obras = deTipo("ProyectoDeInversion");
+  tabla(
+    "obras",
+    corte,
+    obras.map((s) => ({
+      snip: uno(s, `${DO}snip`) ?? obra(s),
+      nombre: uno(s, P.etiqueta),
+      ejecutora_id: numero(clave(uno(s, `${SOC}ejecutadoPor`), "instituciones")),
+      sector: concepto(uno(s, `${SOC}sectorDeInversion`), "inversion-"),
+      estado: uno(s, `${SOC}estado`),
+      valor_estimado: numero(uno(s, `${SOC}valorEstimado`)),
+      avance: numero(uno(s, `${SOC}avance`)),
+      desde: uno(s, `${SOC}desde`),
+      hasta: uno(s, `${SOC}hasta`),
+      url: uno(s, P.pagina),
+    })),
+  );
+  tabla(
+    "obras_provincias",
+    corte,
+    obras.flatMap((s) => (S.get(s).get(`${SOC}enProvincia`) ?? []).map((o) => ({ obra_snip: obra(s), provincia_slug: clave(o.value, "provincias") }))),
+  );
+  // Un proceso y un contrato son una fila cada uno, con su valor o su monto
+  // una vez; sus obras, en una tabla aparte. Un contrato de RD$600 millones
+  // que MapaInversiones ata a 101 obras viales, repetido en cada una, se
+  // sumaría 101 veces.
+  const procesos = deTipo("ProcesoDeContratacion").filter((s) => S.get(s).has(`${SOC}paraProyecto`));
+  tabla(
+    "procesos_obra",
+    corte,
+    procesos.map((s) => {
+      const codigo = uno(s, `${SOC}codigo`);
+      const etiqueta = uno(s, P.etiqueta);
+      return {
+        codigo,
+        // «Proceso X» es la etiqueta que pone el grafo cuando la fuente no trae carátula.
+        titulo: etiqueta === `Proceso ${codigo}` ? null : etiqueta,
+        valor_estimado: numero(uno(s, `${SOC}valorEstimado`)),
+        url: uno(s, P.pagina),
+      };
+    }),
+  );
+  tabla(
+    "obras_procesos",
+    corte,
+    procesos.flatMap((s) => S.get(s).get(`${SOC}paraProyecto`).map((o) => ({ obra_snip: obra(o.value), proceso_codigo: uno(s, `${SOC}codigo`) }))),
+  );
+  const contratos = deTipo("Contrato").filter((s) => S.get(s).has(`${SOC}paraProyecto`));
+  tabla(
+    "contratos_obra",
+    corte,
+    contratos.map((s) => {
+      const proceso = uno(s, `${SOC}delProceso`);
+      return {
+        codigo: uno(s, `${SOC}codigo`),
+        proveedor_rpe: clave(uno(s, `${SOC}contratista`), "proveedores"),
+        proceso_codigo: proceso ? (uno(proceso, `${SOC}codigo`) ?? decodeURIComponent(clave(proceso, "procesos"))) : null,
+        monto: numero(uno(s, `${SOC}monto`)),
+        estado: uno(s, `${SOC}estado`),
+        descripcion: uno(s, P.dctDescripcion),
+      };
+    }),
+  );
+  tabla(
+    "obras_contratos",
+    corte,
+    contratos.flatMap((s) =>
+      S.get(s)
+        .get(`${SOC}paraProyecto`)
+        .map((o) => ({ obra_snip: obra(o.value), contrato_codigo: uno(s, `${SOC}codigo`), proveedor_rpe: clave(uno(s, `${SOC}contratista`), "proveedores") })),
+    ),
+  );
+}
+
+// normas, iniciativas y citas: del grafo compilado (el volcado no las trae,
+// porque sus títulos nombran personas), sin el título.
+{
+  const C = await import(pathToFileURL(path.join(RAIZ, "lib", "grafo-compilado.ts")).href);
+  const N = await import(pathToFileURL(path.join(RAIZ, "lib", "grafo-nodo.ts")).href);
+  const G = await import(pathToFileURL(path.join(RAIZ, "lib", "grafo.ts")).href);
+  const mg = await C.metaGrafo();
+  if (!mg) throw new Error("no hay grafo compilado: node scripts/build-grafo.mjs");
+  const corteDe = (...claves) =>
+    claves
+      .map((k) => mg.grafos.find((g) => g.clave === k)?.corte ?? null)
+      .filter(Boolean)
+      .sort()[0] ?? null;
+  const concepto = (iri, prefijo) => (iri?.startsWith(`${DO}${prefijo}`) ? iri.slice(DO.length + prefijo.length) : null);
+  const RELACION = { [`${SOC}deroga`]: "deroga", [`${SOC}modifica`]: "modifica", [`${SOC}cita`]: "cita" };
+  const normas = [];
+  const iniciativas = [];
+  const citas = [];
+  for (const tipo of ["decreto", "ley", "resolucion", "iniciativa"]) {
+    for (const k of await C.clavesCompiladas(tipo)) {
+      const n = { tipo, id: k };
+      const d = await C.leerDescripcion(n);
+      if (!d) throw new Error(`${tipo}:${k} está en el índice del compilado y no se lee`);
+      const s = N.iriDe(n);
+      const mias = d.triples.filter((t) => t.s.valor === s);
+      const de = (p) => mias.find((t) => t.p === p)?.o.valor ?? null;
+      const id = G.rutaDeNodo(n);
+      // Lo que nombra su título; lo que la nombra lo dice quien la nombra.
+      for (const t of mias) if (RELACION[t.p]) citas.push({ de: id, a: rutaDe(t.o.valor), relacion: RELACION[t.p] });
+      if (tipo === "iniciativa") {
+        const promulgada = de(`${SOC}promulgadaComo`);
+        iniciativas.push({
+          id,
+          expediente: de(`${SOC}codigo`),
+          tipo: concepto(de(`${DO}tipoDeIniciativa`), "iniciativa-"),
+          condicion: concepto(de(`${DO}condicionLegislativa`), "condicion-"),
+          tema: concepto(de(`${DO}temaLegislativo`), "tema-"),
+          fecha: de(`${SOC}fecha`),
+          promulgada_como: promulgada ? rutaDe(promulgada) : null,
+        });
+      } else {
+        normas.push({
+          id,
+          tipo,
+          numero: de(`${SOC}numero`),
+          fecha: de(`${SOC}fecha`),
+          gaceta: de(`${DO}gaceta`),
+          etiqueta: de(`${DO}etiquetaConsultoria`),
+          materia: concepto(de(`${SOC}materia`), "materia-"),
+          aviso: de(`${DO}aviso`),
+        });
+      }
+    }
+  }
+  tabla("normas", corteDe("decretos", "leyes", "resoluciones"), normas);
+  tabla("iniciativas", corteDe("congreso"), iniciativas);
+  tabla("citas", corteDe("decretos", "leyes", "resoluciones", "congreso"), citas);
 }
 
 /* ------------------------------------------------------------ escribir */
