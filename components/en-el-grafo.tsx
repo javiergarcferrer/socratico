@@ -36,7 +36,7 @@ export async function EnElGrafo({ nodo, empresa, className }: { nodo: NodoRdf; e
         </h2>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-soft">
           Esta ficha es un nodo: los registros del Estado la ligan con otras —personas, instituciones, empresas,
-          compras, obras, decretos, leyes, iniciativas, lugares—. Su red dibuja esas aristas y busca el camino
+          compras, obras, decretos, leyes, iniciativas, documentos, datos, lugares—. Su red dibuja esas aristas y busca el camino
           hacia otra ficha.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">

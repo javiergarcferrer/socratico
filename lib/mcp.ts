@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { SITIO } from "@/lib/sitio";
-import { enlace, nodoDeRuta, numeroCanonico, rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo";
+import { enlace, nodoDeDireccion, nodoDeRuta, numeroCanonico, rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo";
 import {
   CLASE_DE_TIPO,
   GRUPOS,
@@ -81,14 +81,14 @@ import { NOMBRES_TABLAS, TABLAS_GENERADAS, TABLAS_GRAFO, esquemaCompacto } from 
  */
 
 /** Cambia cuando cambia la forma de una herramienta. */
-export const VERSION_MCP = "2.2.0";
+export const VERSION_MCP = "2.3.0";
 
 const AVISO =
   "Socrático.do es una herramienta independiente y no oficial: ordena lo que publica el Estado dominicano, con su fuente y su fecha de corte.";
 
 const INSTRUCCIONES = `Socrático.do ordena lo que publica el Estado dominicano. Es una herramienta independiente y no oficial.
 
-Qué hay: un grafo de personas con cargo público, instituciones del Estado, decretos, leyes, resoluciones, iniciativas del Congreso, entidades financieras supervisadas, personas jurídicas del padrón de la DGII, provincias, proveedores del Estado, procesos de compra y obras públicas, con sus relaciones (cargos, firmas, supervisión, declaraciones juradas publicadas, medidas de la DGCP, la lista SDN de la OFAC, Wikidata, quién convoca cada proceso, quién ejecuta cada obra y dónde, a quién se le contrató, qué ley o decreto deroga, modifica o cita el título de cada norma o iniciativa, y en qué norma se convirtió cada iniciativa); y un índice de búsqueda de compras públicas, proveedores, normas, iniciativas del Congreso, sentencias, obras, documentos institucionales y datos abiertos. Todo sale de instantáneas de fuentes públicas (del Estado dominicano, más la lista SDN de la OFAC y los identificadores de Wikidata): cada respuesta dice su fuente y su fecha de corte.
+Qué hay: un grafo de personas con cargo público, instituciones del Estado, decretos, leyes, resoluciones, iniciativas del Congreso, entidades financieras supervisadas, personas jurídicas del padrón de la DGII, provincias, proveedores del Estado, procesos de compra, obras públicas, documentos que las instituciones publican en sus portales y conjuntos de datos abiertos, con sus relaciones (cargos, firmas, supervisión, quién publica cada documento y cada conjunto de datos, declaraciones juradas publicadas, medidas de la DGCP, la lista SDN de la OFAC, Wikidata, quién convoca cada proceso, quién ejecuta cada obra y dónde, a quién se le contrató, qué ley o decreto deroga, modifica o cita el título de cada norma o iniciativa, y en qué norma se convirtió cada iniciativa); y un índice de búsqueda de compras públicas, proveedores, normas, iniciativas del Congreso, sentencias, obras, documentos institucionales y datos abiertos. Todo sale de instantáneas de fuentes públicas (del Estado dominicano, más la lista SDN de la OFAC y los identificadores de Wikidata): cada respuesta dice su fuente y su fecha de corte.
 
 Cómo se usa:
 0. Para una pregunta en llano, empieza por retrieve: trae en una llamada la evidencia con que contestarla (registros del buscador, las entidades del grafo que nombra con sus datos, relaciones y compras, y la consulta de compras que pide, si pide una), cada pieza con su fuente y su fecha, y las llamadas exactas para seguir.
@@ -174,7 +174,13 @@ async function correr<T>(nombre: string, fn: () => Promise<T>): Promise<T> {
 /* ------------------------------------------------------------ direcciones */
 
 /** A qué lleva un `id`: un nodo del grafo, otra ficha de la plataforma o un archivo de fuera. */
-type Destino = { clase: "nodo"; nodo: NodoRdf } | { clase: "ficha"; ruta: string } | { clase: "externo"; url: string };
+/**
+ * Lo que dice un `id`: un nodo, una ficha de la plataforma o una dirección de
+ * fuera; esta, con el nodo que podría ser (un documento por la dirección de
+ * su archivo, un conjunto por su página en datos.gob.do), que el grafo
+ * confirma o no.
+ */
+type Destino = { clase: "nodo"; nodo: NodoRdf } | { clase: "ficha"; ruta: string } | { clase: "externo"; url: string; nodo: NodoRdf | null };
 
 const DECRETO = /^decreto\s+(?:n[uú]m(?:ero)?\.?\s*|no\.?\s*)?(\d{1,4}-\d{2,4})$/i;
 /** «Ley 47-25», «Ley orgánica núm. 1-12», «Resolución 48-26». */
@@ -195,7 +201,7 @@ function resolver(id: string): Destino | null {
     const nodo = nodoDeRuta(ruta);
     return nodo ? { clase: "nodo", nodo } : { clase: "ficha", ruta };
   }
-  if (/^https?:\/\//i.test(v)) return { clase: "externo", url: v };
+  if (/^https?:\/\//i.test(v)) return { clase: "externo", url: v, nodo: nodoDeDireccion(v, SITIO) };
   const cifras = v.replace(/[\s.-]/g, "");
   if (/^\d{9}$/.test(cifras)) return { clase: "nodo", nodo: { tipo: "empresa", id: cifras } };
   const decreto = DECRETO.exec(v)?.[1];
@@ -240,8 +246,9 @@ function destinoDe(r: Relacion): { id: string | null; url: string | null; pista:
 function nodoDe(id: string, para: string): NodoRdf {
   const d = resolver(id);
   if (d?.clase === "nodo") return d.nodo;
+  if (d?.clase === "externo" && d.nodo) return d.nodo;
   throw new Aviso(
-    `«${recortar(id, 120)}» no es un nodo del grafo. ${para} funciona con personas con cargo público, instituciones, entidades financieras, empresas, decretos, leyes y resoluciones con ficha, provincias, proveedores, procesos de compra, obras e iniciativas del Congreso: usa el id que devuelve search (por ejemplo «/funcionarios/luis-rodolfo-abinader-corona», «/instituciones/5», «/normativa/ley/87-01» u «/obras/12416»).`,
+    `«${recortar(id, 120)}» no es un nodo del grafo. ${para} funciona con personas con cargo público, instituciones, entidades financieras, empresas, decretos, leyes y resoluciones con ficha, provincias, proveedores, procesos de compra, obras, iniciativas del Congreso, documentos de las bibliotecas institucionales y conjuntos de datos abiertos: usa el id que devuelve search (por ejemplo «/funcionarios/luis-rodolfo-abinader-corona», «/instituciones/5», «/normativa/ley/87-01» u «/obras/12416»).`,
   );
 }
 
@@ -260,6 +267,8 @@ const CLASE_RDF: Record<TipoNodoRdf, string> = {
   ley: "soc:Ley",
   resolucion: "soc:Resolucion",
   iniciativa: "soc:Iniciativa",
+  documento: "soc:Documento",
+  conjunto: "soc:ConjuntoDeDatos",
 };
 
 /** De dónde sale un nodo y de cuándo es, y los cortes de todas las instantáneas del grafo (de ahí salen sus relaciones). */
@@ -700,7 +709,9 @@ async function leer(id: string): Promise<Documento> {
   }
   let doc: Documento | null = null;
   if (d.clase === "nodo") doc = (await leerNodo(d.nodo)) ?? (await leerRegistro(rutaDeNodo(d.nodo)));
-  else doc = await leerRegistro(d.clase === "ficha" ? d.ruta : d.url);
+  // Una dirección de fuera: el nodo, si el grafo lo tiene (un documento, un conjunto de datos); si no, su registro del buscador (una sentencia).
+  else if (d.clase === "externo") doc = (d.nodo ? await leerNodo(d.nodo) : null) ?? (await leerRegistro(d.url));
+  else doc = await leerRegistro(d.ruta);
   if (!doc) {
     throw new Aviso(
       `No encontramos «${recortar(id, 120)}» en las instantáneas de Socrático.do. Puede haber salido del corte, o no ser un id de esta plataforma: búscalo con search.`,
@@ -1824,7 +1835,7 @@ const NO_ES_OBJETO = new Set(
 const TOPE_RECUPERAR = { entidades: 3, evidencias: 10, compras: 5, relacionesPorGrupo: 5, hechos: 12, nombres: 3 } as const;
 
 /** Los nodos que son registros y no actores: entre los resultados del buscador, van como evidencia y no como entidad. */
-const REGISTROS: ReadonlySet<TipoNodoRdf> = new Set(["proceso", "obra", "proveedor", "iniciativa"]);
+const REGISTROS: ReadonlySet<TipoNodoRdf> = new Set(["proceso", "obra", "proveedor", "iniciativa", "documento", "conjunto"]);
 
 /** Lo que una pregunta escribe con mayúscula y no es un nombre: la palabra que la abre, o el Estado mismo. */
 const INTERROGATIVA = /^(qu[eé]|qui[eé]n(es)?|cu[aá]l(es)?|cu[aá]nt[oa]s?|d[oó]nde|c[oó]mo|cu[aá]ndo|por|dame|dime|lista|busca|hay|existe|existen)$/i;
@@ -1969,8 +1980,8 @@ async function recuperar(pregunta: string, limite: number): Promise<z.infer<type
   for (const r of h.resultados.slice(0, 10)) {
     if (!r.href) continue;
     const n = nodoDeRuta(r.href);
-    // Un proceso, una obra o un proveedor que trae el buscador ya va como evidencia:
-    // como entidad lo acompaña quien se nombra (una institución, una empresa), no el registro.
+    // Un proceso, una obra, un proveedor, un documento o un conjunto que trae el buscador ya va
+    // como evidencia: como entidad lo acompaña quien se nombra (una institución, una empresa), no el registro.
     if (n && !REGISTROS.has(n.tipo)) sumarNodo(n, "el buscador la trae entre los primeros resultados", false);
     else if (r.tipo === "proveedor") {
       const rnc = /\bRNC (\d{9})\b/.exec(r.detalle ?? "")?.[1];

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SITIO } from "@/lib/sitio";
-import { enlace, numeroCanonico, rutaDeNodo, type NodoRdf } from "@/lib/grafo";
+import { claveDocumento, enlace, numeroCanonico, rutaDeNodo, type NodoRdf } from "@/lib/grafo";
 import { booleano, decimal, entero, fecha, iri, lit, t } from "@/lib/rdf";
 import {
   ETIQUETA_ORIGEN,
@@ -21,6 +21,15 @@ import { decretoPorNumero, decretosDeFirmante, decretosDelAnio, hrefDecreto, ind
 import { leyesConFicha, resolucionesConFicha, type Documento } from "@/lib/normativa";
 import { referenciasNormativas, numeroDeNorma, type RelacionNorma } from "@/lib/legislacion";
 import { TIPOS_INICIATIVA, claveCondicion, claveTema, claveTipoIniciativa } from "@/lib/vocabulario-congreso";
+import { claveGrupoDeDatos } from "@/lib/vocabulario-datos";
+import { conjuntoPorSlug, getCatalogo, institucionDeOrganizacion, type Conjunto } from "@/lib/catalogo";
+import {
+  documentoPorClave,
+  getIndiceBiblioteca,
+  todosLosDocumentos,
+  tituloLegible,
+  type Documento as DocumentoBiblioteca,
+} from "@/lib/biblioteca";
 import { declaracionesDe, declaracionesDeInstitucion, getDeclaraciones } from "@/lib/declaraciones";
 import { entidadDeInstitucion, entidadPorRnc, entidadPorSlug, getFinancieras, institucionDe } from "@/lib/financieras";
 import { empresaPorRnc, padronEmpresas } from "@/lib/empresas";
@@ -32,6 +41,7 @@ import { desdeMayusculas } from "@/lib/congreso";
 import { formatFecha } from "@/lib/format";
 import { getRegistroTributario } from "@/lib/rnc";
 import { sinCedula } from "@/lib/padron";
+import { plano } from "@/lib/raiz";
 import { coberturaDe, todosLosProcesos, type ProcesoIndexado } from "@/lib/tablas-compras";
 import { getDetalleObras, getObras, urlFichaMapaInversiones, type Obra, type ProcesoDeObra } from "@/lib/obras";
 import {
@@ -119,6 +129,10 @@ export async function describirEnVivo(n: NodoRdf, ligero = false): Promise<Descr
       return describirNorma({ tipo: n.tipo, id: n.id }, ligero);
     case "iniciativa":
       return describirIniciativa(n.id, ligero);
+    case "documento":
+      return describirDocumento(n.id, ligero);
+    case "conjunto":
+      return describirConjunto(n.id);
   }
 }
 
@@ -168,14 +182,17 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
   ]);
   if (!ind || !fin || !padron || !historico) throw new Error("falta una instantánea: decretos, banca, padrón o histórico");
   const fuentesBanca = await leerInstantanea<{ fuentes: Record<string, string> }>("banca.json");
-  const [procesos, obras, leyes, resoluciones, congreso] = await Promise.all([
+  const [procesos, obras, leyes, resoluciones, congreso, biblioteca, catalogo] = await Promise.all([
     leerInstantanea<{ fuente: string; hasta: string }>("procesos.json"),
     leerInstantanea<{ corte: string; fuente: string; archivos: Record<string, { nombre: string }> }>("obras.json"),
     leyesConFicha(),
     resolucionesConFicha(),
     leerInstantanea<{ generado: string }>("congreso.json"),
+    getIndiceBiblioteca(),
+    getCatalogo(),
   ]);
   if (!leyes || !resoluciones) throw new Error("falta una instantánea: leyes.json o normativa.json");
+  if (!biblioteca || !catalogo) throw new Error("falta una instantánea: documentos/indice.json o catalogo.json");
   const cargo = (origen: OrigenCargo, url: string | null): DefinicionGrafo => ({
     clave: `cargos-${origen}`,
     etiqueta: `Cargos: ${ETIQUETA_ORIGEN[origen]}`,
@@ -296,6 +313,21 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       corte: dia(congreso.generado),
     },
     {
+      clave: "documentos",
+      etiqueta: "Bibliotecas de documentos de las instituciones",
+      descripcion:
+        "Los archivos (PDF, hojas de cálculo, Word) que publican las instituciones en sus sitios WordPress, por su endpoint público de medios: título, fecha de subida, formato, dirección y la institución de cada biblioteca.",
+      fuentes: biblioteca.fuentes.filter((x) => x.documentos > 0).map((x) => `https://${x.host}/wp-json/wp/v2/media`),
+      corte: dia(biblioteca.generado),
+    },
+    {
+      clave: "datos",
+      etiqueta: "Catálogo de datos abiertos (datos.gob.do)",
+      descripcion: "Los conjuntos de datos de datos.gob.do: nombre, título, organización que los publica, formatos y grupo temático.",
+      fuentes: [catalogo.fuente],
+      corte: dia(catalogo.generado),
+    },
+    {
       clave: "ofac",
       etiqueta: "Lista SDN de la OFAC",
       descripcion: "Las entradas de la lista de sanciones del Tesoro de los Estados Unidos atadas a un RNC dominicano.",
@@ -347,10 +379,10 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       clave: "identidad",
       etiqueta: "Un mismo ente en dos registros (regla)",
       descripcion:
-        "Una institución que es también una entidad financiera, una entidad financiera con RNC en el padrón, una persona que es legisladora en el SIL, y a quién se atribuye una declaración jurada: por identificador o por nombre normalizado, nunca entre homónimos.",
+        "Una institución que es también una entidad financiera, una entidad financiera con RNC en el padrón, una persona que es legisladora en el SIL, a quién se atribuye una declaración jurada y qué institución del cruce publica un conjunto de datos: por identificador o por nombre normalizado (o, para las organizaciones de datos.gob.do, una tabla comprobada a mano), nunca entre homónimos.",
       fuentes: [],
       corte: dia(f.generado),
-      derivado: { de: ["instituciones", "banca", "padron", "personas", "cargos-congreso", "declaraciones"] },
+      derivado: { de: ["instituciones", "banca", "padron", "personas", "cargos-congreso", "declaraciones", "datos"] },
     },
     {
       clave: "firma",
@@ -373,10 +405,10 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       clave: "citas",
       etiqueta: "Normas que nombra un título (regla)",
       descripcion:
-        "Qué ley o qué decreto nombra el título de una ley, un decreto, una resolución o una iniciativa, y qué le hace según el verbo que lo antecede: la deroga, la modifica (o la reforma, le sustituye o le adiciona un texto) o solo la cita. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás queda como cita. Solo se ata a una ley o a un decreto con ficha.",
+        "Qué ley o qué decreto nombra el título de una ley, un decreto, una resolución, una iniciativa o un documento de la biblioteca de una institución, y qué le hace según el verbo que lo antecede: la deroga, la modifica (o la reforma, le sustituye o le adiciona un texto) o solo la cita. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás, un documento incluido, queda como cita. Solo se ata a una ley o a un decreto con ficha.",
       fuentes: [],
       corte: dia(congreso.generado),
-      derivado: { de: ["leyes", "decretos", "resoluciones", "congreso"] },
+      derivado: { de: ["leyes", "decretos", "resoluciones", "congreso", "documentos"] },
     },
     {
       clave: "plataforma",
@@ -594,6 +626,33 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
     }
     if (obras.length > TOPE_COMPRAS) {
       const mas = `Se describen sus ${TOPE_COMPRAS} obras de mayor valor de las ${obras.length.toLocaleString("es-DO")} que ejecuta según MapaInversiones.`;
+      nota = nota ? `${nota} ${mas}` : mas;
+    }
+    // Lo que publica: sus conjuntos de datos en datos.gob.do y los documentos más recientes de su portal.
+    const pub = await indicePublicaciones();
+    for (const c of pub.conjuntos.get(inst.id) ?? []) {
+      x.de("identidad", t(CONJUNTO(c.slug), "soc:publicadaPor", iri(s)));
+      vecinoConjunto(c, x);
+    }
+    // Los más recientes, uno por título y día: lo que se subió dos veces es dos
+    // archivos para WordPress («Informe-2025.pdf», «Informe-2025-1.pdf»), y el
+    // buscador también los junta (`clavesDeCopia` de lib/busqueda.ts).
+    const docs = pub.documentos.get(inst.id) ?? [];
+    const vistos = new Set<string>();
+    const recientes: DocumentoBiblioteca[] = [];
+    for (const d of docs) {
+      if (recientes.length === TOPE_DOCUMENTOS) break;
+      const k = `${plano(d.titulo)}|${d.fecha}`;
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      recientes.push(d);
+    }
+    for (const d of recientes) {
+      x.de("documentos", t(DOCUMENTO(d), "soc:publicadaPor", iri(s)));
+      vecinoDocumento(d, x);
+    }
+    if (recientes.length < docs.length) {
+      const mas = `Se describen sus ${recientes.length} documentos más recientes, uno por título y día, de los ${docs.length.toLocaleString("es-DO")} que publica en su portal.`;
       nota = nota ? `${nota} ${mas}` : mas;
     }
   }
@@ -1336,6 +1395,11 @@ function indiceNormas(): Promise<IndiceNormas> {
         if (d.ficha && d.numero) await citar({ tipo: "decreto", id: d.numero }, d.titulo, d.fecha);
       }
     }
+    // Los documentos de las bibliotecas: solo citan, no son normas.
+    for (const d of await todosLosDocumentos()) {
+      const k = claveDocumento(d.url);
+      if (k) await citar({ tipo: "documento", id: k }, tituloLegible(sinCedula(d.titulo)), d.fecha);
+    }
     for (const lista of entran.values()) lista.sort((x, y) => porTexto(y.fecha ?? "", x.fecha ?? "") || porTexto(clave(x.de), clave(y.de)));
 
     // La promulgación que registra el SIL: «Ley núm. 43-26», «Res. núm. 48-26»; «N/A» no es ninguna.
@@ -1398,6 +1462,11 @@ async function vecinaNormativa(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): P
     if (d.fechaIso) x.de(g, t(s, "soc:fecha", fecha(d.fechaIso)));
     return;
   }
+  if (n.tipo === "documento") {
+    const d = await documentoPorClave(n.id);
+    if (d) vecinoDocumento(d, x);
+    return;
+  }
   if (n.tipo === "iniciativa") {
     const i = ix.iniciativas.get(n.id);
     if (!i) return;
@@ -1424,7 +1493,8 @@ function conceptoSil(i: Iniciativa, campo: "tipo" | "condicion" | "grupo"): stri
 function triplesCita(a: Arista, x: Afirmaciones): void {
   const p = PROPIEDAD_CITA[a.cita];
   x.de("citas", t(iriDe(a.de), p.soc, iri(iriDe(a.a))));
-  if (a.de.tipo !== "iniciativa") x.de("citas", t(iriDe(a.de), p.eli, iri(iriDe(a.a))));
+  // Ni una iniciativa (todavía no es un recurso legal) ni un documento (no es una norma) dicen ELI.
+  if (a.de.tipo !== "iniciativa" && a.de.tipo !== "documento") x.de("citas", t(iriDe(a.de), p.eli, iri(iriDe(a.a))));
 }
 
 /** Las citas que hace un nodo y las que le llegan, y la iniciativa de la que nació o la norma en que se convirtió. */
@@ -1628,11 +1698,171 @@ async function describirProvincia(slug: string, ligero = false): Promise<Descrip
   return { triples: x.triples, grafos: x.grafos, titulo: prov.nombre, nota };
 }
 
+/* ------------------------------------------------- documentos y datos */
+
+const DOCUMENTO = (d: Pick<DocumentoBiblioteca, "url">) => iriDe({ tipo: "documento", id: claveDeArchivo(d.url) });
+const CONJUNTO = (slug: string) => iriDe({ tipo: "conjunto", id: slug });
+const TOPE_DOCUMENTOS = 12;
+
+/** La clave de un documento de la biblioteca: un archivo sin ella (que no fuera https) no podría ser nodo, y se dice. */
+function claveDeArchivo(url: string): string {
+  const k = claveDocumento(url);
+  if (!k) throw new Error(`un documento de la biblioteca sin dirección https: ${url}`);
+  return k;
+}
+
+interface IndicePublicaciones {
+  /** Por institución: sus conjuntos de datos, en el orden del catálogo. */
+  conjuntos: Map<number, Conjunto[]>;
+  /** Por institución: los documentos de su biblioteca, del más reciente al más viejo (el orden del índice). */
+  documentos: Map<number, DocumentoBiblioteca[]>;
+  /** La institución de cada biblioteca, por su sitio. */
+  deBiblioteca: Map<string, number>;
+}
+
+let publicacionesMemo: Promise<IndicePublicaciones> | null = null;
+
+/**
+ * Quién publica qué: cada documento, la institución de su biblioteca (la que
+ * le da su índice; la de transparencia fiscal no tiene); cada conjunto de
+ * datos, la institución del cruce que es su organización
+ * (`institucionDeOrganizacion`), si la hay.
+ */
+function indicePublicaciones(): Promise<IndicePublicaciones> {
+  publicacionesMemo ??= (async () => {
+    const [catalogo, indice, docs] = await Promise.all([getCatalogo(), getIndiceBiblioteca(), todosLosDocumentos()]);
+    if (!catalogo || !indice) throw new Error("falta una instantánea: catalogo.json o documentos/indice.json");
+    const deBiblioteca = new Map<string, number>();
+    for (const f of indice.fuentes) if (f.uc != null && institucionPorId(f.uc)) deBiblioteca.set(f.host, f.uc);
+    const conjuntos = new Map<number, Conjunto[]>();
+    for (const c of catalogo.conjuntos) {
+      const i = institucionDeOrganizacion(c.org);
+      if (!i) continue;
+      const lista = conjuntos.get(i.id) ?? [];
+      if (!lista.length) conjuntos.set(i.id, lista);
+      lista.push(c);
+    }
+    const documentos = new Map<number, DocumentoBiblioteca[]>();
+    for (const d of docs) {
+      const uc = deBiblioteca.get(d.host);
+      if (uc == null) continue;
+      const lista = documentos.get(uc) ?? [];
+      if (!lista.length) documentos.set(uc, lista);
+      lista.push(d);
+    }
+    return { conjuntos, documentos, deBiblioteca };
+  })();
+  return publicacionesMemo;
+}
+
+/** Los documentos y los conjuntos de datos que son nodo, en orden de clave: el conjunto que sus constructores describen. */
+export async function clavesDePublicaciones(): Promise<{ documento: string[]; conjunto: string[] }> {
+  const [catalogo, docs] = await Promise.all([getCatalogo(), todosLosDocumentos()]);
+  if (!catalogo) throw new Error("falta una instantánea: catalogo.json");
+  const documento = docs.map((d) => claveDeArchivo(d.url)).sort(porTexto);
+  // Dos archivos con la misma clave (la misma dirección, o la misma en NFC) serían un solo nodo.
+  const doble = documento.find((k, i) => i > 0 && k === documento[i - 1]);
+  if (doble) throw new Error(`dos documentos de la biblioteca con la misma clave: ${doble}`);
+  return { documento, conjunto: catalogo.conjuntos.map((c) => c.slug).sort(porTexto) };
+}
+
+/** El grupo de datos.gob.do como concepto, o un error que dice cuál falta en `lib/vocabulario-datos.ts`. */
+function grupoDeDatos(c: Conjunto, grupo: string): string {
+  const k = claveGrupoDeDatos(grupo);
+  if (!k) throw new Error(`conjunto ${c.slug}: el grupo «${grupo}» no está en lib/vocabulario-datos.ts`);
+  return k;
+}
+
+/** Un documento como vecino: lo que es, cómo se llama, su formato y cuándo se subió. */
+function vecinoDocumento(d: DocumentoBiblioteca, x: Afirmaciones): void {
+  const s = DOCUMENTO(d);
+  x.de(
+    "documentos",
+    t(s, "rdf:type", iri("soc:Documento")),
+    t(s, "rdfs:label", lit(tituloLegible(sinCedula(d.titulo)), "es")),
+    t(s, "soc:formato", lit(d.tipo.toUpperCase())),
+    t(s, "soc:fechaDeSubida", fecha(d.fecha)),
+  );
+}
+
+/** Un conjunto de datos como vecino: lo que es, cómo se llama y su organización. */
+function vecinoConjunto(c: Conjunto, x: Afirmaciones): void {
+  const s = CONJUNTO(c.slug);
+  x.de(
+    "datos",
+    t(s, "rdf:type", iri("soc:ConjuntoDeDatos")),
+    t(s, "rdfs:label", lit(c.titulo, "es")),
+    t(s, "do:organizacionPublicadora", lit(c.org)),
+  );
+}
+
+async function describirDocumento(clave: string, ligero = false): Promise<Descripcion | null> {
+  const d = await documentoPorClave(clave);
+  if (!d) return null;
+  const n: NodoRdf = { tipo: "documento", id: clave };
+  const s = iriDe(n);
+  const original = sinCedula(d.titulo);
+  const titulo = tituloLegible(original);
+  const x = new Afirmaciones();
+  x.de(
+    "documentos",
+    t(s, "rdf:type", iri("soc:Documento")),
+    t(s, "rdf:type", iri("foaf:Document")),
+    t(s, "rdf:type", iri("schema:DigitalDocument")),
+    t(s, "rdfs:label", lit(titulo, "es")),
+    t(s, "dct:title", lit(original, "es")),
+    t(s, "schema:name", lit(titulo, "es")),
+    t(s, "soc:formato", lit(d.tipo.toUpperCase())),
+    t(s, "soc:fechaDeSubida", fecha(d.fecha)),
+    // El archivo está en el sitio de la institución: la plataforma no lo copia.
+    t(s, "schema:encoding", iri(d.url)),
+  );
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.documento(clave)}`)));
+  const uc = (await indicePublicaciones()).deBiblioteca.get(d.host);
+  const inst = uc != null ? institucionPorId(uc) : null;
+  if (inst) {
+    x.de("documentos", t(s, "soc:publicadaPor", iri(DE(inst.id))));
+    x.de("instituciones", t(DE(inst.id), "rdfs:label", lit(inst.nombre, "es")));
+  }
+  // Las leyes y los decretos con ficha que nombra su título.
+  if (!ligero) await normasAlrededor(n, x, await indiceNormas());
+  return { triples: x.triples, grafos: x.grafos, titulo };
+}
+
+async function describirConjunto(slug: string): Promise<Descripcion | null> {
+  const c = await conjuntoPorSlug(slug);
+  if (!c) return null;
+  const s = CONJUNTO(slug);
+  const x = new Afirmaciones();
+  x.de(
+    "datos",
+    t(s, "rdf:type", iri("soc:ConjuntoDeDatos")),
+    t(s, "rdf:type", iri("dcat:Dataset")),
+    t(s, "rdf:type", iri("schema:Dataset")),
+    t(s, "rdfs:label", lit(c.titulo, "es")),
+    t(s, "dct:title", lit(c.titulo, "es")),
+    t(s, "schema:name", lit(c.titulo, "es")),
+    t(s, "do:organizacionPublicadora", lit(c.org)),
+    // Donde están sus archivos: la plataforma no los copia.
+    t(s, "dcat:landingPage", iri(enlace.conjuntoOrigen(slug))),
+  );
+  for (const formato of c.formatos) x.de("datos", t(s, "soc:formato", lit(formato)));
+  for (const g of c.grupos) x.de("datos", t(s, "do:temaDeDatos", iri(`do:datos-${grupoDeDatos(c, g)}`)));
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.conjunto(slug)}`)));
+  const inst = institucionDeOrganizacion(c.org);
+  if (inst) {
+    // Qué institución del cruce es su organización lo decide Socrático: la regla de identidad.
+    x.de("identidad", t(s, "soc:publicadaPor", iri(DE(inst.id))));
+    x.de("instituciones", t(DE(inst.id), "rdfs:label", lit(inst.nombre, "es")));
+  }
+  return { triples: x.triples, grafos: x.grafos, titulo: c.titulo };
+}
+
 /* ------------------------------------------------------------ el conjunto */
 
 /** Cuántos nodos de cada clase tiene el grafo hoy: para VoID y para `/grafo`. */
 export async function inventarioEnVivo(): Promise<ClaseContada[]> {
-  const [f, indice, fin, padron, dj, sanc, contrataciones, historico, compras, procesos, obras, cabeceraObras, normas, leyes, resoluciones, congreso] =
+  const [f, indice, fin, padron, dj, sanc, contrataciones, historico, compras, procesos, obras, cabeceraObras, normas, leyes, resoluciones, congreso, publicaciones, biblioteca, catalogo] =
     await Promise.all([
       getFuncionarios(),
       indiceDecretos(),
@@ -1650,6 +1880,9 @@ export async function inventarioEnVivo(): Promise<ClaseContada[]> {
       leyesConFicha(),
       resolucionesConFicha(),
       leerInstantanea<{ generado: string }>("congreso.json"),
+      clavesDePublicaciones(),
+      getIndiceBiblioteca(),
+      getCatalogo(),
     ]);
   const cargos = f?.personas.reduce((n, p) => n + p.cargos.length, 0) ?? 0;
   const decretos = indice ? Object.values(indice.anios).reduce((a, b) => a + b, 0) + indice.sinFecha : 0;
@@ -1697,6 +1930,14 @@ export async function inventarioEnVivo(): Promise<ClaseContada[]> {
     { clase: "soc:Ley", etiqueta: "Leyes con ficha", n: normas.leyes.size, fuente: "Consultoría Jurídica", corte: dia(leyes?.generadoEn) },
     { clase: "soc:Resolucion", etiqueta: "Resoluciones con ficha", n: normas.resoluciones.size, fuente: "Consultoría Jurídica", corte: dia(resoluciones?.generadoEn) },
     { clase: "soc:Iniciativa", etiqueta: "Iniciativas del Congreso", n: normas.iniciativas.size, fuente: "SIL de la Cámara de Diputados", corte: dia(congreso.generado) },
+    {
+      clase: "soc:Documento",
+      etiqueta: "Documentos de las bibliotecas institucionales",
+      n: publicaciones.documento.length,
+      fuente: "Portales WordPress de las instituciones",
+      corte: dia(biblioteca?.generado),
+    },
+    { clase: "soc:ConjuntoDeDatos", etiqueta: "Conjuntos de datos abiertos", n: publicaciones.conjunto.length, fuente: "datos.gob.do", corte: dia(catalogo?.generado) },
   ];
   return filas.filter((c) => c.n > 0);
 }

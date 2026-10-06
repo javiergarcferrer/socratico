@@ -5,7 +5,8 @@ import { getCombustibles } from "@/lib/combustibles";
 import { getTasa } from "@/lib/tasa";
 import { getResumenHistorico } from "@/lib/historico";
 import { getIndiceBiblioteca } from "@/lib/biblioteca";
-import { getCatalogo } from "@/lib/catalogo";
+import { getCatalogo, institucionDeOrganizacion } from "@/lib/catalogo";
+import { institucionPorId } from "@/lib/instituciones";
 import { SECTORES_EIF, getFinancieras, type Sector, faltanDeLaSb } from "@/lib/financieras";
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
@@ -155,10 +156,12 @@ export async function ResumenBiblioteca() {
   const d = await getIndiceBiblioteca();
   if (!d) return <>El índice no está disponible ahora mismo.</>;
   const con = d.fuentes.filter((f) => f.documentos > 0).length;
+  // Los de un sitio que el cruce ata a una institución: los que el grafo liga a su ficha.
+  const atados = d.fuentes.reduce((n, f) => n + (f.uc != null && institucionPorId(f.uc) ? f.documentos : 0), 0);
   return (
     <>
       Índice del {formatFecha(d.generado)}: {formatInt(d.total)} documentos de {formatInt(con)}{" "}
-      instituciones.
+      instituciones; {formatInt(atados)} atados a la ficha de la institución que los publica.
     </>
   );
 }
@@ -166,10 +169,12 @@ export async function ResumenBiblioteca() {
 export async function ResumenCatalogo() {
   const d = await getCatalogo();
   if (!d) return <>El catálogo no está disponible ahora mismo.</>;
+  const atados = d.conjuntos.filter((c) => institucionDeOrganizacion(c.org)).length;
   return (
     <>
       Catálogo del {formatFecha(d.generado)}: {formatInt(d.total)} conjuntos de{" "}
-      {formatInt(d.organizaciones)} organizaciones.
+      {formatInt(d.organizaciones)} organizaciones; {formatInt(atados)} atados a la ficha de la institución que
+      los publica.
     </>
   );
 }

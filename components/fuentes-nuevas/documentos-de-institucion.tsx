@@ -3,6 +3,7 @@ import { documentosDeInstitucion } from "@/lib/biblioteca";
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import Antiguedad from "@/components/antiguedad";
+import { EnlaceDocumento } from "@/components/enlace-documento";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 
@@ -19,20 +20,18 @@ export async function DocumentosDeInstitucion({ uc }: { uc: number }) {
       <CardTitle>Lo que publica</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
         Los documentos más recientes de los {formatInt(r.fuente.documentos)} que se
-        pueden leer en {r.fuente.host}. Cada uno abre en el sitio de la institución;
-        la fecha es la de subida.
+        pueden leer en {r.fuente.host}. Cada uno abre su ficha, con el enlace al
+        archivo en el sitio de la institución; la fecha es la de subida.
       </p>
       <ol className="mt-3 divide-y divide-hairline">
         {r.docs.map((d) => (
           <li key={d.url} className="relative py-2.5">
-            <a
-              href={d.url}
-              target="_blank"
-              rel="noopener noreferrer"
+            <EnlaceDocumento
+              url={d.url}
               className="block text-sm leading-snug text-ink [overflow-wrap:anywhere] estira hover:text-brand-700"
             >
               {d.titulo}
-            </a>
+            </EnlaceDocumento>
             <Antiguedad iso={d.fecha || null} prefijo="Subido" className="text-xs text-ink-soft" />
           </li>
         ))}

@@ -292,6 +292,22 @@ export const TABLAS: Tabla[] = [
     ],
   },
   {
+    nombre: "conjuntos",
+    clase: "soc:ConjuntoDeDatos",
+    descripcion:
+      "Los conjuntos de datos abiertos de datos.gob.do, con la institución del cruce que los publica (si se identificó), sus formatos y sus grupos temáticos. Sus archivos están en el portal.",
+    fuente: "datos.gob.do",
+    columnas: [
+      { nombre: "nombre", tipo: "VARCHAR", clave: true, descripcion: "Su nombre en datos.gob.do, la última parte de su dirección." },
+      { nombre: "titulo", tipo: "VARCHAR", descripcion: "Título." },
+      { nombre: "organizacion", propiedad: "do:organizacionPublicadora", descripcion: "La organización que lo publica, como la nombra datos.gob.do." },
+      { nombre: "institucion_id", propiedad: "soc:publicadaPor", descripcion: "La institución del cruce que es esa organización (instituciones.id); NULL si no se identificó." },
+      { nombre: "formatos", tipo: "VARCHAR", descripcion: "Sus formatos separados por comas, como los escribe el portal (erratas incluidas: CVS, XLXS)." },
+      { nombre: "grupos", tipo: "VARCHAR", descripcion: "Sus grupos temáticos separados por comas: gestion-publica, sociedad-y-bienestar, economia, salud…" },
+      FICHA,
+    ],
+  },
+  {
     nombre: "normas",
     clase: "soc:Norma",
     descripcion:

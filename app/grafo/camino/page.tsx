@@ -29,8 +29,9 @@ export const metadata: Metadata = {
 
 export default async function CaminoPage({ searchParams }: Props) {
   const { de, a } = await searchParams;
-  const nDe = de ? nodoDeRuta(de.slice(0, 200)) : null;
-  const nA = a ? nodoDeRuta(a.slice(0, 200)) : null;
+  // Hasta 600: la ruta de un documento lleva la dirección entera de su archivo.
+  const nDe = de ? nodoDeRuta(de.slice(0, 600)) : null;
+  const nA = a ? nodoDeRuta(a.slice(0, 600)) : null;
   const [vDe, vA] = await Promise.all([nDe ? vecindario(nDe) : null, nA ? vecindario(nA) : null]);
 
   if (!vDe || !vA) {

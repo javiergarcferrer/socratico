@@ -792,8 +792,11 @@ export default async function FuentesPage() {
             <Link href="/datos" className="font-medium text-brand-700 hover:underline">
               el buscador de datos abiertos
             </Link>
-            : título, organización, formatos y grupo de cada conjunto, con enlace a
-            su ficha. <ResumenCatalogo /> Sus fichas dan además los enlaces directos a
+            . Cada conjunto es un objeto del grafo con ficha propia: título,
+            formatos, grupo, la institución que lo publica (cuando el nombre de la
+            organización en el portal la identifica sin duda; si no, solo ese
+            nombre) y el enlace a su página en el portal. <ResumenCatalogo /> Sus
+            fichas en el portal dan además los enlaces directos a
             las nóminas que cada institución publica en su propio portal, y de ahí
             salió la ampliación de la nómina. Todo se lee al regenerar, a una
             petición cada diez segundos como pide el portal, nunca en una visita.
@@ -1042,7 +1045,9 @@ export default async function FuentesPage() {
             <Link href="/documentos" className="font-medium text-brand-700 hover:underline">
               un buscador de documentos
             </Link>{" "}
-            que enlaza al archivo en el sitio de cada institución; aquí no se copia
+            en el que cada documento es un objeto del grafo con ficha propia: quién
+            lo publica, cuándo lo subió, en qué formato, qué normas nombra su título
+            y el enlace al archivo en el sitio de la institución; aquí no se copia
             nada. <ResumenBiblioteca /> El total que anuncia cada sitio incluye
             archivos que cuelgan de páginas no públicas y que nadie puede abrir: se
             da lo que de verdad se leyó. El título es el que puso la institución y la

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import Plegable from "@/components/plegable";
 import Antiguedad from "@/components/antiguedad";
+import { EnlaceDocumento } from "@/components/enlace-documento";
 import { recortar } from "@/lib/raiz";
 
 export const metadata: Metadata = {
@@ -123,9 +124,9 @@ export default async function DocumentosPage({
             Informes, memorias, estadísticas, nóminas y resoluciones que las
             instituciones suben a sus propios sitios, en un solo buscador. Las
             declaraciones juradas de patrimonio quedan fuera hasta decidir si un
-            buscador por nombre de funcionario es proporcionado. Aquí no se copia nada: cada resultado abre el archivo en el
-            sitio de la institución. El título es el que ella le puso (a veces, el
-            nombre del archivo) y la fecha es la de subida, no la del documento.
+            buscador por nombre de funcionario es proporcionado. Aquí no se copia nada: cada resultado abre su ficha, que
+            dice quién lo publica y qué normas nombra y enlaza el archivo en el sitio de la institución. El título es el
+            que ella le puso (a veces, el nombre del archivo) y la fecha es la de subida, no la del documento.
           </>
         }
       >
@@ -200,15 +201,12 @@ export default async function DocumentosPage({
               const f = conDocs.find((x) => x.host === d.host);
               return (
                 <li key={d.url} className="relative px-5 py-3 sm:px-6">
-                  <a
-                    href={d.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <EnlaceDocumento
+                    url={d.url}
                     className="block text-[15px] leading-snug text-ink [overflow-wrap:anywhere] estira hover:text-brand-700"
                   >
                     {d.titulo}
-                    <span className="sr-only"> (se abre en otra pestaña)</span>
-                  </a>
+                  </EnlaceDocumento>
                   <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
                     <Badge variant="contorno">{ETIQUETA_TIPO[d.tipo]}</Badge>
                     <span>{f ? f.nombre : d.host}</span>

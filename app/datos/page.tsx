@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getCatalogo, hrefConjunto } from "@/lib/catalogo";
+import { getCatalogo } from "@/lib/catalogo";
+import { enlace } from "@/lib/grafo";
 import { agujas, contieneTodas, plano, recortar } from "@/lib/raiz";
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
@@ -103,9 +104,10 @@ export default async function DatosPage({
           <>
             El catálogo entero del portal de datos abiertos del Estado, en un solo
             buscador: qué institución publica qué, en qué formato y sobre qué tema.
-            Cada conjunto abre su ficha en datos.gob.do, donde están los archivos. El
-            total es el que contamos recorriendo el catálogo, no el rótulo del portal,
-            que dice lo mismo busques lo que busques.
+            Cada conjunto abre su ficha: quién lo publica, en qué formatos y el enlace a
+            datos.gob.do, donde están los archivos. El total es el que contamos
+            recorriendo el catálogo, no el rótulo del portal, que dice lo mismo busques
+            lo que busques.
           </>
         }
       >
@@ -174,15 +176,12 @@ export default async function DatosPage({
           <ol className="mt-2 divide-y divide-hairline border-t border-hairline">
             {vista.map((x) => (
               <li key={x.slug} className="relative px-5 py-3 sm:px-6">
-                <a
-                  href={hrefConjunto(x.slug)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href={enlace.conjunto(x.slug)}
                   className="block text-[15px] leading-snug text-ink [overflow-wrap:anywhere] estira hover:text-brand-700"
                 >
                   {x.titulo}
-                  <span className="sr-only"> (abre su ficha en datos.gob.do, en otra pestaña)</span>
-                </a>
+                </Link>
                 <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
                   <Link href={url({ org: x.org, p: null })} className="relative z-10 inline-flex min-h-6 items-center hover:text-brand-700 hover:underline">
                     {x.org || "Sin organización"}

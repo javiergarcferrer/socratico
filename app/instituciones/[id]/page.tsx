@@ -31,6 +31,7 @@ import { SismapDeInstitucion } from "@/components/fuentes-nuevas/sismap-de-insti
 import { HistoriaDeInstitucion } from "@/components/fuentes-nuevas/historia-compras";
 import { historiaDeInstitucion, prefijoSinAsignar } from "@/lib/historico";
 import { documentosDeInstitucion } from "@/lib/biblioteca";
+import { conjuntosDeInstitucion } from "@/lib/catalogo";
 import { claveInstitucion, mesGeneral, nominaGeneralDeInstitucion } from "@/lib/nomina-general";
 import { DocumentosDeInstitucion } from "@/components/fuentes-nuevas/documentos-de-institucion";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -46,7 +47,7 @@ import Antiguedad from "@/components/antiguedad";
 import AccionesFicha from "@/components/acciones-ficha";
 import { FiltroEnlace, NavFiltros } from "@/components/nav-filtros";
 import { enlace } from "@/lib/grafo";
-import { ConectadoCon } from "@/components/conectado-con";
+import { ConectadoCon, type Arista } from "@/components/conectado-con";
 import { filtrarInformes, getAuditorias, informesDe } from "@/lib/auditorias";
 import Conversacion from "@/components/espacios/conversacion";
 import { QuienDirige } from "@/components/fuentes-nuevas/quien-dirige";
@@ -106,7 +107,7 @@ export default async function InstitucionPage({ params }: Props) {
   // su ficha no le pregunta nada a la DGCP (ver `FichaDelClasificador`).
   if (!i.dgcp) return <FichaDelClasificador i={i} />;
 
-  const [fiscal, nomina, resumenNomina, normas, obras, sismap, historia, sinAsignar, documentos, general, auditorias, funcionarios] = await Promise.all([
+  const [fiscal, nomina, resumenNomina, normas, obras, sismap, historia, sinAsignar, documentos, general, auditorias, funcionarios, datosAbiertos] = await Promise.all([
     i.capitulo ? getInstitucionFiscal(i.capitulo) : null,
     i.nomina ? getNominaDeInstitucion(i.nomina) : null,
     // Solo para decir de cuántas se lee la nómina cuando esta no está.
@@ -120,6 +121,7 @@ export default async function InstitucionPage({ params }: Props) {
     nominaGeneralDeInstitucion(i.id),
     getAuditorias(),
     getFuncionarios(),
+    conjuntosDeInstitucion(i.id),
   ]);
   const entidad = await entidadDeInstitucion(i.id);
   const conHistoria = Boolean(historia?.historia.serie.some((f) => f[1] > 0)) || Boolean(sinAsignar);
@@ -226,6 +228,7 @@ export default async function InstitucionPage({ params }: Props) {
             cuenta: documentos.fuente.documentos,
             fuente: documentos.fuente.host,
           },
+          ...aristasDeDatos(datosAbiertos),
           // La tabla y el nombre de su fila: un ayuntamiento está en la tabla
           // municipal, y buscarlo en la de instituciones no lo encuentra.
           sismap && {
@@ -363,7 +366,7 @@ export default async function InstitucionPage({ params }: Props) {
  */
 async function FichaDelClasificador({ i }: { i: Institucion }) {
   const local = i.sector === "local";
-  const [fiscal, nomina, general, normas, sismap, auditorias, funcionarios] = await Promise.all([
+  const [fiscal, nomina, general, normas, sismap, auditorias, funcionarios, datosAbiertos] = await Promise.all([
     i.capitulo ? getInstitucionFiscal(i.capitulo) : null,
     i.nomina ? getNominaDeInstitucion(i.nomina) : null,
     nominaGeneralDeInstitucion(i.id),
@@ -371,6 +374,7 @@ async function FichaDelClasificador({ i }: { i: Institucion }) {
     local ? sismapDeGobiernoLocal(i.id, i.nombre) : sismapDeInstitucion(i.id),
     getAuditorias(),
     getFuncionarios(),
+    conjuntosDeInstitucion(i.id),
   ]);
   const entidad = await entidadDeInstitucion(i.id);
   const conPersonas = funcionarios ? personasDeInstitucion(funcionarios, i.id).length > 0 : false;
@@ -467,6 +471,7 @@ async function FichaDelClasificador({ i }: { i: Institucion }) {
             href: `/gestion?${new URLSearchParams({ tabla: sismap.tabla, q: sismap.fila.nombre })}`,
             fuente: "SISMAP del MAP",
           },
+          ...aristasDeDatos(datosAbiertos),
           entidad && {
             etiqueta: "Su ficha de entidad financiera",
             href: enlace.entidadFinanciera(entidad.slug),
@@ -1086,4 +1091,14 @@ async function Planes({ institucion: i }: { institucion: Institucion }) {
       )}
     </Card>
   );
+}
+
+/** «Datos abiertos que publica»: una arista por organización de datos.gob.do atada a la institución. */
+function aristasDeDatos(datos: { org: string; conjuntos: unknown[] }[]): Arista[] {
+  return datos.map((d) => ({
+    etiqueta: "Datos abiertos que publica",
+    href: `/datos?org=${encodeURIComponent(d.org)}`,
+    cuenta: d.conjuntos.length,
+    fuente: "datos.gob.do",
+  }));
 }

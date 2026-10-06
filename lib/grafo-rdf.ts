@@ -151,10 +151,12 @@ export const CLASE_DE_TIPO: Record<TipoNodoRdf, string> = {
   ley: "Ley",
   resolucion: "Resolución",
   iniciativa: "Iniciativa legislativa",
+  documento: "Documento publicado",
+  conjunto: "Conjunto de datos abiertos",
 };
 
 /** Los grupos de aristas, en el orden en que se leen. */
-export type GrupoRelacion = "cargos" | "compras" | "procesos" | "obras" | "normas" | "decretos" | "entidades" | "lugares" | "registros";
+export type GrupoRelacion = "cargos" | "compras" | "procesos" | "obras" | "normas" | "decretos" | "entidades" | "lugares" | "publicaciones" | "registros";
 
 export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "cargos", etiqueta: "Cargos" },
@@ -165,6 +167,7 @@ export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "decretos", etiqueta: "Decretos" },
   { id: "entidades", etiqueta: "La misma entidad y quien la supervisa" },
   { id: "lugares", etiqueta: "Provincias" },
+  { id: "publicaciones", etiqueta: "Publicaciones" },
   { id: "registros", etiqueta: "Documentos y registros" },
 ];
 
@@ -249,6 +252,12 @@ const V = {
   deroga: expandir("soc:deroga"),
   modifica: expandir("soc:modifica"),
   promulgadaComo: expandir("soc:promulgadaComo"),
+  documento: expandir("soc:Documento"),
+  declaracionJurada: expandir("soc:DeclaracionJurada"),
+  conjuntoDeDatos: expandir("soc:ConjuntoDeDatos"),
+  formato: expandir("soc:formato"),
+  fechaDeSubida: expandir("soc:fechaDeSubida"),
+  paginaDeDatos: expandir("dcat:landingPage"),
 } as const;
 
 /**
@@ -311,6 +320,12 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       movimiento: fecha ? (proyecto ? "Depositada" : esDe(n, V.decreto) ? "Dictado" : "Promulgada") : null,
     };
   };
+  /** Un documento vecino: su formato y el día en que se subió. */
+  const documentoVecino = (d: string) => {
+    const fecha = uno(d, V.fechaDeSubida, "literal");
+    return { detalle: uno(d, V.formato, "literal"), fecha, movimiento: fecha ? "Subido" : null };
+  };
+  const esDocumento = (n: string) => esDe(n, V.documento) && !esDe(n, V.declaracionJurada);
   // Una cita la hace una norma, que la dice, o una iniciativa, que la propone.
   const CITA: Record<string, { verbo: string; neutro: string; propuesta: string }> = {
     [V.deroga]: { verbo: "deroga", neutro: "Derogación, según el título", propuesta: "derogar" },
@@ -416,7 +431,19 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
         agregar({ grupo: "registros", verbo: "Inscrita como proveedora", neutro: "Su inscripción de proveedora", ...hacia(o), nombre: nombre(o) });
         break;
       case V.codificacion:
-        agregar({ grupo: "registros", verbo: "Su texto", neutro: "Su texto", nodo: null, href: o, externo: true, nombre: "El PDF en la Consultoría Jurídica" });
+        // El de un documento es su archivo, en el sitio de la institución; el de una norma, su PDF en la Consultoría.
+        if (esDocumento(sujeto)) {
+          const sitio = /^https?:\/\/([^/]+)/.exec(o)?.[1] ?? o;
+          agregar({ grupo: "publicaciones", verbo: "El archivo", neutro: "Su archivo", nodo: null, href: o, externo: true, nombre: `El archivo en ${sitio}` });
+        } else {
+          agregar({ grupo: "registros", verbo: "Su texto", neutro: "Su texto", nodo: null, href: o, externo: true, nombre: "El PDF en la Consultoría Jurídica" });
+        }
+        break;
+      case V.paginaDeDatos:
+        agregar({ grupo: "publicaciones", verbo: "Sus archivos", neutro: "Su página en datos.gob.do", nodo: null, href: o, externo: true, nombre: "En datos.gob.do" });
+        break;
+      case V.publicadaPor:
+        agregar({ grupo: "publicaciones", verbo: "Lo publica", neutro: "Quién lo publica", ...hacia(o), nombre: nombre(o) });
         break;
       case V.verTambien: {
         const h = hacia(o);
@@ -477,6 +504,10 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       }
     } else if (x.p === V.dirige) {
       agregar({ grupo: "cargos", verbo: "La dirige", neutro: "La dirige", ...hacia(s), nombre: nombre(s) });
+    } else if (x.p === V.publicadaPor && esDe(s, V.conjuntoDeDatos)) {
+      agregar({ grupo: "publicaciones", verbo: "Publica los datos", neutro: "Quién lo publica", ...hacia(s), nombre: nombre(s) });
+    } else if (x.p === V.publicadaPor && esDocumento(s)) {
+      agregar({ grupo: "publicaciones", verbo: "Publica el documento", neutro: "Quién lo publica", ...hacia(s), nombre: nombre(s), ...documentoVecino(s) });
     } else if (x.p === V.publicadaPor) {
       agregar({ grupo: "registros", verbo: "Publica la declaración", neutro: "Una declaración que publica", nodo: null, href: s, externo: true, nombre: nombre(s) });
     } else if (x.p === V.comprador) {
@@ -498,7 +529,11 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) });
     } else if (x.p === V.deroga || x.p === V.modifica || x.p === V.cita) {
       const c = CITA[x.p];
-      // «La deroga», «Lo modifica»; de una iniciativa, «Un proyecto propone derogarla», «Un proyecto lo cita».
+      // «La deroga», «Lo modifica»; de una iniciativa, «Un proyecto propone derogarla», «Un proyecto lo cita»; de un documento, «Un documento la cita».
+      if (esDocumento(s)) {
+        agregar({ grupo: "normas", verbo: `Un documento ${pronombre} ${c.verbo}`, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...documentoVecino(s) });
+        continue;
+      }
       const verbo = esDe(s, V.iniciativa)
         ? c.propuesta
           ? `Un proyecto propone ${c.propuesta}${pronombre}`

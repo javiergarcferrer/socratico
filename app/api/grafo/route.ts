@@ -24,8 +24,9 @@ const FORMATOS: readonly FormatoRdf[] = ["ttl", "jsonld", "nt", "trig", "nq"];
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   // La ruta de la ficha o su IRI entero (`void:uriLookupEndpoint` le pega el IRI).
-  const pedido = (params.get("nodo") ?? "").slice(0, 300);
-  const ruta = (pedido.startsWith(SITIO + "/") ? pedido.slice(SITIO.length) : pedido).slice(0, 200);
+  // Hasta 600: la ruta de un documento lleva la dirección entera de su archivo.
+  const pedido = (params.get("nodo") ?? "").slice(0, 700);
+  const ruta = (pedido.startsWith(SITIO + "/") ? pedido.slice(SITIO.length) : pedido).slice(0, 600);
   const formato = (params.get("formato") ?? "ttl") as FormatoRdf;
   if (!FORMATOS.includes(formato)) {
     return NextResponse.json({ error: "formato: ttl, jsonld, nt, trig o nq" }, { status: 400 });

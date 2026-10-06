@@ -128,6 +128,34 @@ export const enlace = {
     return `/empresas/${String(rnc).replace(/\D/g, "")}`;
   },
   /**
+   * Un documento de la biblioteca de una institución, por la dirección de su
+   * archivo sin el `https://` (`claveDocumento`):
+   * `/documentos/ogtic.gob.do/wp-content/uploads/2023/06/Decreto-403-2026.pdf`.
+   * Cada tramo va codificado: hay nombres de archivo con tildes y rayas. El
+   * archivo está en el sitio de la institución; la ficha lo describe y lo enlaza.
+   */
+  documento(clave: string): string {
+    return `/documentos/${clave.split("/").map(encodeURIComponent).join("/")}`;
+  },
+  /** La ficha de un documento por la dirección de su archivo; `null` si la dirección no es la de un documento (`claveDocumento`). */
+  documentoDeArchivo(url: string): string | null {
+    const clave = claveDocumento(url);
+    return clave ? enlace.documento(clave) : null;
+  },
+  /** Un conjunto de datos abiertos, por su nombre en datos.gob.do: `/datos/edesur-abastecimiento-de-la-demanda`. */
+  conjunto(slug: string): string {
+    return `/datos/${encodeURIComponent(slug.trim())}`;
+  },
+  /** El mismo conjunto en datos.gob.do, donde están sus archivos. */
+  conjuntoOrigen(slug: string): string {
+    return `https://datos.gob.do/dataset/${encodeURIComponent(slug.trim())}`;
+  },
+  /** La ficha de un conjunto por su dirección en datos.gob.do; `null` si la dirección no es la de un conjunto. */
+  conjuntoDeOrigen(url: string): string | null {
+    const slug = slugDeConjunto(url);
+    return slug ? enlace.conjunto(slug) : null;
+  },
+  /**
    * Un nodo en el explorador del grafo, por la ruta de su ficha:
    * `/grafo?nodo=/funcionarios/luis-rodolfo-abinader-corona`. Sin ruta, la
    * portada del explorador.
@@ -159,7 +187,9 @@ function enRuta(ruta: string): string {
  * el slug de la entidad financiera, el RNC, el número «NNN-AA» del decreto,
  * de la ley o de la resolución, el slug de la provincia, el RPE del
  * proveedor, el código del proceso de compra (tal cual, con sus espacios si
- * los trae), el SNIP de la obra o el número del SIL de la iniciativa.
+ * los trae), el SNIP de la obra, el número del SIL de la iniciativa, la
+ * dirección del archivo sin `https://` del documento (`claveDocumento`) o el
+ * nombre en datos.gob.do del conjunto de datos.
  */
 export type TipoNodoRdf =
   | "funcionario"
@@ -173,7 +203,9 @@ export type TipoNodoRdf =
   | "obra"
   | "ley"
   | "resolucion"
-  | "iniciativa";
+  | "iniciativa"
+  | "documento"
+  | "conjunto";
 
 export interface NodoRdf {
   tipo: TipoNodoRdf;
@@ -210,7 +242,38 @@ export function rutaDeNodo(n: NodoRdf): string {
       return enlace.norma(n.tipo, n.id) ?? `/normativa?q=${encodeURIComponent(n.id)}`;
     case "iniciativa":
       return enlace.iniciativa(n.id);
+    case "documento":
+      return enlace.documento(n.id);
+    case "conjunto":
+      return enlace.conjunto(n.id);
   }
+}
+
+/**
+ * La clave de documento de un archivo: su dirección sin `https://`, en NFC.
+ * `null` si no es https o trae consulta, o un `%`: la ruta de la ficha se
+ * descodifica (`nodoDeRuta`) y Next.js puede haberla descodificado ya, así
+ * que un `%` del nombre del archivo se leería como un escape (WordPress no
+ * los deja en el nombre de lo que se sube). En NFC porque un IRI va en NFC
+ * (RFC 3987) y un nombre con tildes puede llegar descompuesto: 145 archivos
+ * de la biblioteca se subieron así («Dirección» como «o» más el acento). La
+ * dirección tal como la publicó la institución la guarda la biblioteca
+ * (`documentoPorClave` de `lib/biblioteca.ts`): el servidor de la
+ * institución no iguala las dos formas.
+ */
+export function claveDocumento(url: string): string | null {
+  const m = /^https:\/\/([a-z0-9.-]+\.[a-z]{2,}\/[^?#%]+)$/i.exec(url.trim());
+  return m ? m[1].normalize("NFC") : null;
+}
+
+/** Las direcciones de los conjuntos en datos.gob.do (`enlace.conjuntoOrigen`). */
+const EN_DATOS_GOB = /^https?:\/\/datos\.gob\.do\/dataset\/([^/?#]+)\/?$/;
+
+/** El nombre de un conjunto, de su dirección en datos.gob.do; `null` si no es la de un conjunto. */
+export function slugDeConjunto(url: string): string | null {
+  const m = EN_DATOS_GOB.exec(url.trim());
+  const n = m ? nodoDeRuta(`/datos/${m[1]}`) : null;
+  return n?.tipo === "conjunto" ? n.id : null;
 }
 
 /**
@@ -248,7 +311,35 @@ export function nodoDeRuta(ruta: string): NodoRdf | null {
     const codigo = d(m[1]).trim();
     return CODIGO_DE_PROCESO.test(codigo) ? { tipo: "proceso", id: codigo } : null;
   }
+  // Un documento: el sitio y la ruta de su archivo, cada tramo descodificado, en NFC (`claveDocumento`).
+  if ((m = /^\/documentos\/([a-z0-9.-]+\.[a-z]{2,}(?:\/[^/]+)+)$/i.exec(r))) {
+    return { tipo: "documento", id: m[1].split("/").map(d).join("/").normalize("NFC") };
+  }
+  if ((m = /^\/datos\/([^/]{1,200})$/.exec(r))) {
+    const slug = d(m[1]);
+    return /^[a-z0-9_-]+$/.test(slug) ? { tipo: "conjunto", id: slug } : null;
+  }
   return null;
+}
+
+/**
+ * El nodo que alguien pide por una dirección: la ruta de una ficha, su IRI
+ * entero, la de un conjunto en datos.gob.do o la del archivo de un documento.
+ * Solo para lo que se pide (el `id` de `fetch`, `?nodo=` del explorador):
+ * cualquier dirección https puede ser un documento, y si lo es lo dice el
+ * grafo compilado, no esta función. Para clasificar los IRIs de una
+ * descripción, `nodoDeRuta`.
+ */
+export function nodoDeDireccion(texto: string, sitio: string): NodoRdf | null {
+  const x = texto.trim();
+  if (x.startsWith("/")) return nodoDeRuta(x);
+  if (x.startsWith(`${sitio}/`)) return nodoDeRuta(x.slice(sitio.length));
+  if (EN_DATOS_GOB.test(x)) {
+    const slug = slugDeConjunto(x);
+    return slug ? { tipo: "conjunto", id: slug } : null;
+  }
+  const clave = claveDocumento(x);
+  return clave ? { tipo: "documento", id: clave } : null;
 }
 
 /* -------------------------------------------------------- reconocimiento */

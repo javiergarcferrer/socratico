@@ -1,5 +1,5 @@
 {
-  "generado": "2026-10-05",
+  "generado": "2026-10-06",
   "formato": "Apache Parquet (zstd)",
   "tablas": {
     "instituciones": {
@@ -532,6 +532,51 @@
           "nombre": "proveedor_rpe",
           "tipo": "VARCHAR",
           "descripcion": "Su contratista (contratos_obra.proveedor_rpe): con el código, la clave del contrato."
+        }
+      ]
+    },
+    "conjuntos": {
+      "descripcion": "Los conjuntos de datos abiertos de datos.gob.do, con la institución del cruce que los publica (si se identificó), sus formatos y sus grupos temáticos. Sus archivos están en el portal.",
+      "fuente": "datos.gob.do",
+      "corte": "2026-09-24",
+      "filas": 1065,
+      "columnas": [
+        {
+          "nombre": "nombre",
+          "tipo": "VARCHAR",
+          "descripcion": "Su nombre en datos.gob.do, la última parte de su dirección."
+        },
+        {
+          "nombre": "titulo",
+          "tipo": "VARCHAR",
+          "descripcion": "Título."
+        },
+        {
+          "nombre": "organizacion",
+          "tipo": "VARCHAR",
+          "descripcion": "La organización que lo publica, como la nombra datos.gob.do.",
+          "propiedad": "do:organizacionPublicadora"
+        },
+        {
+          "nombre": "institucion_id",
+          "tipo": "INTEGER",
+          "descripcion": "La institución del cruce que es esa organización (instituciones.id); NULL si no se identificó.",
+          "propiedad": "soc:publicadaPor"
+        },
+        {
+          "nombre": "formatos",
+          "tipo": "VARCHAR",
+          "descripcion": "Sus formatos separados por comas, como los escribe el portal (erratas incluidas: CVS, XLXS)."
+        },
+        {
+          "nombre": "grupos",
+          "tipo": "VARCHAR",
+          "descripcion": "Sus grupos temáticos separados por comas: gestion-publica, sociedad-y-bienestar, economia, salud…"
+        },
+        {
+          "nombre": "url",
+          "tipo": "VARCHAR",
+          "descripcion": "Su ficha en Socrático."
         }
       ]
     },

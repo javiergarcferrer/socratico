@@ -224,6 +224,36 @@ for (let n = 0; n < 10; n++) for (const rpe of Object.keys(leer(`historico/prove
 const sancionadoSinContratos = [...sancionados.values()]
   .filter((p) => !p.fisica && p.rnc && p.razonSocial && !conContratos.has(String(Number(p.rpe))))
   .sort((a, b) => Number(a.rpe) - Number(b.rpe))[0];
+// Un conjunto de datos abiertos cuya organización en datos.gob.do se llama
+// exactamente como una sola institución (sin pasar por la tabla de alias):
+// el primero por su nombre en el portal.
+const catalogo = leer("catalogo.json");
+const instPorNombre = new Map();
+for (const x of instituciones) instPorNombre.set(plano(x.nombre), [...(instPorNombre.get(plano(x.nombre)) ?? []), x]);
+const conjuntoEjemplo = catalogo.conjuntos.filter((c) => instPorNombre.get(plano(c.org))?.length === 1).sort((a, b) => a.slug.localeCompare(b.slug))[0];
+// La biblioteca: cada documento, con la institución de su sitio y su título
+// como se lee (el nombre del archivo, con espacios: `tituloLegible`).
+const biblioteca = leer("documentos/filas.json");
+const ucDeSitio = new Map(leer("documentos/indice.json").fuentes.map((f) => [f.host, f.uc]));
+const institucionDeDocumento = (f) => instituciones.find((x) => x.id === ucDeSitio.get(biblioteca.hosts[f[4]])) ?? null;
+const legible = (t) => (!t.includes(" ") && /[-_]/.test(t) ? t.replace(/[-_]+/g, " ").trim() : t);
+// La ficha de un documento: la dirección de su archivo sin `https://`, en NFC (un IRI va en NFC), cada tramo codificado.
+const fichaDocumento = (url) => `/documentos/${url.replace(/^https:\/\//, "").normalize("NFC").split("/").map(encodeURIComponent).join("/")}`;
+const masReciente = (a, b) => b[1].localeCompare(a[1]) || a[3].localeCompare(b[3]);
+// El más reciente de una institución con un título que ningún otro documento repite.
+const vecesTitulo = new Map();
+for (const f of biblioteca.filas) vecesTitulo.set(plano(f[0]), (vecesTitulo.get(plano(f[0])) ?? 0) + 1);
+const documentoEjemplo = biblioteca.filas
+  .filter((f) => institucionDeDocumento(f) && vecesTitulo.get(plano(f[0])) === 1 && f[0].includes(" ") && f[0].length >= 30 && !/\d{3}-?\d{7}-?\d/.test(f[0]))
+  .sort(masReciente)[0];
+// El más reciente de una institución cuya dirección llegó con las tildes descompuestas (no está en NFC).
+const documentoDescompuesto = biblioteca.filas.filter((f) => institucionDeDocumento(f) && f[3] !== f[3].normalize("NFC")).sort(masReciente)[0];
+// El más reciente cuyo título nombra una ley que es nodo del grafo.
+const LEY_EN_TITULO = /\bLey\s+(?:(?:n[uú]m\.?|no\.?)\s*)?(\d{1,4}\s*-\s*\d{2,4})\b/i;
+const documentoConLey = biblioteca.filas
+  .map((f) => ({ f, ley: canonLey(LEY_EN_TITULO.exec(legible(f[0]))?.[1] ?? "") }))
+  .filter((x) => x.ley && esLeyNodo(x.ley) && institucionDeDocumento(x.f))
+  .sort((a, b) => masReciente(a.f, b.f))[0];
 
 /* ------------------------------------------------------------------ casos */
 
@@ -618,6 +648,70 @@ const CASOS = [
     },
   },
   {
+    pregunta: "Un conjunto de datos abiertos, por su dirección en datos.gob.do: quién lo publica y en qué formatos",
+    async correr() {
+      exigir(conjuntoEjemplo, "no hay oráculo: ningún conjunto cuya organización se llame como una institución");
+      const inst = instPorNombre.get(plano(conjuntoEjemplo.org))[0];
+      const { datos, error } = await llamar("fetch", { id: `https://datos.gob.do/dataset/${conjuntoEjemplo.slug}` });
+      exigir(!error, error);
+      exigir(datos.metadata.claseRdf === "soc:ConjuntoDeDatos", `clase ${datos.metadata.claseRdf}`);
+      exigir(datos.id === `/datos/${conjuntoEjemplo.slug}`, `el id es ${datos.id}, no su ficha`);
+      exigir(datos.text.includes(`Lo publica: ${inst.nombre}`), `no dice que lo publica ${inst.nombre}`);
+      for (const f of conjuntoEjemplo.formatos) exigir(datos.text.includes(`- Formato: ${f}`), `no dice el formato ${f}`);
+      return `${conjuntoEjemplo.slug}: ${inst.acronimo || inst.nombre}`;
+    },
+  },
+  {
+    pregunta: "Un documento de una biblioteca institucional: el buscador lleva a su nodo, y la dirección de su archivo también",
+    async correr() {
+      exigir(documentoEjemplo, "no hay oráculo: ningún documento de una institución con título único");
+      const [titulo, fecha, formato, url] = documentoEjemplo;
+      const inst = institucionDeDocumento(documentoEjemplo);
+      const ficha = fichaDocumento(url);
+      const hallado = await llamar("search", { query: titulo, type: "documento" });
+      exigir(!hallado.error, hallado.error);
+      exigir(hallado.datos.results[0]?.id === ficha, `el primero es ${hallado.datos.results[0]?.id}; debía ser ${ficha}`);
+      for (const id of [ficha, url]) {
+        const { datos, error } = await llamar("fetch", { id });
+        exigir(!error, error);
+        exigir(datos.metadata.claseRdf === "soc:Documento", `clase ${datos.metadata.claseRdf} (${id})`);
+        exigir(datos.id === ficha, `el id es ${datos.id}, no su ficha (${id})`);
+        exigir(datos.text.includes(`Lo publica: ${inst.nombre}`), `no dice que lo publica ${inst.nombre} (${id})`);
+        exigir(datos.text.includes(`- Formato: ${formato.toUpperCase()}`), `no dice su formato, ${formato} (${id})`);
+        exigir(datos.text.includes(url), `no da la dirección de su archivo (${id})`);
+      }
+      return `${inst.acronimo || inst.nombre}, ${fecha}`;
+    },
+  },
+  {
+    pregunta: "Un documento con las tildes descompuestas en su dirección se abre por las dos formas, y su archivo es el publicado",
+    async correr() {
+      exigir(documentoDescompuesto, "no hay oráculo: ningún documento con la dirección descompuesta");
+      const url = documentoDescompuesto[3];
+      const ficha = fichaDocumento(url);
+      for (const id of [url, url.normalize("NFC"), ficha]) {
+        const { datos, error } = await llamar("fetch", { id });
+        exigir(!error, `${error} (${id})`);
+        exigir(datos.metadata.claseRdf === "soc:Documento", `clase ${datos.metadata.claseRdf} (${id})`);
+        exigir(datos.id === ficha, `el id es ${datos.id}, no su ficha en NFC (${id})`);
+        exigir(datos.text.includes(url), `no da la dirección del archivo tal como se publicó (${id})`);
+      }
+      return decodeURIComponent(ficha.split("/").pop());
+    },
+  },
+  {
+    pregunta: "Un documento que nombra una ley llega a ella en un salto",
+    async correr() {
+      exigir(documentoConLey, "no hay oráculo: ningún documento de una institución nombra una ley con ficha");
+      const { f, ley } = documentoConLey;
+      const { datos, error } = await llamar("path", { from: f[3], to: `Ley ${ley}` });
+      exigir(!error, error);
+      exigir(datos.encontrado, datos.explicacion);
+      exigir(datos.saltos === 1, `${datos.saltos} saltos; el título la nombra`);
+      return `${legible(f[0]).slice(0, 60)} → Ley ${ley}`;
+    },
+  },
+  {
     pregunta: "Las páginas de search siguen una a otra, con y sin tipo",
     async correr() {
       for (const [args, porPagina] of [
@@ -773,7 +867,7 @@ const CASOS = [
       const tablas = t.datos.filas.map((f) => f[0]).join(",");
       exigir(
         tablas ===
-          "citas,contrataciones,contratos_obra,empresas,equivalencias,financieras,iniciativas,instituciones,medidas,normas,obras,obras_contratos,obras_procesos,obras_provincias,procesos,procesos_obra,proveedores,provincias",
+          "citas,conjuntos,contrataciones,contratos_obra,empresas,equivalencias,financieras,iniciativas,instituciones,medidas,normas,obras,obras_contratos,obras_procesos,obras_provincias,procesos,procesos_obra,proveedores,provincias",
         `tablas: ${tablas}`,
       );
       const p = await llamar("query", { sql: "SELECT count(*) FROM proveedores WHERE rnc IS NULL OR NOT regexp_matches(rnc, '^[0-9]{9}$')" });
@@ -785,7 +879,7 @@ const CASOS = [
         sql: "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_name IN ('normas', 'iniciativas', 'citas') AND (column_name ILIKE '%titulo%' OR column_name ILIKE '%nombre%' OR column_name ILIKE '%firma%')",
       });
       exigir(!titulos.error && titulos.datos.filas.length === 0, `columnas que nombran: ${JSON.stringify(titulos.datos?.filas ?? titulos.error)}`);
-      return "18 tablas; cada proveedor y cada contratista, atados a una empresa; normas e iniciativas sin título";
+      return "19 tablas; cada proveedor y cada contratista, atados a una empresa; normas e iniciativas sin título";
     },
   },
   {
@@ -843,6 +937,30 @@ const CASOS = [
       const s = await llamar("query", { sql: `SELECT sum(monto) FROM contratos_obra WHERE proveedor_rpe = '${mayor.rpe}'` });
       exigir(Math.abs((s.datos?.filas?.[0]?.[0] ?? 0) - suyo) < 0.5, `suma ${s.datos?.filas?.[0]?.[0] ?? s.error}, el oráculo ${suyo}`);
       return `${codigo} (RPE ${mayor.rpe}), ${mayor.obras.size} obra${mayor.obras.size === 1 ? "" : "s"}`;
+    },
+  },
+  {
+    pregunta: "SQL: los conjuntos de datos abiertos por organización, y la institución que los publica",
+    async correr() {
+      const porOrg = new Map();
+      for (const c of catalogo.conjuntos) porOrg.set(c.org, (porOrg.get(c.org) ?? 0) + 1);
+      const [org, n] = [...porOrg].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+      const { datos, error } = await llamar("query", {
+        sql: "SELECT organizacion, count(*) n FROM conjuntos GROUP BY 1 ORDER BY n DESC, organizacion LIMIT 1",
+      });
+      exigir(!error, error);
+      exigir(datos.filas[0][0] === org && datos.filas[0][1] === n, `da ${JSON.stringify(datos.filas[0])}, el oráculo ${org} con ${n}`);
+      const total = await llamar("query", { sql: "SELECT count(*) FROM conjuntos" });
+      exigir(total.datos?.filas?.[0]?.[0] === catalogo.conjuntos.length, `${total.datos?.filas?.[0]?.[0] ?? total.error} conjuntos, el oráculo ${catalogo.conjuntos.length}`);
+      const inst = instPorNombre.get(plano(conjuntoEjemplo.org))[0];
+      const i = await llamar("query", { sql: `SELECT institucion_id FROM conjuntos WHERE nombre = '${conjuntoEjemplo.slug}'` });
+      exigir(i.datos?.filas?.[0]?.[0] === inst.id, `${conjuntoEjemplo.slug}: institución ${i.datos?.filas?.[0]?.[0] ?? i.error}, el oráculo ${inst.id}`);
+      // Una institución que la tabla da existe en la de instituciones.
+      const huerfanos = await llamar("query", {
+        sql: "SELECT count(*) FROM conjuntos c LEFT JOIN instituciones i ON i.id = c.institucion_id WHERE c.institucion_id IS NOT NULL AND i.id IS NULL",
+      });
+      exigir(huerfanos.datos?.filas?.[0]?.[0] === 0, `${huerfanos.datos?.filas?.[0]?.[0] ?? huerfanos.error} conjuntos atados a una institución que no está`);
+      return `${catalogo.conjuntos.length} conjuntos; ${org}, ${n}`;
     },
   },
   {

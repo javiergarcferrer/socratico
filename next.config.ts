@@ -95,6 +95,9 @@ const nextConfig: NextConfig = {
     // La ficha de una iniciativa: los corchetes casan con la ruta tal cual, no con las otras de
     // /congreso; como subcadena casan también con /api/feed/congreso/[id], que la excluye abajo.
     "/congreso/[id]": ["./datos/grafo/ld/**"],
+    // Las de un conjunto de datos y de un documento, con corchetes: no los listados /datos y /documentos.
+    "/datos/[slug]": ["./datos/grafo/ld/**"],
+    "/documentos/[...ruta]": ["./datos/grafo/ld/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus (los procesos, además,
@@ -160,6 +163,10 @@ const nextConfig: NextConfig = {
       "/procesos/:codigo",
       "/obras/:snip(\\d+)",
       "/congreso/:id(\\d+)",
+      "/datos/:slug",
+      // La dirección del archivo, con sus barras, en un solo parámetro: uno repetido
+      // (`:ruta+`) no cabe en la consulta del destino y la redirección falla.
+      "/documentos/:ruta(.+)",
     ];
     return [
       ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { agujas, contieneTodas, plano, recortar } from "@/lib/raiz";
+import { claveDocumento } from "@/lib/grafo";
 
 /**
  * Biblioteca del Estado — un índice de los documentos (PDF, hojas de cálculo,
@@ -18,7 +19,9 @@ import { agujas, contieneTodas, plano, recortar } from "@/lib/raiz";
  *
  * La plataforma **no copia** ningún archivo: enlaza al original. El título es
  * el que puso la institución y la fecha es la de subida al sitio, no la del
- * documento; la página lo dice.
+ * documento; la página lo dice. Cada documento es un nodo del grafo con ficha
+ * propia (`enlace.documento`, por la dirección de su archivo sin `https://`),
+ * publicado por la institución de su biblioteca.
  *
  * Módulo de servidor (`node:fs`), memoizado por instancia.
  */
@@ -48,7 +51,18 @@ export interface Documento {
   fecha: string;
   tipo: TipoDocumento;
   url: string;
+  /** La biblioteca de donde se leyó (`FuenteBiblioteca.host`); el archivo puede estar en otro sitio del mismo portal. */
   host: string;
+}
+
+/**
+ * El título que se lee: el que puso la institución, salvo que sea el nombre
+ * del archivo («Decreto-403-2026-Establece-el-marco…»), que se lee con
+ * espacios. La misma regla que el buscador (`documentos()` de
+ * `scripts/build-busqueda.py`).
+ */
+export function tituloLegible(titulo: string): string {
+  return !titulo.includes(" ") && /[-_]/.test(titulo) ? titulo.replace(/[-_]+/g, " ").trim() : titulo;
 }
 
 interface Filas {
@@ -123,6 +137,37 @@ export async function buscarDocumentos(opts: {
     return { titulo, fecha, tipo, url, host: d.filas.hosts[h] };
   });
   return { docs, total: aciertos.length, pagina, paginas };
+}
+
+let memoPorClave: Promise<Map<string, number> | null> | null = null;
+
+/**
+ * Un documento por su clave de documento (`claveDocumento` de `lib/grafo.ts`:
+ * la dirección de su archivo sin `https://`, en NFC), o `null`. Devuelve la
+ * dirección tal como la publicó la institución, que es la que abre el archivo.
+ */
+export async function documentoPorClave(clave: string): Promise<Documento | null> {
+  memoPorClave ??= filas().then((d) => {
+    if (!d) return null;
+    const porClave = new Map<string, number>();
+    d.filas.filas.forEach((f, i) => {
+      const k = claveDocumento(f[3]);
+      if (k) porClave.set(k, i);
+    });
+    return porClave;
+  });
+  const [d, porClave] = await Promise.all([filas(), memoPorClave]);
+  const i = porClave?.get(clave.normalize("NFC"));
+  if (!d || i == null) return null;
+  const [titulo, fecha, tipo, u, h] = d.filas.filas[i];
+  return { titulo, fecha, tipo, url: u, host: d.filas.hosts[h] };
+}
+
+/** Todos los documentos, en el orden del índice: lo recorren el grafo y su compilador. */
+export async function todosLosDocumentos(): Promise<Documento[]> {
+  const d = await filas();
+  if (!d) throw new Error("public/data/documentos/filas.json no se pudo leer");
+  return d.filas.filas.map(([titulo, fecha, tipo, url, h]) => ({ titulo, fecha, tipo, url, host: d.filas.hosts[h] }));
 }
 
 /** Los documentos más recientes de una institución, para su ficha. */

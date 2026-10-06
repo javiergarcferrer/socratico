@@ -8,6 +8,7 @@ import { getObras } from "@/lib/obras";
 import { getDirectorioLegisladores } from "@/lib/congreso";
 import { getFuncionarios } from "@/lib/funcionarios";
 import { getFinancieras } from "@/lib/financieras";
+import { getCatalogo } from "@/lib/catalogo";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -47,21 +48,26 @@ async function rutasDeNormas(): Promise<string[]> {
  * El mapa del sitio: las vistas de cada vertical, las páginas transversales y
  * las fichas que se pueden enumerar —instituciones, provincias, obras,
  * capítulos del presupuesto, las normas de la instantánea, los legisladores
- * del período y las entidades financieras—. Procesos, iniciativas y proveedores son cientos de miles y
+ * del período, las entidades financieras y los conjuntos de datos abiertos—.
+ * Procesos, iniciativas y proveedores son cientos de miles y
  * cambian a diario: el buscador los encuentra por sus enlaces desde estas.
+ * Los documentos de las bibliotecas institucionales, tampoco: su título es
+ * el que les puso la institución y puede nombrar a una persona (por eso no
+ * entran al volcado); se llega a ellos desde la biblioteca y la institución.
  * Tampoco van las ~490 mil fichas de `/empresas`: un mapa de medio millón de
  * direcciones pasa del tope de 50 mil por archivo, cambia con cada corte
  * mensual de la DGII y casi todas son empresas que nadie busca en el
  * Estado; las que le venden se alcanzan desde su ficha de proveedor.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [obrasInst, normas, directorio, funcionarios, fiscal, financieras] = await Promise.all([
+  const [obrasInst, normas, directorio, funcionarios, fiscal, financieras, catalogo] = await Promise.all([
     getObras(),
     rutasDeNormas(),
     getDirectorioLegisladores().catch(() => null),
     getFuncionarios(),
     getFiscal(),
     getFinancieras(),
+    getCatalogo(),
   ]);
   const obras = obrasInst?.proyectos ?? [];
   const vistas = SECCIONES.flatMap((s) => s.vistas.map((v) => v.href));
@@ -113,6 +119,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })),
     ...(financieras?.entidades ?? []).map((e) => ({
       url: `${SITIO}${enlace.entidadFinanciera(e.slug)}`,
+      changeFrequency: "monthly" as const,
+    })),
+    ...(catalogo?.conjuntos ?? []).map((c) => ({
+      url: `${SITIO}${enlace.conjunto(c.slug)}`,
       changeFrequency: "monthly" as const,
     })),
   ];

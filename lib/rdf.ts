@@ -77,6 +77,7 @@ export const PREFIJOS = {
   oa: "http://www.w3.org/ns/oa#",
   adms: "http://www.w3.org/ns/adms#",
   epo: "http://data.europa.eu/a4g/ontology#",
+  dcat: "http://www.w3.org/ns/dcat#",
   sh: "http://www.w3.org/ns/shacl#",
   fabric: `${W3ID}/def/fabric#`,
   wd: "http://www.wikidata.org/entity/",

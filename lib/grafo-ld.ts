@@ -30,6 +30,16 @@ const V = {
   pagina: expandir("foaf:page"),
 } as const;
 
+/** Los tipos de archivo de una biblioteca institucional; lo que no trae extensión (el PDF de la Consultoría) es PDF. */
+const MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  xls: "application/vnd.ms-excel",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  doc: "application/msword",
+};
+const tipoMime = (url: string) => MIME[/\.([a-z0-9]{2,5})$/i.exec(url)?.[1]?.toLowerCase() ?? ""] ?? "application/pdf";
+
 /**
  * La descripción de un nodo en schema.org, para incrustarla en su ficha. Sale
  * de los triples, filtrados al sujeto: sus tipos y propiedades de schema.org,
@@ -70,7 +80,7 @@ export function aSchemaOrg(triples: Triple[], sujeto: string): Record<string, un
     if (x.p.startsWith(SCHEMA)) {
       const k = local(x.p);
       if (x.o.tipo === "literal") sumar(k, x.o.valor);
-      else if (x.o.tipo === "iri") sumar(k, x.p === SCHEMA + "encoding" ? { "@type": "MediaObject", contentUrl: x.o.valor, encodingFormat: "application/pdf" } : ref(x.o.valor));
+      else if (x.o.tipo === "iri") sumar(k, x.p === SCHEMA + "encoding" ? { "@type": "MediaObject", contentUrl: x.o.valor, encodingFormat: tipoMime(x.o.valor) } : ref(x.o.valor));
     } else if (x.p === V.mismo && x.o.tipo === "iri") {
       sumar("sameAs", url(x.o.valor));
     } else if (x.p === V.pagina && x.o.tipo === "iri") {

@@ -24,15 +24,18 @@
  *    personas jurídicas que el grafo liga a algo (proveedoras del Estado con
  *    RNC, con medidas de la DGCP, en la lista de la OFAC o supervisadas), con
  *    sus contrataciones, sus medidas, su supervisión y sus enlaces a Wikidata;
- *    los procesos de compra, las obras con sus contratos y las inscripciones
- *    de proveedor de una empresa.
+ *    los procesos de compra, las obras con sus contratos, las inscripciones
+ *    de proveedor de una empresa y los conjuntos de datos abiertos.
  *  - No entra ninguna persona natural: ni las personas con cargo ni sus
  *    cargos, ni los decretos, las leyes y las resoluciones (sus títulos
  *    nombran a quien designan, pensionan o reconocen), ni las declaraciones
- *    juradas, ni las fichas del Congreso con sus iniciativas, ni un proveedor
- *    que no esté atado a una empresa (puede ser una persona física), con todo
- *    lo que cuelga de él: sus contrataciones, sus medidas y sus contratos de
- *    obra. Un triple que toca cualquiera de esos nodos no entra.
+ *    juradas, ni las fichas del Congreso con sus iniciativas, ni los
+ *    documentos de las bibliotecas institucionales (un título puede nombrar a
+ *    una persona: «Declaración jurada de…», «Designación de…»), ni un
+ *    proveedor que no esté atado a una empresa (puede ser una persona
+ *    física), con todo lo que cuelga de él: sus contrataciones, sus medidas y
+ *    sus contratos de obra. Un triple que toca cualquiera de esos nodos no
+ *    entra.
  *
  * Se corre después de `scripts/build-grafo.mjs`. Los dos archivos se releen
  * con N3.js antes de escribirse: un volcado que no parsea no se guarda.
@@ -103,7 +106,7 @@ async function nodos() {
     }
   }
   const empresas = [...rnc].sort().map((x) => `/empresas/${x}`);
-  const compras = await K.clavesDeCompras();
+  const [compras, publicaciones] = await Promise.all([K.clavesDeCompras(), K.clavesDePublicaciones()]);
   return {
     instituciones,
     financieras,
@@ -112,6 +115,7 @@ async function nodos() {
     proveedores: compras.proveedor.filter((x) => conAlgo.has(x)).map((x) => G.enlace.proveedor(x)),
     procesos: compras.proceso.map((x) => G.enlace.proceso(x)),
     obras: compras.obra.map((x) => G.enlace.obra(x)),
+    conjuntos: publicaciones.conjunto.map((x) => G.enlace.conjunto(x)),
   };
 }
 
@@ -152,6 +156,7 @@ function esPersonal(v, declaraciones) {
     v.startsWith(`${SITIO}/funcionarios/`) ||
     v.startsWith(`${SITIO}/normativa/`) ||
     v.startsWith(`${SITIO}/congreso/`) ||
+    v.startsWith(`${SITIO}/documentos/`) ||
     v.startsWith(CONSULTORIA_PDF) ||
     declaraciones.has(v)
   );
@@ -195,10 +200,10 @@ function filtrar(porNodo) {
 
 const t0 = Date.now();
 const lista = await nodos();
-const todos = [...lista.instituciones, ...lista.financieras, ...lista.provincias, ...lista.empresas, ...lista.proveedores, ...lista.procesos, ...lista.obras];
+const todos = [...lista.instituciones, ...lista.financieras, ...lista.provincias, ...lista.empresas, ...lista.proveedores, ...lista.procesos, ...lista.obras, ...lista.conjuntos];
 console.error(
   `Nodos: ${lista.instituciones.length} instituciones, ${lista.financieras.length} financieras, ${lista.provincias.length} provincias, ${lista.empresas.length} empresas, ` +
-    `${lista.proveedores.length} proveedores, ${lista.procesos.length} procesos, ${lista.obras.length} obras`,
+    `${lista.proveedores.length} proveedores, ${lista.procesos.length} procesos, ${lista.obras.length} obras, ${lista.conjuntos.length} conjuntos de datos`,
 );
 const porNodo = [];
 for (const ruta of todos) porNodo.push(await lineasDe(ruta));
@@ -259,6 +264,7 @@ const meta = {
     proveedores: new Set(entradas.map((e) => LINEA.exec(e.linea)?.[1]).filter((x) => x && /\/proveedores\/\d+#id>$/.test(x))).size,
     procesos: lista.procesos.length,
     obras: lista.obras.length,
+    conjuntos: lista.conjuntos.length,
     sinFicha: sinFicha.length,
   },
   clases,
@@ -271,9 +277,10 @@ const meta = {
     wikidata: leer("wikidata.json").generado,
     procesos: leer("procesos.json").hasta,
     obras: leer("obras.json").corte,
+    datos: leer("catalogo.json").generado,
   },
   excluye:
-    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, las leyes y las resoluciones (sus títulos nombran personas), ni las declaraciones juradas, ni las fichas del Congreso con sus iniciativas, ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra).",
+    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, las leyes y las resoluciones (sus títulos nombran personas), ni las declaraciones juradas, ni las fichas del Congreso con sus iniciativas, ni los documentos de las bibliotecas institucionales (un título puede nombrar a una persona), ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra).",
 };
 writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
 console.error(

@@ -343,6 +343,21 @@ tabla(
   );
 }
 
+// conjuntos de datos abiertos
+tabla(
+  "conjuntos",
+  leer("catalogo.json").generado,
+  deTipo("ConjuntoDeDatos").map((s) => ({
+    nombre: clave(s, "datos"),
+    titulo: uno(s, P.etiqueta),
+    organizacion: uno(s, `${DO}organizacionPublicadora`),
+    institucion_id: numero(clave(uno(s, `${SOC}publicadaPor`), "instituciones")),
+    formatos: (S.get(s).get(`${SOC}formato`) ?? []).map((o) => o.value).join(", ") || null,
+    grupos: (S.get(s).get(`${DO}temaDeDatos`) ?? []).map((o) => o.value.replace(`${DO}datos-`, "")).join(", ") || null,
+    url: uno(s, P.pagina),
+  })),
+);
+
 // normas, iniciativas y citas: del grafo compilado (el volcado no las trae,
 // porque sus títulos nombran personas), sin el título.
 {

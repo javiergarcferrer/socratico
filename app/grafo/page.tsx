@@ -52,7 +52,7 @@ const cargar = cache(async (ruta: string) => {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { nodo } = await searchParams;
   if (nodo) {
-    const v = await cargar(nodo.slice(0, 200));
+    const v = await cargar(nodo.slice(0, 600));
     return {
       title: v ? `${v.titulo}, en el grafo` : "Nodo no encontrado",
       description: v ? `Con quién se liga ${v.titulo} en los registros del Estado, y su descripción RDF.` : undefined,
@@ -81,7 +81,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function GrafoPage({ searchParams }: Props) {
   const { nodo, q } = await searchParams;
   const consulta = (q ?? "").trim().slice(0, 120);
-  if (nodo) return <VistaNodo ruta={nodo.slice(0, 200)} consulta={consulta} />;
+  // Hasta 600: la ruta de un documento lleva la dirección entera de su archivo.
+  if (nodo) return <VistaNodo ruta={nodo.slice(0, 600)} consulta={consulta} />;
   return <Portada consulta={consulta} />;
 }
 
@@ -115,6 +116,8 @@ const LISTADO_DE_CLASE: Record<string, string> = {
   "soc:Ley": "/normativa?tipo=1",
   "soc:Resolucion": "/normativa?tipo=7",
   "soc:Iniciativa": "/congreso",
+  "soc:Documento": "/documentos",
+  "soc:ConjuntoDeDatos": "/datos",
 };
 
 async function Portada({ consulta }: { consulta: string }) {

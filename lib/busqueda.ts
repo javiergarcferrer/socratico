@@ -50,7 +50,8 @@ import {
 import { agujas, plano as planoConsulta, pruebas, sinTildes } from "@/lib/raiz";
 import { INDICE } from "@/lib/indice";
 import { PANTALLAS } from "@/lib/pantallas";
-import { enlace } from "@/lib/grafo";
+import { enlace, nodoDeRuta } from "@/lib/grafo";
+import { documentoPorClave } from "@/lib/biblioteca";
 import { llevaCedula, sinCedula } from "@/lib/padron";
 
 export type TipoResultado =
@@ -860,7 +861,8 @@ export async function resultadoPorHref(href: string): Promise<{ resultado: Resul
   }
   // La ficha de un proveedor o de un proceso sale de su identificador (que
   // `scripts/build-indice-busqueda.mjs` exige recortado, como lo deja
-  // `enlace`); la de los demás, de su dirección.
+  // `enlace`); la de un documento o un conjunto, de su dirección de fuera; la
+  // de los demás, de su dirección.
   const id = /^\/(?:proveedores|procesos)\/(.+)$/.exec(href)?.[1];
   let identificador: string | null = null;
   try {
@@ -868,12 +870,18 @@ export async function resultadoPorHref(href: string): Promise<{ resultado: Resul
   } catch {
     // Una dirección mal escapada no es la de ninguna ficha.
   }
-  const candidatos = [...corpus.donde("h", href), ...(identificador === null ? [] : corpus.donde("r", identificador))];
+  const n = nodoDeRuta(href);
+  // La dirección de fuera la guarda la biblioteca tal como se publicó (puede no estar en NFC, como la clave).
+  const deFuera =
+    n?.tipo === "documento" ? ((await documentoPorClave(n.id))?.url ?? null) : n?.tipo === "conjunto" ? enlace.conjuntoOrigen(n.id) : null;
+  const candidatos = [
+    ...corpus.donde("h", href),
+    ...(identificador === null ? [] : corpus.donde("r", identificador)),
+    ...(deFuera === null ? [] : corpus.donde("h", deFuera)),
+  ];
   for (const i of candidatos.sort((a, b) => a - b)) {
     const d = entrada(m, i);
-    const propio =
-      d.t === "proveedor" && d.r ? enlace.proveedor(d.r) : d.t === "proceso" && d.r ? enlace.proceso(d.r) : (d.h ?? null);
-    if (propio === href) return { resultado: aResultado(d, "palabra"), corte: corpus.instantaneas[d.t] ?? null };
+    if (hrefDeEntrada(d) === href) return { resultado: aResultado(d, "palabra"), corte: corpus.instantaneas[d.t] ?? null };
   }
   return null;
 }
@@ -991,6 +999,21 @@ function detalleProveedor(d: Entrada): string {
 }
 
 /**
+ * Adónde lleva una entrada del corpus: a la ficha de su nodo cuando el corpus
+ * guarda su identidad en la fuente —el RPE de un proveedor, el código de un
+ * proceso, la dirección del archivo de un documento o la del conjunto en
+ * datos.gob.do—; si no, a la dirección que trae. La misma que coteja
+ * `scripts/busqueda-grafo.mjs --comprobar` con el grafo compilado.
+ */
+export function hrefDeEntrada(d: Pick<Entrada, "t" | "h" | "r">): string | null {
+  if (d.t === "proveedor" && d.r) return enlace.proveedor(d.r);
+  if (d.t === "proceso" && d.r) return enlace.proceso(d.r);
+  if (d.t === "documento" && d.h) return enlace.documentoDeArchivo(d.h) ?? d.h;
+  if (d.t === "dato" && d.h) return enlace.conjuntoDeOrigen(d.h) ?? d.h;
+  return d.h ?? null;
+}
+
+/**
  * Varios archivos juntados en un resultado no caben en un enlace a uno solo:
  * se abre la biblioteca de documentos con ese título, en ese sitio.
  */
@@ -1009,10 +1032,7 @@ function aResultado(d: Entrada, via: Via, formatos?: string[], copias?: number):
     : proveedor
       ? detalleProveedor(d)
       : d.d;
-  let href = d.h ?? null;
-  if (proveedor && d.r) href = enlace.proveedor(d.r);
-  else if (d.t === "proceso" && d.r) href = enlace.proceso(d.r);
-  else if (archivos) href = hrefCopias(d);
+  const href = archivos ? hrefCopias(d) : hrefDeEntrada(d);
   return {
     tipo: d.t,
     // Un título oficial puede traer la cédula de una persona: no se enseña.
@@ -1020,7 +1040,8 @@ function aResultado(d: Entrada, via: Via, formatos?: string[], copias?: number):
     detalle: detalle ? sinCedula(detalle) : null,
     origen: d.o ?? null,
     href,
-    externo: d.e === 1 && !archivos,
+    // Fuera solo si lleva a la dirección de fuera que trae el corpus, no a la ficha de su nodo.
+    externo: d.e === 1 && href !== null && href === d.h,
     fecha: d.f ?? null,
     valor: d.v ?? null,
     plazas: d.n ?? null,

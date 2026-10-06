@@ -20,7 +20,8 @@
  * `scripts/build-grafo.mjs`.
  *
  * Con `--comprobar`, dice si el corpus (`public/data/busqueda/corpus.json`) y
- * el grafo dicen lo mismo: cada entrada que lleva a la ficha de un nodo lleva
+ * el grafo dicen lo mismo: cada entrada que lleva a la ficha de un nodo —un
+ * documento o un conjunto de datos, por la dirección de fuera que guarda— lleva
  * a un nodo del compilado, y a uno que ninguna otra entrada nombra; cada nodo
  * de un tipo que el buscador trae tiene su entrada, salvo los que el alcance
  * del buscador deja fuera a sabiendas (`FUERA`), que se reconocen por los
@@ -43,6 +44,7 @@ const C = await lib("grafo-compilado");
 const N = await lib("grafo-nodo");
 const G = await lib("grafo");
 const RDF = await lib("rdf");
+const B = await lib("busqueda");
 
 const V = {
   titulo: RDF.expandir("dct:title"),
@@ -142,19 +144,23 @@ const FUERA = {
 };
 /** Tipos del grafo que el buscador no trae: los abren su mapa y la vertical de empresas, que busca el padrón. */
 const NO_BUSCABLES = { provincia: "provincias", empresa: "empresas del padrón" };
+/** Tipos del corpus cuya entrada guarda la dirección de fuera de un nodo (el archivo, la página en datos.gob.do). */
+const SIEMPRE_NODO = new Set(["documento", "dato"]);
 
 async function comprobar() {
   const t0 = Date.now();
   const corpus = JSON.parse(readFileSync(path.join(RAIZ, "public", "data", "busqueda", "corpus.json"), "utf8"));
   // Cada entrada que lleva a la ficha de un nodo, por tipo y clave compilada:
-  // el mismo enlace que deriva el servidor (`lib/busqueda.ts`).
+  // el mismo enlace que deriva el servidor (`hrefDeEntrada`, `lib/busqueda.ts`).
   const enCorpus = new Map();
   const legisladores = new Set();
   const fallas = [];
   const fallar = (que, ejemplo) => fallas.push(`${que}: ${ejemplo}`);
   let enlazan = 0;
   for (const d of corpus.docs) {
-    const h = d.t === "proveedor" && d.r ? G.enlace.proveedor(d.r) : d.t === "proceso" && d.r ? G.enlace.proceso(d.r) : d.h;
+    const h = B.hrefDeEntrada(d);
+    // Un documento o un conjunto de datos es siempre un nodo: su entrada lleva a su ficha.
+    if (SIEMPRE_NODO.has(d.t) && !h?.startsWith("/")) fallar(`una entrada de ${d.t} sin ficha`, `${d.h} (${d.ti})`);
     if (typeof h !== "string" || !h.startsWith("/")) continue;
     if (d.t === "legislador") legisladores.add(h);
     const n = G.nodoDeRuta(h);

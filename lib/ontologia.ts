@@ -4,6 +4,7 @@ import { SECTORES } from "@/lib/instituciones";
 import { TIPOS_MEDIDA } from "@/lib/medidas";
 import { ETAPAS, ETAPA_DE_LA_DGCP, MODALIDADES, MODALIDAD_DE_LA_DGCP, OBJETOS, SECTORES_INVERSION } from "@/lib/vocabulario-compras";
 import { CONDICIONES_LEGISLATIVAS, TEMAS_LEGISLATIVOS, TIPOS_INICIATIVA } from "@/lib/vocabulario-congreso";
+import { GRUPOS_DE_DATOS } from "@/lib/vocabulario-datos";
 import {
   ESPACIO_V1,
   ONTOLOGIA,
@@ -56,10 +57,10 @@ import {
  * en followthemoney.tech el 01-10-2026; los de ePO, en su documentación.
  */
 
-export const VERSION = "2.2.0";
+export const VERSION = "2.3.0";
 export const PUBLICADA = "2026-10-05";
 /** La versión anterior de los dos módulos (`owl:priorVersion`). */
-export const ANTERIOR = "2.1.0";
+export const ANTERIOR = "2.2.0";
 
 /** El núcleo, neutral de país, o el módulo de la República Dominicana. */
 export type Modulo = "soc" | "do";
@@ -363,7 +364,8 @@ export const CLASES: Clase[] = [
     id: "Documento",
     etiqueta: "Documento",
     etiquetaEn: "Document",
-    comentario: "Un documento que publica el Estado: un informe, una sentencia, una declaración jurada, un acta. El texto del que salen las menciones.",
+    comentario:
+      "Un archivo que una institución publica en su portal —un informe, una resolución, una hoja de cálculo, un acta—, con su título, su formato y su fecha de subida; una declaración jurada o una sentencia son casos suyos. El grafo guarda su dirección, nunca su contenido.",
     subClaseDe: ["foaf:Document", "schema:DigitalDocument"],
     ftm: "Document",
     estado: "en-uso",
@@ -380,6 +382,17 @@ export const CLASES: Clase[] = [
     ftm: "Document",
     estado: "en-uso",
     v1: true,
+  },
+  {
+    id: "ConjuntoDeDatos",
+    etiqueta: "Conjunto de datos abiertos",
+    etiquetaEn: "Open dataset",
+    comentario:
+      "Un conjunto de datos que una organización del Estado publica en datos.gob.do, con sus formatos y su grupo temático. Sus archivos están en el portal; el grafo guarda su ficha.",
+    subClaseDe: ["dcat:Dataset", "schema:Dataset"],
+    wikidata: [{ qid: "Q1172284", relacion: "closeMatch", nombre: "conjunto de datos" }],
+    corto: "Conjunto",
+    estado: "en-uso",
   },
   {
     id: "Sentencia",
@@ -770,8 +783,8 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "objeto",
     etiqueta: "publicada por",
     etiquetaEn: "published by",
-    comentario: "La institución en cuyo portal está el documento.",
-    dominio: ["soc:Documento"],
+    comentario: "La institución en cuyo portal está el documento, o la que publica el conjunto de datos en datos.gob.do.",
+    dominio: ["soc:Documento", "soc:ConjuntoDeDatos"],
     rango: ["soc:Institucion"],
     subPropiedadDe: ["dct:publisher"],
     estado: "en-uso",
@@ -871,8 +884,8 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "cita",
     etiquetaEn: "cites",
     comentario:
-      "Una norma que nombra su título, leída con reglas fijas sobre la redacción oficial («…de la Ley núm. 87-01»). Si el verbo que la antecede dice qué le hace y quien la nombra puede hacerlo —una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos—, se afirma la propiedad más precisa (`soc:deroga`, `soc:modifica`); si no, esta. Solo se ata a una ley o a un decreto que tiene ficha.",
-    dominio: ["soc:Norma", "soc:Iniciativa"],
+      "Una norma que nombra su título, leída con reglas fijas sobre la redacción oficial («…de la Ley núm. 87-01»). Si el verbo que la antecede dice qué le hace y quien la nombra puede hacerlo —una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos—, se afirma la propiedad más precisa (`soc:deroga`, `soc:modifica`); si no, esta. Un documento de la biblioteca de una institución solo cita: no es una norma. Solo se ata a una ley o a un decreto que tiene ficha.",
+    dominio: ["soc:Norma", "soc:Iniciativa", "soc:Documento"],
     rango: ["soc:Norma"],
     subPropiedadDe: ["dct:references"],
     estado: "en-uso",
@@ -958,6 +971,30 @@ export const PROPIEDADES: Propiedad[] = [
     rango: ["rdf:langString"],
     estado: "en-uso",
     v1: true,
+  },
+  {
+    id: "formato",
+    tipo: "dato",
+    etiqueta: "formato",
+    etiquetaEn: "format",
+    comentario:
+      "El formato de un archivo (PDF, XLSX, DOCX), por su extensión, o los de un conjunto de datos, como los escribe datos.gob.do, erratas incluidas («CVS», «XLXS»).",
+    dominio: ["soc:Documento", "soc:ConjuntoDeDatos"],
+    rango: ["xsd:string"],
+    subPropiedadDe: ["dct:format"],
+    estado: "en-uso",
+  },
+  {
+    id: "fechaDeSubida",
+    tipo: "dato",
+    etiqueta: "fecha de subida",
+    etiquetaEn: "upload date",
+    comentario: "El día en que la institución subió el archivo a su portal, no el del documento: un informe de 2019 puede haberse subido en 2026.",
+    dominio: ["soc:Documento"],
+    rango: ["xsd:date"],
+    funcional: true,
+    subPropiedadDe: ["schema:uploadDate"],
+    estado: "en-uso",
   },
   {
     id: "inicioOperaciones",
@@ -1448,6 +1485,32 @@ export const PROPIEDADES: Propiedad[] = [
     estado: "en-uso",
   },
   {
+    id: "temaDeDatos",
+    modulo: "do",
+    tipo: "objeto",
+    etiqueta: "grupo temático",
+    etiquetaEn: "dataset group",
+    comentario: "El grupo temático que datos.gob.do le da al conjunto (`do:temasDeDatos`).",
+    dominio: ["soc:ConjuntoDeDatos"],
+    rango: ["skos:Concept"],
+    subPropiedadDe: ["dcat:theme"],
+    estado: "en-uso",
+  },
+  {
+    id: "organizacionPublicadora",
+    modulo: "do",
+    tipo: "dato",
+    etiqueta: "organización publicadora",
+    etiquetaEn: "publishing organization",
+    comentario:
+      "La organización que publica el conjunto, como la nombra datos.gob.do, tal cual. Si es una institución del cruce, el conjunto lleva además `soc:publicadaPor`.",
+    dominio: ["soc:ConjuntoDeDatos"],
+    rango: ["xsd:string"],
+    funcional: true,
+    obligatoriaEn: ["soc:ConjuntoDeDatos"],
+    estado: "en-uso",
+  },
+  {
     id: "tipoDeIniciativa",
     modulo: "do",
     tipo: "objeto",
@@ -1634,6 +1697,13 @@ export function esquemas(): Esquema[] {
       etiqueta: "Temas legislativos",
       comentario: "Los grupos temáticos en que el SIL de la Cámara de Diputados ordena las iniciativas.",
       conceptos: TEMAS_LEGISLATIVOS.map((x) => ({ id: `tema-${x.clave}`, etiqueta: x.nombre, definicion: `En el SIL: «${x.sil}».` })),
+    },
+    {
+      id: "temasDeDatos",
+      modulo: "do",
+      etiqueta: "Grupos de datos abiertos",
+      comentario: "Los grupos temáticos en que datos.gob.do ordena sus conjuntos de datos.",
+      conceptos: GRUPOS_DE_DATOS.map((x) => ({ id: `datos-${x.clave}`, etiqueta: x.nombre, definicion: `En datos.gob.do: «${x.portal}».` })),
     },
     {
       id: "esquemasDeIdentificador",
