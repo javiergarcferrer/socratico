@@ -135,13 +135,15 @@ export default function MobileTabBar() {
   ).filter(Boolean);
 
   const tabs = [
+    // La primera casilla es el explorador, no la portada: la plataforma se
+    // busca y se analiza en el banco de trabajo. La portada sigue en la marca.
     {
-      href: "/",
-      label: "Inicio",
+      href: "/explorar",
+      label: "Explorar",
       Icon: IconGrid,
-      activa: pathname === "/",
-      barra: "bg-ink",
-      texto: "text-ink",
+      activa: pathname === "/explorar",
+      barra: "bg-brand-500",
+      texto: "text-brand-700",
     },
     ...fijas.map((s) => ({
       href: s.href,

@@ -5,8 +5,8 @@ import { SECCIONES } from "@/lib/secciones";
 /**
  * El manifiesto de instalación. Tres decisiones aquí no son de formato:
  *
- *  · `background_color` es el papel (#f7f3ea) y `theme_color` el azul de la
- *    marca (#0b2d6b), los mismos tokens de `app/globals.css` y el mismo `themeColor`
+ *  · `background_color` es el papel (#f7f3ea) y `theme_color` la pizarra de
+ *    la cabecera (#252a31), los mismos tokens de `app/globals.css` y el mismo `themeColor`
  *    que declara el `viewport` del layout. La pantalla de arranque de Android
  *    se pinta con ellos: si desafinan, la app abre con un fogonazo de otro
  *    color antes de ser ella misma.
@@ -39,7 +39,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     orientation: "any",
     background_color: "#f7f3ea",
-    theme_color: "#0b2d6b",
+    theme_color: "#252a31",
     categories: ["government", "business", "productivity"],
     shortcuts: ACCESOS_DIRECTOS.map((id) => {
       const seccion = SECCIONES.find((s) => s.id === id)!;

@@ -3750,6 +3750,8 @@ Contraste WCAG 2.x de cada valor contra `canvas` (`#f7f3ea`), calculado sobre lo
 | Marca | `--color-marca` | `#0b2d6b` | 11.84 (`canvas` sobre `marca`) |
 | | `--color-marca-acento` | `#ff5a5f` | 4.29 sobre `marca` |
 | | `--color-marca-canto` | `#061a42` | — |
+| | `--color-cabecera` | `#252a31` | 13.04 (`canvas` sobre `cabecera`); el acento, 4.73 |
+| | `--color-cabecera-filete` | `#111418` | — |
 | Papel y tinta | `--color-canvas` | `#f7f3ea` | — |
 | | `--color-surface` | `#fdfbf5` | — |
 | | `--color-ink` | `#171d2e` | 15.15 |
@@ -3879,9 +3881,9 @@ Cada token lleva su pila de respaldo de sistema (`ui-sans-serif, system-ui…`, 
 
 - `Sello` — circular de 200×200 con tres aros, el texto en `textPath` «SOCRÁTICO · PREGÚNTALE AL ESTADO · REPÚBLICA DOMINICANA ·» (omisible con `conAro={false}`) y la «¿» con su punto en `#a63a2a` o, sobre trazo de papel, `#ff5a5f`; `role="img"`, `aria-label="Socrático"`. La usa el pie de `app/layout.tsx`.
 - `SelloCompacto` — placa de 96×96 (`rx="21"`, fondo `#0b2d6b`) con la «s» en Instrument Serif y el acento como rectángulo girado 38°; `role="img"`, `aria-label="Socrático"`. La usa `components/install-prompt.tsx`.
-- `Logotipo` — la palabra «socrático» en `font-marca` con `translate="no"`, el texto accesible «Socrático» en `sr-only` y el acento de la «á» como `span` girado 38° en `bg-marca-acento`. La usan la cabecera (26/30 px, clase `cabecera-marca`) y la placa azul del pie.
+- `Logotipo` — la palabra «socrático» en `font-marca` con `translate="no"`, el texto accesible «Socrático» en `sr-only` y el acento de la «á» como `span` girado 38° en `bg-marca-acento`. La usan la cabecera (24/26 px, clase `cabecera-marca`) y la placa azul del pie.
 
-`app/icon.svg` es la misma placa de `SelloCompacto` en SVG estático (con `Georgia` como fuente). `app/manifest.ts` declara `background_color` `#f7f3ea`, `theme_color` `#0b2d6b`, `lang` `es-DO`, `display: standalone`, `orientation: any`, `id: "/"`, el icono `/icon.svg` y tres accesos directos tomados de `SECCIONES` (licitaciones, congreso, democracia). El `viewport` de `app/layout.tsx` declara `themeColor: "#0b2d6b"`, `viewportFit: "cover"` y no fija `maximumScale` ni `userScalable`.
+`app/icon.svg` es la misma placa de `SelloCompacto` en SVG estático (con `Georgia` como fuente). `app/manifest.ts` declara `background_color` `#f7f3ea`, `theme_color` `#252a31`, `lang` `es-DO`, `display: standalone`, `orientation: any`, `id: "/"`, el icono `/icon.svg` y tres accesos directos tomados de `SECCIONES` (licitaciones, congreso, democracia). El `viewport` de `app/layout.tsx` declara `themeColor: "#252a31"` (la pizarra de la cabecera), `viewportFit: "cover"` y no fija `maximumScale` ni `userScalable`.
 
 ### 11.8 `components/ui/` — shadcn/ui
 
@@ -4040,7 +4042,7 @@ Mecánica de `lib/seguimiento.ts`: el módulo no lleva `"use client"`; `huellaDe
 
 **Fuentes de la navegación.**
 
-- `lib/secciones.ts` — `SECCIONES`: siete verticales (`licitaciones`, `finanzas`, `congreso`, `normativa`, `nomina`, `dinero`, `democracia`), cada una con `nombre`, `pregunta`, `href`, `descriptor`, `rutas` (prefijos), `vistas`, `sinVista?` y `hue`; `seccionDe(pathname)`, `vistaActiva`, `vistaActivaDe`. `BUSQUEDAS`: 17 destinos que reciben `?q=` (el segundo, `/explorar`, «El grafo entero»; su `alcance` es también la ayuda del campo «Buscar» del banco), cada uno con su `alcance` en llano.
+- `lib/secciones.ts` — `SECCIONES`: siete verticales (`licitaciones`, `finanzas`, `congreso`, `normativa`, `nomina`, `dinero`, `democracia`), cada una con `nombre`, `pregunta`, `href`, `descriptor`, `rutas` (prefijos), `vistas`, `sinVista?` y `hue`; `seccionDe(pathname)`, `vistaActiva`, `vistaActivaDe`. `BUSQUEDAS`: 17 destinos que reciben `?q=` (el primero, `/explorar`, «El grafo entero»; su `alcance` es también la ayuda del campo «Buscar» del banco), cada uno con su `alcance` en llano.
 - `lib/menu.ts` — `MENU`: tres grupos (`dinero` «Dinero público», `leyes` «Leyes», `estado` «El Estado»), diez columnas y 54 enlaces de columna, cada uno con `href`, `label`, `nota` y `tarea`; un `destacado` por grupo (`/instituciones`, `/congreso`, `/buscar`). `puntoDe` y `grupoActivo`.
 - `lib/tareas.ts` — seis tareas (`vigilar`, `buscar`, `comparar`, `leer`, `participar`, `entender`) con `etiqueta`, `nota` y `claves`; `ORDEN_TAREAS`.
 - `lib/indice.ts` — `INDICE`: cada destino una vez, derivado de `MENU` (55 destinos: los 54 de columna más `/buscar`), con `grupo`, `tema`, `seccion` y `punto`; `porTarea()`; `FUERA_DEL_INDICE`: seis páginas con su motivo (`/democracia/registro`, `/democracia/cuenta-unica/callback`, `/cuenta`, `/espacio/proyecto`, `/espacio/moderar`, `/grafo/camino`). Las 61 páginas estáticas de `app/` son los 55 destinos más esas seis (contado 2026-10-02).
@@ -4048,11 +4050,11 @@ Mecánica de `lib/seguimiento.ts`: el módulo no lleva `"use client"`; `huellaDe
 **Cromo** (`app/layout.tsx`):
 
 - Enlace «Saltar al contenido» → `#contenido`.
-- `<header class="cabecera sticky top-0 z-50">`: `Logotipo` enlazado a `/`, la leyenda «Pregúntale al Estado» desde `xl`, `Megamenu`, `Paleta` y `PuertaCuenta` (§10).
-- `Megamenu`: desde `lg`; un disparador por grupo de `MENU` (panel con columnas, notas y la tarjeta del destacado; `data-activo` por `grupoActivo`) y un cuarto enlace «Comunidad» sin panel.
+- `<header class="cabecera sticky top-0 z-50">`: la barra de navegación de una aplicación de análisis, a todo el ancho y de `--alto-cabecera` (52 px), en la pizarra de Blueprint (`--color-cabecera` #252a31, filete `--color-cabecera-filete` #111418, sin fibra; al desplazarse el filete se ahonda): `Logotipo` enlazado a `/`, la leyenda «Explorador del Estado» desde `xl`, `Megamenu`, `Paleta` y `PuertaCuenta` (§10).
+- `Megamenu`: desde `lg`; primero «Explorador» (`/explorar`), sin panel; un disparador por grupo de `MENU` (panel con columnas, notas y la tarjeta del destacado en tinte azul; `data-activo` por `grupoActivo`) y «Comunidad» sin panel. El panel se abre en el tema Blueprint (`claseCapa="tema-blueprint"` de `NavigationMenu`), y la paleta también (`DialogContent` con `tema-blueprint`); la paleta ofrece primero «El grafo entero», luego «Toda la plataforma» y luego la vertical donde está el lector.
 - `SectionBar`: dentro de una vertical (`seccionDe`), nombre con punto de matiz y pestañas de sus vistas; la vista con `seguimiento` lleva el recuento de procesos seguidos; la activa se centra al montar.
 - `<main id="contenido" tabIndex={-1} class="mx-auto max-w-6xl px-4 py-6">`.
-- `MobileTabBar` (`fixed bottom-0`, `lg:hidden`, `aria-label="Navegación principal"`): «Inicio», las vistas raíz de licitaciones, congreso y nómina (`FIJAS`) y «Más», un `Drawer` con todo `MENU`. Tocar la pestaña de la ruta actual sube al principio (`subirArriba`).
+- `MobileTabBar` (`fixed bottom-0`, `lg:hidden`, `aria-label="Navegación principal"`): «Explorar» (`/explorar`; la portada sigue en la marca), las vistas raíz de licitaciones, congreso y nómina (`FIJAS`) y «Más», un `Drawer` con todo `MENU`. Tocar la pestaña de la ruta actual sube al principio (`subirArriba`).
 - `ScrollTop`, `Rastro`, `InstallPrompt`, `SincronizarCuenta`.
 - Pie: placa `bg-marca` con `Sello` y `Logotipo`; un `<nav>` por sección de `SECCIONES` con sus vistas (columnas 2/3/5); tarjeta «Seguridad y cumplimiento» (Ley 172-13, Ley 200-04, NORTIC · OGTIC); `<nav aria-label="Pie de página">` con Inicio, Mi seguimiento, Seguridad y Estado de las fuentes.
 - `body` reserva `pb-[calc(4.5rem+env(safe-area-inset-bottom))]` bajo `lg` para la barra inferior.

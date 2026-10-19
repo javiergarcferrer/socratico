@@ -179,7 +179,7 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
   const buscando = !preguntar && q.length >= 2;
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col">
+    <div className="flex min-h-[calc(100dvh-var(--alto-cabecera))] flex-col">
       {/*
         La barra de Blueprint: el nombre de la mesa, el modo, la caja y el
         pulso del grafo. En el teléfono se apila; desde `lg` es una franja.
@@ -223,7 +223,7 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
       <div className="grid flex-1 lg:grid-cols-[15rem_minmax(0,1fr)_25rem] xl:grid-cols-[16rem_minmax(0,1fr)_27rem]">
         {/* El panel izquierdo: las clases de lo hallado y los puntos de partida. */}
         <aside aria-label="Clases y puntos de partida" className="hidden border-r border-hairline bg-surface lg:block">
-          <div className="sticky top-16 max-h-[calc(100dvh-4rem)] space-y-5 overflow-y-auto px-3 py-4">
+          <div className="sticky top-[var(--alto-cabecera)] max-h-[calc(100dvh-var(--alto-cabecera))] space-y-5 overflow-y-auto px-3 py-4">
             {buscando && datos && !datos.cedula && datos.facetas.length > 0 && (
               <nav aria-labelledby="lateral-clases">
                 <p id="lateral-clases" className="rotulo mb-2 px-1 text-ink-soft">
@@ -262,7 +262,7 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
 
         {/* El panel derecho: el nodo abierto. */}
         <aside aria-label="El nodo abierto" className="hidden border-l border-hairline bg-surface lg:block">
-          <div ref={panel} className="sticky top-16 max-h-[calc(100dvh-4rem)] overflow-y-auto">
+          <div ref={panel} className="sticky top-[var(--alto-cabecera)] max-h-[calc(100dvh-var(--alto-cabecera))] overflow-y-auto">
             {(ancho && inspector) || (
               <div className="px-4 py-5 text-sm leading-relaxed text-ink-soft">
                 <p className="rotulo text-ink-soft">Inspector</p>

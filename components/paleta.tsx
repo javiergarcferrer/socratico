@@ -165,12 +165,12 @@ export default function Paleta() {
       : [];
   const sinSeccion = !!consulta && !INDICE.some((d) => coincide(consulta, claves(d)));
 
-  // La búsqueda de la vertical en la que ya está el lector va primero: es la
-  // que más probablemente quería.
-  // «Toda la plataforma» encabeza siempre: es la que no exige saber dónde vive
-  // lo buscado.
+  // El explorador encabeza siempre: la plataforma es un grafo, y es la
+  // búsqueda que no exige saber dónde vive lo buscado y deja filtrarlo y
+  // recorrerlo. Luego «Toda la plataforma», y después la búsqueda de la
+  // vertical en la que ya está el lector, que es la que más probablemente quería.
   const peso = (d: DestinoBusqueda) =>
-    d.href === "/buscar" ? 2 : Number(!!actual && d.seccion === actual.id);
+    d.href === "/explorar" ? 3 : d.href === "/buscar" ? 2 : Number(!!actual && d.seccion === actual.id);
   const destinos = [...BUSQUEDAS].sort((a, b) => peso(b) - peso(a));
 
   return (
@@ -196,7 +196,8 @@ export default function Paleta() {
         </kbd>
       </DialogTrigger>
 
-      <DialogContent conCierre="telefono" aria-describedby="paleta-ayuda">
+      {/* La paleta se abre en el tema Blueprint, como la barra que la lanza (app/globals.css). */}
+      <DialogContent conCierre="telefono" aria-describedby="paleta-ayuda" className="tema-blueprint">
         <DialogTitle className="sr-only">Ir a una sección o buscar</DialogTitle>
         <DialogDescription id="paleta-ayuda" className="sr-only">
           Escribe el nombre de una sección o el texto que buscas. Flechas para

@@ -304,16 +304,16 @@ export interface DestinoBusqueda {
 
 export const BUSQUEDAS: DestinoBusqueda[] = [
   {
-    etiqueta: "Toda la plataforma",
-    href: "/buscar",
-    alcance:
-      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844, decretos desde 1986 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores, personas con cargo público, bancos y financieras, y proveedores con contratos desde 2015, medidas de la DGCP o contratos de obra, y ofrece seguir en cada vertical.",
-  },
-  {
     etiqueta: "El grafo entero",
     href: "/explorar",
     alcance:
       "Busca mientras escribes en las catorce clases del grafo a la vez —personas con cargo, instituciones, empresas del padrón, proveedores, compras, obras, normas, iniciativas, documentos, datos— y en el índice de la plataforma, con la cuenta de cada clase; cada resultado que es un nodo se abre al lado y se recorre por sus relaciones.",
+  },
+  {
+    etiqueta: "Toda la plataforma",
+    href: "/buscar",
+    alcance:
+      "Reconoce un RNC, una cita como «Ley 47-20» o un código de proceso y lleva directo; si no, ordena por palabra y por tema instituciones, compras del último año, leyes desde 1844, decretos desde 1986 y normativa reciente, iniciativas de Diputados, sentencias del TC y del TSE, obras, cargos de nómina con su sueldo, documentos y datos abiertos. Por palabra encuentra también legisladores, personas con cargo público, bancos y financieras, y proveedores con contratos desde 2015, medidas de la DGCP o contratos de obra, y ofrece seguir en cada vertical.",
   },
   {
     etiqueta: "Instituciones",

@@ -42,6 +42,13 @@
   --color-marca-acento: #ff5a5f;
   /* El canto de la cabecera: el mismo azul, más hondo, sin difuminar. */
   --color-marca-canto: #061a42;
+  /*
+    La cabecera (2026-10-19): la barra de navegación de una aplicación de
+    análisis, en la pizarra del tema Blueprint (§11.2), con su filete. La
+    plataforma es un explorador del grafo; la cabecera es su barra.
+  */
+  --color-cabecera: #252a31;
+  --color-cabecera-filete: #111418;
 
   /* Papel, tinta y márgenes: la superficie del documento */
   --color-canvas: #f7f3ea;
@@ -260,6 +267,8 @@
 @layer base {
   :root {
     color-scheme: light;
+    /* El alto de la cabecera: lo que se pega debajo de ella (el banco de trabajo) se desplaza esto. */
+    --alto-cabecera: 52px;
 
     /*
       Las cinco duraciones. Por debajo de 100 ms el lector percibe causa y
@@ -550,24 +559,16 @@
 }
 
 /*
-  La cabecera: la tapa del expediente. Azul
-  de la marca con la fibra del papel, luz de 1 px arriba y un canto duro de
-  2 px abajo —el borde de una hoja gruesa, no una sombra de vidrio—. Es la
-  única superficie que no se pulsa y lleva fibra: es la marca, no contenido.
-
-  Al desplazarse, y solo entonces, la tapa se asienta: la palabra se reduce
-  un poco y el canto se ahonda, atados al desplazamiento con
+  La cabecera: la barra de navegación de la mesa de análisis. Pizarra lisa,
+  sin fibra ni canto azul, con un filete de 1 px abajo, como la barra de una
+  aplicación de Blueprint. Al desplazarse, y solo entonces, el filete se
+  ahonda y la palabra se reduce un poco, atados al desplazamiento con
   `animation-timeline: scroll()`. No cambia de altura —nada de la página
-  salta—; se mueve lo que el lector movió (§Movimiento, regla 1). Donde el
-  navegador no sabe atarlo, la cabecera se queda quieta.
+  salta—; donde el navegador no sabe atarlo, la cabecera se queda quieta.
 */
 .cabecera {
-  background-color: var(--color-marca);
-  background-image: var(--grano-claro);
-  box-shadow:
-    inset 0 1px 0 0 rgb(247 243 234 / 0.1),
-    0 1px 0 0 var(--color-marca-canto),
-    0 2px 0 0 var(--color-marca-canto);
+  background-color: var(--color-cabecera);
+  box-shadow: 0 1px 0 0 var(--color-cabecera-filete);
 }
 .cabecera-marca {
   transform-origin: left center;
@@ -604,9 +605,8 @@
 @keyframes lr-cabecera-asienta {
   to {
     box-shadow:
-      inset 0 1px 0 0 rgb(247 243 234 / 0.06),
-      0 1px 0 0 var(--color-marca-canto),
-      0 3px 0 0 var(--color-marca-canto);
+      0 1px 0 0 var(--color-cabecera-filete),
+      0 2px 0 0 var(--color-cabecera-filete);
   }
 }
 @keyframes lr-marca-asienta {

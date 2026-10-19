@@ -24,9 +24,13 @@ import { IconChevronDown } from "@/components/icons";
 
 function NavigationMenu({
   className,
+  claseCapa,
   children,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Root>) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Root> & {
+  /** Clases de la capa que se abre (el panel): la cabecera le pone el tema Blueprint. */
+  claseCapa?: string;
+}) {
   return (
     <NavigationMenuPrimitive.Root
       data-slot="navigation-menu"
@@ -34,7 +38,7 @@ function NavigationMenu({
       {...props}
     >
       {children}
-      <NavigationMenuViewport />
+      <NavigationMenuViewport className={claseCapa} />
     </NavigationMenuPrimitive.Root>
   );
 }

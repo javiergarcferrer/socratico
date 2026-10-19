@@ -35,8 +35,26 @@ export default function Megamenu() {
   const enComunidad = pathname === "/comunidad" || pathname.startsWith("/comunidad/");
 
   return (
-    <NavigationMenu aria-label="Secciones" className="hidden lg:flex">
+    // El panel se abre en el tema Blueprint, como la barra de donde cuelga (app/globals.css).
+    <NavigationMenu aria-label="Secciones" className="hidden lg:flex" claseCapa="tema-blueprint">
       <NavigationMenuList>
+        {/*
+          La primera puerta es el explorador: la plataforma es un grafo, y el
+          banco de trabajo es donde se busca, se filtra y se analiza todo a la
+          vez. No abre panel: es un sitio.
+        */}
+        <NavigationMenuItem>
+          <NavigationMenuLink asChild>
+            <Link
+              href="/explorar"
+              className={navigationMenuDisparador}
+              data-activo={pathname === "/explorar"}
+              aria-current={pathname === "/explorar" ? "page" : undefined}
+            >
+              Explorador
+            </Link>
+          </NavigationMenuLink>
+        </NavigationMenuItem>
         {MENU.map((grupo) => (
           <NavigationMenuItem key={grupo.id} value={grupo.id}>
             <NavigationMenuTrigger data-activo={!enComunidad && grupoActivo(grupo, pathname)}>
@@ -74,14 +92,14 @@ export default function Megamenu() {
                 <NavigationMenuLink asChild>
                   <Link
                     href={grupo.destacado.href}
-                    className="group/destacado flex flex-col justify-between gap-6 bg-ink p-6 text-canvas transition-colors hover:bg-brand-900"
+                    className="group/destacado flex flex-col justify-between gap-6 bg-brand-50 p-6 text-ink transition-colors hover:bg-brand-100"
                   >
                     <span>
-                      <span className="rotulo text-canvas/60">Empieza aquí</span>
+                      <span className="rotulo text-ink-soft">Empieza aquí</span>
                       <span className="mt-2 block font-display text-2xl leading-tight">
                         {grupo.destacado.label}
                       </span>
-                      <span className="mt-2 block text-sm leading-relaxed text-canvas/75">
+                      <span className="mt-2 block text-sm leading-relaxed text-ink-soft">
                         {grupo.destacado.nota}
                       </span>
                     </span>

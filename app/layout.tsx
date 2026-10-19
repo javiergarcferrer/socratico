@@ -82,7 +82,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b2d6b",
+  // La pizarra de la cabecera (`--color-cabecera`): la barra del navegador sigue a la de la plataforma.
+  themeColor: "#252a31",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -135,8 +136,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           style={{ paddingTop: "env(safe-area-inset-top)" }}
         >
           {/*
-            La cabecera es la misma en todas las páginas: marca, megamenú y
-            «Buscar». Antes, en compras, el campo de licitaciones ocupaba este
+            La cabecera es la misma en todas las páginas: marca, el
+            explorador y el megamenú, y «Buscar». Antes, en compras, el campo de licitaciones ocupaba este
             sitio y en el teléfono se comía el logotipo y la paleta, así que la
             misma franja buscaba cosas distintas según la página —y quien
             tecleaba ahí un decreto desde `/licitaciones` recibía procesos—. La
@@ -144,21 +145,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             (`app/buscador.tsx`); la de aquí es siempre la de toda la
             plataforma.
           */}
-          <div className="mx-auto flex min-h-[64px] max-w-6xl items-center gap-2.5 px-4 py-2 sm:gap-4">
+          {/*
+            A todo el ancho y de 52 px, como la barra de una aplicación: la
+            plataforma es un explorador, y su barra no se encaja en la columna
+            de lectura (`--alto-cabecera`, app/globals.css).
+          */}
+          <div className="flex min-h-[var(--alto-cabecera)] items-center gap-2.5 px-4 py-1.5 sm:gap-4 lg:px-6">
             {/*
               La marca es la palabra, sola: sin
               placa, «socrático» con su acento de sello. En pantallas anchas la
               acompaña lo que promete, en el registro de la casa.
             */}
             <Link href="/" className="group/marca flex shrink-0 items-center gap-4 py-1" aria-label="Socrático, inicio">
-              <Logotipo className="cabecera-marca text-[26px] sm:text-[30px]" />
+              <Logotipo className="cabecera-marca text-[24px] sm:text-[26px]" />
               <span
                 aria-hidden
                 className="hidden border-l border-canvas/20 pl-4 font-mono text-[10.5px] font-medium uppercase leading-tight tracking-[0.16em] text-canvas/55 transition-colors group-hover/marca:text-canvas/80 xl:block"
               >
-                Pregúntale
+                Explorador
                 <br />
-                al Estado
+                del Estado
               </span>
             </Link>
 
