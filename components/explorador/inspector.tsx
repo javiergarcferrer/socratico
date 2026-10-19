@@ -58,6 +58,8 @@ export function Inspector({
   rastro,
   enfocar,
   onCargado,
+  enRed,
+  onRed,
   onAbrir,
   onVolverA,
   onCerrar,
@@ -69,6 +71,9 @@ export function Inspector({
   enfocar: boolean;
   /** El nombre del nodo, en cuanto se lee: con él entra al rastro. */
   onCargado: (ruta: string, titulo: string) => void;
+  /** Si su red está dibujada en el banco; `null` donde no se dibuja (por debajo de `lg`). */
+  enRed: boolean | null;
+  onRed: () => void;
   onAbrir: (paso: PasoRastro) => void;
   onVolverA: (indice: number) => void;
   onCerrar: () => void;
@@ -135,7 +140,7 @@ export function Inspector({
           {consulta.error.message} La lista de la izquierda sigue en pie; su ficha también se abre desde ahí.
         </EstadoVacio>
       ) : (
-        <Cuerpo n={consulta.data} rastro={rastro} onAbrir={onAbrir} titulo={titulo} />
+        <Cuerpo n={consulta.data} rastro={rastro} onAbrir={onAbrir} titulo={titulo} enRed={enRed} onRed={onRed} />
       )}
     </Card>
   );
@@ -146,11 +151,15 @@ function Cuerpo({
   rastro,
   onAbrir,
   titulo,
+  enRed,
+  onRed,
 }: {
   n: Inspeccion;
   rastro: PasoRastro[];
   onAbrir: (p: PasoRastro) => void;
   titulo: React.RefObject<HTMLHeadingElement | null>;
+  enRed: boolean | null;
+  onRed: () => void;
 }) {
   const origen = rastro[0];
   return (
@@ -173,12 +182,19 @@ function Cuerpo({
           {n.guardable && (
             <Guardar referencia={{ tipo: n.guardable as TipoEntrada, ref: n.ruta, titulo: n.titulo.slice(0, 300), href: n.ruta }} />
           )}
-          <Button asChild variant="secondary" size="sm">
-            {/* `nofollow`: la vista de un nodo repite la ficha y robots.txt no la deja rastrear. */}
-            <Link href={enlace.grafo(n.ruta)} rel="nofollow">
-              Ver su red
-            </Link>
-          </Button>
+          {enRed === null ? (
+            <Button asChild variant="secondary" size="sm">
+              {/* `nofollow`: la vista de un nodo repite la ficha y robots.txt no la deja rastrear. */}
+              <Link href={enlace.grafo(n.ruta)} rel="nofollow">
+                Ver su red
+              </Link>
+            </Button>
+          ) : (
+            // Desde `lg`, la red se dibuja en el banco mismo, encima de la lista.
+            <Button variant="secondary" size="sm" aria-pressed={enRed} onClick={onRed}>
+              Dibujar su red
+            </Button>
+          )}
           {origen && origen.ruta !== n.ruta && (
             <Button asChild variant="secondary" size="sm">
               <Link href={enlace.caminoGrafo(origen.ruta, n.ruta)} rel="nofollow">

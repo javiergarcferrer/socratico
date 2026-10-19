@@ -167,12 +167,13 @@ export const enlace = {
    * El banco de trabajo del grafo: una búsqueda, una faceta, una pregunta o
    * un nodo abierto en el inspector (`/explorar?q=…&nodo=/instituciones/4`).
    */
-  explorar(p: { q?: string | null; faceta?: string | null; modo?: "preguntar" | null; nodo?: string | null } = {}): string {
+  explorar(p: { q?: string | null; faceta?: string | null; modo?: "preguntar" | null; nodo?: string | null; vista?: "red" | null } = {}): string {
     const partes = [
       p.q ? `q=${encodeURIComponent(p.q)}` : null,
       p.faceta ? `faceta=${encodeURIComponent(p.faceta)}` : null,
       p.modo ? `modo=${p.modo}` : null,
       p.nodo ? `nodo=${enRuta(p.nodo)}` : null,
+      p.vista ? `vista=${p.vista}` : null,
     ].filter(Boolean);
     return partes.length ? `/explorar?${partes.join("&")}` : "/explorar";
   },

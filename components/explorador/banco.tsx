@@ -24,6 +24,7 @@ import { formatInt } from "@/lib/nomina";
 import { CLAVES_FACETA, type ClaveFacetaPedida, type Exploracion, type FilaExplorada } from "@/lib/explorar-tipos";
 import { Inspector, type PasoRastro } from "./inspector";
 import { Preguntar } from "./preguntar";
+import { RedDelNodo } from "./red";
 import { clicSimple } from "./clic";
 
 const MODOS = ["buscar", "preguntar"] as const;
@@ -37,6 +38,7 @@ const ESTADO_URL = {
   modo: parseAsStringLiteral(MODOS).withDefault("buscar"),
   nodo: parseAsString,
   pagina: parseAsInteger.withDefault(1),
+  vista: parseAsStringLiteral(["red"] as const),
 };
 
 export interface Ejemplo {
@@ -98,9 +100,24 @@ export function Banco({ ejemplos, preguntas }: { ejemplos: Ejemplo[]; preguntas:
     void setUrl({ q: rebotado || null, pagina: null });
   }, [rebotado, preguntar, setUrl]);
 
-  // Volver con «atrás» (o desde el rastro) a un nodo del rastro lo corta ahí; el panel vuelve arriba.
+  /*
+    El rastro sale solo de la URL, venga el cambio de un clic en el
+    inspector, en el dibujo de la red, en el rastro mismo o de «atrás» y
+    «adelante»: llegar a un nodo que está en el rastro lo corta ahí; llegar a
+    otro apila el que se dejó; abrir desde la lista empieza de cero.
+  */
+  const previo = useRef(url.nodo);
+  const reiniciar = useRef(false);
   useEffect(() => {
-    if (url.nodo) setRastro((r) => (r.includes(url.nodo!) ? r.slice(0, r.indexOf(url.nodo!)) : r));
+    const antes = previo.current;
+    previo.current = url.nodo;
+    const nodo = url.nodo;
+    if (!nodo || reiniciar.current) {
+      reiniciar.current = false;
+      setRastro([]);
+    } else {
+      setRastro((r) => (r.includes(nodo) ? r.slice(0, r.indexOf(nodo)) : antes && antes !== nodo ? [...r, antes] : r));
+    }
     if (panel.current) panel.current.scrollTop = 0;
   }, [url.nodo]);
 
@@ -113,19 +130,18 @@ export function Banco({ ejemplos, preguntas }: { ejemplos: Ejemplo[]; preguntas:
     staleTime: 10 * 60 * 1000,
   });
 
-  /** Pivota a un vecino: el nodo de donde se sale entra al rastro. */
+  /** Pivota a un vecino: el nodo de donde se sale entra al rastro (lo apila el efecto de arriba). */
   const abrir = (paso: PasoRastro) => {
     titulos.current.set(paso.ruta, paso.titulo);
-    const actual = url.nodo;
-    if (actual && actual !== paso.ruta) setRastro((r) => [...r, actual]);
     setEnfocar(true);
     void setUrl({ nodo: paso.ruta }, { history: "push" });
   };
   /** Abre un nodo desde la lista: empieza un recorrido nuevo. */
   const abrirDesdeLista = (paso: PasoRastro) => {
     titulos.current.set(paso.ruta, paso.titulo);
-    setRastro([]);
     setEnfocar(true);
+    if (paso.ruta === url.nodo) return setRastro([]);
+    reiniciar.current = true;
     void setUrl({ nodo: paso.ruta }, { history: "push" });
   };
   const volverA = (i: number) => {
@@ -133,10 +149,11 @@ export function Banco({ ejemplos, preguntas }: { ejemplos: Ejemplo[]; preguntas:
     void setUrl({ nodo: rastro[i] }, { history: "push" });
   };
   // Cerrar no apila: «atrás» después de cerrar no vuelve a abrir la hoja.
-  const cerrar = () => {
-    setRastro([]);
-    void setUrl({ nodo: null });
-  };
+  const cerrar = () => void setUrl({ nodo: null, vista: null });
+  // La red se dibuja solo desde `lg`: por debajo, sus rótulos bajarían de 12 px.
+  const enRed = ancho && !!url.nodo && url.vista === "red";
+  const hacia = (ruta: string) =>
+    enlace.explorar({ q: url.q || null, faceta: url.faceta, modo: preguntar ? "preguntar" : null, nodo: ruta, vista: "red" });
 
   const cambiarModo = (m: string) => {
     if (!m || m === url.modo) return;
@@ -156,6 +173,8 @@ export function Banco({ ejemplos, preguntas }: { ejemplos: Ejemplo[]; preguntas:
       onAbrir={abrir}
       onVolverA={volverA}
       onCerrar={cerrar}
+      enRed={ancho ? enRed : null}
+      onRed={() => void setUrl({ vista: enRed ? null : "red" }, { history: "push" })}
     />
   ) : null;
 
@@ -189,6 +208,8 @@ export function Banco({ ejemplos, preguntas }: { ejemplos: Ejemplo[]; preguntas:
           textoBoton={preguntar ? "Preguntar" : "Buscar"}
         />
       </Card>
+
+      {enRed && <RedDelNodo ruta={url.nodo!} hacia={hacia} onCerrar={() => void setUrl({ vista: null }, { history: "push" })} />}
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-5">
         <div className="min-w-0">
