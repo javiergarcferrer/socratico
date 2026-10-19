@@ -39,6 +39,7 @@ import {
   IconCoins,
   IconDoc,
   IconFolder,
+  IconGrid,
   IconLayers,
   IconLink,
   IconPencil,
@@ -148,6 +149,13 @@ export default function Inicio() {
           </Button>
         </form>
         <div className="flex flex-wrap gap-2.5">
+          {/* El banco de trabajo: todo el grafo en una mesa, sin separarlo por vertical. */}
+          <Button asChild size="lg" className="bg-canvas text-ink hover:bg-surface">
+            <Link href={enlace.explorar()}>
+              <IconGrid className="h-4 w-4" />
+              Explorar el grafo
+            </Link>
+          </Button>
           <LlamadaCuenta sobreTinta />
           <Button
             asChild

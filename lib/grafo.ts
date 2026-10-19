@@ -163,6 +163,19 @@ export const enlace = {
   grafo(ruta?: string | null): string {
     return ruta ? `/grafo?nodo=${enRuta(ruta)}` : "/grafo";
   },
+  /**
+   * El banco de trabajo del grafo: una búsqueda, una faceta, una pregunta o
+   * un nodo abierto en el inspector (`/explorar?q=…&nodo=/instituciones/4`).
+   */
+  explorar(p: { q?: string | null; faceta?: string | null; modo?: "preguntar" | null; nodo?: string | null } = {}): string {
+    const partes = [
+      p.q ? `q=${encodeURIComponent(p.q)}` : null,
+      p.faceta ? `faceta=${encodeURIComponent(p.faceta)}` : null,
+      p.modo ? `modo=${p.modo}` : null,
+      p.nodo ? `nodo=${enRuta(p.nodo)}` : null,
+    ].filter(Boolean);
+    return partes.length ? `/explorar?${partes.join("&")}` : "/explorar";
+  },
   /** El camino más corto entre dos fichas, en el explorador. */
   caminoGrafo(de: string, a: string): string {
     return `/grafo/camino?de=${enRuta(de)}&a=${enRuta(a)}`;

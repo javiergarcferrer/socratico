@@ -144,6 +144,10 @@ exclusiones, de modo que una exclusión prevalece sobre una inclusión.
 | `/procesos`, `/proveedores/`, `/obras`, `/congreso/[id]` (los corchetes casan esa ruta y, como subcadena, `/api/feed/congreso/[id]`, al que se lo quita la exclusión de `/api/feed`), `/datos/[slug]`, `/documentos/[...ruta]` (con corchetes: no los listados `/datos` y `/documentos`) | `datos/grafo/ld/**` |
 | `/grafo` | `datos/grafo/meta.json`, `datos/grafo/nodos/**`, `datos/grafo/vecinos/**`, `datos/grafo/nombres.json.br`, `public/data/empresas/**`, `public/data/wikidata.json` |
 | `/.well-known` | `datos/grafo/meta.json` |
+| `/explorar` (casa también las tres `/api/explorar/*`) | `datos/grafo/meta.json` |
+| `/api/explorar/buscar` (y, por subcadena, la clave `/buscar` de arriba) | `public/data/busqueda/**`, `datos/grafo/meta.json`, `datos/grafo/nodos/**`, `datos/grafo/nombres.json.br`, `public/data/empresas/**` |
+| `/api/explorar/nodo` | `datos/grafo/meta.json`, `datos/grafo/nodos/**`, `datos/grafo/vecinos/**`, `public/data/empresas/**`, `public/data/wikidata.json` |
+| `/api/explorar/preguntar` | los mismos archivos que `/mcp` |
 | `/mcp` | `public/data/procesos.json`, `public/data/rnc/**`, `public/data/busqueda/**`, `public/data/historico/**`, `public/data/empresas/**`, `public/data/wikidata.json`, `datos/grafo/meta.json`, `datos/grafo/nodos/**`, `datos/grafo/vecinos/**`, `datos/grafo/compras.json`, `datos/grafo/nombres.json.br`, `datos/grafo/firmados/**` |
 | `/api/sql` | `lib/sql-hijo.cjs`, `public/tablas/*.parquet`, `node_modules/@duckdb/node-bindings-linux-x64/**` |
 
@@ -153,6 +157,7 @@ exclusiones, de modo que una exclusión prevalece sobre una inclusión.
 | `/api/sql` | `node_modules/@duckdb/node-bindings-linux-x64-musl/**` |
 | `/grafo`, `/.well-known`, `/empresas`, `/banca`, `/normativa`, `/funcionarios`, `/instituciones`, `/provincias` | `public/data/procesos.json` |
 | `/proveedores/*`, `/api/proveedores` | `public/data/busqueda/**` |
+| `/api/explorar/buscar`, `/api/explorar/nodo` (no `/explorar`: casaría con `/api/explorar/preguntar`, que lee los procesos) | `public/data/procesos.json` |
 | `/api/feed` | `datos/grafo/**` |
 
 ### 1.5 Metadatos de la aplicación
@@ -181,6 +186,7 @@ El layout envuelve el cuerpo en `NuqsAdapter` y `ProveedorConsultas`
 | `app/normativa/csv/route.ts` | 60 |
 | `app/congreso/legisladores/csv/route.ts` | 60 |
 | `app/grafo/camino/page.tsx` | 60 |
+| `app/api/explorar/preguntar/route.ts` | 60 |
 | `app/api/sql/route.ts` | 30 |
 
 **Tamaño del trazado por función** (suma de los archivos que lista cada
@@ -190,13 +196,17 @@ el `next build` del árbol actual). Vercel admite hasta 250 MB por función.
 | Función | MB |
 |---|---|
 | `/mcp` | 206.3 |
+| `/api/explorar/preguntar` ² | 206.8 |
+| `/api/explorar/buscar` ² | 184.2 |
 | `/buscar` | 115.9 |
 | `/proveedores` | 115.3 |
 | `/api/buscar` | 114.6 |
 | `/api/sql` | 77.3 |
 | `/.well-known/void` | 76.4 |
 | `/grafo`, `/grafo/camino` | 71.7 |
+| `/explorar` ² | 71.8 |
 | `/api/grafo` | 70.9 |
+| `/api/explorar/nodo` ² | 71.0 |
 | `/instituciones/[id]` | 51.6 |
 | `/fuentes` | 39.4 |
 | `/normativa/[tipo]/[numero]` | 33.6 |
@@ -212,6 +222,8 @@ el `next build` del árbol actual). Vercel admite hasta 250 MB por función.
 | `/obras/[snip]` | 14.5 |
 | `/documentos/[...ruta]` | 13.8 |
 | `/datos/[slug]` | 10.8 |
+
+² Medido 2026-10-19 sobre el `next build` del árbol que las añade. `/api/explorar/buscar` lleva el índice, el padrón y los nombres del grafo; `/api/explorar/preguntar`, lo mismo que `/mcp`; `/explorar` y `/api/explorar/nodo` solo el grafo compilado (`lib/explorar-nodo.ts` no importa el índice).
 
 **Primera llamada en Vercel** (vistas previas recién desplegadas, primera
 llamada a cada función, ida y vuelta incluida):
@@ -234,7 +246,7 @@ Conteos de archivos versionados (`git ls-files`), 2026-10-06.
 
 | Directorio | Archivos | Contenido |
 |---|---|---|
-| `app/` | 164 | Rutas del App Router: 79 `page.tsx`, 29 `route.ts` (17 bajo `app/api/`), 29 `loading.tsx`, `layout.tsx`, `globals.css`, `error.tsx`, `not-found.tsx`, `sitemap.ts`, `robots.ts`, `manifest.ts`, `icon.svg` y componentes propios de cada ruta (§3) |
+| `app/` | 169 | Rutas del App Router: 80 `page.tsx`, 32 `route.ts` (20 bajo `app/api/`), 30 `loading.tsx`, `layout.tsx`, `globals.css`, `error.tsx`, `not-found.tsx`, `sitemap.ts`, `robots.ts`, `manifest.ts`, `icon.svg` y componentes propios de cada ruta (§3) |
 | `components/` | 139 | 44 en la raíz; `ui/` 22 (shadcn/ui), `espacios/` 27, `fuentes-nuevas/` 23, `graficos/` 13, `congreso/` 4, `dinero/` 3, `nomina/` 2, `democracia/` 1 (§11) |
 | `lib/` | 103 | 102 módulos `.ts` y `sql-hijo.cjs` (§2.4) |
 | `scripts/` | 58 | Generadores de instantáneas y comprobaciones (§2.5, §6) |
@@ -274,7 +286,7 @@ y los tipos de `.next/`; excluye `node_modules`, `supabase/functions` (Deno) y
 
 ### 2.4 Módulos de `lib/` por capa
 
-104 archivos. 33 leen archivos del disco (`fs` o `node:fs`, con rutas desde
+108 archivos. 33 leen archivos del disco (`fs` o `node:fs`, con rutas desde
 `process.cwd()`) y solo corren en el servidor; 5 llevan `"use client"`
 (`busquedas.ts`, `espacios-cliente.ts`, `recientes.ts`, `sesion.ts`,
 `supabase.ts`); 18 leen la red con `lib/pedir.ts` (§4.2). Ningún módulo usa
@@ -284,7 +296,7 @@ el paquete `server-only`.
 |---|---|---|
 | Lectura (§4) | 5 | `pedir.ts`, `html.ts`, `xlsx.ts`, `documentos.ts`, `consultas.ts` |
 | Adaptadores de fuente (§5) | 55 | Por vertical, en la tabla siguiente |
-| Grafo (§7) | 14 | `grafo.ts`, `grafo-servidor.ts`, `grafo-rdf.ts`, `grafo-compilado.ts`, `grafo-constructores.ts`, `grafo-ld.ts`, `grafo-nodo.ts`, `grafo-sql.ts`, `sql-hijo.cjs`, `grafo-tablas.ts`, `rdf.ts`, `ontologia.ts`, `ontologia-esquemas.ts`, `wikidata.ts` |
+| Grafo (§7) | 18 | `grafo.ts`, `grafo-servidor.ts`, `grafo-rdf.ts`, `grafo-compilado.ts`, `grafo-constructores.ts`, `grafo-ld.ts`, `grafo-nodo.ts`, `grafo-hechos.ts` (lo que un nodo dice de sí, en llano), `explorar.ts` (la búsqueda del banco de trabajo), `explorar-nodo.ts` (su inspector y el tamaño del compilado), `explorar-tipos.ts` (lo que viaja al navegador), `grafo-sql.ts`, `sql-hijo.cjs`, `grafo-tablas.ts`, `rdf.ts`, `ontologia.ts`, `ontologia-esquemas.ts`, `wikidata.ts` |
 | Búsqueda (§8) | 5 | `busqueda.ts`, `busqueda-esquema.ts`, `buscar.ts` (atajos de `/buscar` y del middleware), `pantallas.ts`, `raiz.ts` (raíz de una palabra, con `@orama/stemmers` y `@orama/stopwords`) |
 | MCP (§9) | 3 | `mcp.ts`, `mcp-herramientas.ts`, `tablas-compras.ts` |
 | Democracia y espacios (§10) | 8 | `democracia.ts`, `supabase.ts`, `supabase-config.ts`, `sesion.ts`, `cedula.ts`, `espacios.ts`, `espacios-cliente.ts`, `ftm.ts` (exportación de un caso a FollowTheMoney) |
@@ -354,7 +366,7 @@ ejecución; «Disco»: lee instantáneas de `public/data/`; «—»: no lee nada
 
 ### 3.1 El árbol de `app/`
 
-`app/` contiene 79 `page.tsx`, 29 `route.ts` (17 bajo `app/api/`), 29 `loading.tsx`, 3 `not-found.tsx`, 1 `error.tsx`, 2 `layout.tsx`, `sitemap.ts`, `robots.ts`, `manifest.ts`, `icon.svg` y `globals.css`. `middleware.ts` vive en la raíz del repositorio (§3.7). El tipo de render de cada ruta (○ estática, ● prerenderizada con `generateStaticParams`, ƒ en cada petición) se toma de `.next/prerender-manifest.json` del `next build` sobre `0ca6472` (2026-10-02).
+`app/` contiene 80 `page.tsx`, 32 `route.ts` (20 bajo `app/api/`), 30 `loading.tsx`, 3 `not-found.tsx`, 1 `error.tsx`, 2 `layout.tsx`, `sitemap.ts`, `robots.ts`, `manifest.ts`, `icon.svg` y `globals.css`. `middleware.ts` vive en la raíz del repositorio (§3.7). El tipo de render de cada ruta (○ estática, ● prerenderizada con `generateStaticParams`, ƒ en cada petición) se toma de `.next/prerender-manifest.json` del `next build` sobre `0ca6472` (2026-10-02).
 
 | Archivo | Alcance | Qué hace |
 |---|---|---|
@@ -500,7 +512,7 @@ Componentes compartidos que leen por su cuenta en varias fichas: `components/esp
 
 | Ruta | Qué muestra | Parámetros | Lee de | Render |
 |---|---|---|---|---|
-| `/` | Portada: misión y caja de búsqueda (GET a `/buscar`); cifras de compras, presupuesto, Congreso y nómina; deuda, dólar, gasolina y remesas; los procesos que cierran esta semana, las iniciativas que se archivan al cerrar la legislatura y lo último que decretó el Ejecutivo; conversaciones de la comunidad; el índice por tema de `MENU` | — | `dgcp` (`dgcpFetch`), `congreso`, `senado` (`getCensoSenado`), `deuda`, `fiscal` (`getResumenFiscal`), `nomina-server` (`getResumenNomina`), `tasa`, `combustibles`, `macro`, `normativa` (`consultarNormativa`); navegador: `espacios` | ƒ · 1800 ¹ |
+| `/` | Portada: misión, caja de búsqueda (GET a `/buscar`) y enlace al banco de trabajo (`/explorar`); cifras de compras, presupuesto, Congreso y nómina; deuda, dólar, gasolina y remesas; los procesos que cierran esta semana, las iniciativas que se archivan al cerrar la legislatura y lo último que decretó el Ejecutivo; conversaciones de la comunidad; el índice por tema de `MENU` | — | `dgcp` (`dgcpFetch`), `congreso`, `senado` (`getCensoSenado`), `deuda`, `fiscal` (`getResumenFiscal`), `nomina-server` (`getResumenNomina`), `tasa`, `combustibles`, `macro`, `normativa` (`consultarNormativa`); navegador: `espacios` | ƒ · 1800 ¹ |
 | `/buscar` | Resultados del índice de toda la plataforma por palabra y por tema, por tipo (§8); atajo a la ficha con `rutaDirecta` | `q`, `tipo`, `pagina` | `busqueda` (`buscarEnTodo`, `buscarPantallas`), `buscar` (`rutaDirecta`), `padron` (`llevaCedula`) | ƒ |
 
 ¹ `/` y `/fuentes` declaran `revalidate` y se sirven ƒ: `consultarNormativa` pide a la Consultoría con `cache: "no-store"` (`PEDIDO` en `lib/normativa.ts`), y el build del 2026-10-02 lo registra como `Dynamic server usage`.
@@ -518,6 +530,7 @@ Componentes compartidos que leen por su cuenta en varias fichas: `components/esp
 | `/empresas/[rnc]` | Ficha de una empresa del padrón, sus medidas de la DGCP y la OFAC, schema.org | RNC `^\d{9}$` | `empresas` (`empresaPorRnc`), `sanciones` (`medidasDeRnc`, `ofacDeRnc`), `grafo-ld` | ƒ · 86400 |
 | `/provincias` | Mapa de las 32 demarcaciones y dónde están inscritos los mayores adjudicatarios | — | `provincias` (`proveedoresPorProvincia`), `mapa` (`getMapa`) | ƒ (`force-dynamic`) |
 | `/provincias/[slug]` | Una provincia: gobiernos locales, proveedores inscritos, obras, cortes de luz programados, enlace a sus legisladores, schema.org | slug; 404 si no existe | `provincias`, `obras`, `cortes` (`getCortes`), `mapa`, `funcionarios` (vía `gobierno-provincial.tsx`), `grafo-ld` | ƒ (`force-dynamic`) |
+| `/explorar` | Banco de trabajo del grafo (§7.7): banda de tinta con el tamaño del compilado (nodos, triples, clases, grafos con nombre, fecha) y, en el navegador (`components/explorador/`), «Buscar» en todas las clases a la vez con facetas contadas, «Preguntar» (la evidencia de `retrieve`) e inspector de un nodo que se recorre de arista en arista; todo el estado en la URL | `q`, `faceta`, `modo` (`preguntar`), `nodo` (ruta de ficha), `pagina` (navegador, `nuqs`) | `explorar-nodo` (`pulsoDelGrafo`); navegador: `/api/explorar/*` por TanStack Query | ○ · 86400 |
 | `/grafo` | Explorador del grafo (§7): sin `nodo`, inventario, volcado y enlaces a Wikidata; con `nodo`, los vecinos de una ficha; con `q`, nodos por nombre | `nodo` (ruta de ficha, ≤ 200), `q` | `grafo-rdf` (`inventario`, `vecindario`, `buscarNodos`, `enlacesWikidata`, `volcadoDelGrafo`) | ƒ · 86400 |
 | `/grafo/camino` | Camino más corto entre dos fichas del grafo | `de`, `a` (rutas de ficha, ≤ 200) | `grafo-rdf` (`camino`, `vecindario`) | ƒ · 86400; `maxDuration` 60 |
 | `/gestion` | Ranking del SISMAP | `tabla` (`instituciones`, `ayuntamientos`, `juntas`), `q` | `sismap` (`getSismap`) | ƒ · 86400 |
@@ -563,13 +576,16 @@ Componentes compartidos que leen por su cuenta en varias fichas: `components/esp
 
 ### 3.4 Rutas API (`app/api/`)
 
-Las 17 declaran `export const dynamic = "force-dynamic"` y responden ƒ. Un fallo del origen devuelve 502 con `{ error }` (texto plano en los dos RSS).
+Las 20 declaran `export const dynamic = "force-dynamic"` y responden ƒ. Un fallo del origen devuelve 502 con `{ error }` (texto plano en los dos RSS).
 
 | Ruta | Método | Parámetros y validación | Envuelve | Respuesta · `Cache-Control` | La llama |
 |---|---|---|---|---|---|
 | `/api/buscar` | GET | `q` recortado a 120 (menos de 2 caracteres o `llevaCedula(q)` → lista vacía); `n` 1–20, por defecto 6; `tipo` en `TIPOS_RESULTADO` (si no, 400) | `busqueda` (`buscarEnTodo`, `buscarPantallas`) | `{resultados, pantallas, total, generado}`; sin `tipo`, a lo sumo la mitad de las filas de un mismo tipo · `public, max-age=3600, s-maxage=86400` | `components/paleta.tsx`, `components/espacios/mesa-proyecto.tsx` (`buscarEnPlataforma`, `lib/consultas.ts`) |
 | `/api/congreso` | GET | `q` (sin límite), `page` ≥ 1 | `congreso` (`listIniciativas`, `normalizarIniciativa`) | `{page, pageSize, total, results}` · `public, s-maxage=300, stale-while-revalidate=900` | ningún archivo del repositorio |
 | `/api/documento` | GET | `url` en la lista de `ORIGENES_DOCUMENTO` (`esUrlDeDocumento`; si no, 400); reenvía `Range` | `documentos` y `fetch` directo (§4) | los bytes del origen, `inline`; 415 si no es PDF, imagen o texto; 413 si pasa de 40 MB sin `Range` · `public, max-age=3600, s-maxage=86400` | `components/visor-documento.tsx`, `components/lector-pdf.tsx` (`urlDeLectura`) |
+| `/api/explorar/buscar` | GET | `q` recortado a 120 (menos de 2 → 400); `faceta` en `CLAVES_FACETA` (los 13 de `TIPOS_RESULTADO`, `empresa`, `provincia`; si no, 400); `pagina` 1–`MAX_PAGINAS` (50) | `explorar` (`explorar`: `buscarEnTodo`, `buscarNodos`, `buscarEmpresas`) | `Exploracion` (`lib/explorar-tipos.ts`): `filas`, `facetas`, `total`, `pagina`, `paginas` (a lo sumo `MAX_PAGINAS`, 50), `truncado`, `cortes`, `cedula` (lo tecleado lleva una cédula: vacía y lo dice) · `public, s-maxage=3600, stale-while-revalidate=86400` | `components/explorador/banco.tsx` (`explorarGrafo`, `lib/consultas.ts`) |
+| `/api/explorar/nodo` | GET | `ruta` que empieza por `/` (≤ 600; si no, 400); 404 si no es un nodo | `explorar-nodo` (`inspeccionar`: `describir`, `relacionesDesdeTriples`, `datosDe`, `metaGrafo`) | `Inspeccion`: hechos, grupos con hasta `ARISTAS_POR_GRUPO` (40) aristas y su cuenta, `procedencia` por grafo con nombre, `guardable` · mismo `Cache-Control` | `components/explorador/inspector.tsx` (`inspeccionarNodo`) |
+| `/api/explorar/preguntar` | GET | `q` recortado a 300 (menos de 3 → 400); un `Aviso` de `recuperar` → 400 con su mensaje | `mcp` (`recuperar`, la herramienta `retrieve`, §9.2) | `Recuperacion` · mismo `Cache-Control`; `maxDuration` 60 | `components/explorador/preguntar.tsx` (`preguntarAlGrafo`) |
 | `/api/feed` | GET | `q`, `modalidad`, `uc` sin validar formato; `etapa` por `etapaPorClave` (ausente → `abiertos`; vacía o desconocida → todas); `estado` (literal de la DGCP) traducido por `etapaDe`; `mipyme=1` | `dgcp` (`listProcesos`, `startdate` = hoy − 30 días, `limit` 50) | RSS 2.0, `application/rss+xml`, `ttl` 60 · `public, max-age=600, s-maxage=600, stale-while-revalidate=1800` | enlace en `app/buscador.tsx`; `AccionesFicha` de `/instituciones/[id]` (`?uc=`) |
 | `/api/feed/congreso/[id]` | GET | `id` `^\d{1,9}$` (si no, 400) | `congreso` (`getIniciativa`, `leerHistoricos`) | RSS 2.0, un elemento por estado del SIL · mismo `Cache-Control` que `/api/feed` | `AccionesFicha` de `/congreso/[id]` |
 | `/api/grafo` | GET | `nodo`: ruta de ficha o IRI con el prefijo `SITIO` (≤ 300), debe resolver con `nodoDeRuta` (si no, 400; nodo inexistente, 404); `formato` ∈ `ttl` (por defecto), `jsonld`, `nt`, `trig`, `nq` (si no, 400) | `grafo-rdf` (`describir`, `cuadruplesDe` en `trig` y `nq`), `rdf` (`serializar`) | RDF con el `Content-Type` de `TIPO_MIME`, `Access-Control-Allow-Origin: *`, `Link` `rel="canonical"` y `rel="describedby"` · `public, s-maxage=3600, stale-while-revalidate=86400` | `enlace.rdf` (`lib/grafo.ts`), `components/en-el-grafo.tsx`; destino de la negociación de contenido (§3.7) y `void:uriLookupEndpoint` |
@@ -609,7 +625,7 @@ Las cuatro descargas CSV responden con `respuestaCsv` (`lib/csv.ts`): `text/csv;
 | Archivo | Se sirve en | Contenido | Render |
 |---|---|---|---|
 | `app/sitemap.ts` | `/sitemap.xml` | ver abajo | ○ · 86400 |
-| `app/robots.ts` | `/robots.txt` | `allow: /`; `disallow: /api/`, `/*/csv`, `/grafo?`, `/grafo/camino`; `sitemap: ${SITIO}/sitemap.xml` | ○ |
+| `app/robots.ts` | `/robots.txt` | `allow: /`; `disallow: /api/`, `/*/csv`, `/grafo?`, `/grafo/camino`, `/explorar?`; `sitemap: ${SITIO}/sitemap.xml` | ○ |
 | `app/manifest.ts` | `/manifest.webmanifest` | `id` y `start_url` `/`, `lang` `es-DO`, `display: standalone`, `orientation: any`, `background_color` `#f7f3ea`, `theme_color` `#0b2d6b`; accesos directos a Licitaciones, Congreso y Democracia (de `SECCIONES`); icono `/icon.svg` | ○ |
 | `app/icon.svg` | `/icon.svg` | el sello | ○ |
 
@@ -945,8 +961,10 @@ cuando `NODE_ENV !== "development"`.
 | `claves.buscar(q, n)` | `["buscar", q, n]` — `/api/buscar` |
 | `claves.seguimiento(tipo, id)` | `["seguimiento", tipo, id]` |
 | `claves.nomina` | `["nomina"]` — `/data/nomina.json` |
+| `claves.explorar(q, faceta, pagina)`, `claves.nodo(ruta)`, `claves.preguntar(q)` | `["explorar", …]`, `["nodo", ruta]`, `["preguntar", q]` — `/api/explorar/{buscar,nodo,preguntar}` |
 | `leerJson(url, signal)` | `fetch` con la señal de TanStack Query; un no-2xx lanza `Error` con el `error` del cuerpo o `Error <estado>`; un cuerpo que no es JSON lanza «La respuesta no se pudo leer.» |
 | `buscarEnPlataforma(q, n, signal)` | `leerJson` sobre `/api/buscar?q=…&n=…` |
+| `explorarGrafo(q, faceta, pagina, signal)`, `inspeccionarNodo(ruta, signal)`, `preguntarAlGrafo(q, signal)` | `leerJson` sobre las tres rutas de `/api/explorar/` |
 | `RespuestaBuscar` | `{ resultados?, pantallas? }` |
 
 | Consumidor | Clave | Opciones propias |
@@ -954,6 +972,9 @@ cuando `NODE_ENV !== "development"`.
 | `app/buscador.tsx` | `unidades`, `procesos` | `placeholderData: keepPreviousData`; consulta rebotada 450 ms (`useRebotado` de `components/rebotado.ts`) |
 | `components/paleta.tsx` | `buscar(q, 6)` | rebote 180 ms |
 | `components/espacios/mesa-proyecto.tsx` | `buscar(q, 8)` | `placeholderData: keepPreviousData` |
+| `components/explorador/banco.tsx` | `explorar(q, faceta, pagina)` | `placeholderData: keepPreviousData`, `staleTime` 10 min; `?q=` rebotado 280 ms (`useRebotado`); `useIsFetching` de `["preguntar"]` para el campo |
+| `components/explorador/inspector.tsx` | `nodo(ruta)` | `staleTime` 1 h |
+| `components/explorador/preguntar.tsx` | `preguntar(q)` | `staleTime` 1 h; solo con `?q=` enviado en modo «Preguntar» |
 | `app/seguimiento/page.tsx` | `seguimiento` | `retry: false` |
 | `components/nomina/explorer.tsx` | `nomina` | `retry: 1` |
 
@@ -3027,6 +3048,7 @@ Cada constructor registra cada triple con la clave de su grafo (`Afirmaciones.de
 - `describir(n)`: `leerDescripcion`; si es una empresa que no está, `describirEmpresaSola` sobre `empresaPorRnc`. `describirRuta(ruta)` la combina con `nodoDeRuta`.
 - `inventario()`, `enlacesWikidata()`: de `meta.json`. `volcadoDelGrafo()`: de `public/data/grafo/meta.json` (§7.8).
 - `relacionesDesdeTriples(triples, sujeto)`: las aristas del nodo leídas de sus triples, atravesando los nodos intermedios (cargo, contratación, contrato de obra). Cada `Relacion` lleva grupo, verbo, forma sin dirección (`neutro`), nodo de destino si es uno, `href`, nombre, detalle, movimiento, fecha y monto. `GRUPOS` (10, en orden): `cargos`, `compras` («Mayores contrataciones desde 2015»: «Contrató a» desde la institución, «Le contrató» desde la empresa o el proveedor), `procesos` («Procesos de compra»: «Lo convoca» y «Convocó» por `soc:comprador`; «Proceso de compra» desde la obra; «Contrato con» desde el proceso; «Contrato del proceso» desde el proveedor o la empresa), `obras` («Obras públicas y sus contratos»: «La ejecuta» y «Ejecuta» por `soc:ejecutadoPor`; «Para la obra» desde el proceso; «Obra en la provincia»; «Contrato con» desde la obra; «Contrato en la obra» desde el proveedor o la empresa), `normas` («Normas que nombra y que la nombran»: «Deroga», «Modifica», «Cita» desde la norma que lo dice, «Propone derogar» y «Propone modificar» desde un proyecto de ley; «La deroga», «Lo modifica», «La cita» —el pronombre concuerda: «lo» un decreto, «la» una ley o una resolución— y «Un proyecto propone derogarla», «Un proyecto la cita» desde la norma nombrada; «Se promulgó como» y «Nació del proyecto» por `soc:promulgadaComo`), `decretos`, `entidades` (con «Es la inscripción de», del proveedor a su empresa), `lugares` (con «En la provincia», de la obra), `publicaciones` («Publicaciones»: «Lo publica» desde el documento o el conjunto; «Publica los datos» y «Publica el documento» desde la institución; «El archivo», del documento a la dirección de su archivo, y «Sus archivos», del conjunto a su página en datos.gob.do, las dos fuera de la plataforma), `registros`; en `normas`, «Un documento la cita» (o «lo cita») desde la norma que nombra el título de un documento. El detalle de un documento vecino es su formato, con su fecha de subida. El detalle de una obra vecina es su valor y su estado; el de un proceso que convocó una institución, su valor estimado y su fecha; el de un contrato, su código y su estado, con su monto; el de una norma vecina, su título, y el de una iniciativa, su expediente, con su fecha («Promulgada», «Dictado» un decreto, «Depositada» una iniciativa). `CLASE_DE_TIPO` da la clase en llano de cada tipo.
+- `datosDe(triples, sujeto)` (`lib/grafo-hechos.ts`): lo que el nodo dice de sí —sus literales y los conceptos de la ontología por su etiqueta, montos en pesos, el avance en %, sin repetir el nombre ni la fecha en tres vocabularios—. Lo leen `fetch` y `retrieve` del MCP y el inspector de `/explorar`.
 - `vecindario(n)`: título, clase, nota y relaciones. `vecinosDe(n)`: del índice de vecinos; si no está (empresa sin registro), de `vecindario`.
 - `camino(de, a)`: búsqueda en anchura desde los dos extremos (avanza el lado con menos frontera; un lado agotado no cierra el otro), aristas sin dirección, `TOPE_CAMINO = { saltos: 6, fichas: 300 }`; devuelve `pasos`, `exploradas` y `motivo` (`agotado`, `saltos`, `fichas` o `null`). Se cachea con `unstable_cache` por par sin orden, clave `["grafo-camino", VERSION_CAMINO ("3"), huella del compilado, nodo, nodo]`, `revalidate: 86400`.
 - `buscarNodos(q)`: número de decreto (de `decretoCompilado`), RNC de nueve cifras, código de proceso (tal cual o en mayúsculas), «RPE 123», «SNIP 12416», «Ley 87-01» o «Resolución 48-26» (un número solo ofrece el decreto, la ley y la resolución que lo lleven) primero (`nodosPorIdentificador`, que lee el nodo del compilado); si no, personas y entidades financieras del índice de nombres, instituciones (`buscarInstituciones`) y provincias por todas las palabras; topes `TOPE_CANDIDATOS` (8 personas, 5 instituciones, 4 financieras, 16 en total) y `truncado`; el nombre exacto va primero.
@@ -3036,12 +3058,13 @@ Cada constructor registra cada triple con la clave de su grafo (`Afirmaciones.de
 | Ruta | Archivo | Qué hace |
 |---|---|---|
 | `/grafo` | `app/grafo/page.tsx` (`revalidate` 86400) | Sin `nodo`: portada con `inventario()`, enlaces a Wikidata, el volcado, las tablas, VoID y la ontología, y `?q=` (`buscarNodos`). Con `?nodo=<ruta>`: `vecindario` pintado con `RedVecinos` (`components/graficos/red-vecinos.tsx`) y la lista por grupo; metadatos `robots: { index: false, follow: true }`. |
+| `/explorar` | `app/explorar/page.tsx` (`revalidate` 86400), `components/explorador/{banco,inspector,preguntar,clic}`, `lib/explorar.ts`, `lib/explorar-nodo.ts` | El banco de trabajo. `explorar(q, faceta, pagina)`: sin faceta, primero los nodos que se llaman así (`buscarNodos`), luego las 8 primeras filas del índice, 3 empresas del padrón por nombre (`buscarEmpresas`) y el resto del índice, sin repetir un nodo; con faceta, esa clase sola, 25 por página; las páginas siguientes recorren el índice. Los nombres del grafo y el padrón se leen en toda página y con toda faceta: las facetas cuentan el índice (`porTipo`), el padrón (`total`) y los nodos por nombre, y no cambian al filtrar ni al paginar. `inspeccionar(ruta)`: `describir`, aristas por grupo y la procedencia (`d.grafos` contado por clave y nombrado con `meta.grafos`, sin `plataforma`). `pulsoDelGrafo()`: nodos (los de `meta.tipos` más `empresasSolas`), triples, clases y grafos con nombre de `meta.json`. Desde `lg` el inspector es la columna derecha, pegada bajo la cabecera; por debajo, una hoja (`BottomSheet`). Un vecino que es nodo se abre en el inspector (con clic simple; con ⌘ o Ctrl, en otra pestaña) y el que se deja entra al rastro; volver a un nodo del rastro, con el rastro o con «atrás», lo corta ahí; el nombre del nodo toma el foco al pivotar. «Camino desde» lleva a `/grafo/camino` desde el primero del rastro. En «Preguntar», `?q=` se escribe solo al enviar (cambiar de modo lo vacía y deja lo tecleado en el campo); las notas de `retrieve` que nombran herramientas del MCP o el índice se callan y el «por qué salió» se dice en llano; solo pivota a lo que `nodoDeRuta` reconoce. |
 | `/grafo/camino?de=&a=` | `app/grafo/camino/page.tsx` (`revalidate` 86400, `maxDuration` 60) | `camino()`; `robots: { index: false, follow: false }`. |
 | `/api/grafo?nodo=&formato=` | `app/api/grafo/route.ts` (`force-dynamic`) | `nodo` es la ruta de la ficha o el IRI entero (se quita `SITIO`); `formato` `ttl` (por omisión), `jsonld`, `nt`, `trig`, `nq`. 400 si el formato no es uno de esos o la ruta no es un nodo; 404 si no existe; 502 si falla. En Turtle y TriG, un comentario de cabecera con el título, el aviso de herramienta no oficial, la ficha, la ontología y la nota. `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400`, CORS `*`, `Link` con `rel="canonical"` (la ficha) y `rel="describedby"` (`/ontologia`). |
 | `/.well-known/void` | `app/.well-known/void/route.ts` (`force-static`) | VoID en Turtle: `void:Dataset`, `void:uriSpace`, `void:uriLookupEndpoint` (`/api/grafo?formato=ttl&nodo=`), vocabularios, `void:exampleResource`, una `void:classPartition` por clase del inventario con `void:entities`, el `void:Linkset` a Wikidata (`owl:sameAs`, `void:triples` 109) y el subconjunto del volcado (`void:dataDump` N-Triples y TriG, `void:triples`, `dct:modified`). |
 | `/ontologia`, `/ontologia.{ttl,jsonld,nt,shacl.ttl,fabric.ttl}` | `app/ontologia/page.tsx`, `app/ontologia.*/route.ts` | §7.2. |
 
-`app/robots.ts` veta `/api/`, `/grafo?` y `/grafo/camino`. Medidas fechadas: `/api/grafo` de una institución, una persona o un decreto, 0.02 s en `next start` recién arrancado (2026-10-02); en Vercel, primera llamada con ida y vuelta, 0.74 s una institución y 0.08–0.14 s una persona, un decreto o una empresa (2026-10-02). Tamaños de función: §1.
+`app/robots.ts` veta `/api/`, `/grafo?`, `/grafo/camino` y `/explorar?` (se indexa solo la portada del banco). Medidas fechadas: `/api/grafo` de una institución, una persona o un decreto, 0.02 s en `next start` recién arrancado (2026-10-02); en Vercel, primera llamada con ida y vuelta, 0.74 s una institución y 0.08–0.14 s una persona, un decreto o una empresa (2026-10-02). Tamaños de función: §1.
 
 ### 7.8 Volcado sin personas naturales (`public/data/grafo/`)
 
@@ -3237,7 +3260,7 @@ Nueve, registradas en este orden. Todas con `annotations` `{ readOnlyHint: true,
 |---|---|---|
 | `search` | `query` (1–1000), `type` (uno de los 13 de `TIPOS_RESULTADO`), `page` (1–100) | `buscarEnTodo` (20 por página; 30 con `type`); en la primera página sin tipo, además: decreto por número (`decretoCompilado`), empresa por RNC (`empresaPorRnc`), provincias por nombre (hasta 4) y empresas del padrón por nombre (`buscarEmpresas`, hasta 5); tope 30. Devuelve `results` (`id`, `title`, `url`, `text`), `tipo`, `total`, `pagina`, `paginas`. |
 | `fetch` | `id` (1–500), `group` (uno de los 10 `GRUPOS`), `page` (1–1000) | Un nodo: `describir`, `relacionesDesdeTriples` (hasta 15 por grupo, `POR_GRUPO_FETCH`), datos en llano (valores y montos en pesos, el avance en %, los conceptos por su etiqueta), medidas de la DGCP, compras (institución: `historiaDeInstitucion`, `getResumenHistorico`, `comprasPublicadas`; empresa inscrita: `todosLosProveedores` e `historiaDeProveedor`; proveedor: `comprasDeProveedor`; proceso: lo que la tabla no trae, con sus campos en `metadata` (`detalleDeProceso`)) y procedencia del `inventario`. Un documento pedido por la dirección de su archivo y un conjunto por su página en datos.gob.do abren su nodo (`nodoDeDireccion`). Una ley o una resolución sin nodo, una sentencia u otro registro del índice: `resultadoPorHref`. Con `group`/`page`, el grupo entero de 50 en 50 (`POR_PAGINA_RELACIONES`). Devuelve `id`, `title`, `text`, `url`, `metadata`. |
-| `retrieve` | `query` (1–300), `limit` (1–20; 10 por omisión) | `buscarEnTodo` y `buscarPantallas` con la pregunta; por cada nombre propio (`nombresPropios`), `buscarNodos` y `buscarEnTodo`; siglas en mayúsculas de una institución; hasta 3 entidades con 12 hechos, 5 relaciones por grupo y sus compras (`contextoDeNodo`): las que la pregunta nombra y, de los diez primeros resultados del buscador, los nodos que no son registros (`REGISTROS`: un proceso, una obra, un proveedor, una iniciativa, un documento o un conjunto de datos van como evidencia; un proveedor con RNC trae como entidad a su empresa; una ley o una resolución sí entran, como un decreto); según `INTENCION` (expresiones sobre la forma plana: compras, mayor, reciente, abierta, contratado, dirige, decretos, vínculo) corre `compras()`, `historial()` o `cadena()`; `todosLosProveedores` solo si nombra a alguien que el grafo no ata, `todosLosProcesos` solo si dice un año. Topes `TOPE_RECUPERAR`. |
+| `retrieve` | `query` (1–300), `limit` (1–20; 10 por omisión) | `buscarEnTodo` y `buscarPantallas` con la pregunta; por cada nombre propio (`nombresPropios`), `buscarNodos` y `buscarEnTodo`; siglas en mayúsculas de una institución; hasta 3 entidades con 12 hechos, 5 relaciones por grupo y sus compras (`contextoDeNodo`): las que la pregunta nombra y, de los diez primeros resultados del buscador, los nodos que no son registros (`REGISTROS`: un proceso, una obra, un proveedor, una iniciativa, un documento o un conjunto de datos van como evidencia; un proveedor con RNC trae como entidad a su empresa; una ley o una resolución sí entran, como un decreto); según `INTENCION` (expresiones sobre la forma plana: compras, mayor, reciente, abierta, contratado, dirige, decretos, vínculo) corre `compras()`, `historial()` o `cadena()`; `todosLosProveedores` solo si nombra a alguien que el grafo no ata, `todosLosProcesos` solo si dice un año. Topes `TOPE_RECUPERAR`. `recuperar` se exporta: es también el modo «Preguntar» de `/explorar` (`/api/explorar/preguntar`). |
 | `procurement` | `text` (alternativas con « \| »), `institution`, `year`, `from`, `to`, `status[]` (`abierto`, `cerrado`, `evaluacion`, `adjudicado`, `desierto`, `cancelado`, `suspendido`), `method[]` (`lpn`, `lpi`, `lpa`, `restringida`, `comparacion`, `subasta`, `sorteo`, `menor`, `umbral`, `excepcion`), `category` (`bienes`, `obras`, `servicios`), `minAmount`, `maxAmount`, `sort` (`monto`, `monto_asc`, `fecha`, `fecha_asc`), `page` | `todosLosProcesos` (`public/data/procesos.json`, `lib/tablas-compras.ts`): total, suma, desglose por estado, 10 instituciones que más suman, 25 por página. |
 | `contracting_history` | `supplier`, `institution`, `page` (1–4) | `lib/historico.ts` (`public/data/historico/`) y `todosLosProveedores` (`historico/proveedores/` y `public/data/rnc/`): un proveedor (id, RPE, RNC o nombre), una institución, el par, o el país con los 100 mayores proveedores de 25 en 25. Un nombre o RNC con varios registros devuelve la lista; once cifras se rechazan. |
 | `query` | `sql` (1–8000) | `/api/sql` del despliegue que atiende (§9.4); la descripción incluye `esquemaCompacto()` y notas sobre las tablas. Devuelve `columnas`, `filas`, `truncada`, `ms`, `tablas` nombradas con fuente y corte, `descarga`, `aviso`. |
@@ -3977,7 +4000,7 @@ Trece archivos; `index.ts` reexporta todo. Solo `lectura-serie.tsx` lleva `"use 
 
 | Biblioteca | Versión en `package.json` | Dónde |
 |---|---|---|
-| `nuqs` | `^2.10.1` | `NuqsAdapter` envuelve el `<body>` en `app/layout.tsx`; `useQueryStates` en `app/buscador.tsx` y `components/campo-licitaciones.tsx` (mapa común `components/licitaciones-url.ts`), `components/nomina/explorer.tsx` y `components/buscador-url.tsx` |
+| `nuqs` | `^2.10.1` | `NuqsAdapter` envuelve el `<body>` en `app/layout.tsx`; `useQueryStates` en `app/buscador.tsx` y `components/campo-licitaciones.tsx` (mapa común `components/licitaciones-url.ts`), `components/nomina/explorer.tsx`, `components/buscador-url.tsx` y `components/explorador/banco.tsx` |
 | `@tanstack/react-query` | `^5.104.0` | `ProveedorConsultas` (`components/consultas.tsx`) envuelve el cuerpo: `staleTime` 60 s, `retry: 0`, `refetchOnWindowFocus: false`; claves y lectores en `lib/consultas.ts` (`claves.unidades`, `procesos`, `buscar`, `seguimiento`, `nomina`; `leerJson`, `buscarEnPlataforma`). Lo usan `app/buscador.tsx`, `app/seguimiento/page.tsx`, `components/paleta.tsx`, `components/nomina/explorer.tsx` y `components/espacios/mesa-proyecto.tsx`; `placeholderData: keepPreviousData` en `app/buscador.tsx` y `mesa-proyecto.tsx` |
 | `@tanstack/react-query-devtools` | `^5.104.0` (devDependency) | `ReactQueryDevtools` en `components/consultas.tsx` |
 | `@tanstack/react-virtual` | `^3.14.13` | `components/nomina/data-table.tsx` (`useVirtualizer` con `measureElement`); el orden lo hace `components/nomina/explorer.tsx` con `Array.prototype.sort` |

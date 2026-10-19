@@ -164,6 +164,7 @@ export const MENU: GrupoMenu[] = [
           { href: "/funcionarios", label: "Funcionarios", nota: "Quién ocupa cada cargo público y qué decreto lo nombró", tarea: "buscar" },
           { href: "/empresas", label: "Empresas", nota: "Cualquier empresa del padrón de la DGII, por RNC o por nombre", tarea: "buscar" },
           { href: "/provincias", label: "Provincias", nota: "El Estado visto desde tu provincia", tarea: "buscar" },
+          { href: "/explorar", label: "Explorar el grafo", nota: "Busca en todo a la vez y recorre cada registro por sus relaciones", tarea: "buscar" },
           { href: "/grafo", label: "El grafo", nota: "Con quién se liga cada ficha, y el camino entre dos", tarea: "buscar" },
           { href: "/gestion", label: "Gestión pública", nota: "El ranking SISMAP de instituciones y municipios", tarea: "comparar" },
           { href: "/auditorias", label: "Auditorías y declaraciones", nota: "Quién audita a quién y quién rinde cuentas", tarea: "leer" },

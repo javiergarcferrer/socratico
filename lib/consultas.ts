@@ -21,6 +21,10 @@ export const claves = {
   seguimiento: (tipo: string, id: string) => ["seguimiento", tipo, id] as const,
   /** La instantánea de la nómina (`/data/nomina.json`). */
   nomina: ["nomina"] as const,
+  /** El banco de trabajo del grafo (`/explorar`): una búsqueda, un nodo, una pregunta. */
+  explorar: (q: string, faceta: string | null, pagina: number) => ["explorar", q, faceta, pagina] as const,
+  nodo: (ruta: string) => ["nodo", ruta] as const,
+  preguntar: (q: string) => ["preguntar", q] as const,
 };
 
 /**
@@ -47,4 +51,20 @@ export interface RespuestaBuscar<R, P = unknown> {
 
 export function buscarEnPlataforma<R, P = unknown>(q: string, n: number, signal?: AbortSignal) {
   return leerJson<RespuestaBuscar<R, P>>(`/api/buscar?q=${encodeURIComponent(q)}&n=${n}`, signal);
+}
+
+/** Las tres lecturas del banco de trabajo del grafo (`app/api/explorar/*`, `lib/explorar.ts`). */
+export function explorarGrafo<T>(q: string, faceta: string | null, pagina: number, signal?: AbortSignal) {
+  const p = new URLSearchParams({ q });
+  if (faceta) p.set("faceta", faceta);
+  if (pagina > 1) p.set("pagina", String(pagina));
+  return leerJson<T>(`/api/explorar/buscar?${p}`, signal);
+}
+
+export function inspeccionarNodo<T>(ruta: string, signal?: AbortSignal) {
+  return leerJson<T>(`/api/explorar/nodo?ruta=${encodeURIComponent(ruta)}`, signal);
+}
+
+export function preguntarAlGrafo<T>(q: string, signal?: AbortSignal) {
+  return leerJson<T>(`/api/explorar/preguntar?q=${encodeURIComponent(q)}`, signal);
 }

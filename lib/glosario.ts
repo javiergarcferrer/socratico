@@ -553,6 +553,22 @@ export const GLOSARIO = {
     llano:
       "El tribunal escuchó a las partes y dará su decisión otro día, en vez de decidir en la misma audiencia.",
   },
+  /* --------------------------------------------------------------- Grafo */
+  nodo: {
+    termino: "Nodo",
+    llano:
+      "Cada cosa de la que hablan los registros del Estado —una persona con cargo, una institución, una empresa, una compra, una ley— con su propia ficha. Lo que la liga con otra es una arista.",
+  },
+  arista: {
+    termino: "Arista",
+    llano:
+      "Un lazo entre dos nodos que dice un registro del Estado: quién ocupa un cargo en qué institución, quién firmó un decreto, a quién le contrató una institución. Cada arista sale de una fuente con su fecha.",
+  },
+  triple: {
+    termino: "Triple",
+    llano:
+      "La unidad mínima de lo que se sabe, escrita como sujeto, relación y valor: «el Ministerio de Educación — tiene por siglas — MINERD». El grafo entero son millones de ellos, en el estándar RDF, para que otras máquinas lo lean.",
+  },
 } satisfies Record<string, Glosa>;
 
 export type ClaveGlosario = keyof typeof GLOSARIO;

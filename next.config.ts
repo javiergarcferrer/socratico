@@ -55,6 +55,41 @@ const nextConfig: NextConfig = {
       "./public/data/empresas/**",
       "./public/data/wikidata.json",
     ],
+    // El banco de trabajo (`/explorar`, `lib/explorar.ts`): la búsqueda junta
+    // el índice, los nombres del grafo compilado y el padrón; el inspector
+    // describe un nodo del compilado (o una empresa por su fila del padrón) y
+    // lee de `meta.json` la fuente y el corte de cada triple; la página solo
+    // cuenta el compilado. «Preguntar» es `retrieve` del MCP: lleva lo mismo
+    // que `/mcp`. Las claves casan como subcadena: van enteras.
+    "/explorar": ["./datos/grafo/meta.json"],
+    "/api/explorar/buscar": [
+      "./public/data/busqueda/**",
+      "./datos/grafo/meta.json",
+      "./datos/grafo/nodos/**",
+      "./datos/grafo/nombres.json.br",
+      "./public/data/empresas/**",
+    ],
+    "/api/explorar/nodo": [
+      "./datos/grafo/meta.json",
+      "./datos/grafo/nodos/**",
+      "./datos/grafo/vecinos/**",
+      "./public/data/empresas/**",
+      "./public/data/wikidata.json",
+    ],
+    "/api/explorar/preguntar": [
+      "./public/data/procesos.json",
+      "./public/data/rnc/**",
+      "./public/data/busqueda/**",
+      "./public/data/historico/**",
+      "./public/data/empresas/**",
+      "./public/data/wikidata.json",
+      "./datos/grafo/meta.json",
+      "./datos/grafo/nodos/**",
+      "./datos/grafo/vecinos/**",
+      "./datos/grafo/compras.json",
+      "./datos/grafo/nombres.json.br",
+      "./datos/grafo/firmados/**",
+    ],
     // VoID cuenta las clases del grafo y sus enlaces a Wikidata: los cuenta el compilador.
     "/.well-known": ["./datos/grafo/meta.json"],
     // El servidor MCP (`lib/mcp.ts`) busca en el índice y lee el grafo
@@ -115,6 +150,9 @@ const nextConfig: NextConfig = {
     // Las claves casan como subcadena: «/grafo» es también «/api/grafo».
     "/grafo": ["./public/data/procesos.json"],
     "/.well-known": ["./public/data/procesos.json"],
+    // No «/explorar»: casaría con «/api/explorar/preguntar», que sí lee los procesos.
+    "/api/explorar/buscar": ["./public/data/procesos.json"],
+    "/api/explorar/nodo": ["./public/data/procesos.json"],
     "/empresas": ["./public/data/procesos.json"],
     "/banca": ["./public/data/procesos.json"],
     "/normativa": ["./public/data/procesos.json"],
