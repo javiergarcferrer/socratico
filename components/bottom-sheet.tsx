@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import {
   Drawer,
   DrawerBody,
@@ -32,16 +33,19 @@ export function BottomSheet({
   title,
   children,
   footer,
+  className,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Clases de la hoja: se abre en un portal, fuera del ámbito de quien la llama (el banco le pone el tema Blueprint). */
+  className?: string;
 }) {
   return (
     <Drawer open={open} onOpenChange={(v) => !v && onClose()}>
-      <DrawerContent className="max-h-[90dvh] lg:hidden">
+      <DrawerContent className={cn("max-h-[90dvh] lg:hidden", className)}>
         <DrawerHeader>
           <DrawerTitle className="text-base tracking-tight">{title}</DrawerTitle>
         </DrawerHeader>

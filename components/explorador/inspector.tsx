@@ -62,10 +62,15 @@ export function Inspector({
   onCargado,
   enRed,
   onRed,
+  pestana,
+  onPestana,
   onAbrir,
   onVolverA,
   onCerrar,
 }: {
+  /** La pestaña abierta: la lleva el banco, para que siga abierta al pivotar a un vecino. */
+  pestana: string;
+  onPestana: (p: string) => void;
   ruta: string;
   /** Los nodos por los que se llegó a este, del primero al anterior. */
   rastro: PasoRastro[];
@@ -142,7 +147,7 @@ export function Inspector({
           {consulta.error.message} La lista de la izquierda sigue en pie; su ficha también se abre desde ahí.
         </EstadoVacio>
       ) : (
-        <Cuerpo n={consulta.data} rastro={rastro} onAbrir={onAbrir} titulo={titulo} enRed={enRed} onRed={onRed} />
+        <Cuerpo n={consulta.data} rastro={rastro} onAbrir={onAbrir} titulo={titulo} enRed={enRed} onRed={onRed} pestana={pestana} onPestana={onPestana} />
       )}
     </Card>
   );
@@ -155,7 +160,11 @@ function Cuerpo({
   titulo,
   enRed,
   onRed,
+  pestana,
+  onPestana,
 }: {
+  pestana: string;
+  onPestana: (p: string) => void;
   n: Inspeccion;
   rastro: PasoRastro[];
   onAbrir: (p: PasoRastro) => void;
@@ -211,7 +220,7 @@ function Cuerpo({
         Tres pestañas, como el panel de detalle de Blueprint: lo que el nodo
         es y lo que su fuente dice hoy; con quién se liga; de dónde sale.
       */}
-      <Tabs defaultValue="resumen" className="gap-0">
+      <Tabs value={pestana} onValueChange={onPestana} className="gap-0">
         <TabsList className="px-2">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
           <TabsTrigger value="relaciones">
@@ -250,7 +259,9 @@ function Cuerpo({
         </TabsContent>
 
         <TabsContent value="procedencia">
-          {n.procedencia.length > 0 && (
+          {n.procedencia.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-ink-soft">El compilado no registra de qué fuente salen los triples de este nodo.</p>
+          ) : (
             <section aria-labelledby="inspector-procedencia" className="px-4 py-3">
               <h3 id="inspector-procedencia" className="text-sm font-bold text-ink">
                 De dónde sale

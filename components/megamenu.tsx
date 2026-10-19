@@ -57,7 +57,8 @@ export default function Megamenu() {
         </NavigationMenuItem>
         {MENU.map((grupo) => (
           <NavigationMenuItem key={grupo.id} value={grupo.id}>
-            <NavigationMenuTrigger data-activo={!enComunidad && grupoActivo(grupo, pathname)}>
+            {/* En /explorar se enciende «Explorador», no el grupo que también lo lista. */}
+            <NavigationMenuTrigger data-activo={!enComunidad && pathname !== "/explorar" && grupoActivo(grupo, pathname)}>
               {grupo.label}
             </NavigationMenuTrigger>
             <NavigationMenuContent>
@@ -140,7 +141,8 @@ function Enlace({ enlace, actual }: { enlace: EnlaceMenu; actual: boolean }) {
       <Link
         href={enlace.href}
         aria-current={actual ? "page" : undefined}
-        className="-mx-2 block rounded-md px-2 py-2 transition-colors hover:bg-canvas focus-visible:bg-canvas focus-visible:outline-none"
+        // Tinte azul y anillo al recibir el foco: sobre la pizarra del panel, el fondo de la mesa no se distinguía.
+        className="-mx-2 block rounded-md px-2 py-2 transition-colors hover:bg-brand-50 focus-visible:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span
           className={cn(

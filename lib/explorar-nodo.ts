@@ -1,6 +1,6 @@
 import { nodoDeRuta, rutaDeNodo, type TipoNodoRdf } from "@/lib/grafo";
 import { CLASE_DE_TIPO, GRUPOS, claveNodo, describir, iriDe, relacionesDesdeTriples } from "@/lib/grafo-rdf";
-import { metaGrafo } from "@/lib/grafo-compilado";
+import { metaGrafo, type GrafoConNombre } from "@/lib/grafo-compilado";
 import { datosDe } from "@/lib/grafo-hechos";
 import type { TipoEntrada } from "@/lib/espacios";
 import { ARISTAS_POR_GRUPO, type Inspeccion, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
@@ -72,7 +72,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
   for (const g of d.grafos ?? []) porGrafo.set(g, (porGrafo.get(g) ?? 0) + 1);
   const procedencia: ProcedenciaVista[] = (meta?.grafos ?? [])
     .filter((g) => porGrafo.has(g.clave) && g.clave !== "plataforma")
-    .map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, corte: g.corte, derivado: !!g.derivado, triples: porGrafo.get(g.clave)! }))
+    .map((g) => ({ clave: g.clave, etiqueta: etiquetaUnica(g, meta!.grafos), corte: g.corte, derivado: !!g.derivado, triples: porGrafo.get(g.clave)! }))
     .sort((a, b) => Number(a.derivado) - Number(b.derivado) || b.triples - a.triples);
 
   return {
@@ -91,6 +91,17 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
   };
 }
 
+/**
+ * La etiqueta de un grafo con nombre, sin que dos se confundan: los titulares
+ * y los suplentes de la JCE se llaman igual en el compilado, y su fuente es
+ * lo que los distingue («Miembros Suplentes»).
+ */
+function etiquetaUnica(g: GrafoConNombre, todos: GrafoConNombre[]): string {
+  if (!todos.some((o) => o.clave !== g.clave && o.etiqueta === g.etiqueta)) return g.etiqueta;
+  const ultimo = g.fuentes[0]?.replace(/\/+$/, "").split("/").pop()?.replace(/[-_]+/g, " ");
+  return ultimo ? `${g.etiqueta} (${ultimo})` : `${g.etiqueta} (${g.clave})`;
+}
+
 /** El tamaño del grafo compilado: lo que la barra del banco dice que se está recorriendo. */
 export async function pulsoDelGrafo(): Promise<Pulso | null> {
   const m = await metaGrafo();
@@ -102,6 +113,6 @@ export async function pulsoDelGrafo(): Promise<Pulso | null> {
     .sort((a, b) => b.nodos - a.nodos);
   const fuentes = m.grafos
     .filter((g) => g.clave !== "plataforma")
-    .map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, corte: g.corte, derivado: !!g.derivado }));
+    .map((g) => ({ clave: g.clave, etiqueta: etiquetaUnica(g, m.grafos), corte: g.corte, derivado: !!g.derivado }));
   return { triples: m.triples, nodos, clases: Object.keys(m.tipos).length, grafos: m.grafos.length, compilado: m.generado, porClase, fuentes };
 }

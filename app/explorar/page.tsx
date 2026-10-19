@@ -46,11 +46,12 @@ export default async function ExplorarPage() {
   const pulso = await pulsoDelGrafo().catch(() => null);
   return (
     /*
-      La mesa ocupa el ancho entero de la ventana, fuera de la columna de
-      lectura del resto del sitio, y se pega a la cabecera: es una aplicación
-      de análisis, no una página. Dentro, el tema Blueprint (`app/globals.css`).
+      La mesa ocupa el ancho entero, fuera de la columna de lectura del resto
+      del sitio, y se pega a la cabecera: es una aplicación de análisis, no una
+      página. `mesa-completa` hace que el `main` del layout suelte su columna
+      y su relleno (`app/globals.css`); dentro, el tema Blueprint.
     */
-    <div className="tema-blueprint -mb-6 -mt-6 mx-[calc(50%-50vw)] border-b border-hairline">
+    <div className="mesa-completa tema-blueprint border-b border-hairline">
       <Suspense
         fallback={
           <div role="status" aria-busy="true" className="p-4">

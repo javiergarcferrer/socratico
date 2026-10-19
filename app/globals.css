@@ -267,8 +267,12 @@
 @layer base {
   :root {
     color-scheme: light;
-    /* El alto de la cabecera: lo que se pega debajo de ella (el banco de trabajo) se desplaza esto. */
-    --alto-cabecera: 52px;
+    /*
+      El alto de la cabecera, fijo: lo que se pega debajo de ella (el banco de
+      trabajo, la barra de filtros de un buscador) se desplaza esto. 56 px en
+      el teléfono, donde sus botones miden 44; 52 desde `sm`.
+    */
+    --alto-cabecera: 56px;
 
     /*
       Las cinco duraciones. Por debajo de 100 ms el lector percibe causa y
@@ -299,6 +303,11 @@
       usa la altura que Radix mide; esto solo lo vuelve nativo.
     */
     interpolate-size: allow-keywords;
+  }
+  @media (min-width: 40rem) {
+    :root {
+      --alto-cabecera: 52px;
+    }
   }
 
   html {
@@ -768,7 +777,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgb(247 243 234 / 0.75),
+    var(--brillo-silueta, rgb(247 243 234 / 0.75)),
     transparent
   );
   animation: lr-shimmer 1.5s infinite;
@@ -967,7 +976,7 @@
 }
 
 /*
-  El tema Blueprint: la mesa de trabajo oscura (docs/INFRAESTRUCTURA.md §11.3).
+  El tema Blueprint: la mesa de trabajo oscura (docs/INFRAESTRUCTURA.md §11.2).
 
   Es la paleta del tema oscuro de Blueprint, el sistema de interfaz de
   Palantir para aplicaciones de análisis —grises de pizarra, el azul de su
@@ -986,88 +995,127 @@
   tres casos —el botón principal, el conmutador puesto, la casilla marcada—
   toman el claro de Blueprint.
 */
-.tema-blueprint {
-  --color-bp-mesa: #1c2127;
-  --color-bp-panel: #252a31;
-  --color-bp-realce: #2f343c;
-  --color-bp-borde: #383e47;
-  --color-bp-borde-fuerte: #404854;
-  --color-bp-claro: #f6f7f9;
-  --color-bp-tenue: #abb3bf;
-  --color-bp-apagado: #8f99a8;
+/*
+  En `@layer base`: las variables pasan a los descendientes igual, y el fondo
+  del ámbito pierde frente a las utilidades (`bg-surface` del panel del
+  megamenú, del diálogo de la paleta). Fuera de toda capa le ganaba a todas.
+*/
+@layer base {
+  .tema-blueprint {
+    --color-bp-mesa: #1c2127;
+    --color-bp-panel: #252a31;
+    --color-bp-realce: #2f343c;
+    --color-bp-borde: #383e47;
+    --color-bp-borde-fuerte: #404854;
+    --color-bp-claro: #f6f7f9;
+    --color-bp-tenue: #abb3bf;
+    --color-bp-apagado: #8f99a8;
 
-  --color-canvas: var(--color-bp-mesa);
-  --color-surface: var(--color-bp-panel);
-  --color-ink: var(--color-bp-claro);
-  --color-ink-soft: var(--color-bp-tenue);
-  --color-hairline: var(--color-bp-borde);
-  --color-canto: #111418;
+    --color-canvas: var(--color-bp-mesa);
+    --color-surface: var(--color-bp-panel);
+    --color-ink: var(--color-bp-claro);
+    --color-ink-soft: var(--color-bp-tenue);
+    --color-hairline: var(--color-bp-borde);
+    --color-canto: #111418;
 
-  --color-brand-50: #1f2d40;
-  --color-brand-100: #24364d;
-  --color-brand-200: #2b4466;
-  --color-brand-300: #3c64a0;
-  --color-brand-400: #4c90f0;
-  --color-brand-500: #2d72d2;
-  --color-brand-600: #215db0;
-  --color-brand-700: #8abbff;
-  --color-brand-800: #184a90;
-  --color-brand-900: #8abbff;
+    --color-brand-50: #1f2d40;
+    --color-brand-100: #24364d;
+    --color-brand-200: #2b4466;
+    --color-brand-300: #3c64a0;
+    --color-brand-400: #4c90f0;
+    --color-brand-500: #2d72d2;
+    --color-brand-600: #215db0;
+    --color-brand-700: #8abbff;
+    --color-brand-800: #184a90;
+    --color-brand-900: #8abbff;
 
-  --color-valido-50: #1d3328;
-  --color-valido-500: #32a467;
-  --color-valido-600: #238551;
-  --color-valido-700: #72ca9b;
-  --color-alerta-50: #3a2d1b;
-  --color-alerta-100: #fbb360;
-  --color-alerta-500: #ec9a3c;
-  --color-alerta-600: #c87619;
-  --color-alerta-700: #fbb360;
-  --color-sello-50: #3a2224;
-  --color-sello-100: #4d2a2c;
-  --color-sello-300: #e76a6e;
-  --color-sello-400: #e76a6e;
-  --color-sello-500: #cd4246;
-  --color-sello-600: #cd4246;
-  --color-sello-700: #fa999c;
-  --color-sello-800: #8e292c;
+    --color-valido-50: #1d3328;
+    --color-valido-500: #32a467;
+    --color-valido-600: #238551;
+    --color-valido-700: #72ca9b;
+    --color-alerta-50: #3a2d1b;
+    --color-alerta-100: #fbb360;
+    --color-alerta-500: #ec9a3c;
+    --color-alerta-600: #c87619;
+    --color-alerta-700: #fbb360;
+    --color-sello-50: #3a2224;
+    --color-sello-100: #4d2a2c;
+    --color-sello-300: #e76a6e;
+    --color-sello-400: #e76a6e;
+    --color-sello-500: #cd4246;
+    --color-sello-600: #cd4246;
+    --color-sello-700: #fa999c;
+    --color-sello-800: #8e292c;
 
-  --color-grafico-1: #4c90f0;
-  --color-grafico-2: #d1709a;
-  --color-grafico-3: #ec9a3c;
-  --color-grafico-4: #32a467;
-  --color-grafico-5: #9881f3;
-  --color-grafico-otros: var(--color-bp-apagado);
-  --color-grafico-sec-1: #24364d;
-  --color-grafico-sec-2: #2b4466;
-  --color-grafico-sec-3: #3c64a0;
-  --color-grafico-sec-4: #2d72d2;
-  --color-grafico-sec-5: #4c90f0;
-  --color-grafico-sec-6: #8abbff;
-  --color-grafico-rejilla: var(--color-bp-borde);
-  --color-grafico-base: var(--color-bp-borde-fuerte);
+    --color-grafico-1: #4c90f0;
+    --color-grafico-2: #d1709a;
+    --color-grafico-3: #ec9a3c;
+    --color-grafico-4: #32a467;
+    --color-grafico-5: #9881f3;
+    --color-grafico-otros: var(--color-bp-apagado);
+    --color-grafico-sec-1: #24364d;
+    --color-grafico-sec-2: #2b4466;
+    --color-grafico-sec-3: #3c64a0;
+    --color-grafico-sec-4: #2d72d2;
+    --color-grafico-sec-5: #4c90f0;
+    --color-grafico-sec-6: #8abbff;
+    --color-grafico-rejilla: var(--color-bp-borde);
+    --color-grafico-base: var(--color-bp-borde-fuerte);
 
-  --color-ring: #4c90f0;
-  /* La luz del borde de lo que se pulsa: un filo apenas claro, no papel. */
-  --luz: rgb(255 255 255 / 0.07);
-  color-scheme: dark;
-  background-color: var(--color-canvas);
-  color: var(--color-ink);
+    /* Los puntos de orientación de cada vertical, subidos para leerse sobre pizarra. */
+    --color-v-compras: #e76a6e;
+    --color-v-congreso: #4c90f0;
+    --color-v-normativa: #9881f3;
+    --color-v-nomina: #32a467;
+    --color-v-democracia: #ec9a3c;
+    --color-v-finanzas: #d1709a;
+    --color-v-dinero: #3fa6da;
+    /* El brillo que recorre una silueta de carga: tinta al 8 %, no papel. */
+    --brillo-silueta: rgb(246 247 249 / 0.08);
+
+    --color-ring: #4c90f0;
+    /* La luz del borde de lo que se pulsa: un filo apenas claro, no papel. */
+    --luz: rgb(255 255 255 / 0.07);
+    color-scheme: dark;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
 }
 
-/* El texto sobre un relleno saturado: el claro de Blueprint, no el papel. */
+/*
+  La mesa a todo el ancho: el `main` del layout (`max-w-6xl px-4 py-6`) suelta
+  su columna y su relleno cuando la contiene. Sin `100vw`, que con barras de
+  desplazamiento clásicas es más ancho que la página y se recortaba. Sin capa:
+  tiene que ganarle a las utilidades del `main`.
+*/
+#contenido:has(> .mesa-completa) {
+  max-width: none;
+  padding: 0;
+}
+
+/*
+  El texto sobre un relleno saturado: el claro de Blueprint, no el papel. Sin
+  capa a propósito: tiene que ganarle a la utilidad `text-canvas`.
+*/
 .tema-blueprint [data-slot="button"].text-canvas,
 .tema-blueprint [data-slot="toggle-group-item"][data-state="on"],
 .tema-blueprint [data-slot="checkbox"][data-state="checked"] {
   color: var(--color-bp-claro);
 }
 
-/* Los paneles de Blueprint no llevan fibra de papel: la superficie es pizarra lisa. */
-.tema-blueprint :is(.relieve, a[data-slot="card"], [data-slot="card"]) {
-  background-image: none;
-}
+/*
+  En `@layer components`, la misma capa que la fibra y la respuesta de fila:
+  sin capa, la raya le ganaba al resaltado de la fila elegida, al de la fila
+  apuntada y al del nodo abierto.
+*/
+@layer components {
+  /* Los paneles de Blueprint no llevan fibra de papel: la superficie es pizarra lisa. */
+  .tema-blueprint :is(.relieve, a[data-slot="card"], [data-slot="card"]) {
+    background-image: none;
+  }
 
-/* La rejilla de una tabla densa: filas de 30 px a rayas, como su HTMLTable. */
-.tema-blueprint .tabla-densa tbody tr:nth-child(even) {
-  background-color: rgb(255 255 255 / 0.025);
+  /* La rejilla de una tabla densa: filas a rayas, como su HTMLTable. */
+  .tema-blueprint .tabla-densa tbody tr:nth-child(even):not([data-state="selected"]) {
+    background-color: rgb(255 255 255 / 0.025);
+  }
 }

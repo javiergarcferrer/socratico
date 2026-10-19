@@ -76,6 +76,8 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
   const conservar = useRef<string | null>(null);
   // El inspector toma el foco solo cuando el lector pivota, no al cargar la página.
   const [enfocar, setEnfocar] = useState(false);
+  // La pestaña del inspector sigue abierta al pivotar: quien recorre por «Relaciones» no vuelve a «Resumen» en cada paso.
+  const [pestana, setPestana] = useState("resumen");
   const panel = useRef<HTMLDivElement>(null);
   const ancho = useEsAncho();
   const preguntar = url.modo === "preguntar";
@@ -171,6 +173,8 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
       onVolverA={volverA}
       onCerrar={cerrar}
       enRed={ancho ? enRed : null}
+      pestana={pestana}
+      onPestana={setPestana}
       onRed={() => void setUrl({ vista: enRed ? null : "red" }, { history: "push" })}
     />
   ) : null;
@@ -236,7 +240,8 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
           </div>
         </aside>
 
-        <main className="min-w-0 space-y-3 p-3 lg:space-y-4 lg:p-4">
+        {/* Una sección y no un `main`: el `main` es el de la página (`app/layout.tsx`). */}
+        <section aria-label="Tablero y resultados" className="min-w-0 space-y-3 p-3 lg:space-y-4 lg:p-4">
           {enRed && <RedDelNodo ruta={url.nodo!} hacia={hacia} onCerrar={() => void setUrl({ vista: null }, { history: "push" })} />}
           {preguntar && q.length >= 3 ? (
             <Preguntar pregunta={q} onAbrir={abrir} />
@@ -258,7 +263,7 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
               </div>
             </>
           )}
-        </main>
+        </section>
 
         {/* El panel derecho: el nodo abierto. */}
         <aside aria-label="El nodo abierto" className="hidden border-l border-hairline bg-surface lg:block">
@@ -280,7 +285,7 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
       <BarraDeEstado pulso={pulso} />
 
       {/* En el teléfono y la tableta, el nodo sube en una hoja sobre la lista. */}
-      <BottomSheet open={!ancho && !!url.nodo} onClose={cerrar} title="El nodo abierto">
+      <BottomSheet open={!ancho && !!url.nodo} onClose={cerrar} title="El nodo abierto" className="tema-blueprint">
         {!ancho && inspector}
       </BottomSheet>
     </div>
@@ -299,7 +304,8 @@ function BarraDeEstado({ pulso }: { pulso: Pulso | null }) {
       {pulso?.compilado && <span>Grafo compilado el {formatFecha(pulso.compilado)}</span>}
       {pulso && (
         <span>
-          {formatInt(pulso.nodos)} nodos · {formatInt(pulso.triples)} triples · {formatInt(pulso.grafos)} fuentes y reglas
+          {formatInt(pulso.nodos)} nodos · {formatInt(pulso.triples)} triples · {formatInt(pulso.fuentes.filter((f) => !f.derivado).length)} fuentes y{" "}
+          {formatInt(pulso.fuentes.filter((f) => f.derivado).length)} reglas
         </span>
       )}
       <span className="inline-flex items-center gap-1.5" aria-live="polite">
@@ -310,7 +316,7 @@ function BarraDeEstado({ pulso }: { pulso: Pulso | null }) {
         {abiertos.isError
           ? "DGCP en vivo: no contestó"
           : abiertos.data
-            ? `DGCP en vivo: contestó a las ${formatHora(abiertos.data.leido)}`
+            ? `DGCP en vivo: leída a las ${formatHora(abiertos.data.leido)}, con caché de hasta 5 min`
             : "DGCP en vivo: leyendo…"}
       </span>
       <Link href="/fuentes" className="ml-auto inline-flex min-h-11 items-center underline sm:min-h-0">

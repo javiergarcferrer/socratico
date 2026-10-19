@@ -508,16 +508,17 @@ export default function Buscador() {
         controles recibe el foco—, que es cuando se quiere cambiar un filtro.
         Con movimiento reducido cambia sin desplazarse.
 
-        Se pega justo debajo del header: 64 px de caja, su filete de un píxel y
-        el recorte superior del teléfono (`app/layout.tsx`). Con cinco píxeles
-        de menos su borde quedaba bajo la banda de tinta y los chips salían
-        recortados por arriba.
+        Se pega justo debajo del header: su alto (`--alto-cabecera`,
+        app/globals.css), su filete de un píxel y el recorte superior del
+        teléfono (`app/layout.tsx`). Con un alto escrito a mano, cuando la
+        cabecera cambió de 64 a 56 px quedaba una rendija por donde se veían
+        pasar los resultados.
       */}
       <div
         data-oculta={barraOculta || undefined}
         onFocusCapture={() => setBarraOculta(false)}
         className="sticky z-30 -mx-4 flex h-12 items-center gap-2 border-b border-hairline bg-canvas px-4 transition-transform duration-(--dur-media) ease-sello motion-reduce:transition-none data-[oculta]:-translate-y-full lg:hidden"
-        style={{ top: "calc(65px + env(safe-area-inset-top, 0px))" }}
+        style={{ top: "calc(var(--alto-cabecera) + 1px + env(safe-area-inset-top, 0px))" }}
       >
         <Button
           type="button"

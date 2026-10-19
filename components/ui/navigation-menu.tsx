@@ -7,9 +7,10 @@
  * Radix aporta lo difícil: teclado (flechas entre disparadores, Tab dentro del
  * panel, Escape para cerrar), `aria-expanded`, la espera antes de abrir al
  * pasar el puntero y el cierre al salir. La casa aporta el vestido: el
- * disparador vive sobre la banda de tinta del header (variante `tinta`), y el
- * panel es una hoja de papel con filete que se apoya bajo el header —flota de
- * verdad, así que lleva `shadow-card`— y abre con el movimiento corto de las
+ * disparador vive sobre la barra de pizarra del header (variante `tinta`), y
+ * el panel es una hoja con filete que se apoya bajo el header —flota de
+ * verdad, así que lleva `shadow-card`—, en el tema que le pase `claseCapa`
+ * (la cabecera, el de Blueprint), y abre con el movimiento corto de las
  * demás capas (`.capa`).
  *
  * El `Viewport` se ancla al header entero (`absolute inset-x-0 top-full`), no

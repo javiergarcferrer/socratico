@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Cifra, TiraDeCifras } from "@/components/papel";
+import { Termino } from "@/components/termino";
 import { MarcaEstado } from "@/components/marca-estado";
 import { BarrasHorizontales } from "@/components/graficos";
 import { EsqueletoLineas } from "@/components/esqueleto";
@@ -38,19 +39,21 @@ export function useAbiertos() {
  */
 export function Tablero({ pulso }: { pulso: Pulso | null }) {
   const abiertos = useAbiertos();
-  const conCorte = pulso?.fuentes.filter((f) => !f.derivado) ?? [];
+  // Fuentes con corte: las instantáneas fechadas. Las reglas se cuentan aparte, y lo que no tiene corte (las provincias) no cuenta.
+  const conCorte = pulso?.fuentes.filter((f) => !f.derivado && f.corte) ?? [];
+  const reglas = pulso?.fuentes.filter((f) => f.derivado) ?? [];
 
   return (
     <div className="space-y-3 lg:space-y-4">
       <Card as="section" aria-label="El grafo en cifras">
         <TiraDeCifras className="border-0">
           <Cifra
-            etiqueta="Nodos en el grafo"
+            etiqueta={<Termino clave="nodo">Nodos en el grafo</Termino>}
             valor={pulso ? formatInt(pulso.nodos) : "—"}
             nota={pulso?.compilado ? `${pulso.clases} clases · compilado el ${formatFecha(pulso.compilado)}` : undefined}
           />
           <Cifra
-            etiqueta="Triples RDF"
+            etiqueta={<Termino clave="triple">Triples RDF</Termino>}
             valor={pulso ? formatInt(pulso.triples) : "—"}
             nota="Cada uno con su fuente y su corte, o su regla"
           />
@@ -60,7 +63,7 @@ export function Tablero({ pulso }: { pulso: Pulso | null }) {
             href={abiertos.data ? "/licitaciones" : undefined}
             nota={
               abiertos.data
-                ? `DGCP en vivo, leída a las ${formatHora(abiertos.data.leido)}`
+                ? `DGCP en vivo, leída a las ${formatHora(abiertos.data.leido)} (caché de hasta 5 min)`
                 : abiertos.isError
                   ? "La DGCP no contestó"
                   : "Leyendo la DGCP…"
@@ -68,8 +71,8 @@ export function Tablero({ pulso }: { pulso: Pulso | null }) {
           />
           <Cifra
             etiqueta="Fuentes con corte"
-            valor={formatInt(conCorte.length)}
-            nota={pulso ? `y ${formatInt(pulso.fuentes.length - conCorte.length)} reglas que derivan de ellas` : undefined}
+            valor={pulso ? formatInt(conCorte.length) : "—"}
+            nota={pulso ? `y ${formatInt(reglas.length)} reglas que derivan de ellas` : undefined}
           />
         </TiraDeCifras>
       </Card>
@@ -99,46 +102,78 @@ export function Tablero({ pulso }: { pulso: Pulso | null }) {
               Leerla otra vez
             </Button>
           </div>
+        ) : abiertos.data.filas.length === 0 ? (
+          <p className="px-4 pb-4 text-sm text-ink-soft">La DGCP no tiene ningún proceso abierto a ofertas en este momento.</p>
         ) : (
-          <Table className="tabla-densa">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Estado</TableHead>
-                <TableHead>Qué se compra</TableHead>
-                <TableHead className="text-right">Estimado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Por debajo de `sm`: tarjetas. */}
+            <ul className="divide-y divide-hairline border-t border-hairline sm:hidden">
               {abiertos.data.filas.map((f) => (
-                <TableRow key={f.href ?? f.titulo} className="relative">
-                  <TableCell className="py-2 align-top">
-                    {f.marca && (
-                      <MarcaEstado tono={f.marca.tono} title={f.marca.original ?? undefined}>
-                        {f.marca.texto}
-                      </MarcaEstado>
-                    )}
-                  </TableCell>
-                  <TableCell className="min-w-[14rem] py-2">
-                    {f.href ? (
-                      <Link href={f.href} className="estira line-clamp-2 text-[13px] font-medium leading-snug text-ink hover:text-brand-700">
-                        {f.titulo}
-                      </Link>
-                    ) : (
-                      <span className="line-clamp-2 text-[13px] font-medium leading-snug">{f.titulo}</span>
-                    )}
-                    <span className="mt-0.5 block text-xs text-ink-soft">
-                      {f.detalle}
-                      {f.fecha ? " · " : ""}
-                      <Antiguedad iso={f.fecha} prefijo={f.prefijoFecha ?? undefined} />
-                    </span>
-                  </TableCell>
-                  <TableCell numerica className="whitespace-nowrap py-2 align-top text-[13px]">
-                    {f.monto != null ? formatPesos(f.monto) : "—"}
-                  </TableCell>
-                </TableRow>
+                <li key={f.href ?? f.titulo} className="relative px-4 py-3">
+                  {f.marca && (
+                    <MarcaEstado tono={f.marca.tono} title={f.marca.original ?? undefined} className="mb-1">
+                      {f.marca.texto}
+                    </MarcaEstado>
+                  )}
+                  {f.href ? (
+                    <Link href={f.href} className="estira block text-[15px] font-medium leading-snug text-ink hover:text-brand-700">
+                      {f.titulo}
+                    </Link>
+                  ) : (
+                    <span className="block text-[15px] font-medium leading-snug">{f.titulo}</span>
+                  )}
+                  <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
+                    {f.monto != null && <span className="font-mono tabular-nums text-ink">{formatPesos(f.monto)} estimado · </span>}
+                    {f.detalle}
+                    {f.fecha ? " · " : ""}
+                    <Antiguedad iso={f.fecha} prefijo={f.prefijoFecha ?? undefined} />
+                  </span>
+                </li>
               ))}
-            </TableBody>
-          </Table>
+            </ul>
+            {/* Desde `sm`: la tabla. */}
+            <div className="hidden sm:block">
+            <Table className="tabla-densa">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Qué se compra</TableHead>
+                  <TableHead className="text-right">Estimado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {abiertos.data.filas.map((f) => (
+                  <TableRow key={f.href ?? f.titulo} className="relative">
+                    <TableCell className="py-2 align-top">
+                      {f.marca && (
+                        <MarcaEstado tono={f.marca.tono} title={f.marca.original ?? undefined}>
+                          {f.marca.texto}
+                        </MarcaEstado>
+                      )}
+                    </TableCell>
+                    <TableCell className="min-w-[14rem] py-2">
+                      {f.href ? (
+                        <Link href={f.href} className="estira line-clamp-2 text-[13px] font-medium leading-snug text-ink hover:text-brand-700">
+                          {f.titulo}
+                        </Link>
+                      ) : (
+                        <span className="line-clamp-2 text-[13px] font-medium leading-snug">{f.titulo}</span>
+                      )}
+                      <span className="mt-0.5 block text-xs text-ink-soft">
+                        {f.detalle}
+                        {f.fecha ? " · " : ""}
+                        <Antiguedad iso={f.fecha} prefijo={f.prefijoFecha ?? undefined} />
+                      </span>
+                    </TableCell>
+                    <TableCell numerica className="whitespace-nowrap py-2 align-top text-[13px]">
+                      {f.monto != null ? formatPesos(f.monto) : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            </div>
+          </>
         )}
       </Card>
 

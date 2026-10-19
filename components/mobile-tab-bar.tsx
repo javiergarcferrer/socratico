@@ -104,7 +104,7 @@ export function subirArriba() {
  */
 export function subeConLaPestana(pathname: string): boolean {
   return (
-    pathname === "/" ||
+    pathname === "/explorar" ||
     FIJAS.some((id) => SECCIONES.find((s) => s.id === id)?.href === pathname)
   );
 }
@@ -156,7 +156,8 @@ export default function MobileTabBar() {
   ];
 
   // Toda ruta que no enciende una fija vive en la hoja: entonces es «Más».
-  const enHoja = !tabs.some((t) => t.activa);
+  // La portada no: se llega por la marca, y ninguna casilla la representa.
+  const enHoja = pathname !== "/" && !tabs.some((t) => t.activa);
   const destino = destinoDe(pathname);
   const aqui = enHoja ? (destino?.label ?? actual?.nombre ?? null) : null;
 

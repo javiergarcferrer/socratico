@@ -150,7 +150,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             plataforma es un explorador, y su barra no se encaja en la columna
             de lectura (`--alto-cabecera`, app/globals.css).
           */}
-          <div className="flex min-h-[var(--alto-cabecera)] items-center gap-2.5 px-4 py-1.5 sm:gap-4 lg:px-6">
+          <div className="flex h-[var(--alto-cabecera)] items-center gap-2.5 px-4 sm:gap-4 lg:px-6">
             {/*
               La marca es la palabra, sola: sin
               placa, «socrático» con su acento de sello. En pantallas anchas la
