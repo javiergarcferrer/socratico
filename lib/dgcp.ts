@@ -589,7 +589,8 @@ export async function getPreciosSubclase(subclase: string): Promise<PreciosStats
 const MAX_CONTRATOS_PAGES = 6;
 
 /** Estados de contrato que cuentan como adjudicación en firme. */
-const ESTADOS_VIGENTES = new Set(["Activo", "Modificado", "Cerrado"]);
+/** Los estados de un contrato que cuentan como adjudicación vigente: sin los cancelados ni los rescindidos. */
+export const ESTADOS_VIGENTES = new Set(["Activo", "Modificado", "Cerrado"]);
 
 export interface AgregadoContrato {
   clave: string;
@@ -1030,12 +1031,17 @@ export interface Competencia {
  * modalidades que no publican ofertas, y la UI debe decirlo así.
  */
 export async function getCompetencia(codigoProceso: string): Promise<Competencia | null> {
-  const data = await dgcpFetch<Oferta>(
-    "/ofertas",
-    { proceso: codigoProceso, limit: 1000 },
-    1800
-  ).catch(() => null);
-  const ofertas = data?.payload.content ?? [];
+  return leerCompetencia(codigoProceso).catch(() => null);
+}
+
+/**
+ * Como `getCompetencia`, pero un fallo del origen **lanza** en vez de volverse
+ * «sin ofertas»: lo usa quien debe decir «la DGCP no contestó» aparte de «no
+ * hay ofertas cargadas» (el inspector de `/explorar`, `lib/explorar-vivo.ts`).
+ */
+export async function leerCompetencia(codigoProceso: string): Promise<Competencia | null> {
+  const data = await dgcpFetch<Oferta>("/ofertas", { proceso: codigoProceso, limit: 1000 }, 1800);
+  const ofertas = data.payload.content;
   if (ofertas.length === 0) return null;
 
   const porOferente = new Map<string, Oferente>();
@@ -1188,7 +1194,8 @@ async function fichaPorRpe(rpe: string): Promise<ProveedorRegistro | null> {
 
 /**
  * Ficha por número de documento — el RNC de una empresa o la cédula de una
- * persona física. `numero_documento` es, junto a `rpe`, el **único** otro
+ * persona física. Un fallo del origen lanza; `getProveedorPorDocumento` lo
+ * vuelve `null`. `numero_documento` es, junto a `rpe`, el **único** otro
  * filtro que la API honra (docs/INFRAESTRUCTURA.md §5.1), y es exacto: no admite
  * prefijos.
  *
@@ -1198,7 +1205,7 @@ async function fichaPorRpe(rpe: string): Promise<ProveedorRegistro | null> {
  * 10 dígitos, se gasta una segunda consulta rellenando con ceros; para un
  * número corto, que es antes un RPE que un documento, no se gasta.
  */
-async function fichaPorDocumento(documento: string): Promise<ProveedorRegistro | null> {
+export async function fichaPorDocumento(documento: string): Promise<ProveedorRegistro | null> {
   const doc = documento.replace(/\D/g, "");
   if (!doc || doc.length > 11) return null;
 

@@ -1,8 +1,8 @@
-import { dgcpFetch, listProcesos, type Contrato, type Proceso } from "@/lib/dgcp";
+import { ESTADOS_VIGENTES, dgcpFetch, fichaPorDocumento, getHistorialProveedor, leerCompetencia, listProcesos, type Contrato, type Proceso } from "@/lib/dgcp";
 import { getIniciativa, normalizarIniciativa, marcaDeIniciativa, desdeMayusculas } from "@/lib/congreso";
 import { institucionPorId } from "@/lib/instituciones";
 import { etapaDe, cierreMeta } from "@/lib/estados";
-import { diasHasta, formatFecha } from "@/lib/format";
+import { diasHasta, formatFecha, formatPesos } from "@/lib/format";
 import { enlace, nodoDeRuta } from "@/lib/grafo";
 import type { FilaViva, Vivo } from "@/lib/explorar-tipos";
 
@@ -26,8 +26,27 @@ const VENTANA = "se relee cada 5 minutos";
 const DGCP = "API de datos abiertos de la DGCP";
 /** Cuántos procesos abiertos de una institución se listan; el enlace lleva a todos. */
 const ABIERTOS = 6;
+/** Cuántos oferentes de un proceso y cuántos contratos de un proveedor se listan. */
+const OFERENTES = 5;
+const CONTRATOS = 6;
 
 type Resultado = { vivo: Vivo | null; sinFuente: boolean };
+
+/** En pesos dominicanos, o sin moneda dicha (la DGCP la deja vacía en muchos registros viejos). */
+const enPesos = (divisa: string | null | undefined) => !divisa || divisa === "DOP";
+
+/**
+ * Un monto con su moneda. `formatPesos` dice «RD$»: un monto en otra moneda
+ * no va por ahí, se escribe en el detalle con su código («USD 276,686») y no
+ * se suma con los pesos.
+ */
+function monto(valor: number, divisa: string | null | undefined, es: string): Pick<FilaViva, "monto" | "montoEs"> & { otraMoneda: string | null } {
+  if (!(valor > 0)) return { monto: null, montoEs: null, otraMoneda: null };
+  if (enPesos(divisa)) return { monto: valor, montoEs: es, otraMoneda: null };
+  return { monto: null, montoEs: null, otraMoneda: `${divisa} ${ENTERO.format(valor)} ${es}` };
+}
+
+const ENTERO = new Intl.NumberFormat("es-DO", { maximumFractionDigits: 0 });
 
 function marcaDeProceso(p: Proceso): FilaViva["marca"] {
   const etapa = etapaDe(p.estado_proceso);
@@ -40,13 +59,14 @@ function marcaDeProceso(p: Proceso): FilaViva["marca"] {
 
 function filaDeProceso(p: Proceso): FilaViva {
   const abierto = etapaDe(p.estado_proceso).clave === "abiertos";
+  const m = monto(p.monto_estimado, p.divisa, "estimado");
   return {
     titulo: desdeMayusculas(p.titulo),
-    detalle: [p.modalidad, p.codigo_proceso].filter(Boolean).join(" · ") || null,
+    detalle: [m.otraMoneda, p.modalidad, p.codigo_proceso].filter(Boolean).join(" · ") || null,
     href: enlace.proceso(p.codigo_proceso),
     externo: false,
-    monto: p.monto_estimado > 0 ? p.monto_estimado : null,
-    montoEs: p.monto_estimado > 0 ? (p.divisa && p.divisa !== "DOP" ? `estimado, en ${p.divisa}` : "estimado") : null,
+    monto: m.monto,
+    montoEs: m.montoEs,
     marca: marcaDeProceso(p),
     fecha: abierto ? p.fecha_fin_recepcion_ofertas || null : p.fecha_publicacion || null,
     prefijoFecha: abierto ? "Recibe ofertas hasta" : "Publicado",
@@ -80,9 +100,10 @@ async function vivoDeInstitucion(id: number): Promise<Resultado> {
 async function vivoDeProceso(codigo: string): Promise<Resultado> {
   // `dgcpFetch` y no `getProceso`: aquel convierte un fallo en «no hay», y
   // aquí una DGCP caída debe decirse como tal (la ruta responde 502).
-  const [procesos, ctos] = await Promise.all([
+  const [procesos, ctos, competencia] = await Promise.all([
     dgcpFetch<Proceso>("/procesos", { proceso: codigo, limit: 5 }),
     dgcpFetch<Contrato>("/contratos", { proceso: codigo, limit: 50 }),
+    leerCompetencia(codigo),
   ]);
   const proceso = procesos.payload.content[0] ?? null;
   const contratos = ctos.payload.content;
@@ -104,18 +125,45 @@ async function vivoDeProceso(codigo: string): Promise<Resultado> {
   const filas: FilaViva[] = [filaDeProceso(proceso)];
   // A quién se le adjudicó: lo que la tabla del grafo no ata (salvo en las obras) y la DGCP sí dice.
   for (const c of contratos) {
+    const m = monto(c.valor_contratado, c.divisa, "contratado");
     filas.push({
       titulo: c.razon_social || `RPE ${c.rpe}`,
-      detalle: ["Contrato", c.codigo_contrato, c.estado_contrato].filter(Boolean).join(" · "),
+      detalle: [m.otraMoneda, "Contrato", c.codigo_contrato, c.estado_contrato].filter(Boolean).join(" · "),
       href: c.rpe ? enlace.proveedor(c.rpe) : null,
       externo: false,
-      monto: c.valor_contratado > 0 ? c.valor_contratado : null,
-      montoEs: c.valor_contratado > 0 ? (c.divisa && c.divisa !== "DOP" ? `contratado, en ${c.divisa}` : "contratado") : null,
+      monto: m.monto,
+      montoEs: m.montoEs,
       marca: null,
       fecha: c.fecha_adjudicacion || null,
       prefijoFecha: "Adjudicado",
     });
   }
+  // Quién compitió: el registro de ofertas del proceso, no una muestra. Sin
+  // ofertas cargadas no es «nadie compitió»: hay modalidades que no las publican.
+  const oferentes = competencia?.oferentes ?? [];
+  for (const o of oferentes.slice(0, OFERENTES)) {
+    filas.push({
+      titulo: o.razonSocial,
+      detalle: ["Ofertó", o.ofertas > 1 ? `${o.ofertas} ofertas` : null, o.monto > 0 ? null : "sin monto legible en el registro"].filter(Boolean).join(" · "),
+      href: o.rpe ? enlace.proveedor(o.rpe) : null,
+      externo: false,
+      monto: o.monto > 0 ? o.monto : null,
+      montoEs: o.monto > 0 ? "ofertado" : null,
+      marca: null,
+      fecha: null,
+      prefijoFecha: null,
+    });
+  }
+  const partes = [
+    contratos.length
+      ? `${contratos.length === 1 ? "Un contrato" : `${contratos.length} contratos`} con este proceso: a quién y por cuánto.`
+      : "La DGCP no le registra contratos todavía.",
+    competencia
+      ? competencia.oferenteUnico
+        ? "Se presentó un solo oferente."
+        : `Se presentaron ${competencia.oferentes.length} oferentes${competencia.menor != null && competencia.mayor != null ? `, de ${formatPesos(competencia.menor)} a ${formatPesos(competencia.mayor)}` : ""}${competencia.oferentes.length > OFERENTES ? `; aquí van los ${OFERENTES} de menor oferta` : ""}.`
+      : "La DGCP no tiene ofertas cargadas para este proceso (hay modalidades que no las publican).",
+  ];
   return {
     sinFuente: false,
     vivo: {
@@ -123,9 +171,7 @@ async function vivoDeProceso(codigo: string): Promise<Resultado> {
       leido: new Date().toISOString(),
       ventana: VENTANA,
       titulo: "Su estado ahora",
-      resumen: contratos.length
-        ? `${contratos.length === 1 ? "Un contrato" : `${contratos.length} contratos`} con este proceso en la DGCP: a quién y por cuánto.`
-        : "La DGCP no le registra contratos todavía.",
+      resumen: partes.join(" "),
       filas,
       total: null,
       enlace: { href: enlace.proceso(codigo), texto: "Su ficha, con artículos y documentos" },
@@ -165,6 +211,79 @@ async function vivoDeIniciativa(id: number): Promise<Resultado> {
   };
 }
 
+/** Lo adjudicado a un RPE, según los contratos de la DGCP: los más recientes y la suma. */
+async function adjudicado(rpe: string, inscripcion: string | null): Promise<Vivo> {
+  const h = await getHistorialProveedor(rpe);
+  const leido = new Date().toISOString();
+  if (!h) {
+    return {
+      fuente: DGCP,
+      leido,
+      ventana: "se relee cada hora",
+      titulo: "Lo adjudicado",
+      resumen: [inscripcion, "La DGCP no le registra contratos."].filter(Boolean).join(" "),
+      filas: [],
+      total: 0,
+      enlace: { href: enlace.proveedor(rpe), texto: "Su ficha de proveedor" },
+    };
+  }
+  const recientes = [...h.contratos].sort((a, b) => (b.fecha_adjudicacion ?? "").localeCompare(a.fecha_adjudicacion ?? "")).slice(0, CONTRATOS);
+  const leidos = h.contratos.length;
+  // La suma del adaptador junta monedas; aquí solo se suman los pesos, y se dice cuántos quedan fuera.
+  const vigentes = h.contratos.filter((c) => ESTADOS_VIGENTES.has(c.estado_contrato));
+  const pesos = vigentes.filter((c) => enPesos(c.divisa)).reduce((s, c) => s + (c.valor_contratado || 0), 0);
+  const otraMoneda = vigentes.filter((c) => !enPesos(c.divisa) && c.valor_contratado > 0).length;
+  return {
+    fuente: DGCP,
+    leido,
+    ventana: "se relee cada hora",
+    titulo: "Lo adjudicado",
+    resumen: [
+      inscripcion,
+      `${h.totalRegistro === 1 ? "Un contrato" : `${h.totalRegistro} contratos`} con ${h.instituciones === 1 ? "una institución" : `${h.instituciones} instituciones`}: ${formatPesos(pesos)} en pesos sin contar los cancelados ni los rescindidos (contratado, no pagado)${otraMoneda ? `, y ${otraMoneda === 1 ? "un contrato" : `${otraMoneda} contratos`} en otra moneda que no se suman` : ""}${h.totalRegistro > leidos ? `; se cuentan los ${leidos} que la API deja leer` : ""}.`,
+    ]
+      .filter(Boolean)
+      .join(" "),
+    filas: recientes.map((c) => {
+      const m = monto(c.valor_contratado, c.divisa, "contratado");
+      return {
+        titulo: c.descripcion ? desdeMayusculas(c.descripcion) : c.codigo_contrato,
+        // El código del contrato y no el del proceso: un proceso por lotes da varios contratos con la misma descripción.
+        detalle: [m.otraMoneda, c.unidad_compra, c.codigo_contrato, c.estado_contrato].filter(Boolean).join(" · ") || null,
+        href: c.codigo_proceso ? enlace.proceso(c.codigo_proceso) : null,
+        externo: false,
+        monto: m.monto,
+        montoEs: m.montoEs,
+        marca: null,
+        fecha: c.fecha_adjudicacion || null,
+        prefijoFecha: "Adjudicado",
+      };
+    }),
+    total: h.totalRegistro,
+    enlace: { href: enlace.proveedor(rpe), texto: "Su ficha de proveedor, con todo su historial" },
+  };
+}
+
+async function vivoDeEmpresa(rnc: string): Promise<Resultado> {
+  const reg = await fichaPorDocumento(rnc);
+  if (!reg) {
+    return {
+      sinFuente: false,
+      vivo: {
+        fuente: "Registro de Proveedores del Estado (DGCP)",
+        leido: new Date().toISOString(),
+        ventana: "se relee cada día",
+        titulo: "Como proveedora del Estado",
+        resumen: "El Registro de Proveedores del Estado no tiene inscrita esta empresa por su RNC.",
+        filas: [],
+        total: 0,
+        enlace: null,
+      },
+    };
+  }
+  return { sinFuente: false, vivo: await adjudicado(reg.rpe, `Inscrita en el RPE con el número ${reg.rpe}, en estado «${reg.estado}».`) };
+}
+
 /**
  * Lo que la fuente dice ahora del nodo de esa ruta. `sinFuente` es `true`
  * cuando ese tipo de nodo no tiene fuente en vivo (y el inspector no pinta
@@ -178,6 +297,8 @@ export async function vivoDelNodo(ruta: string): Promise<Resultado> {
     if (n.tipo === "institucion") return await vivoDeInstitucion(Number(n.id));
     if (n.tipo === "proceso") return await vivoDeProceso(n.id);
     if (n.tipo === "iniciativa") return await vivoDeIniciativa(Number(n.id));
+    if (n.tipo === "proveedor") return { sinFuente: false, vivo: await adjudicado(n.id, null) };
+    if (n.tipo === "empresa") return await vivoDeEmpresa(n.id);
     return { vivo: null, sinFuente: true };
   } catch (err) {
     console.error(`[explorar-vivo] ${ruta}:`, err);
