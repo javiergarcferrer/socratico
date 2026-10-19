@@ -2,7 +2,7 @@ import { z } from "zod";
 import { etapaPorClave } from "@/lib/estados";
 import { pedirJsonOLanzar } from "@/lib/pedir";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
-import { SIN_DATO } from "@/lib/format";
+import { SIN_DATO, enPesos } from "@/lib/format";
 
 const BASE = "https://datosabiertos.dgcp.gob.do/api-dgcp/v1";
 const USER_AGENT = "Socratico-Inteligencia/1.0 (compras publicas; herramienta independiente)";
@@ -240,13 +240,6 @@ function ordenar(lista: Proceso[], orden: OrdenProceso): Proceso[] {
       return lista;
   }
 }
-
-/**
- * Si un monto de la DGCP está en pesos: `divisa` vacía (muchos registros
- * viejos la dejan así), «DOP» o «RD$». Lo demás (USD, EUR) no se suma ni se
- * compara con pesos: no hay tasa de cambio con fecha.
- */
-export const enPesos = (divisa: string | null | undefined) => !divisa || /^(dop|rd\$?)$/i.test(divisa.trim());
 
 /**
  * Ordena por monto **dentro del peso dominicano**.
@@ -625,8 +618,11 @@ export interface ResumenContratos {
   /** Ventana temporal cubierta por la muestra. */
   desde: string | null;
   hasta: string | null;
+  /** Suma en pesos de las adjudicaciones vigentes; las de otra moneda no entran. */
   montoTotal: number;
   conMonto: number;
+  /** Adjudicaciones vigentes con monto en otra moneda, fuera de toda suma. */
+  otraMoneda: number;
   topAdjudicatarios: AgregadoContrato[];
   topInstituciones: AgregadoContrato[];
   porMes: PuntoMensual[];
@@ -751,14 +747,19 @@ export async function muestrearContratos(
 
   let montoTotal = 0;
   let conMonto = 0;
+  let otraMoneda = 0;
   let desde: string | null = null;
   let hasta: string | null = null;
 
   for (const c of todos) {
-    const monto = c.valor_contratado || 0;
+    const pesos = enPesos(c.divisa);
+    // Un monto en dólares o en euros no se suma con pesos ni se convierte:
+    // no hay tasa de cambio con fecha. Cuenta para el estado y el mes, con monto 0.
+    const monto = pesos ? c.valor_contratado || 0 : 0;
     // Solo montos de adjudicaciones vigentes entran en los totales; los
     // cancelados/rescindidos se cuentan aparte y no inflan el gasto.
     const cuenta = ESTADOS_VIGENTES.has(c.estado_contrato);
+    if (cuenta && !pesos && c.valor_contratado > 0) otraMoneda += 1;
     if (cuenta && monto > 0) {
       montoTotal += monto;
       conMonto += 1;
@@ -805,6 +806,7 @@ export async function muestrearContratos(
     hasta,
     montoTotal,
     conMonto,
+    otraMoneda,
     topAdjudicatarios: top(adjudicatarios, 12),
     topInstituciones: top(instituciones, 12),
     porMes,
@@ -836,8 +838,10 @@ export interface MercadoProveedores {
   /** Ventana temporal cubierta por la muestra. */
   desde: string | null;
   hasta: string | null;
-  /** Suma de las adjudicaciones vigentes de la ventana. */
+  /** Suma en pesos de las adjudicaciones vigentes de la ventana. */
   montoTotal: number;
+  /** Adjudicaciones vigentes con monto en otra moneda: no entran en nada de lo anterior. */
+  otraMoneda: number;
   /** Los proveedores de la ventana, de mayor a menor monto. */
   proveedores: ProveedorEnMercado[];
 }
@@ -872,6 +876,7 @@ export async function muestrearProveedores(
   const porRpe = new Map<string, Acumulado>();
 
   let montoTotal = 0;
+  let otraMoneda = 0;
   let desde: string | null = null;
   let hasta: string | null = null;
 
@@ -886,6 +891,12 @@ export async function muestrearProveedores(
     // monto entran en el dinero. Canceladas y rescindidas no inflan a nadie.
     const monto = c.valor_contratado || 0;
     if (!ESTADOS_VIGENTES.has(c.estado_contrato) || monto <= 0) continue;
+    // Como el histórico: lo que no está en pesos se cuenta aparte y no se suma
+    // ni se convierte (no hay tasa con fecha).
+    if (!enPesos(c.divisa)) {
+      otraMoneda += 1;
+      continue;
+    }
 
     const rpe = String(c.rpe ?? "").trim();
     if (!rpe) continue;
@@ -924,6 +935,7 @@ export async function muestrearProveedores(
     desde,
     hasta,
     montoTotal,
+    otraMoneda,
     proveedores,
   };
 }

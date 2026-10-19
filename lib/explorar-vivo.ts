@@ -1,8 +1,8 @@
-import { ESTADOS_VIGENTES, dgcpFetch, enPesos, fichaPorDocumento, getHistorialProveedor, leerCompetencia, listProcesos, type Contrato, type Proceso } from "@/lib/dgcp";
+import { ESTADOS_VIGENTES, dgcpFetch, fichaPorDocumento, getHistorialProveedor, leerCompetencia, listProcesos, type Contrato, type Proceso } from "@/lib/dgcp";
 import { getIniciativa, normalizarIniciativa, marcaDeIniciativa, desdeMayusculas } from "@/lib/congreso";
 import { institucionPorId } from "@/lib/instituciones";
 import { etapaDe, cierreMeta } from "@/lib/estados";
-import { diasHasta, formatFecha, formatPesos } from "@/lib/format";
+import { diasHasta, enPesos, formatFecha, formatPesos } from "@/lib/format";
 import { enlace, nodoDeRuta } from "@/lib/grafo";
 import type { FilaViva, Vivo } from "@/lib/explorar-tipos";
 

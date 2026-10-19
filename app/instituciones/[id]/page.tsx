@@ -23,7 +23,7 @@ import { variacion } from "@/lib/cifras";
 import { normasDeInstitucion, RUTA_POR_TIPO } from "@/lib/normativa";
 import { listPacc } from "@/lib/dgcp";
 import { desdeMayusculas } from "@/lib/congreso";
-import { formatFecha, formatMonto, formatPesos, SIN_DATO } from "@/lib/format";
+import { formatFecha, formatMonto, formatPesos, montoEnSuMoneda, SIN_DATO } from "@/lib/format";
 import { formatDOP, formatInt } from "@/lib/nomina";
 import { Ruta } from "@/components/ruta";
 import { ObrasDeInstitucion } from "@/components/fuentes-nuevas/obras-de-institucion";
@@ -980,7 +980,7 @@ function ListaAdjudicaciones({ contratos }: { contratos: Adjudicacion[] }) {
               {c.descripcion || c.codigo_proceso}
             </span>
             <span className="mt-0.5 block text-xs text-ink-soft">
-              {c.razon_social} · <span className="font-mono tabular-nums">{formatMonto(c.valor_contratado, c.divisa)}</span> ·{" "}
+              {c.razon_social} · <span className="font-mono tabular-nums">{montoEnSuMoneda(c.valor_contratado, c.divisa)}</span> ·{" "}
               <Antiguedad iso={c.fecha_adjudicacion} prefijo="adjudicado" />
             </span>
           </Link>

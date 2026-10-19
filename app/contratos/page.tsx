@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { muestrearContratos, type AgregadoContrato } from "@/lib/dgcp";
-import { formatMonto, formatFecha, formatMes, tituloLegible } from "@/lib/format";
+import { formatMonto, formatFecha, formatMes, montoEnSuMoneda, tituloLegible } from "@/lib/format";
 import { formatCompactDOP, formatInt } from "@/lib/nomina";
 import Antiguedad from "@/components/antiguedad";
 import { Card, CardAction, CardHeader, CardTitle } from "@/components/ui/card";
@@ -176,7 +176,7 @@ export default async function ContratosPage() {
                   {tituloLegible(c.descripcion || c.codigo_contrato)}
                 </Link>
                 <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-ink">
-                  {formatMonto(c.valor_contratado, c.divisa)}
+                  {montoEnSuMoneda(c.valor_contratado, c.divisa)}
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-ink-soft">
@@ -223,7 +223,15 @@ export default async function ContratosPage() {
         contratos por recencia y no admite filtro por fecha, así que estas cifras
         describen la ventana reciente, no todo el histórico. Los montos suman solo
         adjudicaciones vigentes (activas, modificadas o cerradas), sin las
-        canceladas ni rescindidas.{" "}
+        canceladas ni rescindidas, y solo en pesos
+        {r.otraMoneda > 0 && (
+          <>
+            : {r.otraMoneda === 1 ? "una adjudicación" : `${formatInt(r.otraMoneda)} adjudicaciones`} en
+            otra moneda no {r.otraMoneda === 1 ? "entra" : "entran"}, porque no hay una tasa de cambio
+            con fecha con que convertir{r.otraMoneda === 1 ? "la" : "las"}
+          </>
+        )}
+        .{" "}
         <Link href="/fuentes" className="font-medium text-brand-700 hover:underline">
           Estado y límites de las fuentes
         </Link>

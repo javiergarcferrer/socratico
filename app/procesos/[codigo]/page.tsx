@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { getCompetencia, getProceso, normalize, type Documento } from "@/lib/dgcp";
 import { pesoDocumento, urlDeLectura } from "@/lib/documentos";
 import VisorDocumento from "@/components/visor-documento";
-import { diasHasta, formatFecha, formatMonto, tituloLegible, SIN_DATO } from "@/lib/format";
+import { diasHasta, formatFecha, formatMonto, montoEnSuMoneda, tituloLegible, SIN_DATO } from "@/lib/format";
 import { cierreMeta, estadoMeta, etapaDe } from "@/lib/estados";
 import { cn } from "@/lib/cn";
 import PreciosHistoricos from "./precios";
@@ -706,7 +706,7 @@ export default async function ProcesoPage({
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-mono font-semibold tabular-nums">
-                    {formatMonto(c.valor_contratado, c.divisa || p.divisa)}
+                    {montoEnSuMoneda(c.valor_contratado, c.divisa || p.divisa)}
                   </span>
                   {c.url_contrato && (
                     <Button asChild variant="secondary" size="sm" className="h-10 sm:h-9">

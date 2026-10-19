@@ -4,6 +4,23 @@
  */
 export const SIN_DATO = "sin dato";
 
+/**
+ * Si un monto de la DGCP está en pesos: `divisa` vacía (muchos registros
+ * viejos la dejan así), «DOP» o «RD$». Lo demás (USD, EUR) no se suma ni se
+ * compara con pesos: no hay tasa de cambio con fecha.
+ */
+export const enPesos = (divisa: string | null | undefined) => !divisa || /^(dop|rd\$?)$/i.test(divisa.trim());
+
+/**
+ * Un monto en su moneda: en pesos, «RD$276,686»; en otra, con su código
+ * («USD 276,686»), nunca como pesos ni con el símbolo que `Intl` escoja para
+ * cada divisa (en es-DO, «US$» para el dólar y «EUR» para el euro).
+ */
+export function montoEnSuMoneda(monto: number, divisa: string | null | undefined): string {
+  if (enPesos(divisa)) return formatMonto(monto, "DOP");
+  return `${divisa!.trim().toUpperCase()} ${monto.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
+}
+
 export function formatMonto(monto: number, divisa: string): string {
   if (!monto && monto !== 0) return SIN_DATO;
   try {

@@ -181,7 +181,7 @@ async function Indicadores() {
         <Cifra
           etiqueta="Adjudicado entre ellos"
           valor={formatPesos(m.montoTotal)}
-          nota="sin canceladas ni rescindidas"
+          nota="en pesos, sin canceladas ni rescindidas"
           tono="text-brand-700"
         />
         <Cifra
@@ -197,6 +197,8 @@ async function Indicadores() {
         Estado hay {inscritos === null ? "decenas de miles de" : formatInt(inscritos)}{" "}
         inscritos, y la inmensa mayoría no gana un contrato en un mes
         cualquiera. Para uno en concreto, búscalo por su nombre, su RNC o su número de RPE.
+        {m.otraMoneda > 0 &&
+          ` ${m.otraMoneda === 1 ? "Una adjudicación" : `${formatInt(m.otraMoneda)} adjudicaciones`} en otra moneda no ${m.otraMoneda === 1 ? "entra" : "entran"} en estas cifras: no hay una tasa de cambio con fecha con que convertir${m.otraMoneda === 1 ? "la" : "las"}.`}
       </p>
     </div>
   );

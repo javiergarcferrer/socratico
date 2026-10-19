@@ -5,9 +5,9 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { BarrasHorizontales } from "@/components/graficos";
 import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
 import { notFound } from "next/navigation";
-import { enPesos, getHistorialProveedor, getProveedorRegistro } from "@/lib/dgcp";
+import { getHistorialProveedor, getProveedorRegistro } from "@/lib/dgcp";
 import { titulizar } from "@/lib/capitulos";
-import { formatFecha, formatMonto, tituloLegible } from "@/lib/format";
+import { enPesos, formatFecha, formatMonto, montoEnSuMoneda, tituloLegible } from "@/lib/format";
 import { Ruta } from "@/components/ruta";
 import Antiguedad from "@/components/antiguedad";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
@@ -32,16 +32,6 @@ function nContratos(n: number): string {
 /** Los contratos en pesos de una barra, y los de otra moneda que su monto no cuenta. */
 function nContratosConOtraMoneda(n: number, otraMoneda: number): string {
   return otraMoneda ? `${nContratos(n)} y ${otraMoneda.toLocaleString("es-DO")} en otra moneda` : nContratos(n);
-}
-
-/**
- * El monto de un contrato en su moneda. Uno en dólares o en euros va con su
- * código («USD 276,686»), nunca como pesos ni con el símbolo que `Intl`
- * escoja para cada divisa.
- */
-function montoDeContrato(valor: number, divisa: string): string {
-  if (enPesos(divisa)) return formatMonto(valor, "DOP");
-  return `${divisa.trim().toUpperCase()} ${valor.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
 }
 
 /** Días o años, en llano. */
@@ -125,7 +115,7 @@ export default async function ProveedorPage({
   const otraMoneda = historial?.otraMoneda ?? 0;
   // «USD 1,251,990 en 2 contratos»: dentro de una misma moneda sí se suma.
   const otrasMonedas = (historial?.otrasMonedas ?? [])
-    .map((o) => `${montoDeContrato(o.monto, o.divisa)} en ${nContratos(o.n)}`)
+    .map((o) => `${montoEnSuMoneda(o.monto, o.divisa)} en ${nContratos(o.n)}`)
     .join(" y ");
 
   // El RNC con que cruzar las otras listas: el de la tabla de medidas, el del
@@ -556,7 +546,7 @@ export default async function ProveedorPage({
                       {tituloLegible(c.descripcion || c.codigo_proceso)}
                     </Link>
                     <span className="shrink-0 font-mono font-semibold tabular-nums">
-                      {montoDeContrato(c.valor_contratado, c.divisa)}
+                      {montoEnSuMoneda(c.valor_contratado, c.divisa)}
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">

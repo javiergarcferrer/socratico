@@ -96,6 +96,12 @@ export default async function FuentesPage() {
             de adjudicación y el panel de mercado.
           </p>
           <p className="mt-3">
+            El registro publica procesos y contratos en <strong>pesos, dólares
+            y euros</strong>, cada uno en su divisa. Las sumas cuentan solo los
+            pesos; lo que viene en otra moneda se dice aparte, con su código, y
+            no se convierte: no hay una tasa de cambio con fecha con que hacerlo.
+          </p>
+          <p className="mt-3">
             El buscador filtra por <strong>etapa</strong> (abiertos a ofertar,
             ya cerrada la recepción, en evaluación, adjudicados, desiertos o
             cancelados) y no solo por lo que está abierto. Dos límites que
