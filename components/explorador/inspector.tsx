@@ -21,6 +21,7 @@ import { formatInt } from "@/lib/nomina";
 import type { TipoEntrada } from "@/lib/espacios";
 import type { AristaVista, GrupoVisto, Inspeccion } from "@/lib/explorar-tipos";
 import { clicSimple } from "./clic";
+import { EnVivo } from "./en-vivo";
 
 /** Cuántas aristas de un grupo se ven antes de plegar el resto. */
 const VISIBLES = 6;
@@ -204,6 +205,8 @@ function Cuerpo({
           )}
         </div>
       </header>
+
+      <EnVivo ruta={n.ruta} />
 
       {n.hechos.length > 0 && (
         <section aria-labelledby="inspector-datos" className="px-4 py-3">

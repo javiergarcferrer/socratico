@@ -24,6 +24,7 @@ export const claves = {
   /** El banco de trabajo del grafo (`/explorar`): una búsqueda, un nodo, una pregunta. */
   explorar: (q: string, faceta: string | null, pagina: number) => ["explorar", q, faceta, pagina] as const,
   nodo: (ruta: string) => ["nodo", ruta] as const,
+  vivo: (ruta: string) => ["vivo", ruta] as const,
   preguntar: (q: string) => ["preguntar", q] as const,
 };
 
@@ -63,6 +64,10 @@ export function explorarGrafo<T>(q: string, faceta: string | null, pagina: numbe
 
 export function inspeccionarNodo<T>(ruta: string, signal?: AbortSignal) {
   return leerJson<T>(`/api/explorar/nodo?ruta=${encodeURIComponent(ruta)}`, signal);
+}
+
+export function vivoDelNodo<T>(ruta: string, signal?: AbortSignal) {
+  return leerJson<T>(`/api/explorar/vivo?ruta=${encodeURIComponent(ruta)}`, signal);
 }
 
 export function preguntarAlGrafo<T>(q: string, signal?: AbortSignal) {

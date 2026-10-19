@@ -125,6 +125,37 @@ export const CLAVES_FACETA = [
   "provincia",
 ] as const;
 
+/** Una fila de lo que la fuente dice ahora de un nodo: un proceso abierto, un contrato adjudicado, un estado. */
+export interface FilaViva {
+  titulo: string;
+  detalle: string | null;
+  href: string | null;
+  externo: boolean;
+  /** Un monto en pesos y qué es («estimado», «contratado»): nunca lo pagado. */
+  monto: number | null;
+  montoEs: string | null;
+  /** La marca de estado, en la tabla única de `lib/estados.ts`. */
+  marca: { texto: string; tono: "accionable" | "contexto" | "cumplido" | "aviso" | "anulado"; original: string | null } | null;
+  fecha: string | null;
+  prefijoFecha: string | null;
+}
+
+/** Lo que la fuente en vivo dice de un nodo, leído en el momento del pedido (con la caché de su adaptador). */
+export interface Vivo {
+  /** La fuente, con su nombre en llano: «API de datos abiertos de la DGCP». */
+  fuente: string;
+  /** Cuándo se leyó (ISO). */
+  leido: string;
+  /** Cada cuánto se relee: la ventana de caché del adaptador. */
+  ventana: string;
+  titulo: string;
+  /** Una línea que resume o compara con la instantánea del grafo. */
+  resumen: string | null;
+  filas: FilaViva[];
+  total: number | null;
+  enlace: { href: string; texto: string } | null;
+}
+
 export type ClaveFacetaPedida = (typeof CLAVES_FACETA)[number];
 
 /** Cuántas aristas de un grupo viajan al inspector; el resto lo dice la cuenta y lo abre la red del nodo. */
