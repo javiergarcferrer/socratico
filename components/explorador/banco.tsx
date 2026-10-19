@@ -18,6 +18,7 @@ import { IconExternal } from "@/components/icons";
 import { useRebotado } from "@/components/rebotado";
 import { claves, explorarGrafo } from "@/lib/consultas";
 import { enlace } from "@/lib/grafo";
+import { BUSQUEDAS } from "@/lib/secciones";
 import { formatFecha, formatPesos } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { CLAVES_FACETA, type ClaveFacetaPedida, type Exploracion, type FilaExplorada } from "@/lib/explorar-tipos";
@@ -26,6 +27,9 @@ import { Preguntar } from "./preguntar";
 import { clicSimple } from "./clic";
 
 const MODOS = ["buscar", "preguntar"] as const;
+
+/** Lo que recorre «Buscar»: la misma frase que la paleta pone junto al destino (`BUSQUEDAS`). */
+const ALCANCE = BUSQUEDAS.find((b) => b.href === "/explorar")?.alcance;
 
 const ESTADO_URL = {
   q: parseAsString.withDefault(""),
@@ -179,7 +183,7 @@ export function Banco({ ejemplos, preguntas }: { ejemplos: Ejemplo[]; preguntas:
           ayuda={
             preguntar
               ? "Se lee la pregunta, se atan al grafo las instituciones, personas y empresas que nombra, y se junta la evidencia: sus datos, sus aristas, la consulta de compras que pide. No se redacta una respuesta: la evidencia, con su fuente y su fecha, la da."
-              : "Busca a la vez en las catorce clases del grafo —personas con cargo, instituciones, empresas, proveedores, compras, obras, normas, iniciativas, documentos, datos— y en el índice de la plataforma, mientras escribes. Cada resultado que es un nodo se abre al lado."
+              : ALCANCE
           }
           pendiente={preguntar ? preguntando : busqueda.isFetching}
           textoBoton={preguntar ? "Preguntar" : "Buscar"}

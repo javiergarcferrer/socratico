@@ -141,6 +141,11 @@ async function Portada({ consulta }: { consulta: string }) {
           designó, quién lo firmó, quién supervisa a quién. Elige una ficha y mira con quién se liga; elige dos
           y busca el camino entre ellas.
         </p>
+        <div className="mt-4">
+          <Button asChild>
+            <Link href={enlace.explorar()}>Buscar en todo el grafo y recorrerlo en el banco de trabajo</Link>
+          </Button>
+        </div>
       </header>
 
       <section aria-labelledby="buscar-nodo" className="space-y-3">
@@ -400,6 +405,9 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <Button asChild variant="secondary">
             <Link href={propia}>Abrir su ficha</Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link href={enlace.explorar({ nodo: propia })}>Recorrerla en el banco de trabajo</Link>
           </Button>
           <p className="text-xs text-ink-soft">
             En RDF:{" "}

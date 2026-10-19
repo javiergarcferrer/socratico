@@ -31,16 +31,21 @@ export async function EnElGrafo({ nodo, empresa, className }: { nodo: NodoRdf; e
         dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, "\\u003c") }}
       />
       <section aria-labelledby="en-el-grafo" className={cn("border-t border-hairline pt-4", className)}>
-        <h2 id="en-el-grafo" className="text-sm font-bold text-ink">
+        <h2 id="en-el-grafo" className="font-sans text-sm font-bold text-ink">
           En el grafo
         </h2>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-soft">
           Esta ficha es un nodo: los registros del Estado la ligan con otras —personas, instituciones, empresas,
-          compras, obras, decretos, leyes, iniciativas, documentos, datos, lugares—. Su red dibuja esas aristas y busca el camino
-          hacia otra ficha.
+          compras, obras, decretos, leyes, iniciativas, documentos, datos, lugares—. En el banco de trabajo se recorre de
+          arista en arista, con la fuente y la fecha de cada dato; su red dibuja esas aristas y busca el camino hacia otra ficha.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          {/* `nofollow`: la vista de un nodo repite la ficha y robots.txt no la deja rastrear. */}
+          {/* `nofollow`: el banco con un nodo abierto y la vista de un nodo repiten la ficha, y robots.txt no los deja rastrear. */}
+          <Button asChild>
+            <Link href={enlace.explorar({ nodo: ruta })} rel="nofollow">
+              Recorrerla en el banco de trabajo
+            </Link>
+          </Button>
           <Button asChild variant="secondary">
             <Link href={enlace.grafo(ruta)} rel="nofollow">
               Ver con quién se liga
