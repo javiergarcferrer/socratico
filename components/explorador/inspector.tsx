@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Rotulo } from "@/components/papel";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { EsqueletoLineas } from "@/components/esqueleto";
@@ -95,7 +96,7 @@ export function Inspector({
   }, [leido, ruta]);
 
   return (
-    <Card as="section" aria-label="Inspector del nodo" className="overflow-hidden">
+    <Card as="section" aria-label="Inspector del nodo" className="overflow-hidden rounded-none border-0 bg-transparent">
       <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-2">
         <Rotulo>Inspector</Rotulo>
         <Button variant="ghost" size="sm" onClick={onCerrar} aria-label="Cerrar el inspector">
@@ -206,70 +207,93 @@ function Cuerpo({
         </div>
       </header>
 
-      <EnVivo ruta={n.ruta} />
+      {/*
+        Tres pestañas, como el panel de detalle de Blueprint: lo que el nodo
+        es y lo que su fuente dice hoy; con quién se liga; de dónde sale.
+      */}
+      <Tabs defaultValue="resumen" className="gap-0">
+        <TabsList className="px-2">
+          <TabsTrigger value="resumen">Resumen</TabsTrigger>
+          <TabsTrigger value="relaciones">
+            Relaciones <span className="font-mono text-xs tabular-nums">{formatInt(n.aristas)}</span>
+          </TabsTrigger>
+          <TabsTrigger value="procedencia">
+            Procedencia <span className="font-mono text-xs tabular-nums">{formatInt(n.procedencia.length)}</span>
+          </TabsTrigger>
+        </TabsList>
 
-      {n.hechos.length > 0 && (
-        <section aria-labelledby="inspector-datos" className="px-4 py-3">
-          <h3 id="inspector-datos" className="text-sm font-bold text-ink">
-            Lo que dice de sí
-          </h3>
-          <Hechos hechos={n.hechos.slice(0, HECHOS_VISIBLES)} />
-          {n.hechos.length > HECHOS_VISIBLES && (
-            <Plegable etiqueta={`Ver los otros ${formatInt(n.hechos.length - HECHOS_VISIBLES)} datos`} etiquetaCerrar="Ocultarlos">
-              <Hechos hechos={n.hechos.slice(HECHOS_VISIBLES)} />
-            </Plegable>
+        <TabsContent value="resumen" className="divide-y divide-hairline">
+          <EnVivo ruta={n.ruta} />
+
+          {n.hechos.length > 0 && (
+            <section aria-labelledby="inspector-datos" className="px-4 py-3">
+              <h3 id="inspector-datos" className="text-sm font-bold text-ink">
+                Lo que dice de sí
+              </h3>
+              <Hechos hechos={n.hechos.slice(0, HECHOS_VISIBLES)} />
+              {n.hechos.length > HECHOS_VISIBLES && (
+                <Plegable etiqueta={`Ver los otros ${formatInt(n.hechos.length - HECHOS_VISIBLES)} datos`} etiquetaCerrar="Ocultarlos">
+                  <Hechos hechos={n.hechos.slice(HECHOS_VISIBLES)} />
+                </Plegable>
+              )}
+            </section>
           )}
-        </section>
-      )}
 
-      {n.grupos.length === 0 ? (
-        <p className="px-4 py-3 text-sm text-ink-soft">Ninguna de las fuentes cruzadas liga este nodo con otro todavía.</p>
-      ) : (
-        n.grupos.map((g) => <Grupo key={g.id} g={g} ruta={n.ruta} onAbrir={onAbrir} />)
-      )}
+        </TabsContent>
 
-      {n.procedencia.length > 0 && (
-        <section aria-labelledby="inspector-procedencia" className="px-4 py-3">
-          <h3 id="inspector-procedencia" className="text-sm font-bold text-ink">
-            De dónde sale
-          </h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
-            Cada triple de este nodo viene de una instantánea de una fuente, con su corte, o de una regla de Socrático que lo
-            deduce de otras.
-          </p>
-          <ul className="mt-2 space-y-1.5 text-xs">
-            {n.procedencia.map((p) => (
-              <li key={p.etiqueta} className="flex items-start justify-between gap-3">
-                <span className="text-ink">
-                  {p.etiqueta}
-                  {p.derivado && (
-                    <Badge forma="sello" variant="contorno" className="ml-1.5 align-middle">
-                      regla
-                    </Badge>
-                  )}
-                </span>
-                <span className="shrink-0 text-right font-mono tabular-nums text-ink-soft">
-                  {p.corte ? formatFecha(p.corte) : "sin corte"} · {formatInt(p.triples)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-ink-soft">
-            En RDF:{" "}
-            <a href={enlace.rdf(n.ruta, "ttl")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
-              Turtle
-            </a>
-            {" · "}
-            <a href={enlace.rdf(n.ruta, "jsonld")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
-              JSON-LD
-            </a>
-            {" · "}
-            <a href={enlace.rdf(n.ruta, "trig")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
-              TriG, con la fuente de cada triple
-            </a>
-          </p>
-        </section>
-      )}
+        <TabsContent value="relaciones" className="divide-y divide-hairline">
+          {n.grupos.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-ink-soft">Ninguna de las fuentes cruzadas liga este nodo con otro todavía.</p>
+          ) : (
+            n.grupos.map((g) => <Grupo key={g.id} g={g} ruta={n.ruta} onAbrir={onAbrir} />)
+          )}
+        </TabsContent>
+
+        <TabsContent value="procedencia">
+          {n.procedencia.length > 0 && (
+            <section aria-labelledby="inspector-procedencia" className="px-4 py-3">
+              <h3 id="inspector-procedencia" className="text-sm font-bold text-ink">
+                De dónde sale
+              </h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
+                Cada triple de este nodo viene de una instantánea de una fuente, con su corte, o de una regla de Socrático que lo
+                deduce de otras.
+              </p>
+              <ul className="mt-2 space-y-1.5 text-xs">
+                {n.procedencia.map((p) => (
+                  <li key={p.clave} className="flex items-start justify-between gap-3">
+                    <span className="text-ink">
+                      {p.etiqueta}
+                      {p.derivado && (
+                        <Badge forma="sello" variant="contorno" className="ml-1.5 align-middle">
+                          regla
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-right font-mono tabular-nums text-ink-soft">
+                      {p.corte ? formatFecha(p.corte) : "sin corte"} · {formatInt(p.triples)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-ink-soft">
+                En RDF:{" "}
+                <a href={enlace.rdf(n.ruta, "ttl")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
+                  Turtle
+                </a>
+                {" · "}
+                <a href={enlace.rdf(n.ruta, "jsonld")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
+                  JSON-LD
+                </a>
+                {" · "}
+                <a href={enlace.rdf(n.ruta, "trig")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
+                  TriG, con la fuente de cada triple
+                </a>
+              </p>
+            </section>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -53,6 +53,14 @@ export function formatFecha(iso: string | undefined, conHora = false): string {
   }).format(d);
 }
 
+/** La hora dominicana de un instante, como «5:22 p. m.»: la de una lectura en vivo. */
+export function formatHora(iso: string | undefined): string {
+  if (!iso) return SIN_DATO;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return SIN_DATO;
+  return new Intl.DateTimeFormat("es-DO", { timeStyle: "short", timeZone: "America/Santo_Domingo" }).format(d);
+}
+
 /**
  * Los nombres de los meses salen de `Intl` y no de tablas copiadas: había
  * nueve en `lib/`. `MESES` es «enero»…«diciembre»; `MESES_CORTOS`, sus tres

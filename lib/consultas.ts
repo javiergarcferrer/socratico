@@ -25,6 +25,7 @@ export const claves = {
   explorar: (q: string, faceta: string | null, pagina: number) => ["explorar", q, faceta, pagina] as const,
   nodo: (ruta: string) => ["nodo", ruta] as const,
   vivo: (ruta: string) => ["vivo", ruta] as const,
+  abiertos: ["abiertos"] as const,
   preguntar: (q: string) => ["preguntar", q] as const,
 };
 
@@ -68,6 +69,10 @@ export function inspeccionarNodo<T>(ruta: string, signal?: AbortSignal) {
 
 export function vivoDelNodo<T>(ruta: string, signal?: AbortSignal) {
   return leerJson<T>(`/api/explorar/vivo?ruta=${encodeURIComponent(ruta)}`, signal);
+}
+
+export function abiertosAhora<T>(signal?: AbortSignal) {
+  return leerJson<T>("/api/explorar/abiertos", signal);
 }
 
 export function preguntarAlGrafo<T>(q: string, signal?: AbortSignal) {

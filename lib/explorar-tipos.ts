@@ -74,6 +74,8 @@ export interface GrupoVisto {
 
 /** De qué grafo con nombre salen los triples del nodo: su fuente y su corte, o la regla que los deriva. */
 export interface ProcedenciaVista {
+  /** La clave del grafo con nombre: dos pueden compartir etiqueta (los titulares y los suplentes de la JCE). */
+  clave: string;
   etiqueta: string;
   corte: string | null;
   derivado: boolean;
@@ -104,6 +106,17 @@ export interface Pulso {
   clases: number;
   grafos: number;
   compilado: string | null;
+  /** Cuántos nodos tiene cada clase, de la más poblada a la menos. */
+  porClase: { tipo: string; clase: string; nodos: number }[];
+  /** Los grafos con nombre: de qué fuente y de qué corte, o de qué regla, sale cada triple. */
+  fuentes: { clave: string; etiqueta: string; corte: string | null; derivado: boolean }[];
+}
+
+/** Lo abierto a ofertas en todo el Estado ahora, leído de la DGCP (`/api/explorar/abiertos`). */
+export interface AbiertosAhora {
+  total: number;
+  leido: string;
+  filas: FilaViva[];
 }
 
 /** Las facetas que se pueden pedir: los tipos del índice y dos clases del grafo que se buscan por nombre. */

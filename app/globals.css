@@ -965,3 +965,109 @@
     transition: none;
   }
 }
+
+/*
+  El tema Blueprint: la mesa de trabajo oscura (docs/INFRAESTRUCTURA.md §11.3).
+
+  Es la paleta del tema oscuro de Blueprint, el sistema de interfaz de
+  Palantir para aplicaciones de análisis —grises de pizarra, el azul de su
+  intención primaria, los verdes, naranjas y rojos de su tema oscuro—, puesta
+  como **redefinición de los mismos tokens** dentro de `.tema-blueprint`.
+  Así cada primitiva (Card, Button, Badge, Input, Tabs, ToggleGroup, la
+  marca de estado, los gráficos) se viste de Blueprint sin reescribirse, y
+  fuera del ámbito la plataforma sigue en papel.
+
+  Los oficios no cambian: `canvas` es el fondo de la mesa, `surface` el
+  panel, `ink` lo que se lee, `brand` lo que se pulsa y los enlaces
+  (`brand-700` es el azul claro de enlace sobre oscuro), `valido`, `alerta`
+  y `sello` los mismos estados con su tono para fondo oscuro. Lo único que no
+  puede ser token es el texto sobre un relleno saturado: fuera del tema es
+  `text-canvas` (papel sobre azul); aquí `canvas` es oscuro, así que esos
+  tres casos —el botón principal, el conmutador puesto, la casilla marcada—
+  toman el claro de Blueprint.
+*/
+.tema-blueprint {
+  --color-bp-mesa: #1c2127;
+  --color-bp-panel: #252a31;
+  --color-bp-realce: #2f343c;
+  --color-bp-borde: #383e47;
+  --color-bp-borde-fuerte: #404854;
+  --color-bp-claro: #f6f7f9;
+  --color-bp-tenue: #abb3bf;
+  --color-bp-apagado: #8f99a8;
+
+  --color-canvas: var(--color-bp-mesa);
+  --color-surface: var(--color-bp-panel);
+  --color-ink: var(--color-bp-claro);
+  --color-ink-soft: var(--color-bp-tenue);
+  --color-hairline: var(--color-bp-borde);
+  --color-canto: #111418;
+
+  --color-brand-50: #1f2d40;
+  --color-brand-100: #24364d;
+  --color-brand-200: #2b4466;
+  --color-brand-300: #3c64a0;
+  --color-brand-400: #4c90f0;
+  --color-brand-500: #2d72d2;
+  --color-brand-600: #215db0;
+  --color-brand-700: #8abbff;
+  --color-brand-800: #184a90;
+  --color-brand-900: #8abbff;
+
+  --color-valido-50: #1d3328;
+  --color-valido-500: #32a467;
+  --color-valido-600: #238551;
+  --color-valido-700: #72ca9b;
+  --color-alerta-50: #3a2d1b;
+  --color-alerta-100: #fbb360;
+  --color-alerta-500: #ec9a3c;
+  --color-alerta-600: #c87619;
+  --color-alerta-700: #fbb360;
+  --color-sello-50: #3a2224;
+  --color-sello-100: #4d2a2c;
+  --color-sello-300: #e76a6e;
+  --color-sello-400: #e76a6e;
+  --color-sello-500: #cd4246;
+  --color-sello-600: #cd4246;
+  --color-sello-700: #fa999c;
+  --color-sello-800: #8e292c;
+
+  --color-grafico-1: #4c90f0;
+  --color-grafico-2: #d1709a;
+  --color-grafico-3: #ec9a3c;
+  --color-grafico-4: #32a467;
+  --color-grafico-5: #9881f3;
+  --color-grafico-otros: var(--color-bp-apagado);
+  --color-grafico-sec-1: #24364d;
+  --color-grafico-sec-2: #2b4466;
+  --color-grafico-sec-3: #3c64a0;
+  --color-grafico-sec-4: #2d72d2;
+  --color-grafico-sec-5: #4c90f0;
+  --color-grafico-sec-6: #8abbff;
+  --color-grafico-rejilla: var(--color-bp-borde);
+  --color-grafico-base: var(--color-bp-borde-fuerte);
+
+  --color-ring: #4c90f0;
+  /* La luz del borde de lo que se pulsa: un filo apenas claro, no papel. */
+  --luz: rgb(255 255 255 / 0.07);
+  color-scheme: dark;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* El texto sobre un relleno saturado: el claro de Blueprint, no el papel. */
+.tema-blueprint [data-slot="button"].text-canvas,
+.tema-blueprint [data-slot="toggle-group-item"][data-state="on"],
+.tema-blueprint [data-slot="checkbox"][data-state="checked"] {
+  color: var(--color-bp-claro);
+}
+
+/* Los paneles de Blueprint no llevan fibra de papel: la superficie es pizarra lisa. */
+.tema-blueprint :is(.relieve, a[data-slot="card"], [data-slot="card"]) {
+  background-image: none;
+}
+
+/* La rejilla de una tabla densa: filas de 30 px a rayas, como su HTMLTable. */
+.tema-blueprint .tabla-densa tbody tr:nth-child(even) {
+  background-color: rgb(255 255 255 / 0.025);
+}

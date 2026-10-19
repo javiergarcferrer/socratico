@@ -99,6 +99,9 @@ registers the finding instead of fixing it.
   `.rotulo`. A 14 px panel title is Public Sans bold, not `font-display`.
   Instrument Serif (`font-marca`) is the wordmark only.
 - The dot is always seal red (`.punto-sello`). No exception.
+- Inside `.tema-blueprint` (the `/explorar` workbench; docs/INFRAESTRUCTURA.md §11.2) the same
+  tokens take Blueprint's dark palette: compose with the tokens and primitives as anywhere else,
+  never a Blueprint hex in a component. A new colour the workbench needs is a token of the theme.
 
 ## Voice and cognitive ergonomics
 - Headlines are questions; data answers; the reader concludes.

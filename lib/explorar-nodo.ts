@@ -72,7 +72,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
   for (const g of d.grafos ?? []) porGrafo.set(g, (porGrafo.get(g) ?? 0) + 1);
   const procedencia: ProcedenciaVista[] = (meta?.grafos ?? [])
     .filter((g) => porGrafo.has(g.clave) && g.clave !== "plataforma")
-    .map((g) => ({ etiqueta: g.etiqueta, corte: g.corte, derivado: !!g.derivado, triples: porGrafo.get(g.clave)! }))
+    .map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, corte: g.corte, derivado: !!g.derivado, triples: porGrafo.get(g.clave)! }))
     .sort((a, b) => Number(a.derivado) - Number(b.derivado) || b.triples - a.triples);
 
   return {
@@ -96,5 +96,12 @@ export async function pulsoDelGrafo(): Promise<Pulso | null> {
   const m = await metaGrafo();
   if (!m) return null;
   const nodos = Object.values(m.tipos).reduce((s, t) => s + t.nodos, 0) + m.empresasSolas;
-  return { triples: m.triples, nodos, clases: Object.keys(m.tipos).length, grafos: m.grafos.length, compilado: m.generado };
+  // Las empresas que solo son su fila del padrón también son nodos (las describe su fila): cuentan con su clase.
+  const porClase = (Object.entries(m.tipos) as [TipoNodoRdf, { nodos: number }][])
+    .map(([tipo, t]) => ({ tipo, clase: CLASE_DE_TIPO[tipo], nodos: t.nodos + (tipo === "empresa" ? m.empresasSolas : 0) }))
+    .sort((a, b) => b.nodos - a.nodos);
+  const fuentes = m.grafos
+    .filter((g) => g.clave !== "plataforma")
+    .map((g) => ({ clave: g.clave, etiqueta: g.etiqueta, corte: g.corte, derivado: !!g.derivado }));
+  return { triples: m.triples, nodos, clases: Object.keys(m.tipos).length, grafos: m.grafos.length, compilado: m.generado, porClase, fuentes };
 }

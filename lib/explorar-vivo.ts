@@ -4,7 +4,7 @@ import { institucionPorId } from "@/lib/instituciones";
 import { etapaDe, cierreMeta } from "@/lib/estados";
 import { diasHasta, enPesos, formatFecha, formatPesos } from "@/lib/format";
 import { enlace, nodoDeRuta } from "@/lib/grafo";
-import type { FilaViva, Vivo } from "@/lib/explorar-tipos";
+import type { AbiertosAhora, FilaViva, Vivo } from "@/lib/explorar-tipos";
 
 /**
  * Lo que la fuente dice **ahora** de un nodo del banco de trabajo
@@ -279,6 +279,24 @@ async function vivoDeEmpresa(rnc: string): Promise<Resultado> {
     };
   }
   return { sinFuente: false, vivo: await adjudicado(reg.rpe, `Inscrita en el RPE con el número ${reg.rpe}, en estado «${reg.estado}».`) };
+}
+
+/** Cuántos de los abiertos en todo el Estado lista el tablero; la cuenta es la de la DGCP. */
+const ABIERTOS_PAIS = 8;
+
+/**
+ * Lo abierto a ofertas en todo el Estado en este momento: la cuenta que da la
+ * DGCP y los publicados más recientes, para el tablero del banco. Lanza si la
+ * DGCP no contesta (la ruta responde 502).
+ */
+export async function abiertosAhora(): Promise<AbiertosAhora> {
+  const r = await listProcesos({ etapa: "abiertos", limit: ABIERTOS_PAIS });
+  return {
+    total: r.totalResults,
+    leido: new Date().toISOString(),
+    // En el tablero se mira todo el Estado: el detalle es quién compra; el código y la modalidad, en su ficha.
+    filas: r.content.map((p) => ({ ...filaDeProceso(p), detalle: p.unidad_compra ? desdeMayusculas(p.unidad_compra) : null })),
+  };
 }
 
 /**
