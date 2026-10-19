@@ -242,6 +242,13 @@ function ordenar(lista: Proceso[], orden: OrdenProceso): Proceso[] {
 }
 
 /**
+ * Si un monto de la DGCP está en pesos: `divisa` vacía (muchos registros
+ * viejos la dejan así), «DOP» o «RD$». Lo demás (USD, EUR) no se suma ni se
+ * compara con pesos: no hay tasa de cambio con fecha.
+ */
+export const enPesos = (divisa: string | null | undefined) => !divisa || /^(dop|rd\$?)$/i.test(divisa.trim());
+
+/**
  * Ordena por monto **dentro del peso dominicano**.
  *
  * `monto_estimado` viene sin escala común: el registro publica también procesos
@@ -256,10 +263,9 @@ function ordenar(lista: Proceso[], orden: OrdenProceso): Proceso[] {
  * en la misma escala.
  */
 function ordenarPorMonto(lista: Proceso[], sentido: "asc" | "desc"): Proceso[] {
-  const esPeso = (p: Proceso) => !p.divisa || /^(dop|rd\$?)$/i.test(p.divisa.trim());
   return lista.sort((a, b) => {
-    const pa = esPeso(a);
-    const pb = esPeso(b);
+    const pa = enPesos(a.divisa);
+    const pb = enPesos(b.divisa);
     if (pa !== pb) return pa ? -1 : 1;
     const ma = a.monto_estimado ?? 0;
     const mb = b.monto_estimado ?? 0;
@@ -927,11 +933,17 @@ export interface HistorialProveedor {
   razonSocial: string | null;
   totalRegistro: number;
   contratos: Contrato[];
+  /** Suma en pesos de todos los contratos; los de otra moneda no entran. */
   montoTotal: number;
-  /** Adjudicaciones vigentes (sin canceladas/rescindidas). */
+  /** La misma suma, solo de las adjudicaciones vigentes (sin canceladas/rescindidas). */
   montoVigente: number;
+  /** Contratos con monto en otra moneda, que no entran en ninguna suma en pesos. */
+  otraMoneda: number;
+  /** Esos contratos por divisa («USD», «EUR»), cada suma en su propia moneda. */
+  otrasMonedas: { divisa: string; n: number; monto: number }[];
   instituciones: number;
-  porAnio: { anio: string; n: number; monto: number }[];
+  /** Por año de adjudicación: `n` y `monto` en pesos; `otraMoneda`, los que quedan fuera. */
+  porAnio: { anio: string; n: number; monto: number; otraMoneda: number }[];
 }
 
 /**
@@ -944,20 +956,37 @@ export async function getHistorialProveedor(rpe: string): Promise<HistorialProve
   const contratos = data.payload.content;
   if (contratos.length === 0) return null;
 
+  // Solo se suman pesos: el registro publica contratos en dólares y en euros,
+  // y sumarlos en crudo los contaba como pesos. Se cuentan aparte, sin convertir.
   let montoTotal = 0;
   let montoVigente = 0;
+  let otraMoneda = 0;
+  const otras = new Map<string, { divisa: string; n: number; monto: number }>();
   const insts = new Set<string>();
-  const anios = new Map<string, { anio: string; n: number; monto: number }>();
+  const anios = new Map<string, { anio: string; n: number; monto: number; otraMoneda: number }>();
 
   for (const c of contratos) {
     const monto = c.valor_contratado || 0;
-    montoTotal += monto;
-    if (ESTADOS_VIGENTES.has(c.estado_contrato)) montoVigente += monto;
     if (c.unidad_compra) insts.add(c.unidad_compra);
+    const pesos = enPesos(c.divisa);
+    // Uno en otra moneda sin monto no tiene nada que sumar ni que dejar fuera.
+    if (!pesos && monto <= 0) continue;
     const anio = fechaValida(c.fecha_adjudicacion)?.slice(0, 4) ?? "Sin fecha";
-    const a = anios.get(anio) ?? { anio, n: 0, monto: 0 };
-    a.n += 1;
-    a.monto += monto;
+    const a = anios.get(anio) ?? { anio, n: 0, monto: 0, otraMoneda: 0 };
+    if (pesos) {
+      montoTotal += monto;
+      if (ESTADOS_VIGENTES.has(c.estado_contrato)) montoVigente += monto;
+      a.n += 1;
+      a.monto += monto;
+    } else {
+      otraMoneda += 1;
+      const divisa = c.divisa.trim().toUpperCase();
+      const o = otras.get(divisa) ?? { divisa, n: 0, monto: 0 };
+      o.n += 1;
+      o.monto += monto;
+      otras.set(divisa, o);
+      a.otraMoneda += 1;
+    }
     anios.set(anio, a);
   }
 
@@ -968,6 +997,8 @@ export async function getHistorialProveedor(rpe: string): Promise<HistorialProve
     contratos,
     montoTotal,
     montoVigente,
+    otraMoneda,
+    otrasMonedas: [...otras.values()].sort((x, y) => y.n - x.n),
     instituciones: insts.size,
     porAnio: [...anios.values()].sort((a, b) => b.anio.localeCompare(a.anio)),
   };

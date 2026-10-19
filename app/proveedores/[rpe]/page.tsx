@@ -5,7 +5,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { BarrasHorizontales } from "@/components/graficos";
 import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
 import { notFound } from "next/navigation";
-import { getHistorialProveedor, getProveedorRegistro } from "@/lib/dgcp";
+import { enPesos, getHistorialProveedor, getProveedorRegistro } from "@/lib/dgcp";
 import { titulizar } from "@/lib/capitulos";
 import { formatFecha, formatMonto, tituloLegible } from "@/lib/format";
 import { Ruta } from "@/components/ruta";
@@ -27,6 +27,21 @@ import { bancoMundialDeRpe, medidasDeRnc, medidasDeRpe, metaSanciones, ofacDeRnc
 
 function nContratos(n: number): string {
   return `${n.toLocaleString("es-DO")} ${n === 1 ? "contrato" : "contratos"}`;
+}
+
+/** Los contratos en pesos de una barra, y los de otra moneda que su monto no cuenta. */
+function nContratosConOtraMoneda(n: number, otraMoneda: number): string {
+  return otraMoneda ? `${nContratos(n)} y ${otraMoneda.toLocaleString("es-DO")} en otra moneda` : nContratos(n);
+}
+
+/**
+ * El monto de un contrato en su moneda. Uno en dólares o en euros va con su
+ * código («USD 276,686»), nunca como pesos ni con el símbolo que `Intl`
+ * escoja para cada divisa.
+ */
+function montoDeContrato(valor: number, divisa: string): string {
+  if (enPesos(divisa)) return formatMonto(valor, "DOP");
+  return `${divisa.trim().toUpperCase()} ${valor.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
 }
 
 /** Días o años, en llano. */
@@ -107,6 +122,11 @@ export default async function ProveedorPage({
     registro?.razonSocial ?? historial?.razonSocial ?? medidas?.razonSocial ?? `RPE ${rpe}`;
   const total = historial?.totalRegistro ?? 0;
   const suma = historial?.montoTotal ?? 0;
+  const otraMoneda = historial?.otraMoneda ?? 0;
+  // «USD 1,251,990 en 2 contratos»: dentro de una misma moneda sí se suma.
+  const otrasMonedas = (historial?.otrasMonedas ?? [])
+    .map((o) => `${montoDeContrato(o.monto, o.divisa)} en ${nContratos(o.n)}`)
+    .join(" y ");
 
   // El RNC con que cruzar las otras listas: el de la tabla de medidas, el del
   // registro en vivo o el del padrón de la DGII, el primero que haya.
@@ -125,7 +145,7 @@ export default async function ProveedorPage({
   */
   const porInstitucion = new Map<
     string,
-    { nombre: string; n: number; monto: number; href: string | null }
+    { nombre: string; n: number; monto: number; otraMoneda: number; href: string | null }
   >();
   for (const c of contratos) {
     const cod = String(c.codigo_unidad_compra ?? "").trim();
@@ -133,11 +153,16 @@ export default async function ProveedorPage({
     let a = porInstitucion.get(clave);
     if (!a) {
       const inst = cod ? institucionPorId(cod) : null;
-      a = { nombre: c.unidad_compra, n: 0, monto: 0, href: inst ? hrefInstitucion(inst) : null };
+      a = { nombre: c.unidad_compra, n: 0, monto: 0, otraMoneda: 0, href: inst ? hrefInstitucion(inst) : null };
       porInstitucion.set(clave, a);
     }
-    a.n += 1;
-    a.monto += c.valor_contratado || 0;
+    // Como en `getHistorialProveedor`: solo se suman pesos.
+    if (enPesos(c.divisa)) {
+      a.n += 1;
+      a.monto += c.valor_contratado || 0;
+    } else if (c.valor_contratado > 0) {
+      a.otraMoneda += 1;
+    }
   }
   const topInstituciones = [...porInstitucion.entries()]
     .sort((a, b) => b[1].monto - a[1].monto)
@@ -216,7 +241,7 @@ export default async function ProveedorPage({
                 etiqueta="Monto adjudicado"
                 valor={formatMonto(suma, "DOP")}
                 tono="text-brand-700"
-                nota={`sobre los ${contratos.length.toLocaleString("es-DO")} contratos que devuelve la API`}
+                nota={`en pesos, sobre los ${contratos.length.toLocaleString("es-DO")} contratos que devuelve la API`}
               />
               <Cifra
                 etiqueta="Instituciones cliente"
@@ -230,6 +255,12 @@ export default async function ProveedorPage({
               adjudicaciones; {formatMonto(historial.montoVigente, "DOP")} corresponden
               a contratos vigentes (sin cancelados ni rescindidos).
             </p>
+            {otraMoneda > 0 && (
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                Fuera de estas sumas en pesos, {otrasMonedas}: no hay una tasa de cambio con fecha
+                con que convertir{otraMoneda === 1 ? "lo" : "los"}.
+              </p>
+            )}
           </>
         ) : (
           <p className="mt-4 text-sm leading-relaxed text-ink-soft">
@@ -457,14 +488,14 @@ export default async function ProveedorPage({
             className="mt-3"
             forma="periodo"
             maximo={maxAnio}
-            etiqueta="Monto contratado por año"
+            etiqueta="Monto contratado en pesos por año"
             barras={historial.porAnio.map((a) => ({
               clave: String(a.anio),
               etiqueta: a.anio,
-              titulo: `${a.anio}: ${formatMonto(a.monto, "DOP")} en ${nContratos(a.n)}`,
+              titulo: `${a.anio}: ${formatMonto(a.monto, "DOP")} en ${nContratosConOtraMoneda(a.n, a.otraMoneda)}`,
               valor: a.monto,
               cifra: formatMonto(a.monto, "DOP"),
-              detalle: nContratos(a.n),
+              detalle: nContratosConOtraMoneda(a.n, a.otraMoneda),
             }))}
           />
         </Card>
@@ -491,10 +522,10 @@ export default async function ProveedorPage({
               barras={topInstituciones.map(([inst, a]) => ({
                 clave: inst,
                 etiqueta: a.nombre,
-                titulo: `${a.nombre}: ${formatMonto(a.monto, "DOP")} en ${nContratos(a.n)}`,
+                titulo: `${a.nombre}: ${formatMonto(a.monto, "DOP")} en ${nContratosConOtraMoneda(a.n, a.otraMoneda)}`,
                 valor: a.monto,
                 cifra: formatMonto(a.monto, "DOP"),
-                detalle: nContratos(a.n),
+                detalle: nContratosConOtraMoneda(a.n, a.otraMoneda),
                 href: a.href ?? undefined,
               }))}
             />
@@ -525,7 +556,7 @@ export default async function ProveedorPage({
                       {tituloLegible(c.descripcion || c.codigo_proceso)}
                     </Link>
                     <span className="shrink-0 font-mono font-semibold tabular-nums">
-                      {formatMonto(c.valor_contratado, c.divisa)}
+                      {montoDeContrato(c.valor_contratado, c.divisa)}
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">

@@ -1,4 +1,4 @@
-import { ESTADOS_VIGENTES, dgcpFetch, fichaPorDocumento, getHistorialProveedor, leerCompetencia, listProcesos, type Contrato, type Proceso } from "@/lib/dgcp";
+import { ESTADOS_VIGENTES, dgcpFetch, enPesos, fichaPorDocumento, getHistorialProveedor, leerCompetencia, listProcesos, type Contrato, type Proceso } from "@/lib/dgcp";
 import { getIniciativa, normalizarIniciativa, marcaDeIniciativa, desdeMayusculas } from "@/lib/congreso";
 import { institucionPorId } from "@/lib/instituciones";
 import { etapaDe, cierreMeta } from "@/lib/estados";
@@ -31,9 +31,6 @@ const OFERENTES = 5;
 const CONTRATOS = 6;
 
 type Resultado = { vivo: Vivo | null; sinFuente: boolean };
-
-/** En pesos dominicanos, o sin moneda dicha (la DGCP la deja vacía en muchos registros viejos). */
-const enPesos = (divisa: string | null | undefined) => !divisa || divisa === "DOP";
 
 /**
  * Un monto con su moneda. `formatPesos` dice «RD$»: un monto en otra moneda
@@ -229,9 +226,9 @@ async function adjudicado(rpe: string, inscripcion: string | null): Promise<Vivo
   }
   const recientes = [...h.contratos].sort((a, b) => (b.fecha_adjudicacion ?? "").localeCompare(a.fecha_adjudicacion ?? "")).slice(0, CONTRATOS);
   const leidos = h.contratos.length;
-  // La suma del adaptador junta monedas; aquí solo se suman los pesos, y se dice cuántos quedan fuera.
+  // La suma del adaptador es solo de pesos; se dice cuántos vigentes en otra moneda quedan fuera.
+  const pesos = h.montoVigente;
   const vigentes = h.contratos.filter((c) => ESTADOS_VIGENTES.has(c.estado_contrato));
-  const pesos = vigentes.filter((c) => enPesos(c.divisa)).reduce((s, c) => s + (c.valor_contratado || 0), 0);
   const otraMoneda = vigentes.filter((c) => !enPesos(c.divisa) && c.valor_contratado > 0).length;
   return {
     fuente: DGCP,
