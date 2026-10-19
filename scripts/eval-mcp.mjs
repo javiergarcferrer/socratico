@@ -49,15 +49,25 @@ const DO = `${W3ID}/def/do#`;
 let siguiente = 0;
 
 async function rpc(method, params = {}) {
-  const res = await fetch(URL_MCP, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream",
-      "mcp-protocol-version": "2025-06-18",
-    },
-    body: JSON.stringify({ jsonrpc: "2.0", id: ++siguiente, method, params }),
-    signal: AbortSignal.timeout(90_000),
+  const pedir = () =>
+    fetch(URL_MCP, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-06-18",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++siguiente, method, params }),
+      signal: AbortSignal.timeout(90_000),
+    });
+  // Un socket que el servidor ya cerró por ocioso (su keep-alive es de 5 s; un
+  // caso que pasa más tiempo revisando una respuesta grande lo deja vencer) y
+  // que `fetch` reutiliza falla con UND_ERR_SOCKET antes de que llegue el
+  // pedido. Las herramientas son de solo lectura e idempotentes: se pide una
+  // vez más, por un socket nuevo. Cualquier otro fallo sigue siendo fallo.
+  const res = await pedir().catch((e) => {
+    if (e?.cause?.code === "UND_ERR_SOCKET") return pedir();
+    throw e;
   });
   const texto = await res.text();
   // Una respuesta en SSE trae el mensaje en su línea `data:`.
