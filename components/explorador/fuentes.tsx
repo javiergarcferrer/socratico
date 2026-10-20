@@ -30,15 +30,47 @@ import { clicSimple } from "./clic";
  */
 
 const DATO = "dato";
+/** Cuántas fuentes se nombran por clase en «Dónde se juntan»: las que más triples tienen en ella. */
+const POR_UNION = 6;
 const FUERA = "fuera";
+
+/**
+ * Los predicados de vocabularios de fuera que el grafo usa, en llano: la
+ * ontología nombra los suyos (`soc:`, `do:`); estos son de RDF, schema.org,
+ * W3C ORG, SKOS, Dublin Core y OWL.
+ */
+const PREDICADOS_DE_FUERA: Record<string, string> = {
+  "rdf:type": "es un caso de",
+  "rdfs:label": "nombre",
+  "schema:name": "nombre",
+  "schema:alternateName": "otro nombre",
+  "skos:altLabel": "otro nombre",
+  "skos:prefLabel": "nombre",
+  "schema:roleName": "nombre del cargo",
+  "schema:url": "página",
+  "foaf:page": "página",
+  "schema:identifier": "identificador",
+  "schema:description": "descripción",
+  "dct:source": "fuente",
+  "dct:date": "fecha",
+  "dct:title": "título",
+  "dct:subject": "tema",
+  "org:member": "miembro",
+  "org:organization": "organización",
+  "org:headOf": "encabeza",
+  "org:subOrganizationOf": "depende de",
+  "owl:sameAs": "es el mismo que",
+  "schema:sameAs": "es el mismo que",
+  "prov:wasDerivedFrom": "sale de",
+};
 
 /** Lo que se lee de un término de la ontología: su etiqueta si es de aquí, el nombre corto si no. */
 function nombres(o: OntologiaVista | undefined) {
   const clases = new Map(o?.clases.map((c) => [c.curie, c.etiqueta]) ?? []);
   const props = new Map(o?.propiedades.map((p) => [p.curie, p.etiqueta]) ?? []);
   return {
-    clase: (c: string) => (c === DATO ? "un valor" : c === FUERA ? "algo de fuera" : (clases.get(c) ?? c)),
-    prop: (p: string) => props.get(p) ?? p,
+    clase: (c: string) => (c === DATO ? "un valor" : c === FUERA ? "un concepto o una dirección de fuera" : (clases.get(c) ?? c)),
+    prop: (p: string) => props.get(p) ?? PREDICADOS_DE_FUERA[p] ?? p,
     esClase: (c: string) => clases.has(c),
   };
 }
@@ -140,14 +172,24 @@ function clasesDeNodo(datos: FuentesVista, n: ReturnType<typeof nombres>) {
   return [...total.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
 }
 
-/** Las clases que llenan dos fuentes o más, con quiénes: donde el grafo junta lo que el Estado publica por separado. */
+/**
+ * Las clases que toca una fuente, de sujeto o de objeto, con los triples en
+ * que aparece: el MAP no describe instituciones, pero sus cargos llegan a
+ * ellas, y ahí se junta con las demás.
+ */
+function toca(f: FuenteVista, n: ReturnType<typeof nombres>): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const [s, , o, v] of f.aporte?.aristas ?? []) {
+    for (const c of s === o ? [s] : [s, o]) if (n.esClase(c)) m.set(c, (m.get(c) ?? 0) + v);
+  }
+  return m;
+}
+
+/** Las clases que tocan dos fuentes o más, con quiénes: donde el grafo junta lo que el Estado publica por separado. */
 function uniones(datos: FuentesVista, n: ReturnType<typeof nombres>) {
   const por = new Map<string, { f: FuenteVista; triples: number }[]>();
   for (const f of datos.fuentes.filter(esFuente)) {
-    for (const [c, v] of f.aporte?.clases ?? []) {
-      if (!n.esClase(c)) continue;
-      por.set(c, [...(por.get(c) ?? []), { f, triples: v }]);
-    }
+    for (const [c, v] of toca(f, n)) por.set(c, [...(por.get(c) ?? []), { f, triples: v }]);
   }
   return [...por.entries()]
     .filter(([, xs]) => xs.length > 1)
@@ -203,7 +245,7 @@ function Panorama({
           valor={formatInt(reglas.length)}
           nota={`${formatInt(datos.triples - deFuentes)} triples deducidos de las fuentes`}
         />
-        <Cifra etiqueta="Clases donde se cruzan" valor={formatInt(juntas.length)} nota="las llenan dos fuentes o más" />
+        <Cifra etiqueta="Clases donde se cruzan" valor={formatInt(juntas.length)} nota="las tocan dos fuentes o más" />
         <Cifra
           etiqueta="Triples con su fuente"
           valor={formatInt(datos.triples)}
@@ -241,7 +283,9 @@ function Panorama({
       {juntas.length > 0 && (
         <Card as="section" aria-labelledby="fuentes-uniones" className="px-4 py-4">
           <CardTitle id="fuentes-uniones">Dónde se juntan</CardTitle>
-          <p className="mt-0.5 text-xs text-ink-soft">Las clases que llenan dos fuentes o más, con los triples de cada una.</p>
+          <p className="mt-0.5 text-xs text-ink-soft">
+            Las clases que tocan dos fuentes o más, de sujeto o de objeto de sus triples, con los triples de cada una en que aparece.
+          </p>
           <ul className="mt-3 divide-y divide-hairline border-t border-hairline">
             {juntas.map((u) => (
               <li key={u.clase} className="py-2.5">
@@ -250,7 +294,7 @@ function Panorama({
                 </Link>
                 <span className="ml-2 font-mono text-xs text-ink-soft">{formatInt(u.fuentes.length)} fuentes</span>
                 <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
-                  {u.fuentes.map((x, i) => (
+                  {u.fuentes.slice(0, POR_UNION).map((x, i) => (
                     <span key={x.f.clave}>
                       {i > 0 && " · "}
                       <Link href={hrefFuente(x.f.clave)} className="text-brand-700 hover:underline">
@@ -259,6 +303,7 @@ function Panorama({
                       <span className="font-mono tabular-nums">{formatInt(x.triples)}</span>
                     </span>
                   ))}
+                  {u.fuentes.length > POR_UNION && ` · y ${formatInt(u.fuentes.length - POR_UNION)} más, con menos triples`}
                 </p>
               </li>
             ))}
@@ -290,6 +335,8 @@ function FichaDeFuente({
   const a = f.aporte;
   const porClave = new Map(datos.fuentes.map((x) => [x.clave, x]));
   const clasesPropias = (a?.clases ?? []).filter(([c]) => n.esClase(c));
+  // La clase de cada sujeto ya está en la columna «De»: su `rdf:type` no se repite como fila.
+  const aristas = (a?.aristas ?? []).filter(([, p]) => p !== "rdf:type");
 
   // El esquema: la clase que más llena en el centro, y las clases que liga con ella.
   const centro = clasesPropias[0]?.[0] ?? null;
@@ -308,11 +355,12 @@ function FichaDeFuente({
       href: hrefClase(otra),
     });
   }
-  // Con quién se cruza: por cada clase que llena, las otras fuentes que también la llenan.
-  const cruces = clasesPropias
+  // Con quién se cruza: por cada clase que toca, las otras fuentes que también la tocan.
+  const tocadas = [...toca(f, n).entries()].sort((x, y) => y[1] - x[1]);
+  const cruces = tocadas
     .map(([c]) => ({
       clase: c,
-      otras: datos.fuentes.filter((x) => x.clave !== f.clave && esFuente(x) && x.aporte?.clases.some(([y]) => y === c)),
+      otras: datos.fuentes.filter((x) => x.clave !== f.clave && esFuente(x) && toca(x, n).has(c)),
     }))
     .filter((x) => x.otras.length > 0);
   const cruce = a?.cruce ?? null;
@@ -373,7 +421,7 @@ function FichaDeFuente({
           />
           {/* Por debajo de `sm`, una línea por combinación; desde `sm`, la tabla. */}
           <ul className="mt-3 divide-y divide-hairline border-t border-hairline sm:hidden">
-            {a.aristas.slice(0, 40).map(([s, p, o, v]) => (
+            {aristas.slice(0, 40).map(([s, p, o, v]) => (
               <li key={`${s} ${p} ${o}`} className="py-2 text-[13px] leading-snug">
                 <span className="font-medium text-ink">{n.clase(s)}</span> <span className="text-ink-soft">{n.prop(p)}</span>{" "}
                 <span className="font-medium text-ink">{n.clase(o)}</span>
@@ -392,7 +440,7 @@ function FichaDeFuente({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {a.aristas.slice(0, 40).map(([s, p, o, v]) => (
+                {aristas.slice(0, 40).map(([s, p, o, v]) => (
                   <TableRow key={`${s} ${p} ${o}`}>
                     <TableCell className="py-1.5 text-[13px]">
                       {n.esClase(s) ? (
@@ -423,9 +471,9 @@ function FichaDeFuente({
               </TableBody>
             </Table>
           </div>
-          {a.aristas.length > 40 && (
+          {aristas.length > 40 && (
             <p className="mt-2 text-xs text-ink-soft">
-              Las 40 combinaciones con más triples, de {formatInt(a.aristas.length)}.
+              Las 40 combinaciones con más triples, de {formatInt(aristas.length)}.
             </p>
           )}
         </Card>
@@ -447,7 +495,7 @@ function FichaDeFuente({
         {cruces.length > 0 && !f.deriva && (
           <Card as="section" aria-labelledby="fuente-cruces" className="px-4 py-4">
             <CardTitle id="fuente-cruces">Con quién se cruza</CardTitle>
-            <p className="mt-0.5 text-xs text-ink-soft">Las otras fuentes que llenan sus mismas clases: ahí el grafo las junta.</p>
+            <p className="mt-0.5 text-xs text-ink-soft">Las otras fuentes que tocan sus mismas clases: ahí el grafo las junta.</p>
             <ul className="mt-2 divide-y divide-hairline border-t border-hairline">
               {cruces.map((x) => (
                 <li key={x.clase} className="py-2">

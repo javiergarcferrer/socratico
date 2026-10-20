@@ -66,7 +66,7 @@ export function MatrizCruzada({
           role="table"
           aria-label={etiqueta}
           className="grid gap-[2px]"
-          style={{ gridTemplateColumns: `minmax(9rem, 13rem) repeat(${columnas.length}, minmax(1.75rem, 1fr))` }}
+          style={{ gridTemplateColumns: `minmax(7.5rem, 13rem) repeat(${columnas.length}, minmax(1.75rem, 1fr))` }}
         >
           <div role="row" className="contents">
             <span role="columnheader" className="sticky left-0 bg-surface">
@@ -77,7 +77,7 @@ export function MatrizCruzada({
                 key={c.clave}
                 role="columnheader"
                 title={c.etiqueta}
-                className="flex h-28 items-end justify-center pb-1 text-xs leading-none text-ink-soft"
+                className="flex h-44 items-end justify-center pb-1 text-xs leading-none text-ink-soft"
               >
                 <span className="max-h-full overflow-hidden [writing-mode:vertical-rl] rotate-180 whitespace-nowrap">{c.etiqueta}</span>
               </span>
