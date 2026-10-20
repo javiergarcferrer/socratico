@@ -4312,6 +4312,8 @@ Todos cargan `lib.sh`; leen el JSON del evento por la entrada estándar con `jq`
 
 `./.claude/hooks/verificar.sh [--rapido|--completo]`; sin argumento, `--rapido`. Imprime `ok` o `FAIL` por paso y termina con `RESULT: clean` (salida 0) o `RESULT: N failure(s)` (salida 1).
 
+**Las cuatro unidades del completo** (5c, 5d, 5e y 6–6c) corren a la vez, en segundo plano, y escriben su informe en un directorio temporal; el gate espera a las cuatro e imprime sus `ok` o `FAIL` en ese orden, cada uno con cuánto tardó o `(memo)`. Un `trap` mata lo que siga corriendo si el gate se interrumpe. **Memoria por contenido** (`huella_de`, `memo_leer`, `memo_guardar` en `lib.sh`): cada unidad es determinista sobre lo que lee, y su verde se guarda en `.git/harness-memo/<unidad>-<huella>` con su informe; la huella es el sha256 de la versión de Node, de `git ls-files -s` de esas rutas (el blob de cada archivo en el índice), de los nombres y el sha256 de lo modificado sin preparar y de lo nuevo sin seguimiento. Si la unidad ya pasó con esa huella, se lee su informe y no se corre. Lo que lee cada una: `cedulas`, `public/data`, `public/tablas`, `datos`, sus dos comprobadores y `package-lock.json`; `grafo` y `busqueda`, `lib`, `scripts`, `public/data`, `datos` y `package-lock.json`; `build`, el árbol entero. Un rojo no se guarda; los verdes de más de 30 días se podan.
+
 | Paso | Modo | Comprueba |
 |---|---|---|
 | 0 | ambos | Existe `node_modules/next` |
@@ -4329,12 +4331,10 @@ Todos cargan `lib.sh`; leen el JSON del evento por la entrada estándar con `jq`
 | 5a | ambos | Si existe `public/data/busqueda/corpus.json`: `indice.bin` empieza por `SIB2`, la `etiqueta` de su cabecera es `${generado}\|${huella}\|${docs.length}` del corpus y su campo `vectores` es el SHA-256 de `vectores.bin` |
 | 5a' | ambos | Ningún archivo versionado pasa de 90,000,000 bytes |
 | 5b | ambos | `harness.sh` sin hallazgos |
-| 5c | `--completo` | `cedulas.py` y `cedulas-tablas.mjs` sin hallazgos |
-| 5d | `--completo` | `node scripts/build-grafo.mjs --comprobar`: el grafo compilado de `datos/grafo/` igual a lo que producen sus constructores (§7) |
-| 5e | `--completo`, si existe `corpus.json` | `node --no-warnings scripts/busqueda-grafo.mjs --comprobar`: cada entrada del corpus que lleva a un nodo, a uno del compilado y solo ella; cada nodo de un tipo buscable, con su entrada o fuera por una regla de `FUERA` (§8.2) |
-| 6 | `--completo` | `timeout 600 npm run build`; el registro va a `${TMPDIR:-/tmp}/socratico-build.log` y se borra si pasa |
-| 6b | `--completo`, si el build pasó | `next start` en un puerto libre; espera hasta 60 s a que conteste `/robots.txt`; `timeout 300 node scripts/eval-mcp.mjs --url http://localhost:<puerto>/mcp` (§9) |
-| 6c | íd., mismo servidor | `timeout 300 node scripts/validar-grafo.mjs --url http://localhost:<puerto> --personas 300`: SHACL de `lib/ontologia.ts` (§7). Un `trap` mata el servidor al salir |
+| 5c | `--completo`, unidad `cedulas` | `cedulas.py` y `cedulas-tablas.mjs` sin salida |
+| 5d | `--completo`, unidad `grafo` | `node scripts/build-grafo.mjs --comprobar`: el grafo compilado de `datos/grafo/` igual a lo que producen sus constructores, y `porFuente` igual a su recuento sobre el compilado (§7) |
+| 5e | `--completo`, unidad `busqueda` (si existe `corpus.json`) | `node --no-warnings scripts/busqueda-grafo.mjs --comprobar`: cada entrada del corpus que lleva a un nodo, a uno del compilado y solo ella; cada nodo de un tipo buscable, con su entrada o fuera por una regla de `FUERA` (§8.2) |
+| 6, 6b, 6c | `--completo`, unidad `build` | `timeout 600 npm run build` (el registro va a `${TMPDIR:-/tmp}/socratico-build.log` y se borra si pasa); `next start` en un puerto libre, hasta 60 s a que conteste `/robots.txt`; a la vez sobre el mismo servidor, `timeout 300 node scripts/eval-mcp.mjs --url …/mcp` (§9) y `timeout 300 node scripts/validar-grafo.mjs --url … --personas 300` (SHACL de `lib/ontologia.ts`, §7) |
 | 7 | `--completo`, sin fallos | Sello (§12.7) |
 
 ### 12.7 El sello y el push

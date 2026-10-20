@@ -89,3 +89,34 @@ infracciones_identidad() {
     printf '%s\n' "$texto" | grep -nP "$EMOJI_PATRON" 2>/dev/null
   } | head -8
 }
+
+# ── Memoria del gate por contenido (docs/INFRAESTRUCTURA.md §12.6) ──
+# Un paso caro y determinista (el grafo contra sus constructores, la cédula en
+# 230 MB, el build con el MCP y el SHACL) da el mismo veredicto sobre los
+# mismos archivos. `huella_de` resume el contenido exacto de las rutas que lee
+# un paso —lo versionado por el sha de su blob en el índice, lo modificado y lo
+# nuevo por su sha256, lo borrado por su nombre— más la versión de Node; si un
+# paso ya pasó con esa huella, no se repite. Cambia un byte de lo que lee y
+# corre entero. Solo se guarda un verde: un rojo siempre se vuelve a correr.
+huella_de() {
+  {
+    node --version 2>/dev/null
+    git ls-files -s -- "$@" 2>/dev/null
+    git diff --name-only -- "$@" 2>/dev/null
+    git diff --name-only -z -- "$@" 2>/dev/null | xargs -0 -r sha256sum 2>/dev/null
+    git ls-files -o --exclude-standard -z -- "$@" 2>/dev/null | xargs -0 -r sha256sum 2>/dev/null
+  } | sha256sum | cut -c1-40
+}
+
+# memo_dir: donde se guardan los verdes, dentro de .git (no viaja con el repo).
+memo_dir() { echo "$(git rev-parse --git-dir 2>/dev/null)/harness-memo"; }
+
+# memo_leer <paso> <huella>: imprime el informe del verde guardado; falla si no hay.
+memo_leer() { local f; f="$(memo_dir)/$1-$2"; [ -f "$f" ] && cat "$f"; }
+
+# memo_guardar <paso> <huella> <informe>: guarda un verde; poda los de más de 30 días.
+memo_guardar() {
+  local d; d="$(memo_dir)"; mkdir -p "$d" 2>/dev/null || return 0
+  printf '%s\n' "$3" > "$d/$1-$2"
+  find "$d" -type f -mtime +30 -delete 2>/dev/null || true
+}

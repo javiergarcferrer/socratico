@@ -92,17 +92,37 @@ const NO_ES_FUENTE = new Set(["plataforma"]);
 
 const corto = (iri: string) => compactar(iri) ?? iri;
 
-/** Dos FNV-1a de 32 bits en un entero de 53: la huella con que se reconoce un cuádruple ya contado. */
-function huella(texto: string): number {
+/**
+ * Dos FNV-1a de 32 bits en un entero de 53: la huella con que se reconoce un
+ * cuádruple ya contado. Recorre las partes una tras otra con su separador en
+ * medio, sin armar la cadena entera: el mismo número que daría sobre
+ * `partes.join(separador)`, sin una cadena nueva por triple.
+ */
+function huella(partes: readonly string[], separador: number): number {
   let a = 0x811c9dc5;
   let b = 0x01000193 ^ 0x5bd1e995;
-  for (let i = 0; i < texto.length; i++) {
-    const c = texto.charCodeAt(i);
-    a = Math.imul(a ^ c, 0x01000193);
-    b = Math.imul(b ^ c, 0x01000193) ^ (b >>> 15);
+  for (let k = 0; k < partes.length; k++) {
+    if (k > 0) {
+      a = Math.imul(a ^ separador, 0x01000193);
+      b = Math.imul(b ^ separador, 0x01000193) ^ (b >>> 15);
+    }
+    const texto = partes[k];
+    for (let i = 0; i < texto.length; i++) {
+      const c = texto.charCodeAt(i);
+      a = Math.imul(a ^ c, 0x01000193);
+      b = Math.imul(b ^ c, 0x01000193) ^ (b >>> 15);
+    }
   }
   return (a >>> 0) * 0x200000 + ((b >>> 0) & 0x1fffff);
 }
+
+/** El nombre corto de cada IRI de predicado o de clase: son unos cientos, y `compactar` recorre los prefijos. */
+const cortos = new Map<string, string>();
+const cortoMemo = (iri: string) => {
+  let c = cortos.get(iri);
+  if (c === undefined) cortos.set(iri, (c = corto(iri)));
+  return c;
+};
 
 interface Acumulado {
   triples: number;
@@ -123,12 +143,27 @@ export class AportesPorFuente {
     if (!d.grafos) return;
     // La clase de cada sujeto y objeto que la descripción tipa.
     const tipoDe = new Map<string, string>();
-    for (const t of d.triples) if (t.p === RDF_TYPE && t.o.tipo === "iri" && !tipoDe.has(t.s.valor)) tipoDe.set(t.s.valor, corto(t.o.valor));
+    for (const t of d.triples) if (t.p === RDF_TYPE && t.o.tipo === "iri" && !tipoDe.has(t.s.valor)) tipoDe.set(t.s.valor, cortoMemo(t.o.valor));
+    // La ruta del nodo de cada sujeto: un sujeto se repite en todos sus triples.
+    const rutaDe = new Map<string, string | null>();
+    const rutaDelSujeto = (valor: string) => {
+      let r = rutaDe.get(valor);
+      if (r === undefined) {
+        const nodo = nodoDeIri(valor);
+        rutaDe.set(valor, (r = nodo ? rutaDeNodo(nodo) : null));
+      }
+      return r;
+    };
+    const claseVista = new Map<string, string | null>();
     const claseDe = (valor: string): string | null => {
       const ya = tipoDe.get(valor);
       if (ya) return ya;
-      const nodo = valor.endsWith("#id") ? nodoDeIri(valor) : null;
-      return nodo ? CURIE_DE_TIPO[nodo.tipo] : null;
+      let c = claseVista.get(valor);
+      if (c === undefined) {
+        const nodo = valor.endsWith("#id") ? nodoDeIri(valor) : null;
+        claseVista.set(valor, (c = nodo ? CURIE_DE_TIPO[nodo.tipo] : null));
+      }
+      return c;
     };
     const ruta = rutaDeNodo(n);
     const propioIri = iriDe(n);
@@ -139,19 +174,22 @@ export class AportesPorFuente {
       // El cruce se enseña con lo que el nodo dice de sí mismo (su `#id`), no de un cargo suyo: «el mismo registro, dicho por dos».
       if (t.s.tipo === "iri" && t.s.valor === propioIri && t.p !== RDF_TYPE) {
         vistos.add(g);
-        if (!primero.has(g)) primero.set(g, [corto(t.p), t.o.valor.slice(0, 120)]);
+        if (!primero.has(g)) primero.set(g, [cortoMemo(t.p), t.o.valor.slice(0, 120)]);
       }
-      const o = t.o.tipo === "literal" ? `${t.o.valor}\u0002${t.o.idioma ?? ""}\u0002${t.o.datatype ?? ""}` : t.o.valor;
-      const h = huella(`${t.s.valor}\u0001${t.p}\u0001${t.o.tipo}${o}\u0001${g}`);
+      // La misma secuencia que «s \u0001 p \u0001 tipo+valor[\u0002 idioma \u0002 tipo del literal] \u0001 grafo».
+      const h =
+        t.o.tipo === "literal"
+          ? huella([t.s.valor, t.p, `${t.o.tipo}${t.o.valor}\u0002${t.o.idioma ?? ""}\u0002${t.o.datatype ?? ""}`, g], 1)
+          : huella([t.s.valor, t.p, t.o.tipo + t.o.valor, g], 1);
       const conjunto = this.contados[h % 16];
       if (conjunto.has(h)) return;
       conjunto.add(h);
       const a = this.acumulado(g);
       a.triples++;
-      const dueno = t.s.tipo === "iri" ? nodoDeIri(t.s.valor) : null;
-      if (dueno) a.nodos.add(rutaDeNodo(dueno));
+      const dueno = t.s.tipo === "iri" ? rutaDelSujeto(t.s.valor) : null;
+      if (dueno) a.nodos.add(dueno);
       const sujeto = claseDe(t.s.valor) ?? RANGO_FUERA;
-      const p = corto(t.p);
+      const p = cortoMemo(t.p);
       const rango = t.o.tipo === "iri" ? (claseDe(t.o.valor) ?? RANGO_FUERA) : RANGO_DATO;
       sumar(a.clases, sujeto);
       sumar(a.predicados, p);
