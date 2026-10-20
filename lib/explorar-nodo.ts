@@ -150,7 +150,8 @@ export async function fuentesDelGrafo(): Promise<FuentesVista | null> {
       };
     })
     .sort((x, y) => (y.aporte?.triples ?? 0) - (x.aporte?.triples ?? 0));
-  const triples = Object.values(porFuente).reduce((s, a) => s + a.triples, 0);
+  // La plataforma (la página de cada nodo) no es una fuente: no cuenta en el total.
+  const triples = fuentes.reduce((s, f) => s + (f.aporte?.triples ?? 0), 0);
   return { compilado: m.generado, triples, fuentes };
 }
 

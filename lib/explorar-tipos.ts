@@ -234,7 +234,7 @@ export interface FuenteVista {
 /** Las fuentes del grafo, para la sección «Fuentes» del banco (`/api/explorar/fuentes`). */
 export interface FuentesVista {
   compilado: string;
-  /** Los triples distintos del grafo (la suma de los de cada fuente y regla). */
+  /** Los cuádruples distintos que afirman las fuentes y las reglas (sin los de la plataforma). */
   triples: number;
   fuentes: FuenteVista[];
 }

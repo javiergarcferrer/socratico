@@ -73,24 +73,15 @@ export interface AporteFuente {
 }
 
 const RDF_TYPE = `${PREFIJOS.rdf}type`;
-/** Por qué tipos se busca primero el cruce que se enseña: nunca un proveedor, que puede ser una persona física. */
-const ORDEN_CRUCE: TipoNodoRdf[] = [
-  "institucion",
-  "entidad-financiera",
-  "obra",
-  "provincia",
-  "empresa",
-  "ley",
-  "decreto",
-  "conjunto",
-  "documento",
-  "proceso",
-  "iniciativa",
-  "votacion",
-  "sentencia",
-  "resolucion",
-  "funcionario",
-];
+/**
+ * En qué tipos se busca el cruce que se enseña, en este orden. Nunca un
+ * proveedor (puede ser una persona física) ni lo que se titula con el nombre
+ * de un particular: decretos, leyes, resoluciones, iniciativas, votaciones,
+ * documentos y sentencias designan, pensionan o nombran a las partes (la
+ * misma regla del volcado, docs/INFRAESTRUCTURA.md §7.8). Una persona con
+ * cargo público sí: su nombre es público por su cargo.
+ */
+const ORDEN_CRUCE: TipoNodoRdf[] = ["institucion", "entidad-financiera", "obra", "provincia", "empresa", "conjunto", "proceso", "funcionario"];
 const RANGO_CRUCE = new Map(ORDEN_CRUCE.map((t, i) => [t, i]));
 /** Los grafos que no son una fuente: lo que la plataforma dice de sí (la página de cada nodo). */
 const NO_ES_FUENTE = new Set(["plataforma"]);

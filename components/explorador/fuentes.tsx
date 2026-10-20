@@ -204,7 +204,11 @@ function Panorama({
           nota={`${formatInt(datos.triples - deFuentes)} triples deducidos de las fuentes`}
         />
         <Cifra etiqueta="Clases donde se cruzan" valor={formatInt(juntas.length)} nota="las llenan dos fuentes o más" />
-        <Cifra etiqueta="Triples distintos" valor={formatInt(datos.triples)} nota="cada uno contado una vez, con su fuente" />
+        <Cifra
+          etiqueta="Triples con su fuente"
+          valor={formatInt(datos.triples)}
+          nota="cada uno una vez por fuente que lo afirma, con las empresas que son solo su fila del padrón"
+        />
       </TiraDeCifras>
 
       <Card as="section" aria-labelledby="fuentes-matriz" className="px-4 py-4">
