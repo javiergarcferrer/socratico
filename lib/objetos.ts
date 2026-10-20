@@ -1,4 +1,6 @@
 import { enlace } from "@/lib/grafo";
+import { CONDICIONES_LEGISLATIVAS, TEMAS_LEGISLATIVOS, TIPOS_INICIATIVA } from "@/lib/vocabulario-congreso";
+import { MATERIAS } from "@/lib/materias-decreto";
 import { SITIO } from "@/lib/sitio";
 
 /**
@@ -40,18 +42,27 @@ export interface TipoObjeto {
   busca: string[];
   /** La primera es el nombre: se pinta con `titulo` y abre el nodo. */
   columnas: ColumnaObjeto[];
-  /** Columnas de categoría: cada una da un filtro con la cuenta de cada valor. */
-  facetas: { col: string; etiqueta: string }[];
-  /** La columna en pesos que se suma, y qué es. */
+  /**
+   * Columnas de categoría: cada una da un filtro con la cuenta de cada valor.
+   * `nombres`: la clave del vocabulario → su nombre en llano; `literal`: el
+   * valor se lee como viene (un nombre propio no se recasa).
+   */
+  facetas: { col: string; etiqueta: string; nombres?: Record<string, string>; literal?: boolean }[];
+  /** La columna en pesos que se suma, y qué es y qué deja fuera. */
   suma?: { col: string; es: string };
   orden: { col: string; dir: "asc" | "desc" };
   /** Las columnas que hacen falta para la ruta de la ficha (además de las visibles). */
   extra?: string[];
   /** La ruta del nodo en el grafo, de una fila. */
   ruta: (f: Record<string, unknown>) => string | null;
-  /** La fuente de la tabla, en llano. */
+  /** La fuente de la tabla, en llano, y lo que la tabla deja fuera si deja algo. */
   fuente: string;
+  /** La línea bajo el nombre de una fila, si una columna la da (las instituciones cuyo contratado está bajo otro prefijo). */
+  nota?: (f: Record<string, unknown>) => string | null;
 }
+
+/** Un vocabulario como clave → nombre en llano. */
+const nombres = (v: readonly { clave: string; nombre: string }[]) => Object.fromEntries(v.map((c) => [c.clave, c.nombre]));
 
 /** La ruta propia de una dirección absoluta de la plataforma (la columna `url` de las tablas). */
 const deUrl = (v: unknown) => (typeof v === "string" && v.startsWith(SITIO) ? v.slice(SITIO.length) : null);
@@ -74,10 +85,11 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
       { col: "monto_contratado", etiqueta: "Contratado desde 2015", formato: "pesos", ordena: true },
     ],
     facetas: [{ col: "sector", etiqueta: "Sector" }],
-    suma: { col: "monto_contratado", es: "contratado desde 2015, no pagado" },
+    suma: { col: "monto_contratado", es: "Contratado desde 2015, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más" },
     orden: { col: "monto_contratado", dir: "desc" },
-    extra: ["url"],
+    extra: ["url", "sin_asignar"],
     ruta: (f) => deUrl(f.url),
+    nota: (f) => (f.sin_asignar ? `Lo que contrata está bajo el prefijo ${f.sin_asignar} de la DGCP y no se le atribuye` : null),
     fuente: "DIGEPRES y DGCP",
   },
   {
@@ -97,11 +109,11 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
       { col: "monto_contratado", etiqueta: "Contratado desde 2015", formato: "pesos", ordena: true },
     ],
     facetas: [],
-    suma: { col: "monto_contratado", es: "contratado desde 2015, no pagado" },
+    suma: { col: "monto_contratado", es: "Contratado desde 2015, no pagado; sin cancelados, otras monedas ni contratos de RD$10 mil millones o más" },
     orden: { col: "monto_contratado", dir: "desc" },
     extra: ["url"],
     ruta: (f) => deUrl(f.url),
-    fuente: "Tablas de contratos de la DGCP",
+    fuente: "Tablas de contratos de la DGCP, sin personas naturales",
   },
   {
     id: "procesos",
@@ -124,11 +136,11 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
       { col: "modalidad", etiqueta: "Modalidad" },
       { col: "objeto", etiqueta: "Objeto" },
     ],
-    suma: { col: "valor_estimado", es: "estimado al publicar, no adjudicado ni pagado" },
+    suma: { col: "valor_estimado", es: "Estimado al publicar, no adjudicado ni pagado" },
     orden: { col: "fecha", dir: "desc" },
     extra: ["url"],
     ruta: (f) => deUrl(f.url),
-    fuente: "Procesos de la DGCP, últimos doce meses",
+    fuente: "Procesos de la DGCP de los últimos doce meses",
   },
   {
     id: "obras",
@@ -150,7 +162,7 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
       { col: "estado", etiqueta: "Estado" },
       { col: "sector", etiqueta: "Sector" },
     ],
-    suma: { col: "valor_estimado", es: "declarado en MapaInversiones" },
+    suma: { col: "valor_estimado", es: "Costo declarado en MapaInversiones" },
     orden: { col: "valor_estimado", dir: "desc" },
     extra: ["url"],
     ruta: (f) => deUrl(f.url),
@@ -176,7 +188,7 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
     orden: { col: "nombre", dir: "asc" },
     extra: ["url"],
     ruta: (f) => deUrl(f.url),
-    fuente: "Padrón de la DGII: las que el grafo liga a algo",
+    fuente: "Padrón de la DGII, solo las que el grafo liga a algo",
   },
   {
     id: "normas",
@@ -184,17 +196,17 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
     etiqueta: "Normas",
     singular: "Norma",
     tabla: "normas",
-    titulo: "upper(substr(tipo, 1, 1)) || substr(tipo, 2) || ' ' || numero",
+    titulo: "CASE tipo WHEN 'ley' THEN 'Ley' WHEN 'decreto' THEN 'Decreto' WHEN 'resolucion' THEN 'Resolución' ELSE tipo END || ' ' || numero",
     busca: ["numero", "etiqueta"],
     columnas: [
       { col: "numero", etiqueta: "Norma", formato: "codigo", ordena: true },
-      { col: "materia", etiqueta: "Materia", formato: "categoria", ancha: true },
+      { col: "materia", etiqueta: "Materia del decreto", formato: "categoria", ancha: true },
       { col: "etiqueta", etiqueta: "Etiqueta de la Consultoría", formato: "texto", ancha: true },
       { col: "fecha", etiqueta: "Fecha", formato: "fecha", ordena: true },
     ],
     facetas: [
-      { col: "tipo", etiqueta: "Tipo" },
-      { col: "materia", etiqueta: "Materia" },
+      { col: "tipo", etiqueta: "Tipo", nombres: { ley: "Ley", decreto: "Decreto", resolucion: "Resolución" } },
+      { col: "materia", etiqueta: "Materia del decreto", nombres: nombres(MATERIAS.map((m) => ({ clave: m.slug, nombre: m.nombre }))) },
     ],
     orden: { col: "fecha", dir: "desc" },
     extra: ["id"],
@@ -217,9 +229,9 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
       { col: "fecha", etiqueta: "Depositada", formato: "fecha", ordena: true },
     ],
     facetas: [
-      { col: "condicion", etiqueta: "Condición al corte" },
-      { col: "tipo", etiqueta: "Tipo" },
-      { col: "tema", etiqueta: "Tema" },
+      { col: "condicion", etiqueta: "Condición al corte", nombres: nombres(CONDICIONES_LEGISLATIVAS) },
+      { col: "tipo", etiqueta: "Tipo", nombres: nombres(TIPOS_INICIATIVA) },
+      { col: "tema", etiqueta: "Tema", nombres: nombres(TEMAS_LEGISLATIVOS) },
     ],
     orden: { col: "fecha", dir: "desc" },
     extra: ["id"],
@@ -259,7 +271,7 @@ export const TIPOS_OBJETO: TipoObjeto[] = [
       { col: "formatos", etiqueta: "Formatos", formato: "codigo", ancha: true },
     ],
     // No los grupos temáticos: la columna los junta separados por comas, y contarla daría combinaciones, no grupos.
-    facetas: [{ col: "organizacion", etiqueta: "Quién lo publica" }],
+    facetas: [{ col: "organizacion", etiqueta: "Quién lo publica", literal: true }],
     orden: { col: "titulo", dir: "asc" },
     extra: ["url"],
     ruta: (f) => deUrl(f.url),
@@ -317,14 +329,20 @@ function donde(p: PedidoObjetos, sin?: string): string {
   return partes.length ? `WHERE ${partes.join(" AND ")}` : "";
 }
 
-/** La página de filas, con las columnas visibles, el título y las que hacen falta para la ruta. */
+/**
+ * La página de filas, con las columnas visibles, el título, las que hacen
+ * falta para la ruta y, en cada fila, la cuenta y la suma de todo lo filtrado
+ * (ventanas sobre el conjunto entero, antes del LIMIT): una consulta en vez de
+ * dos, que el motor comparte con el servidor MCP y corre de dos en dos.
+ */
 export function sqlFilas(p: PedidoObjetos): string {
   const columnas = p.tipo.columnas.find((c) => c.col === p.orden && c.ordena) ? p.orden : p.tipo.orden.col;
   const cols = [...new Set([...p.tipo.columnas.map((c) => c.col), ...(p.tipo.extra ?? [])])];
-  return `SELECT ${p.tipo.titulo} AS _titulo, ${cols.join(", ")} FROM ${p.tipo.tabla} ${donde(p)} ORDER BY ${columnas} ${p.dir === "asc" ? "ASC" : "DESC"} NULLS LAST LIMIT ${FILAS_POR_PAGINA} OFFSET ${(Math.max(1, p.pagina) - 1) * FILAS_POR_PAGINA}`;
+  const totales = `count(*) OVER () AS _n${p.tipo.suma ? `, sum(${p.tipo.suma.col}) OVER () AS _suma` : ""}`;
+  return `SELECT ${p.tipo.titulo} AS _titulo, ${cols.join(", ")}, ${totales} FROM ${p.tipo.tabla} ${donde(p)} ORDER BY ${columnas} ${p.dir === "asc" ? "ASC" : "DESC"} NULLS LAST LIMIT ${FILAS_POR_PAGINA} OFFSET ${(Math.min(Math.max(1, Math.floor(p.pagina) || 1), MAX_HOJAS) - 1) * FILAS_POR_PAGINA}`;
 }
 
-/** Cuántos objetos cumplen el pedido y, si el tipo suma, cuánto suman. */
+/** Cuántos objetos cumplen el pedido y, si el tipo suma, cuánto suman: para la página que cae fuera (sin filas, sin ventanas). */
 export function sqlResumen(p: PedidoObjetos): string {
   return `SELECT count(*) AS n${p.tipo.suma ? `, sum(${p.tipo.suma.col}) AS suma` : ""} FROM ${p.tipo.tabla} ${donde(p)}`;
 }
@@ -340,9 +358,20 @@ export function sqlFacetas(p: PedidoObjetos): string | null {
     .join(" UNION ALL ");
 }
 
-/** Un valor de categoría como se lee: «en-tramite» → «En trámite» no se adivina; se le quitan guiones y se pone mayúscula. */
-export function categoriaLegible(v: unknown): string {
+/** La última página que se pide: 50 × 2 000 filas cubren la tabla más larga (procesos, unas 78 mil). */
+export const MAX_HOJAS = 2000;
+
+/**
+ * Un valor de categoría como se lee: por su vocabulario si lo tiene; un
+ * nombre propio tal cual; lo demás, con mayúscula inicial, y una clave con
+ * guiones («zonas-francas»), sin ellos. El resto de la palabra no se recasa.
+ */
+export function categoriaLegible(v: unknown, f?: { nombres?: Record<string, string>; literal?: boolean }): string {
   if (v == null || v === "") return "Sin dato";
-  const s = String(v).replace(/[-_]+/g, " ").trim();
-  return s.charAt(0).toLocaleUpperCase("es") + s.slice(1).toLocaleLowerCase("es");
+  const s = String(v);
+  if (f?.nombres?.[s]) return f.nombres[s];
+  if (f?.literal) return s;
+  // Una clave («zonas-francas») pierde los guiones; una frase con espacios ya es de la fuente.
+  const llano = /[-_]/.test(s) && !/\s/.test(s) ? s.replace(/[-_]+/g, " ").trim() : s;
+  return llano.charAt(0).toLocaleUpperCase("es") + llano.slice(1);
 }

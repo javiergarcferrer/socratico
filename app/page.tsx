@@ -1,15 +1,21 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { formatFecha } from "@/lib/format";
+import { formatInt } from "@/lib/nomina";
 import type { Metadata } from "next";
 import { Banco, type Ejemplo, type PreguntaEjemplo } from "@/components/explorador/banco";
 import { EsqueletoFilas } from "@/components/esqueleto";
 import { rutaDeNodo } from "@/lib/grafo";
-import { ontologiaDelGrafo, pulsoDelGrafo } from "@/lib/explorar-nodo";
+import { pulsoDelGrafo } from "@/lib/explorar-nodo";
+import { TABLAS_GRAFO } from "@/lib/grafo-tablas";
 
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
   description:
-    "Busca a la vez en personas con cargo, instituciones, empresas, proveedores, compras, obras, normas, iniciativas, documentos y datos del Estado dominicano, y recorre cada registro por sus relaciones, con la fuente y la fecha de cada dato.",
+    "Busca a la vez en personas con cargo, instituciones, empresas, proveedores, compras, obras, normas, iniciativas, documentos y datos del Estado dominicano, y recorre cada registro por sus relaciones, con la fuente y la fecha de cada dato. Herramienta independiente y no oficial.",
   alternates: { canonical: "/" },
 };
 
@@ -41,9 +47,46 @@ const EJEMPLOS: Ejemplo[] = [
  * estado; el banco (`components/explorador/`) vive en el navegador y lee las
  * rutas de `app/api/explorar/`.
  */
+/**
+ * Lo que la portada pinta en el servidor mientras el banco carga —y lo único
+ * que ve quien no tiene JavaScript—: la pregunta, una caja que busca en toda
+ * la plataforma con un formulario GET a `/buscar`, lo que hay en el grafo y
+ * la puerta a lo de hoy. El banco la reemplaza en cuanto hidrata.
+ */
+function Antesala({ pulso }: { pulso: Awaited<ReturnType<typeof pulsoDelGrafo>> }) {
+  return (
+    <div className="min-h-[calc(100dvh-var(--alto-cabecera))] px-3 py-3 lg:px-4">
+      <h1 className="font-sans text-sm font-semibold tracking-wide text-ink">¿Qué buscas en el Estado?</h1>
+      <form action="/buscar" method="get" role="search" className="mt-2.5 flex max-w-3xl gap-2">
+        <label htmlFor="buscar-antesala" className="sr-only">
+          Buscar en toda la plataforma
+        </label>
+        <Input id="buscar-antesala" name="q" type="search" placeholder="Una persona, una institución, un RNC, «Ley 87-01», un tema" autoComplete="off" />
+        <Button type="submit">Buscar</Button>
+      </form>
+      {pulso && (
+        <p className="mt-3 font-mono text-xs text-ink-soft">
+          {formatInt(pulso.nodos)} nodos · {formatInt(pulso.triples)} triples
+          {pulso.compilado ? ` · grafo compilado el ${formatFecha(pulso.compilado)}` : ""}
+        </p>
+      )}
+      <p className="mt-2 text-sm text-ink-soft">
+        <Link href="/hoy" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
+          Lo que pasa hoy en el Estado
+        </Link>
+      </p>
+      <div role="status" aria-busy="true" className="mt-4">
+        <span className="sr-only">Abriendo el banco de trabajo…</span>
+        <EsqueletoFilas n={8} />
+      </div>
+    </div>
+  );
+}
+
 export default async function Inicio() {
   const pulso = await pulsoDelGrafo().catch(() => null);
-  const ontologia = ontologiaDelGrafo(pulso);
+  // La fecha de corte de cada tabla, para las cifras del explorador de objetos.
+  const cortes = Object.fromEntries(Object.entries(TABLAS_GRAFO).map(([t, x]) => [t, x.corte ?? null]));
   return (
     /*
       La mesa ocupa el ancho entero, fuera de la columna de lectura del resto
@@ -53,14 +96,9 @@ export default async function Inicio() {
     */
     <div className="mesa-completa tema-blueprint border-b border-hairline">
       <Suspense
-        fallback={
-          <div role="status" aria-busy="true" className="p-4">
-            <span className="sr-only">Abriendo el banco de trabajo…</span>
-            <EsqueletoFilas n={10} />
-          </div>
-        }
+        fallback={<Antesala pulso={pulso} />}
       >
-        <Banco ejemplos={EJEMPLOS} preguntas={PREGUNTAS} pulso={pulso} ontologia={ontologia} />
+        <Banco ejemplos={EJEMPLOS} preguntas={PREGUNTAS} pulso={pulso} cortes={cortes} />
       </Suspense>
     </div>
   );

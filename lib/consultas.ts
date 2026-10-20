@@ -29,6 +29,8 @@ export const claves = {
   preguntar: (q: string) => ["preguntar", q] as const,
   /** Una consulta de solo lectura sobre las tablas del grafo (`/api/sql`), por su texto: el explorador de objetos. */
   sql: (q: string) => ["sql", q] as const,
+  /** La ontología compacta del recorrido de clases (`/api/explorar/ontologia`). */
+  ontologia: ["ontologia"] as const,
 };
 
 /**
@@ -79,6 +81,10 @@ export function abiertosAhora<T>(signal?: AbortSignal) {
 
 export function preguntarAlGrafo<T>(q: string, signal?: AbortSignal) {
   return leerJson<T>(`/api/explorar/preguntar?q=${encodeURIComponent(q)}`, signal);
+}
+
+export function leerOntologia<T>(signal?: AbortSignal) {
+  return leerJson<T>("/api/explorar/ontologia", signal);
 }
 
 /** Lo que responde `/api/sql` (`lib/grafo-sql.ts`). */

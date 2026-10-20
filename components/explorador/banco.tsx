@@ -5,10 +5,13 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { keepPreviousData, useIsFetching, useQuery } from "@tanstack/react-query";
 import { createSerializer, parseAsInteger, parseAsJson, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { EstadoVacio } from "@/components/estado-vacio";
+import { EsqueletoFilas } from "@/components/esqueleto";
 import { CampoBusqueda } from "@/components/campo-busqueda";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { useRebotado } from "@/components/rebotado";
-import { claves, explorarGrafo } from "@/lib/consultas";
+import { claves, explorarGrafo, leerOntologia } from "@/lib/consultas";
 import { enlace } from "@/lib/grafo";
 import { BUSQUEDAS } from "@/lib/secciones";
 import { formatFecha, formatHora } from "@/lib/format";
@@ -95,12 +98,13 @@ export function Banco({
   ejemplos,
   preguntas,
   pulso,
-  ontologia,
+  cortes,
 }: {
   ejemplos: Ejemplo[];
   preguntas: PreguntaEjemplo[];
   pulso: Pulso | null;
-  ontologia: OntologiaVista;
+  /** La fecha de corte de cada tabla del grafo (`public/tablas/meta.json`). */
+  cortes: Record<string, string | null>;
 }) {
   const [url, setUrl] = useQueryStates(ESTADO_URL, { history: "replace" });
   const [texto, setTexto] = useState(url.q);
@@ -201,6 +205,13 @@ export function Banco({
   const seccion: SeccionBanco = url.seccion ?? "tablero";
   const enCentro: "pregunta" | "busqueda" | SeccionBanco = preguntar && q.length >= 3 ? "pregunta" : buscando ? "busqueda" : seccion;
   const sinInspector = !url.nodo && (enCentro === "objetos" || enCentro === "ontologia");
+  // La ontología se pide al abrir su sección: no viaja con la portada.
+  const ontologia = useQuery({
+    queryKey: claves.ontologia,
+    queryFn: ({ signal }) => leerOntologia<OntologiaVista>(signal),
+    enabled: enCentro === "ontologia",
+    staleTime: Infinity,
+  });
   const irA = (s: SeccionBanco, extra: Partial<typeof url> = {}) => {
     setTexto("");
     enviado.current = "";
@@ -321,12 +332,12 @@ export function Banco({
                   </p>
                   <ClasesDeObjeto tipo={tipo} onTipo={onTipo} vertical />
                 </nav>
-                <FiltrosDeObjeto pedido={pedido} onFiltro={onFiltro} />
+                <FiltrosDeObjeto pedido={pedido} onFiltro={onFiltro} idBase="faceta-panel" />
               </>
             ) : enCentro === "ontologia" ? (
               <div>
                 <p className="rotulo mb-2 px-1 text-ink-soft">Clases de la ontología</p>
-                <ArbolDeClases ontologia={ontologia} clase={url.clase} hrefClase={hrefClase} />
+                {ontologia.data && <ArbolDeClases ontologia={ontologia.data} clase={url.clase} hrefClase={hrefClase} />}
               </div>
             ) : (
               <>
@@ -361,17 +372,37 @@ export function Banco({
           ) : enCentro === "objetos" ? (
             <Objetos
               pedido={pedido}
+              corte={cortes[tipo.tabla] ?? null}
               nodo={url.nodo}
               hrefNodo={hrefNodo}
               onTexto={onTexto}
               onOrden={(col, dir) => void setUrl({ orden: col, dir, hoja: null })}
               onFiltro={onFiltro}
-              onHoja={(h) => void setUrl({ hoja: h > 1 ? h : null })}
+              onHoja={(h) => void setUrl({ hoja: h > 1 ? h : null }, { history: "push" })}
               onTipo={onTipo}
               onAbrir={abrirDesdeLista}
             />
           ) : enCentro === "ontologia" ? (
-            <Ontologia ontologia={ontologia} clase={url.clase} hrefClase={hrefClase} onObjetos={onTipo} />
+            ontologia.data ? (
+              <Ontologia ontologia={ontologia.data} clase={url.clase} hrefClase={hrefClase} onObjetos={onTipo} />
+            ) : ontologia.isError ? (
+              <EstadoVacio
+                variante="caida"
+                titulo="No se pudo leer la ontología."
+                accion={
+                  <Button variant="secondary" onClick={() => void ontologia.refetch()}>
+                    Intentar de nuevo
+                  </Button>
+                }
+              >
+                La búsqueda, el tablero y los objetos siguen en pie. La ontología entera también se lee en /ontologia.
+              </EstadoVacio>
+            ) : (
+              <div role="status" aria-busy="true">
+                <span className="sr-only">Leyendo la ontología…</span>
+                <EsqueletoFilas n={8} />
+              </div>
+            )
           ) : (
             <>
               <Tablero pulso={pulso} hrefClase={hrefClase} />

@@ -63,13 +63,17 @@ export function ArbolDeClases({ ontologia, clase, hrefClase }: { ontologia: Onto
               href={hrefClase(c.curie)}
               aria-current={c.curie === clase ? "true" : undefined}
               className={cn(
-                "flex min-h-11 items-center justify-between gap-2 rounded-md px-2 py-1 text-[13px] leading-snug hover:bg-brand-50 hover:text-brand-700 sm:min-h-8",
+                "flex min-h-11 items-center justify-between gap-2 rounded-md px-2 py-1 text-[13px] leading-snug hover:bg-brand-50 hover:text-brand-700 sm:min-h-10",
                 "aria-[current=true]:bg-brand-100 aria-[current=true]:font-semibold aria-[current=true]:text-brand-700",
                 c.enUso ? "text-ink" : "text-ink-soft",
               )}
             >
               <span className="min-w-0">{c.etiqueta}</span>
-              {c.nodos != null && <span className="font-mono text-xs tabular-nums text-ink-soft">{formatInt(c.nodos)}</span>}
+              {c.nodos != null ? (
+                <span className="font-mono text-xs tabular-nums text-ink-soft">{formatInt(c.nodos)}</span>
+              ) : (
+                !c.enUso && <span className="text-xs text-ink-soft">definida</span>
+              )}
             </Link>
             {rama(c.curie, nivel + 1)}
           </li>
@@ -81,7 +85,7 @@ export function ArbolDeClases({ ontologia, clase, hrefClase }: { ontologia: Onto
     <nav aria-label="Clases de la ontología">
       {rama(null, 0)}
       <p className="mt-2 px-2 text-xs leading-relaxed text-ink-soft">
-        En gris, las clases definidas que el grafo todavía no llena. La cifra: sus nodos en el compilado.
+        «Definida»: una clase del modelo que el grafo todavía no llena. La cifra: sus nodos en el compilado.
       </p>
     </nav>
   );
@@ -140,13 +144,15 @@ function Resumen({ ontologia, hrefClase }: { ontologia: OntologiaVista; hrefClas
       </p>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {pobladas.map((c) => (
-          <li key={c.curie} className="relative rounded-md border border-hairline px-3 py-2 hover:bg-brand-50">
-            <Link href={hrefClase(c.curie)} className="estira text-[13px] font-semibold text-ink hover:text-brand-700">
-              {c.etiqueta}
-            </Link>
-            <span className="block font-mono text-xs tabular-nums text-ink-soft">
-              {formatInt(c.nodos ?? 0)} nodos · {c.curie}
-            </span>
+          <li key={c.curie}>
+            <Card className="relative px-3 py-2 hover:bg-brand-50">
+              <Link href={hrefClase(c.curie)} className="estira text-[13px] font-semibold text-ink hover:text-brand-700">
+                {c.etiqueta}
+              </Link>
+              <span className="block font-mono text-xs tabular-nums text-ink-soft">
+                {formatInt(c.nodos ?? 0)} nodos · {c.curie}
+              </span>
+            </Card>
           </li>
         ))}
       </ul>
@@ -207,7 +213,7 @@ function FichaDeClase({
             {c.etiqueta}
           </CardTitle>
           {tipo && (
-            <Button size="sm" onClick={() => onObjetos(tipo.id)}>
+            <Button onClick={() => onObjetos(tipo.id)}>
               Ver sus objetos
             </Button>
           )}

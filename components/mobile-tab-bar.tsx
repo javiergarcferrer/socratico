@@ -156,7 +156,7 @@ export default function MobileTabBar() {
   ];
 
   // Toda ruta que no enciende una fija vive en la hoja: entonces es «Más».
-  // La portada no: se llega por la marca, y ninguna casilla la representa.
+  // La portada es el banco: enciende «Explorar», no «Más».
   const enHoja = pathname !== "/" && !tabs.some((t) => t.activa);
   const destino = destinoDe(pathname);
   const aqui = enHoja ? (destino?.label ?? actual?.nombre ?? null) : null;

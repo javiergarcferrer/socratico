@@ -28,6 +28,10 @@ export interface Pantalla {
 
 export const PANTALLAS: Record<string, Pantalla> = {
   "/": {
+    que: "El banco de trabajo del grafo del Estado: buscar en todo a la vez, listar cada clase como tabla (instituciones, proveedores, compras, obras, empresas, normas, iniciativas) con filtros, orden y sumas, recorrer la ontología y abrir cada registro con sus relaciones.",
+    preguntas: ["¿Dónde exploro todos los datos a la vez?", "Listar todas las instituciones y ordenarlas por lo contratado", "¿Cómo está organizado el grafo?"],
+  },
+  "/hoy": {
     que: "Qué es Socrático: la plataforma independiente para explorar lo que publica el Estado dominicano (compras, presupuesto, deuda, nómina, leyes, Congreso, tribunales), con lo que pasa hoy, todo lo que hay organizado por tema y para qué sirve tener una cuenta.",
     preguntas: ["¿Qué es Socrático?", "¿Qué puedo hacer en esta plataforma?", "¿Para qué sirve crear una cuenta?"],
   },

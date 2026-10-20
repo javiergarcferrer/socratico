@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Cifra, TiraDeCifras } from "@/components/papel";
@@ -27,6 +28,7 @@ import {
   sqlFacetas,
   sqlFilas,
   sqlResumen,
+  MAX_HOJAS,
   type ColumnaObjeto,
   type PedidoObjetos,
   type TipoObjeto,
@@ -92,6 +94,10 @@ export function ClasesDeObjeto({ tipo, onTipo, vertical = false }: { tipo: TipoO
   );
 }
 
+/** Los valores de mando de «Todos» y de «Sin dato»: Radix lee `""` como «nada elegido». */
+const TODOS = "__todos";
+const NULO = "__nulo";
+
 /**
  * Los filtros de categoría del tipo abierto, cada valor con cuántos objetos
  * lo tienen con los demás filtros puestos. Una elección por faceta; «Todos»
@@ -100,9 +106,12 @@ export function ClasesDeObjeto({ tipo, onTipo, vertical = false }: { tipo: TipoO
 export function FiltrosDeObjeto({
   pedido,
   onFiltro,
+  idBase,
 }: {
   pedido: PedidoObjetos;
   onFiltro: (col: string, valor: string | null) => void;
+  /** Se monta dos veces (el panel y el teléfono): los ids no se repiten. */
+  idBase: string;
 }) {
   const { consulta, porFaceta } = useFacetas(pedido);
   if (pedido.tipo.facetas.length === 0) return null;
@@ -114,31 +123,31 @@ export function FiltrosDeObjeto({
       </div>
     );
   }
-  if (consulta.isError) return <p className="px-1 text-xs text-ink-soft">No se pudieron contar los filtros: {consulta.error.message}</p>;
-  const item = "min-h-11 w-full justify-between gap-3 whitespace-normal text-left sm:min-h-9";
+  if (consulta.isError) return <p className="px-1 text-xs text-ink-soft">El motor de las tablas no contestó: los filtros no se pudieron contar.</p>;
+  const item = "min-h-11 w-full justify-between gap-3 whitespace-normal text-left sm:min-h-10";
   return (
     <div className="space-y-4">
       {pedido.tipo.facetas.map((f) => {
         const valores = porFaceta.get(f.col) ?? [];
         const puesto = pedido.filtros[f.col];
         return (
-          <section key={f.col} aria-labelledby={`faceta-${f.col}`}>
-            <h3 id={`faceta-${f.col}`} className="rotulo mb-1.5 px-1 text-ink-soft">
+          <section key={f.col} aria-labelledby={`${idBase}-${f.col}`}>
+            <h3 id={`${idBase}-${f.col}`} className="rotulo mb-1.5 px-1 text-ink-soft">
               {f.etiqueta}
             </h3>
             <ToggleGroup
               type="single"
-              value={puesto ?? "__todos"}
-              onValueChange={(v) => v && onFiltro(f.col, v === "__todos" ? null : v)}
+              value={puesto == null ? TODOS : puesto === "" ? NULO : puesto}
+              onValueChange={(v) => v && onFiltro(f.col, v === TODOS ? null : v === NULO ? "" : v)}
               aria-label={`Filtrar por ${f.etiqueta.toLocaleLowerCase("es")}`}
               className="flex flex-col items-stretch border-0 bg-transparent p-0 shadow-none"
             >
-              <ToggleGroupItem value="__todos" className={item}>
+              <ToggleGroupItem value={TODOS} className={item}>
                 Todos
               </ToggleGroupItem>
               {valores.map((v) => (
-                <ToggleGroupItem key={v.valor} value={v.valor} className={item}>
-                  <span className="min-w-0">{categoriaLegible(v.valor)}</span>
+                <ToggleGroupItem key={v.valor} value={v.valor === "" ? NULO : v.valor} className={item}>
+                  <span className="min-w-0">{categoriaLegible(v.valor, f)}</span>
                   <span className="font-mono text-xs tabular-nums">{formatInt(v.n)}</span>
                 </ToggleGroupItem>
               ))}
@@ -161,6 +170,7 @@ export function FiltrosDeObjeto({
  */
 export function Objetos({
   pedido,
+  corte,
   nodo,
   hrefNodo,
   onTexto,
@@ -171,6 +181,8 @@ export function Objetos({
   onAbrir,
 }: {
   pedido: PedidoObjetos;
+  /** La fecha de corte de la tabla del tipo (`public/tablas/meta.json`). */
+  corte: string | null;
   nodo: string | null;
   hrefNodo: (ruta: string) => string;
   onTexto: (t: string) => void;
@@ -194,14 +206,17 @@ export function Objetos({
     onTexto(rebotado);
   }, [rebotado, onTexto]);
 
+  // La cuenta y la suma viajan en cada fila (ventanas); solo una página sin filas las pide aparte.
   const filas = useSql(sqlFilas(pedido), true);
-  const resumen = useSql(sqlResumen(pedido), true);
-  const r = resumen.data ? comoObjetos(resumen.data)[0] : null;
+  const vacia = !!filas.data && filas.data.filas.length === 0 && !filas.isPlaceholderData;
+  const resumen = useSql(vacia ? sqlResumen(pedido) : null);
+  const primera = filas.data ? comoObjetos(filas.data)[0] : null;
+  const r = primera ? { n: primera._n, suma: primera._suma } : vacia && resumen.data ? comoObjetos(resumen.data)[0] : null;
   const total = r ? Number(r.n) : null;
   const suma = r && r.suma != null ? Number(r.suma) : null;
-  const paginas = total != null ? Math.max(1, Math.ceil(total / FILAS_POR_PAGINA)) : 1;
+  const paginas = total != null ? Math.min(MAX_HOJAS, Math.max(1, Math.ceil(total / FILAS_POR_PAGINA))) : 1;
+  const fuera = vacia && total != null && total > 0;
   const puestos = tipo.facetas.filter((f) => pedido.filtros[f.col] != null);
-  const generadas = filas.data?.generadas ?? resumen.data?.generadas ?? null;
   const ordenada = tipo.columnas.find((c) => c.col === pedido.orden && c.ordena) ?? tipo.columnas.find((c) => c.col === tipo.orden.col)!;
 
   return (
@@ -215,13 +230,12 @@ export function Objetos({
       <Card as="section" aria-labelledby="objetos-titulo" className="@container overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-hairline px-4 py-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <p className="rotulo text-ink-soft">{tipo.clase}</p>
-            <CardTitle id="objetos-titulo" className="mt-0.5">
-              {tipo.etiqueta}
+            <CardTitle id="objetos-titulo">
+              {tipo.etiqueta} <span className="font-mono text-xs font-normal text-ink-soft">{tipo.clase}</span>
             </CardTitle>
             <p className="mt-0.5 text-xs text-ink-soft">
-              La tabla entera, de {tipo.fuente}
-              {generadas ? `, generada el ${formatFecha(generadas)}` : ""}. Cada fila abre su nodo en el inspector.
+              Todas las filas de la tabla. Fuente: {tipo.fuente}
+              {corte ? `, con corte del ${formatFecha(corte)}: lo publicado después no está` : ""}. Cada fila abre su nodo en el inspector.
             </p>
           </div>
           <div className="w-full lg:w-80">
@@ -240,15 +254,18 @@ export function Objetos({
         </div>
 
         <TiraDeCifras className={cn("border-0 border-b border-hairline", tipo.suma ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
-          <Cifra
-            etiqueta={puestos.length || pedido.texto ? `${tipo.etiqueta} que cumplen el filtro` : `${tipo.etiqueta} en la tabla`}
-            valor={total != null ? formatInt(total) : resumen.isError ? "—" : "…"}
-            nota={resumen.isError ? "El motor no contestó" : total != null && total > FILAS_POR_PAGINA ? `${FILAS_POR_PAGINA} por página` : undefined}
-          />
+          {/* La cuenta cambia sin navegar: se anuncia. */}
+          <div aria-live="polite">
+            <Cifra
+              etiqueta={puestos.length || pedido.texto ? `${tipo.etiqueta} que cumplen el filtro` : `${tipo.etiqueta} en la tabla`}
+              valor={total != null ? formatInt(total) : filas.isError ? "—" : "…"}
+              nota={filas.isError ? "El motor no contestó" : corte ? `Corte del ${formatFecha(corte)}${total != null && total > FILAS_POR_PAGINA ? ` · ${FILAS_POR_PAGINA} por página` : ""}` : undefined}
+            />
+          </div>
           {tipo.suma && (
             <Cifra
               etiqueta={`Suma: ${tipo.columnas.find((c) => c.col === tipo.suma!.col)?.etiqueta.toLocaleLowerCase("es") ?? tipo.suma.col}`}
-              valor={suma != null ? formatPesos(suma) : resumen.isError ? "—" : "…"}
+              valor={suma != null ? formatPesos(suma) : total != null || filas.isError ? "—" : "…"}
               nota={tipo.suma.es}
             />
           )}
@@ -259,14 +276,14 @@ export function Objetos({
         {(puestos.length > 0 || pedido.texto) && (
           <div className="flex flex-wrap items-center gap-1.5 border-b border-hairline px-4 py-2" aria-label="Filtros puestos">
             {pedido.texto && (
-              <Button variant="outline" size="sm" onClick={() => onTexto("")} aria-label={`Quitar el filtro «${pedido.texto}»`}>
+              <Button variant="outline" onClick={() => onTexto("")} aria-label={`Quitar el filtro «${pedido.texto}»`}>
                 «{pedido.texto}»
                 <IconX className="h-3.5 w-3.5" />
               </Button>
             )}
             {puestos.map((f) => (
-              <Button key={f.col} variant="outline" size="sm" onClick={() => onFiltro(f.col, null)} aria-label={`Quitar ${f.etiqueta}: ${categoriaLegible(pedido.filtros[f.col])}`}>
-                <span className="text-ink-soft">{f.etiqueta}:</span> {categoriaLegible(pedido.filtros[f.col])}
+              <Button key={f.col} variant="outline" onClick={() => onFiltro(f.col, null)} aria-label={`Quitar ${f.etiqueta}: ${categoriaLegible(pedido.filtros[f.col], f)}`}>
+                <span className="text-ink-soft">{f.etiqueta}:</span> {categoriaLegible(pedido.filtros[f.col], f)}
                 <IconX className="h-3.5 w-3.5" />
               </Button>
             ))}
@@ -289,7 +306,20 @@ export function Objetos({
                 </Button>
               }
             >
-              {filas.error.message} La búsqueda de arriba y el inspector siguen en pie: leen el grafo, no las tablas.
+              No se pudo leer la tabla de {tipo.etiqueta.toLocaleLowerCase("es")}. La búsqueda de arriba y el inspector siguen en pie: leen el grafo, no las tablas.
+            </EstadoVacio>
+          </div>
+        ) : fuera ? (
+          <div className="p-4">
+            <EstadoVacio
+              titulo="Esta página está después de la última."
+              accion={
+                <Button variant="secondary" onClick={() => onHoja(1)}>
+                  Ir a la primera página
+                </Button>
+              }
+            >
+              {`${formatInt(total!)} objetos cumplen el filtro: caben en ${formatInt(paginas)} ${paginas === 1 ? "página" : "páginas"}.`}
             </EstadoVacio>
           </div>
         ) : filas.data.filas.length === 0 ? (
@@ -312,12 +342,12 @@ export function Objetos({
         )}
       </Card>
 
-      {paginas > 1 && <Paginador pagina={pedido.pagina} paginas={paginas} onPage={onHoja} pendiente={filas.isFetching} etiqueta={`Páginas de ${tipo.etiqueta.toLocaleLowerCase("es")}`} />}
+      {paginas > 1 && !fuera && <Paginador pagina={pedido.pagina} paginas={paginas} onPage={onHoja} pendiente={filas.isFetching} etiqueta={`Páginas de ${tipo.etiqueta.toLocaleLowerCase("es")}`} />}
 
       {/* En el teléfono, los filtros de categoría van debajo de la tabla. */}
       {tipo.facetas.length > 0 && (
         <Card as="section" aria-label="Filtros de categoría" className="px-3 py-3 lg:hidden">
-          <FiltrosDeObjeto pedido={pedido} onFiltro={onFiltro} />
+          <FiltrosDeObjeto pedido={pedido} onFiltro={onFiltro} idBase="faceta-movil" />
         </Card>
       )}
     </div>
@@ -325,7 +355,7 @@ export function Objetos({
 }
 
 /** Una celda según el formato de su columna. */
-function Valor({ c, v }: { c: ColumnaObjeto; v: unknown }) {
+function Valor({ c, v, faceta }: { c: ColumnaObjeto; v: unknown; faceta?: TipoObjeto["facetas"][number] }) {
   if (v == null || v === "") return <span className="text-ink-soft">—</span>;
   switch (c.formato) {
     case "pesos":
@@ -337,7 +367,7 @@ function Valor({ c, v }: { c: ColumnaObjeto; v: unknown }) {
     case "fecha":
       return <Antiguedad iso={String(v)} />;
     case "categoria":
-      return <>{categoriaLegible(v)}</>;
+      return <>{categoriaLegible(v, faceta)}</>;
     case "codigo":
       return <span className="font-mono">{String(v)}</span>;
     default:
@@ -351,6 +381,9 @@ function sentido(c: ColumnaObjeto, dir: "asc" | "desc"): string {
   if (numerica(c)) return dir === "asc" ? "De menor a mayor" : "De mayor a menor";
   return dir === "asc" ? "De la A a la Z" : "De la Z a la A";
 }
+
+/** Una frase que sigue a otra: solo la primera letra baja («De la A a la Z» → «de la A a la Z»). */
+const enFrase = (t: string) => t.charAt(0).toLocaleLowerCase("es") + t.slice(1);
 
 const numerica = (c: ColumnaObjeto) => c.formato === "pesos" || c.formato === "entero" || c.formato === "porcentaje";
 
@@ -416,7 +449,7 @@ function Rejilla({
           type="button"
           onClick={() => onOrden(c.col, siguiente)}
           className={cn(
-            "rotulo inline-flex min-h-9 w-full items-center gap-1 px-3 py-2 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            "rotulo inline-flex min-h-11 w-full items-center gap-1 px-3 py-2 sm:min-h-10 hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             numerica(c) && "justify-end",
             activa ? "text-ink" : "text-ink-soft",
           )}
@@ -427,7 +460,7 @@ function Rejilla({
           ) : (
             <IconChevronUpDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
           )}
-          <span className="sr-only">{activa ? (dir === "asc" ? ", de menor a mayor" : ", de mayor a menor") : ", ordenar"}</span>
+          <span className="sr-only">{activa ? `, ${enFrase(sentido(c, dir!))}` : ", ordenar"}</span>
         </button>
       </TableHead>
     );
@@ -454,6 +487,7 @@ function Rejilla({
                   </TableCell>
                   <TableCell className="min-w-[14rem] py-1.5 align-top">
                     {nombreDe(f, "estira line-clamp-2 text-[13px] font-medium leading-snug text-ink hover:text-brand-700")}
+                    {tipo.nota?.(f) && <span className="mt-0.5 block text-xs leading-snug text-ink-soft">{tipo.nota(f)}</span>}
                   </TableCell>
                   {resto.map((c) => (
                     <TableCell
@@ -469,7 +503,7 @@ function Rejilla({
                       )}
                     >
                       <span className={cn(c.formato === "texto" && "line-clamp-2")}>
-                        <Valor c={c} v={f[c.col]} />
+                        <Valor c={c} v={f[c.col]} faceta={tipo.facetas.find((x) => x.col === c.col)} />
                       </span>
                     </TableCell>
                   ))}
@@ -479,20 +513,48 @@ function Rejilla({
           </TableBody>
         </Table>
       </div>
-      {/* Por debajo de `sm`: tarjetas, con las columnas como renglones. */}
+      {/* Por debajo de `sm`: tarjetas, con las columnas como renglones; sin encabezados, el orden se elige aquí. */}
+      <div className="border-b border-hairline px-4 py-3 sm:hidden">
+        <Label htmlFor="objetos-orden-movil" className="text-xs text-ink-soft">
+          Ordenar por
+        </Label>
+        <Select
+          value={`${ordenActual}:${pedido.dir}`}
+          onValueChange={(v) => {
+            const [col, dir] = v.split(":");
+            onOrden(col, dir === "asc" ? "asc" : "desc");
+          }}
+        >
+          <SelectTrigger id="objetos-orden-movil" className="mt-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="tema-blueprint">
+            {tipo.columnas
+              .filter((c) => c.ordena)
+              .flatMap((c) =>
+                (["desc", "asc"] as const).map((d) => (
+                  <SelectItem key={`${c.col}:${d}`} value={`${c.col}:${d}`}>
+                    {`${c.etiqueta}: ${enFrase(sentido(c, d))}`}
+                  </SelectItem>
+                )),
+              )}
+          </SelectContent>
+        </Select>
+      </div>
       <ul className="sm:hidden">
         {filas.map((f, i) => {
           const ruta = tipo.ruta(f);
           return (
             <li key={ruta ?? `${pedido.pagina}-${i}`} className="relative border-b border-hairline px-4 py-3 last:border-0">
               {nombreDe(f, "estira block text-[15px] font-medium leading-snug text-ink hover:text-brand-700")}
+              {tipo.nota?.(f) && <span className="mt-0.5 block text-xs leading-snug text-ink-soft">{tipo.nota(f)}</span>}
               <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                 {resto.map((c) =>
                   f[c.col] == null || f[c.col] === "" ? null : (
                     <div key={c.col} className="contents">
                       <dt className="text-ink-soft">{c.etiqueta}</dt>
                       <dd className={cn("min-w-0 break-words text-ink", numerica(c) && "font-mono tabular-nums")}>
-                        <Valor c={c} v={f[c.col]} />
+                        <Valor c={c} v={f[c.col]} faceta={tipo.facetas.find((x) => x.col === c.col)} />
                       </dd>
                     </div>
                   ),

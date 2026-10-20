@@ -61,7 +61,7 @@ export const revalidate = 1800;
 export const metadata: Metadata = {
   title: "Hoy en el Estado",
   description:
-    "Qué es Socrático y qué pasa hoy en el Estado dominicano: los decretos recientes, las compras que cierran, el Congreso, la nómina, la deuda y las cifras del día, cada una con su fuente.",
+    "Qué es Socrático y qué pasa hoy en el Estado dominicano: los decretos recientes, las compras que cierran, el Congreso, la nómina, la deuda y las cifras del día, cada una con su fuente. Herramienta independiente y no oficial.",
   alternates: { canonical: "/hoy" },
 };
 
