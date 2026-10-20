@@ -66,6 +66,9 @@ export interface SenalConcentracion {
   pct: number;
   monto: number;
   total: number;
+  /** Sus contratos con la institución en el período, y el mayor. */
+  contratos: number;
+  mayorContrato: number;
   proveedores: number;
   desde: string;
 }
@@ -91,6 +94,10 @@ export interface ReglasSenales {
   desdeConcentracion: string;
   pctConcentracion: number;
   montoConcentracion: number;
+  /** Un contrato de más de estas veces el mediano del proveedor no sostiene solo una concentración. */
+  vecesMediana: number;
+  /** Concentraciones que no se emiten por descansar en un contrato así. */
+  concentracionDudosas: number;
   pctExcepcion: number;
   montoExcepcion: number;
   /** Mediana del país: % del monto estimado por excepción. */
@@ -133,14 +140,14 @@ export const TIPOS_SENAL: Record<TipoSenal, DefinicionSenal> = {
   },
   nueva: {
     etiqueta: "Empresa recién iniciada con contratos grandes",
-    pregunta: "¿Cómo ganó tanto una empresa con menos de un año?",
+    pregunta: "¿Qué experiencia con el Estado tenía una empresa de menos de un año?",
     llano:
-      "Una empresa (no un consorcio) que recibió su primer contrato antes de cumplir un año de operaciones ante la DGII y sumó una cifra alta en sus primeros doce meses. Las empresas nuevas pueden competir y ganar; la señal dice que el registro no muestra experiencia previa con el Estado.",
+      "Una empresa (no un consorcio) que recibió su primer contrato en pesos registrado desde 2015 antes de cumplir un año de operaciones ante la DGII y sumó una cifra alta en sus primeros doce meses. Las empresas nuevas pueden competir y ganar; la señal dice que el registro no muestra experiencia previa con el Estado.",
     sujeto: "proveedor",
   },
   padron: {
-    etiqueta: "Contrata con el RNC inactivo",
-    pregunta: "¿Contrata una empresa que la DGII da como inactiva?",
+    etiqueta: "RNC inactivo hoy, con contratos del último año",
+    pregunta: "¿Por qué la DGII da como inactiva a una empresa que contrató este año?",
     llano:
       "El padrón de la DGII da a la empresa en suspensión, de baja o en cese temporal, y tiene contratos adjudicados en los doce meses anteriores al corte del padrón. El padrón dice el estado de hoy, no desde cuándo: el cambio pudo ser posterior al contrato.",
     sujeto: "proveedor",
@@ -149,7 +156,7 @@ export const TIPOS_SENAL: Record<TipoSenal, DefinicionSenal> = {
     etiqueta: "Un proveedor concentra lo contratado",
     pregunta: "¿Por qué la mitad o más de lo que contrata va a un solo proveedor?",
     llano:
-      "Un solo proveedor se lleva la mitad o más del valor que la institución contrató desde enero de 2023. Hay mercados con un solo oferente real (un medicamento, una patente, un servicio regulado); la señal dice que la competencia no se ve en el registro.",
+      "Un solo proveedor se lleva la mitad o más del valor que la institución contrató desde enero de 2023. Hay mercados con un solo oferente real (un medicamento, una patente, un servicio regulado); la señal dice que la competencia no se ve en el registro. Si la concentración descansa en un solo contrato cien veces mayor que el contrato mediano del proveedor, no se emite: puede ser un error de captura. Solo cuentan los contratos cuyo prefijo identifica a una sola institución.",
     sujeto: "institucion",
   },
   excepcion: {
@@ -201,6 +208,15 @@ function nContratos(n: number): string {
 }
 
 /**
+ * Quién concentra: su razón social, o, si es una persona natural, solo su
+ * RPE (Ley 172-13): su ficha la nombra, fuera de los buscadores.
+ */
+export function nombreConcentrado(s: SenalConcentracion): string {
+  if (s.fisica) return `una persona física (RPE ${s.rpe})`;
+  return s.proveedor || `el RPE ${s.rpe}`;
+}
+
+/**
  * La señal en una frase, con sus cifras: la misma para la ficha y para el
  * servidor MCP, que la entrega como texto.
  */
@@ -212,11 +228,11 @@ export function describirSenal(s: Senal, reglas: ReglasSenales): string {
       return `${nContratos(s.contratos)} por ${formatPesos(s.monto)} adjudicados del ${formatFecha(s.primero)} al ${formatFecha(s.ultimo)}, mientras regía una medida de la DGCP (${m}, ${plazo}).`;
     }
     case "nueva":
-      return `Inició operaciones ante la DGII el ${formatFecha(s.inicio)} y recibió su primer contrato ${formatInt(s.dias)} ${s.dias === 1 ? "día" : "días"} después, el ${formatFecha(s.primero)}; en sus primeros doce meses sumó ${formatPesos(s.monto)} en ${nContratos(s.contratos)}.`;
+      return `Inició operaciones ante la DGII el ${formatFecha(s.inicio)} y recibió su primer contrato en pesos registrado ${formatInt(s.dias)} ${s.dias === 1 ? "día" : "días"} después, el ${formatFecha(s.primero)}; en sus primeros doce meses sumó ${formatPesos(s.monto)} en ${nContratos(s.contratos)}.`;
     case "padron":
       return `El padrón de la DGII la da en estado «${s.estado.toLowerCase()}» y tiene ${nContratos(s.contratos)} por ${formatPesos(s.monto)} adjudicados en los doce meses anteriores a su corte; el último, del ${formatFecha(s.ultimo)}.`;
     case "concentracion":
-      return `Desde el ${formatFecha(s.desde)}, ${s.proveedor || `el RPE ${s.rpe}`} se lleva el ${s.pct.toLocaleString("es-DO")} % de lo que contrató (${formatPesos(s.monto)} de ${formatPesos(s.total)}, entre ${formatInt(s.proveedores)} proveedores).`;
+      return `Desde el ${formatFecha(s.desde)}, ${nombreConcentrado(s)} se lleva el ${s.pct.toLocaleString("es-DO")} % de lo que contrató (${formatPesos(s.monto)} de ${formatPesos(s.total)}, entre ${formatInt(s.proveedores)} proveedores), en ${nContratos(s.contratos)}${s.contratos > 1 ? `; el mayor, de ${formatPesos(s.mayorContrato)}` : ""}.`;
     case "excepcion":
       return `Del ${formatFecha(s.desde)} al ${formatFecha(s.hasta)}, el ${s.pct.toLocaleString("es-DO")} % del monto estimado de lo que publicó (${formatPesos(s.monto)} de ${formatPesos(s.total)}, en ${formatInt(s.procesos)} de ${formatInt(s.deProcesos)} procesos) va por excepción; la mediana del país es ${reglas.medianaExcepcion.toLocaleString("es-DO")} %.`;
   }

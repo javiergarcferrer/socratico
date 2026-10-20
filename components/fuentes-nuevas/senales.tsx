@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { MarcaEstado } from "@/components/marca-estado";
 import { enlace } from "@/lib/grafo";
@@ -29,19 +30,20 @@ function Lista({ senales, datos }: { senales: Senal[]; datos: Senales }) {
         const d = TIPOS_SENAL[s.tipo];
         return (
           <li key={i} className="px-5 py-4 sm:px-6">
-            <MarcaEstado tono="aviso">{d.etiqueta}</MarcaEstado>
-            <h3 className="mt-2 text-[15px] font-semibold leading-snug text-ink">{d.pregunta}</h3>
-            <p className="mt-1 text-[15px] leading-relaxed text-ink">{describirSenal(s, datos.reglas)}</p>
-            {s.tipo === "concentracion" && (
-              <p className="mt-1 text-sm">
-                <Link href={enlace.proveedor(s.rpe)} className="font-medium text-brand-700 hover:underline">
-                  Ver la ficha de {s.proveedor || `RPE ${s.rpe}`}
-                </Link>
+            {/* Google atiende `data-nosnippet` en un `div`, no en un `li`. */}
+            <div {...(s.tipo === "concentracion" && s.fisica ? { "data-nosnippet": "" } : {})}>
+              <MarcaEstado tono="aviso">{d.etiqueta}</MarcaEstado>
+              <h3 className="mt-2 text-[15px] font-semibold leading-snug text-ink">{d.pregunta}</h3>
+              <p className="mt-1 text-[15px] leading-relaxed text-ink">{describirSenal(s, datos.reglas)}</p>
+              {s.tipo === "concentracion" && (
+                <Button asChild variant="secondary" className="mt-2">
+                  <Link href={enlace.proveedor(s.rpe)}>Ver la ficha del proveedor</Link>
+                </Button>
+              )}
+              <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+                {d.llano} Corte: {corteDeSenal(s, datos)}.
               </p>
-            )}
-            <p className="mt-2 text-xs leading-relaxed text-ink-soft">
-              {d.llano} Corte: {corteDeSenal(s, datos)}.
-            </p>
+            </div>
           </li>
         );
       })}

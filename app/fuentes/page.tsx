@@ -734,7 +734,8 @@ export default async function FuentesPage() {
             nombre ni por RNC ni muestra socios, gerentes o capital. La búsqueda de
             nombres comerciales de la <strong>ONAPI</strong>{" "}
             exige una clave antiautomatización que rota (sin ella responde 401). El
-            registro de beneficiarios finales de la DGII no tiene consulta pública. Fuera del
+            registro de beneficiarios finales de la DGII no figura entre sus consultas públicas
+            (revisado el 20 de octubre de 2026). Fuera del
             Estado, la API de OpenCorporates exige una clave y su sitio responde con un
             reCAPTCHA, y el registro de OpenOwnership con un desafío de Cloudflare. El Registro
             de Proveedores de la DGCP publica una persona de contacto con su cargo, que a
@@ -958,16 +959,20 @@ export default async function FuentesPage() {
             y el bloque «¿Qué patrones merecen revisión?» de cada ficha de proveedor y de
             institución: contratos adjudicados mientras regía una medida que impide contratar,
             empresas con menos de un año que ganan contratos grandes, empresas con el RNC inactivo
-            que contratan, instituciones que concentran lo contratado en un proveedor o compran
+            hoy y contratos del último año, instituciones que concentran lo contratado en un proveedor o compran
             sobre todo por excepción. <ResumenSenales />
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
             Una señal no es una acusación: es un hecho del registro que cumple una regla, con las
             cifras para comprobarlo, y nunca se suman en una puntuación. Hereda los límites de sus
             fuentes: valor contratado, no pagado; la institución de un contrato, deducida del
-            prefijo de su código (los del MOPC no entran en las reglas por institución); el
+            prefijo de su código (en la regla de concentración no cuentan los contratos cuyo
+            prefijo no identifica a una sola institución, como el del MOPC con la OPRET), y una
+            concentración que descansa en un solo contrato cien veces mayor que el mediano del
+            proveedor no se emite, porque puede ser un error de captura; el
             estado del padrón es el de su corte, no desde cuándo; una medida sin fecha de fin
-            sobre un registro hoy activo no se usa. Del Registro de Proveedores se leen solo la
+            sobre un registro hoy activo no se usa. De una persona natural que concentra lo
+            contratado se da solo su RPE. Del Registro de Proveedores se leen solo la
             forma jurídica (para no contar a los consorcios) y si es persona natural (cuya fila no
             se ofrece a los buscadores). Regenerar con{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-senales.py</code>,

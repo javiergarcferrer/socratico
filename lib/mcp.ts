@@ -1575,7 +1575,8 @@ const FUENTE_SENALES =
 const NOTAS_SENALES = [
   "Una señal es un hecho del registro que cumple una regla escrita, con las cifras para comprobarlo: no es una acusación ni un hallazgo de irregularidad, y su explicación está en el expediente. No digas que un proveedor o una institución cometió una falta por tener una señal.",
   "Que un proveedor o una institución no tenga señales no certifica nada: son cinco reglas sobre una instantánea.",
-  "Valor contratado en pesos, no pagado; sin contratos cancelados, en otras monedas ni de RD$ 10 mil millones o más. La institución de un contrato se deduce del prefijo de su código: los del MOPC (prefijo compartido con la OPRET) no entran en las reglas por institución.",
+  "Valor contratado en pesos, no pagado; sin contratos cancelados, en otras monedas ni de RD$ 10 mil millones o más. La institución de un contrato se deduce del prefijo de su código: en la regla de concentración no cuentan los contratos cuyo prefijo no identifica a una sola institución (el mayor, el del MOPC con la OPRET).",
+  "De una persona natural que concentra lo contratado se da solo su RPE: su nombre está en su ficha, fuera de los buscadores (Ley 172-13).",
 ];
 
 const POR_PAGINA_SENALES = 25;
@@ -1629,7 +1630,9 @@ async function senalesMcp(pedido: { tipo?: TipoSenal; proveedor?: string; instit
     for (const s of inst.senales) {
       if (rpe && !(s.tipo === "concentracion" && s.rpe === rpe)) continue;
       const id = i ? rutaInstitucion(i) : null;
-      todas.push({ tipo: s.tipo, etiqueta: TIPOS_SENAL[s.tipo].etiqueta, sujeto: "institucion", id, nombre: i?.nombre ?? inst.nombre, url: i ? absoluta(enlace.institucion(i.id, i.acronimo || i.nombre)) : null, monto: s.monto, descripcion: describirSenal(s, d.reglas), corte: corteDeSenal(s, d), datos: { ...s } });
+      const datos: Record<string, unknown> = { ...s };
+      if (s.tipo === "concentracion" && s.fisica) delete datos.proveedor;
+      todas.push({ tipo: s.tipo, etiqueta: TIPOS_SENAL[s.tipo].etiqueta, sujeto: "institucion", id, nombre: i?.nombre ?? inst.nombre, url: i ? absoluta(enlace.institucion(i.id, i.acronimo || i.nombre)) : null, monto: s.monto, descripcion: describirSenal(s, d.reglas), corte: corteDeSenal(s, d), datos });
     }
   }
   const elegidas = (pedido.tipo ? todas.filter((s) => s.tipo === pedido.tipo) : todas).sort((a, b) => b.monto - a.monto);
@@ -1663,7 +1666,9 @@ async function seccionDeSenales(clave: { rpe: string } | { uc: number }): Promis
     ...r.senales.map((s) => `- ${TIPOS_SENAL[s.tipo].etiqueta}: ${describirSenal(s, r.datos.reglas)} (corte: ${corteDeSenal(s, r.datos)})`),
     `- Una señal es un hecho del registro que cumple una regla escrita, no una acusación. Las reglas y el resto: procurement_signals.`,
   ];
-  return { lineas, metadata: { senales: r.senales } };
+  // De una persona natural que concentra, solo su RPE (como en `describirSenal`).
+  const senales = r.senales.map((s) => (s.tipo === "concentracion" && s.fisica ? { ...s, proveedor: "" } : s));
+  return { lineas, metadata: { senales } };
 }
 
 /* ---------------------------------------------------- compras dentro de fetch */

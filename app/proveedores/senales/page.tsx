@@ -15,7 +15,6 @@ import { titulizar } from "@/lib/capitulos";
 import {
   ORDEN_SENALES,
   TIPOS_SENAL,
-  corteDeSenal,
   describirSenal,
   esTipoSenal,
   getSenales,
@@ -134,9 +133,9 @@ export default async function SenalesPage({ searchParams }: Props) {
       >
         <PortadaCifras>
           <PortadaCifra etiqueta="Señales" valor={formatInt(todas.length)} destacar />
-          <PortadaCifra etiqueta="Proveedores" valor={formatInt(proveedores)} />
-          <PortadaCifra etiqueta="Instituciones" valor={formatInt(instituciones)} />
-          <PortadaCifra etiqueta="Con una medida vigente" valor={formatInt(cuenta("medida"))} />
+          <PortadaCifra etiqueta="Proveedores con señal" valor={formatInt(proveedores)} />
+          <PortadaCifra etiqueta="Instituciones con señal" valor={formatInt(instituciones)} />
+          <PortadaCifra etiqueta="Adjudicados bajo una medida" valor={formatInt(cuenta("medida"))} />
         </PortadaCifras>
       </Portada>
 
@@ -200,11 +199,13 @@ export default async function SenalesPage({ searchParams }: Props) {
           <li>
             <span className="font-semibold">{TIPOS_SENAL.medida.etiqueta}.</span> Contratos
             adjudicados después de la fecha de una medida de la DGCP que impide contratar y antes de
-            su fin. De una medida registrada dos veces se toma la fecha más tardía; una medida sin
-            fin sobre un registro que hoy está activo no se usa, porque no se sabe cuándo terminó.
+            su fin. De una medida registrada más de una vez cuenta solo el tramo en que todas sus filas
+            coinciden; una medida sin fin sobre un registro que hoy está activo no se usa, porque no
+            se sabe cuándo terminó.
           </li>
           <li>
-            <span className="font-semibold">{TIPOS_SENAL.nueva.etiqueta}.</span> Primer contrato a
+            <span className="font-semibold">{TIPOS_SENAL.nueva.etiqueta}.</span> Primer contrato en
+            pesos registrado desde 2015 a
             menos de {formatInt(r.diasNueva)} días del inicio de operaciones ante la DGII y{" "}
             {formatPesos(r.montoNueva)} o más en los doce meses siguientes. No cuenta a los
             consorcios, que nacen para una licitación.
@@ -218,6 +219,10 @@ export default async function SenalesPage({ searchParams }: Props) {
             <span className="font-semibold">{TIPOS_SENAL.concentracion.etiqueta}.</span> Desde el{" "}
             {formatFecha(r.desdeConcentracion)}, un proveedor con el {r.pctConcentracion} % o más de
             lo contratado por una institución que contrató {formatPesos(r.montoConcentracion)} o más.
+            No se emite si descansa en un solo contrato de más de {formatInt(r.vecesMediana)} veces el
+            contrato mediano del proveedor, que puede ser un error de captura (
+            {formatInt(r.concentracionDudosas)} en este corte). Solo cuentan los contratos cuyo
+            prefijo identifica a una sola institución.
           </li>
           <li>
             <span className="font-semibold">{TIPOS_SENAL.excepcion.etiqueta}.</span> En doce meses de
@@ -239,7 +244,8 @@ export default async function SenalesPage({ searchParams }: Props) {
         <Link href="/historico" className="font-medium text-brand-700 hover:underline">
           la historia de las compras
         </Link>
-        : los del MOPC, cuyo prefijo comparte la OPRET, no entran en las reglas por institución.{" "}
+        : en la regla de concentración no cuentan los contratos cuyo prefijo no identifica a una sola
+        institución (el mayor, el del MOPC con la OPRET).{" "}
         <a href="/data/senales.json" download className="font-medium text-brand-700 hover:underline">
           Descargar los datos (JSON)
         </a>{" "}
@@ -272,9 +278,7 @@ function FilaSenal({ f, datos }: { f: Fila; datos: Senales }) {
           <span className="font-mono text-xs tabular-nums text-ink-soft">{formatPesos(f.senal.monto)}</span>
         </div>
         <p className="mt-1 text-sm leading-relaxed text-ink">{describirSenal(f.senal, datos.reglas)}</p>
-        <p className="mt-0.5 text-xs text-ink-soft">
-          {d.sujeto === "proveedor" ? "Proveedor" : "Institución"} · corte: {corteDeSenal(f.senal, datos)}
-        </p>
+        <p className="mt-0.5 text-xs text-ink-soft">{d.sujeto === "proveedor" ? "Proveedor" : "Institución"}</p>
       </div>
     </li>
   );

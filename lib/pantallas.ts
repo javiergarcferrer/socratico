@@ -74,10 +74,10 @@ export const PANTALLAS: Record<string, Pantalla> = {
     ],
   },
   "/proveedores/senales": {
-    que: "Señales de las compras públicas, las banderas rojas del registro: contratos adjudicados mientras regía una medida de la DGCP, empresas recién iniciadas que ganan contratos grandes, empresas con el RNC inactivo que siguen contratando, instituciones que concentran sus compras en un solo proveedor o compran sobre todo por excepción. Cinco reglas escritas, con sus cifras.",
+    que: "Señales de las compras públicas, las banderas rojas del registro: contratos adjudicados mientras regía una medida de la DGCP, empresas recién iniciadas que ganan contratos grandes, empresas con el RNC inactivo hoy y contratos del último año, instituciones que concentran sus compras en un solo proveedor o compran sobre todo por excepción. Cinco reglas escritas, con sus cifras.",
     preguntas: [
-      "¿Qué contratos públicos parecen sospechosos?",
-      "Banderas rojas en las compras del Estado",
+      "¿Qué compras públicas merecen revisión?",
+      "¿Hay patrones raros en las compras del Estado?",
       "¿Le siguen contratando a empresas inhabilitadas?",
       "¿Qué empresas nuevas ganaron contratos millonarios?",
       "¿Qué instituciones le compran casi todo a un solo proveedor?",

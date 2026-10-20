@@ -32,9 +32,10 @@ Las reglas, por proveedor:
 - `medida`: contratos adjudicados mientras regía una medida de la DGCP que le
   impide venderle al Estado (inhabilitación, suspensión o cancelación de
   oficio, prohibición por cargo público, proceso o condena penal). La medida
-  rige desde la fecha más tardía con que la DGCP la registró (la misma
-  resolución sale a veces dos veces con fechas distintas) hasta su fecha de
-  habilitación o el primer levantamiento posterior. Una medida sin fecha de
+  rige desde su fecha hasta su fecha de habilitación o el primer
+  levantamiento posterior. La misma resolución sale a veces dos veces con
+  fechas distintas: rige solo donde todas sus filas coinciden (el inicio más
+  tardío y el fin más temprano). Una medida sin fecha de
   fin sobre un registro que hoy está «Activo» no se usa: no se sabe cuándo
   terminó, y se calla antes que adivinar.
 - `nueva`: una empresa (no un consorcio, que nace para una licitación: lo
@@ -50,7 +51,10 @@ Por institución (unidad de compra):
 
 - `concentracion`: desde el 1 de enero de `DESDE_CONCENTRACION`, un solo
   proveedor se lleva el `PCT_CONCENTRACION` % o más de lo que contrató, sobre
-  un total de RD$`MONTO_CONCENTRACION` o más.
+  un total de RD$`MONTO_CONCENTRACION` o más. No se emite si la señal descansa
+  en un solo contrato de más de `VECES_MEDIANA` veces el contrato mediano del
+  proveedor (sin él no llegaría al umbral): puede ser un error de captura, y
+  se cuenta en `concentracionDudosas`.
 - `excepcion`: en los doce meses de procesos publicados hasta el corte, el
   `PCT_EXCEPCION` % o más del monto estimado va por una vía de excepción
   (proveedor único, urgencia, emergencia, exclusividad…), sobre un total de
@@ -92,6 +96,7 @@ MONTO_NUEVA = 10_000_000
 DESDE_CONCENTRACION = 2023
 PCT_CONCENTRACION = 50
 MONTO_CONCENTRACION = 50_000_000
+VECES_MEDIANA = 100
 PCT_EXCEPCION = 50
 MONTO_EXCEPCION = 100_000_000
 INACTIVOS = {"SUSPENDIDO", "DADO DE BAJA", "CESE TEMPORAL"}
@@ -112,15 +117,18 @@ def ventanas_de_medida(p: dict) -> list[dict]:
     """Los intervalos [desde, hasta) en que una medida impedía vender."""
     eventos = sorted(p["eventos"], key=lambda e: e["fecha"] or "")
     levantamientos = [e["fecha"] for e in eventos if e["tipo"] == "levantamiento" and e["fecha"]]
-    # La misma medida registrada dos veces: se toma la fecha más tardía.
+    # La misma medida registrada más de una vez: rige solo donde todas sus
+    # filas coinciden (el inicio más tardío, el fin más temprano).
     medidas: dict[tuple, dict] = {}
     for e in eventos:
         if e["tipo"] not in IMPIDEN or not e["fecha"]:
             continue
         desde = max(e["fecha"], e.get("fechaResolucion") or "")
         clave = (e["tipo"], e.get("resolucion") or e["motivo"])
-        if clave not in medidas or desde > medidas[clave]["desde"]:
-            medidas[clave] = {"tipo": e["tipo"], "desde": desde, "hasta": e["hasta"]}
+        m = medidas.setdefault(clave, {"tipo": e["tipo"], "desde": desde, "hasta": e["hasta"]})
+        m["desde"] = max(m["desde"], desde)
+        if e["hasta"]:
+            m["hasta"] = min(m["hasta"] or e["hasta"], e["hasta"])
     ventanas = []
     for m in medidas.values():
         fin = m["hasta"]
@@ -206,6 +214,7 @@ def main() -> None:
     contratos: dict[str, list[tuple[str, float]]] = collections.defaultdict(list)
     razon: dict[str, str] = {}
     por_inst: dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
+    contratos_par: dict[tuple[str, str], list[float]] = collections.defaultdict(list)
     corte = ""
     n_contratos = 0
     for r in csv.DictReader(io.StringIO(t_contratos)):
@@ -230,6 +239,7 @@ def main() -> None:
         uc = None if codigo.startswith("DO1.") else prefijo_uc.get(codigo.split("-")[0])
         if uc and fecha >= f"{DESDE_CONCENTRACION}-01-01":
             por_inst[uc][rpe] += valor
+            contratos_par[(uc, rpe)].append(valor)
 
     if n_contratos < 500_000 or len(procesos) < 100_000:
         sys.exit(f"Tablas incompletas ({n_contratos} contratos, {len(procesos)} procesos): no se escribe.")
@@ -282,14 +292,26 @@ def main() -> None:
     def senal_inst(uc: str, s: dict) -> None:
         instituciones.setdefault(uc, {"nombre": nombres.get(uc, ""), "senales": []})["senales"].append(s)
 
-    # concentración
+    # concentración. Si la señal descansa en un solo contrato que multiplica
+    # por más de `VECES_MEDIANA` el contrato mediano del proveedor, puede ser un
+    # error de captura (tres ceros de más): se calla y se cuenta.
+    dudosas = 0
     for uc, c in por_inst.items():
         total = sum(c.values())
         rpe, mayor = c.most_common(1)[0]
-        if total >= MONTO_CONCENTRACION and 100 * mayor / total >= PCT_CONCENTRACION:
-            senal_inst(uc, {"tipo": "concentracion", "rpe": rpe, "proveedor": razon.get(rpe, ""), "fisica": rpe in fisicas,
-                            "pct": round(100 * mayor / total, 1), "monto": round(mayor), "total": round(total),
-                            "proveedores": len(c), "desde": f"{DESDE_CONCENTRACION}-01-01"})
+        if total < MONTO_CONCENTRACION or 100 * mayor / total < PCT_CONCENTRACION:
+            continue
+        propios = contratos_par[(uc, rpe)]
+        mayor_contrato = max(propios)
+        mediana = statistics.median(v for _, v in contratos[rpe])
+        sin_el = (mayor - mayor_contrato) / (total - mayor_contrato) if total > mayor_contrato else 0
+        if mayor_contrato > VECES_MEDIANA * mediana and 100 * sin_el < PCT_CONCENTRACION:
+            dudosas += 1
+            continue
+        senal_inst(uc, {"tipo": "concentracion", "rpe": rpe, "proveedor": razon.get(rpe, ""), "fisica": rpe in fisicas,
+                        "pct": round(100 * mayor / total, 1), "monto": round(mayor), "total": round(total),
+                        "contratos": len(propios), "mayorContrato": round(mayor_contrato),
+                        "proveedores": len(c), "desde": f"{DESDE_CONCENTRACION}-01-01"})
 
     # excepción
     desde_exc = menos_dias(corte_procesos, 365)
@@ -321,7 +343,7 @@ def main() -> None:
         "reglas": {
             "diasNueva": DIAS_NUEVA, "montoNueva": MONTO_NUEVA,
             "desdeConcentracion": f"{DESDE_CONCENTRACION}-01-01", "pctConcentracion": PCT_CONCENTRACION,
-            "montoConcentracion": MONTO_CONCENTRACION, "pctExcepcion": PCT_EXCEPCION,
+            "montoConcentracion": MONTO_CONCENTRACION, "vecesMediana": VECES_MEDIANA, "concentracionDudosas": dudosas, "pctExcepcion": PCT_EXCEPCION,
             "montoExcepcion": MONTO_EXCEPCION, "medianaExcepcion": round(100 * mediana, 1),
             "institucionesExcepcion": len(elegibles), "atipico": ATIPICO,
         },
