@@ -4317,7 +4317,7 @@ Todos cargan `lib.sh`; leen el JSON del evento por la entrada estándar con `jq`
 | Paso | Modo | Comprueba |
 |---|---|---|
 | 0 | ambos | Existe `node_modules/next` |
-| 1 | ambos | `timeout 120 npx tsc --noEmit` sin salida (si existe `node_modules/typescript`) |
+| 1 | ambos | `timeout 120 npx tsc --noEmit` sin salida (si existe `node_modules/typescript`); antes, si un build del completo tiene el cerrojo `.git/harness-build.pid` con su proceso vivo, espera a que termine (hasta 10 min): ese build reescribe `.next/types/`, que `tsc` lee |
 | 2 | ambos | Identidad en `app/` y `components/` (§11.18) |
 | 2b | ambos | Controles mudos (`sin-efecto.py`) |
 | 2c | ambos | Cantidades abreviadas `MM`/`M`/`K` |

@@ -15,7 +15,16 @@ echo "verificar ($modo) — $(git branch --show-current 2>/dev/null) @ $(git rev
 # 0. Dependencies.
 if [ -d node_modules/next ]; then ok "node_modules present"; else mal "node_modules missing — npm ci"; fi
 
-# 1. Typecheck.
+# 1. Typecheck. `tsc` reads `.next/types/`, which a `next build` of the
+#    completo rewrites while it runs: a typecheck in the middle (the Stop
+#    hook's rapido while a completo builds) would see half of it and fail for
+#    nothing. It waits for that build to finish (the pid in
+#    .git/harness-build.pid, written by the build unit), up to 10 minutes.
+cerrojo="$(git rev-parse --absolute-git-dir 2>/dev/null)/harness-build.pid"
+for _ in $(seq 1 300); do
+  [ -f "$cerrojo" ] && kill -0 "$(cat "$cerrojo" 2>/dev/null)" 2>/dev/null || break
+  sleep 2
+done
 if [ -d node_modules/typescript ]; then
   if salida="$(timeout 120 npx tsc --noEmit --pretty false 2>&1)" && [ -z "$salida" ]; then
     ok "tsc --noEmit"
@@ -142,7 +151,7 @@ if [ "$modo" = "--completo" ]; then
   # ^C), the gate kills the whole group, so no `next build`, `next start` or
   # checker outlives it.
   set -m
-  parar() { local j; for j in $(jobs -p); do kill -- -"$j" 2>/dev/null; done; rm -f "$TMPD"/* 2>/dev/null; rmdir "$TMPD" 2>/dev/null; }
+  parar() { local j; for j in $(jobs -p); do kill -- -"$j" 2>/dev/null; done; rm -f "$TMPD"/* "$cerrojo" 2>/dev/null; rmdir "$TMPD" 2>/dev/null; }
   trap parar EXIT
   # Una señal sale por EXIT, y EXIT para los grupos.
   trap 'exit 143' TERM INT
@@ -206,8 +215,10 @@ if [ "$modo" = "--completo" ]; then
   #    SHACL shapes of lib/ontologia.ts), both at once on the same server.
   u_build() {
     local log="${TMPDIR:-/tmp}/socratico-build.log" slog="${TMPDIR:-/tmp}/socratico-start.log" puerto srv listo=0 e s rc=0
-    if ! timeout 600 npm run build > "$log" 2>&1; then echo "FAIL npm run build (see $log)"; tail -30 "$log"; return 1; fi
-    rm -f "$log"; echo "OK npm run build"
+    # The build rewrites .next/types: while it runs, a typecheck elsewhere waits (step 1).
+    echo "$BASHPID" > "$cerrojo"
+    if ! timeout 600 npm run build > "$log" 2>&1; then rm -f "$cerrojo"; echo "FAIL npm run build (see $log)"; tail -30 "$log"; return 1; fi
+    rm -f "$cerrojo" "$log"; echo "OK npm run build"
     puerto="$(node -e 'const s=require("net").createServer().listen(0,()=>{console.log(s.address().port);s.close()})')"
     node node_modules/next/dist/bin/next start -p "$puerto" > "$slog" 2>&1 &
     srv=$!
