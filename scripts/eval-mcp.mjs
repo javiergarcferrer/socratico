@@ -122,6 +122,7 @@ const de2026 = procesos.filter((p) => p.fecha.startsWith("2026")).sort(porMonto)
 
 const resumen = leer("historico/resumen.json");
 const historicoInstituciones = leer("historico/instituciones.json").filas;
+const senales = leer("senales.json");
 const mayorProveedor = resumen.proveedores[0];
 const filaProveedor = leer(`historico/proveedores/${mayorProveedor.rpe.slice(-1)}.json`).filas[mayorProveedor.rpe];
 const suma = (serie, k) => serie.reduce((s, f) => s + f[k], 0);
@@ -300,7 +301,7 @@ const CASOS = [
       exigir(ini.result?.instructions?.includes("procurement"), "las instrucciones no nombran procurement");
       const { result } = await rpc("tools/list");
       const nombres = result.tools.map((t) => t.name);
-      for (const n of ["retrieve", "search", "fetch", "procurement", "contracting_history", "query", "path", "signed_decrees", "ontology"]) {
+      for (const n of ["retrieve", "search", "fetch", "procurement", "contracting_history", "procurement_signals", "query", "path", "signed_decrees", "ontology"]) {
         exigir(nombres.includes(n), `falta la herramienta ${n}`);
       }
       // Los argumentos van en inglés, como los nombres de las herramientas (y el `query` e `id` que ChatGPT exige).
@@ -463,6 +464,35 @@ const CASOS = [
       exigir(!error, error);
       exigir(datos.institucion.sinAsignar, "no declara el prefijo sin asignar");
       return "declarado";
+    },
+  },
+  {
+    pregunta: "¿A qué proveedores se les adjudicó mientras una medida de la DGCP se lo impedía?",
+    async correr() {
+      const { datos, error } = await llamar("procurement_signals", { type: "medida" });
+      exigir(!error, error);
+      const esperadas = Object.values(senales.proveedores).flatMap((p) => p.senales.filter((s) => s.tipo === "medida"));
+      exigir(datos.total === esperadas.length, `total ${datos.total}; debía ser ${esperadas.length}`);
+      const mayor = Math.max(...esperadas.map((s) => s.monto));
+      exigir(datos.senales[0]?.monto === mayor, `la primera suma ${datos.senales[0]?.monto}; la mayor es ${mayor}`);
+      exigir(datos.notas.some((n) => n.includes("no es una acusación")), "no dice que una señal no es una acusación");
+      return `${datos.total} proveedores; el mayor, ${pesos(mayor)}`;
+    },
+  },
+  {
+    pregunta: "¿Qué institución le compra la mitad o más a un solo proveedor, y quién es?",
+    async correr() {
+      const [uc, inst] = Object.entries(senales.instituciones)
+        .map(([u, i]) => [u, i, i.senales.find((s) => s.tipo === "concentracion")])
+        .filter((x) => x[2])
+        .sort((a, b) => b[2].monto - a[2].monto)[0];
+      const c = inst.senales.find((s) => s.tipo === "concentracion");
+      const { datos, error } = await llamar("procurement_signals", { institution: `/instituciones/${uc}` });
+      exigir(!error, error);
+      const vista = datos.senales.find((s) => s.tipo === "concentracion");
+      exigir(vista && vista.datos.rpe === c.rpe && vista.datos.pct === c.pct, `concentración ${JSON.stringify(vista?.datos)}; debía ser ${c.rpe} con ${c.pct} %`);
+      exigir(datos.total === inst.senales.length, `total ${datos.total}; debía ser ${inst.senales.length}`);
+      return `${inst.nombre}: ${c.pct} % a RPE ${c.rpe}`;
     },
   },
   {

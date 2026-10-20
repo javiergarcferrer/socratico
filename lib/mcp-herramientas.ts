@@ -17,6 +17,7 @@ export type NombreHerramienta =
   | "fetch"
   | "procurement"
   | "contracting_history"
+  | "procurement_signals"
   | "query"
   | "path"
   | "signed_decrees"
@@ -50,6 +51,12 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
     nombre: "contracting_history",
     titulo: "Lo contratado desde 2015",
     llano: "Lo que el Estado le ha contratado a un proveedor, lo que ha contratado una institución, o el país entero, año por año y con sus mayores contrapartes.",
+  },
+  {
+    nombre: "procurement_signals",
+    titulo: "Señales de las compras",
+    llano:
+      "Patrones del registro de compras que merecen revisión, con cinco reglas escritas y sus cifras: contratos con una medida vigente, empresas recién iniciadas con contratos grandes, RNC inactivos, compras concentradas en un proveedor o hechas por excepción.",
   },
   {
     nombre: "query",

@@ -13,7 +13,7 @@
  * esas se llega por su nombre, y el índice ya las tiene una por una. Aquí va
  * lo que ofrece la pantalla que las reúne.
  *
- * La batería que prueba que esto funciona —sesenta preguntas en llano que
+ * La batería que prueba que esto funciona —sesenta y seis preguntas en llano que
  * tienen que llegar a su pantalla entre las tres primeras— está en
  * `scripts/bateria-pantallas.json`. Una pantalla nueva entra aquí con sus
  * preguntas y, si trae una necesidad nueva, con una pregunta en la batería.
@@ -71,6 +71,17 @@ export const PANTALLAS: Record<string, Pantalla> = {
       "¿Esta empresa tiene alguna sanción de Compras Públicas?",
       "¿A quién suspendieron del registro de proveedores?",
       "¿Qué empresas dominicanas están en la lista de la OFAC?",
+    ],
+  },
+  "/proveedores/senales": {
+    que: "Señales de las compras públicas, las banderas rojas del registro: contratos adjudicados mientras regía una medida de la DGCP, empresas recién iniciadas que ganan contratos grandes, empresas con el RNC inactivo que siguen contratando, instituciones que concentran sus compras en un solo proveedor o compran sobre todo por excepción. Cinco reglas escritas, con sus cifras.",
+    preguntas: [
+      "¿Qué contratos públicos parecen sospechosos?",
+      "Banderas rojas en las compras del Estado",
+      "¿Le siguen contratando a empresas inhabilitadas?",
+      "¿Qué empresas nuevas ganaron contratos millonarios?",
+      "¿Qué instituciones le compran casi todo a un solo proveedor?",
+      "¿Quién compra más por excepción sin licitar?",
     ],
   },
   "/estadisticas": {

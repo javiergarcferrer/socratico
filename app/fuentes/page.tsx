@@ -29,6 +29,7 @@ import {
   ResumenOfac,
   ResumenRnc,
   ResumenSanciones,
+  ResumenSenales,
   ResumenTasa,
   ResumenWikidata,
 } from "@/components/fuentes-nuevas/resumen-fuentes";
@@ -732,13 +733,20 @@ export default async function FuentesPage() {
             código, y devuelve la denominación, sus fechas y su estado: no busca por
             nombre ni por RNC ni muestra socios, gerentes o capital. La búsqueda de
             nombres comerciales de la <strong>ONAPI</strong>{" "}
-            exige una clave antiautomatización que rota (sin ella responde 401).
+            exige una clave antiautomatización que rota (sin ella responde 401). El
+            registro de beneficiarios finales de la DGII no tiene consulta pública. Fuera del
+            Estado, la API de OpenCorporates exige una clave y su sitio responde con un
+            reCAPTCHA, y el registro de OpenOwnership con un desafío de Cloudflare. El Registro
+            de Proveedores de la DGCP publica una persona de contacto con su cargo, que a
+            menudo es el gerente o el representante: es un contacto declarado, no un socio ni un
+            beneficiario final, y no se usa.
           </p>
           <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
             Ninguna se rodea. La vía es institucional: una solicitud por la Ley 200-04
             a la Cámara de Comercio y Producción de Santo Domingo, a FEDOCÁMARAS y al
             Ministerio de Industria, Comercio y Mipymes para un archivo abierto del
-            registro, y otra a la ONAPI para el de nombres comerciales. Mientras tanto,
+            registro, otra a la ONAPI para el de nombres comerciales y otra a la DGII para
+            el de beneficiarios finales. Mientras tanto,
             cada ficha de empresa enlaza a las dos consultas oficiales sin llamarlas.
           </p>
         </Fuente>
@@ -937,6 +945,33 @@ export default async function FuentesPage() {
             del propio sistema ni las repetidas, y en los motivos se omiten el nombre y el
             documento de quien firma una solicitud. Es una instantánea: una medida posterior a su fecha no sale. Regenerar con{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-sanciones.py</code>.
+          </p>
+        </Fuente>
+
+        <Fuente nombre="DGCP · señales de las compras" estado="activa" etiqueta="Instantánea local">
+          <p>
+            Las tablas completas de contratos y procesos de la DGCP, su tabla de medidas sobre
+            proveedores y el padrón de la DGII se cruzan con cinco reglas escritas para{" "}
+            <Link href="/proveedores/senales" className="font-medium text-brand-700 hover:underline">
+              las señales de las compras
+            </Link>{" "}
+            y el bloque «¿Qué patrones merecen revisión?» de cada ficha de proveedor y de
+            institución: contratos adjudicados mientras regía una medida que impide contratar,
+            empresas con menos de un año que ganan contratos grandes, empresas con el RNC inactivo
+            que contratan, instituciones que concentran lo contratado en un proveedor o compran
+            sobre todo por excepción. <ResumenSenales />
+          </p>
+          <p className="mt-3 text-[13px] text-ink-soft sm:text-xs">
+            Una señal no es una acusación: es un hecho del registro que cumple una regla, con las
+            cifras para comprobarlo, y nunca se suman en una puntuación. Hereda los límites de sus
+            fuentes: valor contratado, no pagado; la institución de un contrato, deducida del
+            prefijo de su código (los del MOPC no entran en las reglas por institución); el
+            estado del padrón es el de su corte, no desde cuándo; una medida sin fecha de fin
+            sobre un registro hoy activo no se usa. Del Registro de Proveedores se leen solo la
+            forma jurídica (para no contar a los consorcios) y si es persona natural (cuya fila no
+            se ofrece a los buscadores). Regenerar con{" "}
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-senales.py</code>,
+            después de las medidas y del padrón.
           </p>
         </Fuente>
 

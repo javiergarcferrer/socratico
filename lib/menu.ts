@@ -56,6 +56,7 @@ export const MENU: GrupoMenu[] = [
           { href: "/contratos", label: "Contratado", nota: "Quién ganó y por cuánto", tarea: "comparar" },
           { href: "/proveedores", label: "Proveedores", nota: "Quién le vende al Estado", tarea: "buscar" },
           { href: "/proveedores/inhabilitados", label: "Proveedores con medidas", nota: "Suspendidos, inhabilitados o dados de baja por la DGCP, y por qué", tarea: "buscar" },
+          { href: "/proveedores/senales", label: "Señales", nota: "Patrones del registro que merecen revisión, con su regla", tarea: "vigilar" },
           { href: "/estadisticas", label: "Mercado", nota: "Cómo compró en los últimos 30 días", tarea: "comparar" },
           { href: "/planes", label: "Planes de compra", nota: "Lo que cada institución dijo que compraría", tarea: "comparar" },
           { href: "/historico", label: "Desde 2015", nota: "Todo lo contratado, año por año, y a quién", tarea: "comparar" },

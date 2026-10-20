@@ -77,6 +77,7 @@ const nextConfig: NextConfig = {
       "./public/data/wikidata.json",
     ],
     "/api/explorar/preguntar": [
+      "./public/data/senales.json",
       "./public/data/procesos.json",
       "./public/data/rnc/**",
       "./public/data/busqueda/**",
@@ -102,6 +103,7 @@ const nextConfig: NextConfig = {
     // (`lib/tablas-compras.ts`: los procesos y el cruce de proveedores con
     // el RNC). No lleva DuckDB: `query` llama a `/api/sql`.
     "/mcp": [
+      "./public/data/senales.json",
       "./public/data/procesos.json",
       "./public/data/rnc/**",
       "./public/data/busqueda/**",
@@ -120,12 +122,12 @@ const nextConfig: NextConfig = {
     // biblioteca de DuckDB, que `duckdb.node` enlaza por su cuenta y el
     // trazado no ve.
     "/api/sql": ["./lib/sql-hijo.cjs", "./public/tablas/*.parquet", "./node_modules/@duckdb/node-bindings-linux-x64/**"],
-    "/instituciones": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    "/instituciones": ["./public/data/wikidata.json", "./datos/grafo/ld/**", "./public/data/senales.json"],
     "/banca": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/provincias": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     // Las fichas de proceso, de proveedor, de obra y de iniciativa son nodos del grafo: incrustan su schema.org.
     "/procesos": ["./datos/grafo/ld/**"],
-    "/proveedores/": ["./datos/grafo/ld/**"],
+    "/proveedores/": ["./datos/grafo/ld/**", "./public/data/senales.json"],
     "/obras": ["./datos/grafo/ld/**"],
     // La ficha de una iniciativa: los corchetes casan con la ruta tal cual, no con las otras de
     // /congreso; como subcadena casan también con /api/feed/congreso/[id], que la excluye abajo.

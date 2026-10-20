@@ -11,6 +11,7 @@ import { SECTORES_EIF, getFinancieras, type Sector, faltanDeLaSb } from "@/lib/f
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { metaSanciones } from "@/lib/sanciones";
+import { ORDEN_SENALES, TIPOS_SENAL, getSenales, type TipoSenal } from "@/lib/senales";
 import { getWikidata } from "@/lib/wikidata";
 
 /**
@@ -60,6 +61,20 @@ export async function ResumenSanciones() {
       sobre {formatInt(d.rpe)} registros de proveedor. Se publican {formatInt(d.eventos)} medidas
       sobre {formatInt(d.juridicas)} empresas y entidades y {formatInt(d.personasFisicas)} personas
       físicas (estas, sin cédula).
+    </>
+  );
+}
+
+export async function ResumenSenales() {
+  const d = await getSenales();
+  if (!d) return <>La instantánea no está disponible ahora mismo.</>;
+  const n = (t: TipoSenal) =>
+    [...Object.values(d.proveedores), ...Object.values(d.instituciones)].reduce((s, v) => s + v.senales.filter((x) => x.tipo === t).length, 0);
+  return (
+    <>
+      Calculadas el {formatFecha(d.generado)}, con contratos hasta el {formatFecha(d.corte)}:{" "}
+      {formatInt(Object.keys(d.proveedores).length)} proveedores y{" "}
+      {formatInt(Object.keys(d.instituciones).length)} instituciones con alguna señal ({ORDEN_SENALES.map((t) => `${TIPOS_SENAL[t].etiqueta.toLowerCase()}, ${formatInt(n(t))}`).join("; ")}).
     </>
   );
 }

@@ -58,6 +58,7 @@ import { agujas, contieneTodas, palabrasDeContenido, plano } from "@/lib/raiz";
 import { tituloHerramienta } from "@/lib/mcp-herramientas";
 import { ETAPAS, MODALIDADES, OBJETOS, type ClaveEtapa, type ClaveModalidad } from "@/lib/vocabulario-compras";
 import { llevaCedula, sinCedula } from "@/lib/padron";
+import { ORDEN_SENALES, TIPOS_SENAL, corteDeSenal, describirSenal, getSenales, senalesDeInstitucion, senalesDeProveedor, type TipoSenal } from "@/lib/senales";
 import { NOMBRES_TABLAS, TABLAS_GENERADAS, TABLAS_GRAFO, esquemaCompacto } from "@/lib/grafo-tablas";
 import { conceptoDe, datosDe } from "@/lib/grafo-hechos";
 
@@ -82,7 +83,7 @@ import { conceptoDe, datosDe } from "@/lib/grafo-hechos";
  */
 
 /** Cambia cuando cambia la forma de una herramienta. */
-export const VERSION_MCP = "2.5.0";
+export const VERSION_MCP = "2.6.0";
 
 const AVISO =
   "Socrático.do es una herramienta independiente y no oficial: ordena lo que publica el Estado dominicano, con su fuente y su fecha de corte.";
@@ -95,7 +96,7 @@ Cómo se usa:
 0. Para una pregunta en llano, empieza por retrieve: trae en una llamada la evidencia con que contestarla (registros del buscador, las entidades del grafo que nombra con sus datos, relaciones y compras, y la consulta de compras que pide, si pide una), cada pieza con su fuente y su fecha, y las llamadas exactas para seguir.
 1. search con palabras: un nombre, un RNC de nueve cifras, «Decreto 497-25», un tema. Cada resultado trae un id. Ordena por parecido, no por monto ni fecha; con type se queda en un solo tipo (proceso, proveedor, norma…).
 2. fetch con ese id: el registro, con su fuente, su fecha y, si es un nodo del grafo, sus relaciones.
-3. Compras públicas: procurement filtra y ordena por monto o por fecha todos los procesos de compra de los últimos doce meses (por año, institución, estado, modalidad, objeto y palabras de la carátula) y da su total y su suma; contracting_history da lo contratado desde 2015 por un proveedor, por una institución o por el país, con sus mayores contrapartes. Para «la mayor», «las más recientes», «las abiertas» o «cuánto compra», usa estas, no search.
+3. Compras públicas: procurement filtra y ordena por monto o por fecha todos los procesos de compra de los últimos doce meses (por año, institución, estado, modalidad, objeto y palabras de la carátula) y da su total y su suma; contracting_history da lo contratado desde 2015 por un proveedor, por una institución o por el país, con sus mayores contrapartes; procurement_signals da las señales del registro que merecen revisión (contratos con una medida vigente, empresas recién iniciadas con contratos grandes, RNC inactivos, compras concentradas en un proveedor o hechas por excepción). Para «la mayor», «las más recientes», «las abiertas» o «cuánto compra», usa estas, no search.
 4. query corre SQL de solo lectura sobre las tablas del grafo sin personas naturales (instituciones, proveedores, empresas, contrataciones, medidas, financieras, provincias; las obras con sus provincias, sus procesos y sus contratos; las normas, las iniciativas y las citas entre ellas, sin títulos; las votaciones del pleno con las iniciativas sobre las que se votó en cada una, sin la moción) y los procesos de compra: para contar, cruzar y ordenar lo que las demás no ordenan. fetch con group y page recorre todas las relaciones de un nodo por páginas (quién dirige una institución: group cargos; a quién le contrató: group compras; sus procesos y sus obras con sus contratos: group procesos y group obras; qué normas nombra una norma o una iniciativa y quién la nombra: group normas; las sentencias más recientes de un tribunal y las que nombran una ley o otra sentencia: group sentencias; en qué votaciones del pleno se votó una iniciativa: group votaciones); path busca la cadena más corta de relaciones entre dos nodos, también a través de lo que una institución le contrató a una empresa; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo y dice dónde descargarlo.
 
 Reglas al usar estos datos:
@@ -107,6 +108,7 @@ Reglas al usar estos datos:
 - «Persona expuesta políticamente» (PEP) es una categoría legal (Ley 155-17, art. 2, num. 19): quien ocupa, u ocupó en los últimos tres años, un cargo obligado a declarar patrimonio. No es una acusación.
 - Una persona se identifica por su nombre normalizado, nunca por su cédula. Dos grafías son dos nodos, y dos personas con el mismo nombre pueden ser distintas: no afirmes que dos registros son la misma persona si la respuesta no lo dice.
 - Una relación dice lo que registra su fuente (un cargo, una firma, una supervisión); no implica parentesco, sociedad ni conducta indebida.
+- Una señal de procurement_signals es un patrón que cumple una regla escrita, no una acusación: di la regla y sus cifras, nunca que hubo una falta.
 - Que algo no esté en Socrático no prueba que no exista: cada respuesta dice qué cubre su fuente.`;
 
 /* ------------------------------------------------------------ utilidades */
@@ -1565,6 +1567,105 @@ async function historial(pedido: { proveedor?: string; institucion?: string; pag
   };
 }
 
+/* --------------------------------------------------- procurement_signals */
+
+const FUENTE_SENALES =
+  "Tablas de contratos y procesos de los datos abiertos de la DGCP, su tabla de medidas sobre proveedores y el padrón de contribuyentes de la DGII, cruzados con cinco reglas escritas";
+
+const NOTAS_SENALES = [
+  "Una señal es un hecho del registro que cumple una regla escrita, con las cifras para comprobarlo: no es una acusación ni un hallazgo de irregularidad, y su explicación está en el expediente. No digas que un proveedor o una institución cometió una falta por tener una señal.",
+  "Que un proveedor o una institución no tenga señales no certifica nada: son cinco reglas sobre una instantánea.",
+  "Valor contratado en pesos, no pagado; sin contratos cancelados, en otras monedas ni de RD$ 10 mil millones o más. La institución de un contrato se deduce del prefijo de su código: los del MOPC (prefijo compartido con la OPRET) no entran en las reglas por institución.",
+];
+
+const POR_PAGINA_SENALES = 25;
+
+const SenalMcp = z.object({
+  tipo: z.enum(ORDEN_SENALES as [TipoSenal, ...TipoSenal[]]),
+  etiqueta: z.string(),
+  sujeto: z.enum(["proveedor", "institucion"]),
+  id: z.string().nullable().describe("Lo que se le pasa a fetch o a contracting_history."),
+  nombre: z.string(),
+  url: z.string().nullable().describe("Su ficha, donde la señal se lee junto a su historia."),
+  monto: z.number().describe("El monto en pesos que la señal pone en juego."),
+  descripcion: z.string().describe("La señal en una frase, con sus cifras y fechas."),
+  corte: z.string().describe("Las fechas de corte que pesan sobre esta señal."),
+  datos: z.record(z.string(), z.unknown()).describe("Las cifras de la regla, tal como las calcula el registro."),
+});
+
+const SenalesMcp = z.object({
+  total: z.number().describe("Cuántas señales cumplen el pedido."),
+  pagina: z.number(),
+  paginas: z.number(),
+  senales: z.array(SenalMcp).describe("Del mayor monto al menor."),
+  reglas: z.array(z.object({ tipo: z.string(), etiqueta: z.string(), pregunta: z.string(), llano: z.string() })),
+  cuentas: z.record(z.string(), z.number()).describe("Cuántas señales hay de cada tipo en todo el registro."),
+  notas: z.array(z.string()),
+  fuente: z.string(),
+  corte: z.string().describe("La última adjudicación de la tabla de contratos."),
+  aviso: z.string(),
+});
+
+async function senalesMcp(pedido: { tipo?: TipoSenal; proveedor?: string; institucion?: string; pagina?: number }): Promise<z.infer<typeof SenalesMcp>> {
+  sinBuscarPorCedula(pedido.proveedor, pedido.institucion);
+  const d = await getSenales();
+  if (!d) throw new Error("senales.json no cargó");
+  const textoProveedor = pedido.proveedor?.trim().slice(0, 200) || null;
+  const textoInstitucion = pedido.institucion?.trim().slice(0, 200) || null;
+  const rpe = textoProveedor ? String(Number((await proveedorDe(textoProveedor)).rpe)) : null;
+  const uc = textoInstitucion ? String(institucionUnica(textoInstitucion).id) : null;
+
+  const todas: z.infer<typeof SenalMcp>[] = [];
+  for (const [r, p] of Object.entries(d.proveedores)) {
+    if (uc || (rpe && r !== rpe)) continue;
+    for (const s of p.senales) {
+      const id = enlace.proveedor(r);
+      todas.push({ tipo: s.tipo, etiqueta: TIPOS_SENAL[s.tipo].etiqueta, sujeto: "proveedor", id, nombre: p.nombre || `RPE ${r}`, url: absoluta(id), monto: s.monto, descripcion: describirSenal(s, d.reglas), corte: corteDeSenal(s, d), datos: { ...s } });
+    }
+  }
+  for (const [u, inst] of Object.entries(d.instituciones)) {
+    if (uc && u !== uc) continue;
+    const i = institucionPorId(u);
+    for (const s of inst.senales) {
+      if (rpe && !(s.tipo === "concentracion" && s.rpe === rpe)) continue;
+      const id = i ? rutaInstitucion(i) : null;
+      todas.push({ tipo: s.tipo, etiqueta: TIPOS_SENAL[s.tipo].etiqueta, sujeto: "institucion", id, nombre: i?.nombre ?? inst.nombre, url: i ? absoluta(enlace.institucion(i.id, i.acronimo || i.nombre)) : null, monto: s.monto, descripcion: describirSenal(s, d.reglas), corte: corteDeSenal(s, d), datos: { ...s } });
+    }
+  }
+  const elegidas = (pedido.tipo ? todas.filter((s) => s.tipo === pedido.tipo) : todas).sort((a, b) => b.monto - a.monto);
+  const paginas = Math.max(1, Math.ceil(elegidas.length / POR_PAGINA_SENALES));
+  const pagina = Math.min(Math.max(1, pedido.pagina ?? 1), paginas);
+  const cuentas: Record<string, number> = Object.fromEntries(ORDEN_SENALES.map((t) => [t, 0]));
+  for (const v of [...Object.values(d.proveedores), ...Object.values(d.instituciones)]) for (const s of v.senales) cuentas[s.tipo] += 1;
+  const notas = [...NOTAS_SENALES];
+  if (elegidas.length === 0 && (rpe || uc)) notas.unshift("No tiene señales en este corte. Eso no certifica nada: dice que no cumple ninguna de las cinco reglas sobre esta instantánea.");
+  return {
+    total: elegidas.length,
+    pagina,
+    paginas,
+    senales: elegidas.slice((pagina - 1) * POR_PAGINA_SENALES, pagina * POR_PAGINA_SENALES),
+    reglas: ORDEN_SENALES.map((t) => ({ tipo: t, etiqueta: TIPOS_SENAL[t].etiqueta, pregunta: TIPOS_SENAL[t].pregunta, llano: TIPOS_SENAL[t].llano })),
+    cuentas,
+    notas,
+    fuente: FUENTE_SENALES,
+    corte: d.corte,
+    aviso: AVISO,
+  };
+}
+
+/** Las señales de un proveedor o de una institución, en corto, para fetch. */
+async function seccionDeSenales(clave: { rpe: string } | { uc: number }): Promise<Seccion | null> {
+  const r = "rpe" in clave ? await senalesDeProveedor(clave.rpe) : await senalesDeInstitucion(clave.uc);
+  if (!r || r.senales.length === 0) return null;
+  const lineas = [
+    "",
+    "## Señales de las compras",
+    ...r.senales.map((s) => `- ${TIPOS_SENAL[s.tipo].etiqueta}: ${describirSenal(s, r.datos.reglas)} (corte: ${corteDeSenal(s, r.datos)})`),
+    `- Una señal es un hecho del registro que cumple una regla escrita, no una acusación. Las reglas y el resto: procurement_signals.`,
+  ];
+  return { lineas, metadata: { senales: r.senales } };
+}
+
 /* ---------------------------------------------------- compras dentro de fetch */
 
 interface Seccion {
@@ -1604,9 +1705,12 @@ async function comprasDeInstitucion(i: Institucion): Promise<Seccion | null> {
     );
   }
   lineas.push(`- Por año y por proveedor: contracting_history con institution «${id}». Proceso por proceso, por monto o por fecha: procurement con institution «${id}».`);
+  const senales = await seccionDeSenales({ uc: i.id });
+  if (senales) lineas.push(...senales.lineas);
   return {
     lineas,
     metadata: {
+      ...senales?.metadata,
       compras: {
         contratado: sinAsignar ? null : { contratos, monto, corte: resumen?.corte ?? null },
         publicadoUltimoAnio: { procesos: publicado.procesos, sumaEstimada: publicado.suma, desde: cobertura?.desde ?? null, hasta: cobertura?.hasta ?? null },
@@ -1643,7 +1747,9 @@ async function comprasDeProveedor(rpe: string): Promise<Seccion | null> {
     lineas.push(`- Fuera de las sumas: ${ENTERO.format(historia.atipicos[0])} contratos atípicos de RD$ 10 mil millones o más, por RD$ ${ENTERO.format(historia.atipicos[1])} (varios son errores de captura).`);
   }
   lineas.push(`- Completo, y lo que le contrató una institución: contracting_history con supplier «${id}».`);
-  return { lineas, metadata: { contratado: { contratos, monto, desde: historia.desde, hasta: historia.hasta, corte } } };
+  const senales = await seccionDeSenales({ rpe });
+  if (senales) lineas.push(...senales.lineas);
+  return { lineas, metadata: { contratado: { contratos, monto, desde: historia.desde, hasta: historia.hasta, corte }, ...senales?.metadata } };
 }
 
 /** Lo que el índice sabe de un proceso además de su resumen, y lo que no trae. */
@@ -2424,6 +2530,25 @@ export function servidorMcp(): McpServer {
     },
     async ({ supplier, institution, page }) =>
       resultado(await correr("contracting_history", () => historial({ proveedor: supplier, institucion: institution, pagina: page }))),
+  );
+
+  s.registerTool(
+    "procurement_signals",
+    {
+      title: tituloHerramienta("procurement_signals"),
+      description:
+        "Señales de las compras públicas dominicanas: patrones del registro entero de la DGCP que merecen revisión, con cinco reglas escritas y sus cifras. Por proveedor: contratos adjudicados mientras regía una medida de la DGCP que le impedía venderle al Estado (medida); empresa con menos de un año ante la DGII que ganó RD$ 10 millones o más en su primer año (nueva); empresa con el RNC suspendido, de baja o en cese en el padrón de la DGII que contrató en los doce meses anteriores (padron). Por institución: un proveedor con la mitad o más de lo contratado desde 2023 (concentracion); la mitad o más del monto estimado de doce meses por excepción (excepcion). Sin filtros, todas del mayor monto al menor; con supplier o institution, las de ese proveedor o institución. Una señal no es una acusación.",
+      inputSchema: z.strictObject({
+        type: z.enum(ORDEN_SENALES as [TipoSenal, ...TipoSenal[]]).optional().describe("Solo las de esta regla: medida, nueva, padron, concentracion o excepcion."),
+        supplier: z.string().max(200).optional().describe("El proveedor: su id («/proveedores/1211»), su RNC de nueve cifras, su RPE o su nombre. Trae también las instituciones donde concentra lo contratado."),
+        institution: z.string().max(200).optional().describe("La institución: su id («/instituciones/237»), sus siglas («MINERD») o su nombre."),
+        page: z.number().int().min(1).max(100).optional().describe("La página, desde 1, de 25 en 25."),
+      }),
+      outputSchema: SenalesMcp,
+      annotations: SOLO_LECTURA,
+    },
+    async ({ type, supplier, institution, page }) =>
+      resultado(await correr("procurement_signals", () => senalesMcp({ tipo: type, proveedor: supplier, institucion: institution, pagina: page }))),
   );
 
   s.registerTool(

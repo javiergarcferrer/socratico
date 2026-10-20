@@ -12,7 +12,7 @@ Techo 120 líneas / 12 KB, comprobado por el gate. Lo que crezca va a `docs/INFR
 
 | Vertical | Ruta | Fuente | Capa de datos |
 |---|---|---|---|
-| Compras públicas | `/licitaciones`, `/historico`, `/proveedores/inhabilitados` | API abierta de la DGCP + tablas completas desde 2015, medidas sobre proveedores, lista SDN de la OFAC y padrón RNC (instantáneas) | `lib/dgcp.ts`, `lib/historico.ts`, `lib/rnc.ts`, `lib/sanciones.ts` (con `medidas`), `lib/vocabulario-compras.ts` |
+| Compras públicas | `/licitaciones`, `/historico`, `/proveedores/inhabilitados`, `/proveedores/senales` | API abierta de la DGCP + tablas completas desde 2015, medidas sobre proveedores, lista SDN de la OFAC y padrón RNC (instantáneas) | `lib/dgcp.ts`, `lib/historico.ts`, `lib/rnc.ts`, `lib/sanciones.ts` (con `medidas`), `lib/senales.ts`, `lib/vocabulario-compras.ts` |
 | Finanzas públicas | `/finanzas` | SIGEF: ejecución y subsidio eléctrico (instantáneas) | `lib/fiscal.ts`, `lib/capitulos.ts`, `lib/subsidio.ts` |
 | Congreso Nacional | `/congreso` | SIL Diputados (votaciones del pleno en instantánea; cada una, nodo) + consultante del Senado | `lib/congreso.ts`, `lib/votaciones.ts`, `lib/senado.ts`, `lib/vocabulario-congreso.ts` |
 | Normativa y justicia | `/normativa`, `/constitucional`, `/tse`, `/audiencias`, `/inmobiliario`; decretos en `/hoy`, boletín del PJ en `/indicadores` | Consultoría Jurídica (API JSON + instantánea; registro completo de decretos con su firmante, por año); TC y TSE (HTML + instantánea; cada sentencia, nodo con ficha); boletín del Poder Judicial (instantánea); rol de audiencias del PJ y expedientes del Registro Inmobiliario (POST en vivo, solo por número exacto) | `lib/normativa.ts`, `lib/decretos.ts` (con `decretos-base`), `lib/tc.ts`, `lib/tse.ts` (con `sentencias`), `lib/justicia.ts`, `lib/audiencias.ts`, `lib/inmobiliario.ts` |
@@ -95,7 +95,7 @@ npm run build    # build de producción — incluye el typecheck
 npx tsc --noEmit # solo typecheck
 
 # Instantáneas en public/data/: fiscal (SIGEF, ~5 min), nomina, deuda, normativa y decretos
-# (semanal), instituciones (tras normativa), leyes, procesos, sentencias, congreso, votaciones, historico-rnc (tras historico y empresas), grafo (.mjs, tras todas; a `datos/grafo/`), busqueda (tras grafo), grafo-volcado y grafo-tablas (.mjs, al final, tras grafo). Una por script:
+# (semanal), instituciones (tras normativa), leyes, procesos, sentencias, congreso, votaciones, historico-rnc (tras historico y empresas), senales (tras sanciones y rnc), grafo (.mjs, tras todas; a `datos/grafo/`), busqueda (tras grafo), grafo-volcado y grafo-tablas (.mjs, al final, tras grafo). Una por script:
 python3 scripts/build-<nombre>.py  # tras busqueda: node scripts/build-indice-busqueda.mjs
 ```
 

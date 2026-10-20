@@ -29,6 +29,7 @@ import { Ruta } from "@/components/ruta";
 import { ObrasDeInstitucion } from "@/components/fuentes-nuevas/obras-de-institucion";
 import { SismapDeInstitucion } from "@/components/fuentes-nuevas/sismap-de-institucion";
 import { HistoriaDeInstitucion } from "@/components/fuentes-nuevas/historia-compras";
+import { SenalesDeInstitucion } from "@/components/fuentes-nuevas/senales";
 import { historiaDeInstitucion, prefijoSinAsignar } from "@/lib/historico";
 import { documentosDeInstitucion } from "@/lib/biblioteca";
 import { conjuntosDeInstitucion } from "@/lib/catalogo";
@@ -275,6 +276,8 @@ export default async function InstitucionPage({ params }: Props) {
       </div>
 
       <HistoriaDeInstitucion uc={i.id} nombre={i.nombre} />
+
+      <SenalesDeInstitucion uc={i.id} />
 
       {nObras > 0 && (
         <div id="obras">

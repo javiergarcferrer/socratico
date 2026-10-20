@@ -23,6 +23,8 @@ import Conversacion from "@/components/espacios/conversacion";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 import { schemaOrgDe } from "@/lib/grafo-ld";
 import { MedidasDelProveedor, NotaBancoMundial, NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
+import { SenalesDeProveedor } from "@/components/fuentes-nuevas/senales";
+import { senalesDeProveedor } from "@/lib/senales";
 import { bancoMundialDeRpe, medidasDeRnc, medidasDeRpe, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
 
 function nContratos(n: number): string {
@@ -125,7 +127,12 @@ export default async function ProveedorPage({
     (registro?.tipoDocumento === "RNC" ? rncDeDocumento(registro.numeroDocumento) : null) ??
     tributario?.rnc ??
     null;
-  const [mismoRnc, ofac, bancoMundial] = await Promise.all([medidasDeRnc(rnc), ofacDeRnc(rnc), bancoMundialDeRpe(rpe)]);
+  const [mismoRnc, ofac, bancoMundial, senales] = await Promise.all([
+    medidasDeRnc(rnc),
+    ofacDeRnc(rnc),
+    bancoMundialDeRpe(rpe),
+    senalesDeProveedor(rpe),
+  ]);
   const otrosConMedidas = mismoRnc.filter((p) => p.rpe !== String(Number(rpe)));
 
   /*
@@ -268,6 +275,12 @@ export default async function ProveedorPage({
             cuenta: medidas.eventos.length,
             fuente: "Tabla de proveedores inhabilitados · DGCP",
           },
+          senales && {
+            etiqueta: "Señales de su registro",
+            href: "#senales",
+            cuenta: senales.senales.length,
+            fuente: "contratos de la DGCP, sus medidas y el padrón de la DGII",
+          },
           ofac && {
             etiqueta: "En la lista SDN de la OFAC",
             href: "#ofac",
@@ -317,6 +330,7 @@ export default async function ProveedorPage({
       )}
       {ofac && <NotaOfac entidad={ofac} fecha={metaMedidas?.fuentes.ofac.fecha ?? null} />}
       <NotaBancoMundial entidades={bancoMundial} fecha={metaMedidas?.fuentes.bancoMundial?.fecha ?? null} />
+      <SenalesDeProveedor rpe={rpe} />
 
       {registro && (
         <Card as="section" className="p-6">
