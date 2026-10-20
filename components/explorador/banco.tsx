@@ -398,7 +398,8 @@ export function Banco({
               onAbrir={abrirDesdeLista}
             />
           ) : enCentro === "fuentes" ? (
-            fuentes.data ? (
+            // Sin la ontología no se sabe qué es una clase: se espera a las dos, y si una no llega se dice.
+            fuentes.data && ontologia.data ? (
               <Fuentes
                 datos={fuentes.data}
                 ontologia={ontologia.data}
@@ -408,12 +409,12 @@ export function Banco({
                 hrefNodo={hrefNodo}
                 onAbrir={abrirDesdeLista}
               />
-            ) : fuentes.isError ? (
+            ) : fuentes.isError || ontologia.isError ? (
               <EstadoVacio
                 variante="caida"
-                titulo="No se pudieron leer las fuentes del grafo."
+                titulo={fuentes.isError ? "No se pudieron leer las fuentes del grafo." : "No se pudo leer la ontología, que nombra sus clases."}
                 accion={
-                  <Button variant="secondary" onClick={() => void fuentes.refetch()}>
+                  <Button variant="secondary" onClick={() => void (fuentes.isError ? fuentes.refetch() : ontologia.refetch())}>
                     Intentar de nuevo
                   </Button>
                 }

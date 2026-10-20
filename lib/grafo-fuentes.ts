@@ -1,7 +1,7 @@
 import { compactar, PREFIJOS } from "@/lib/rdf";
 import { nodoDeIri } from "@/lib/grafo-rdf";
 import { rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo";
-import type { Descripcion } from "@/lib/grafo-nodo";
+import { iriDe, type Descripcion } from "@/lib/grafo-nodo";
 
 /**
  * Lo que cada fuente aporta al grafo (docs/INFRAESTRUCTURA.md §7.5): por
@@ -16,8 +16,12 @@ import type { Descripcion } from "@/lib/grafo-nodo";
  * aunque salga en varias descripciones: la de una institución trae también
  * el cargo de quien la dirige, y hay triples que solo salen en la del objeto
  * («dirige» está en la institución, no en la persona). Se reconoce por una
- * huella de 53 bits (dos FNV-1a de 32): con unos ocho millones de cuádruples,
- * la probabilidad de que dos choquen es del orden de una en cien mil. La clase
+ * huella de 53 bits (dos FNV-1a de 32) que incluye el idioma y el tipo del
+ * literal: con unos nueve millones de cuádruples, la probabilidad de que dos
+ * cualesquiera choquen es de n²/2⁵⁴, cerca de una en doscientas, y un choque
+ * dejaría un triple sin contar (igual al compilar y al comprobar). Las huellas
+ * se reparten en dieciséis conjuntos: uno solo tiene un techo de 2²⁴ entradas
+ * en V8. La clase
  * de un sujeto o un objeto es la de su `rdf:type` en la misma descripción; la
  * de un `#id` sin él, la de su tipo de nodo.
  *
@@ -87,7 +91,6 @@ const RANGO_CRUCE = new Map(ORDEN_CRUCE.map((t, i) => [t, i]));
 const NO_ES_FUENTE = new Set(["plataforma"]);
 
 const corto = (iri: string) => compactar(iri) ?? iri;
-const mismoNodo = (a: NodoRdf | null, b: NodoRdf) => a != null && a.tipo === b.tipo && a.id === b.id;
 
 /** Dos FNV-1a de 32 bits en un entero de 53: la huella con que se reconoce un cuádruple ya contado. */
 function huella(texto: string): number {
@@ -112,7 +115,8 @@ interface Acumulado {
 
 export class AportesPorFuente {
   private porGrafo = new Map<string, Acumulado>();
-  private contados = new Set<number>();
+  /** Las huellas ya contadas, en dieciséis conjuntos por sus cuatro bits bajos. */
+  private contados = Array.from({ length: 16 }, () => new Set<number>());
 
   /** Suma los cuádruples de la descripción de `n` que no se habían contado. */
   sumar(n: NodoRdf, d: Descripcion): void {
@@ -127,18 +131,21 @@ export class AportesPorFuente {
       return nodo ? CURIE_DE_TIPO[nodo.tipo] : null;
     };
     const ruta = rutaDeNodo(n);
+    const propioIri = iriDe(n);
     const vistos = new Set<string>();
     const primero = new Map<string, [string, string]>();
     d.triples.forEach((t, i) => {
       const g = d.grafos![i];
-      const propio = t.s.tipo === "iri" && mismoNodo(nodoDeIri(t.s.valor), n);
-      if (propio) {
+      // El cruce se enseña con lo que el nodo dice de sí mismo (su `#id`), no de un cargo suyo: «el mismo registro, dicho por dos».
+      if (t.s.tipo === "iri" && t.s.valor === propioIri && t.p !== RDF_TYPE) {
         vistos.add(g);
-        if (!primero.has(g) && t.p !== RDF_TYPE) primero.set(g, [corto(t.p), t.o.valor.slice(0, 120)]);
+        if (!primero.has(g)) primero.set(g, [corto(t.p), t.o.valor.slice(0, 120)]);
       }
-      const h = huella(`${t.s.valor}\u0001${t.p}\u0001${t.o.tipo}${t.o.valor}\u0001${g}`);
-      if (this.contados.has(h)) return;
-      this.contados.add(h);
+      const o = t.o.tipo === "literal" ? `${t.o.valor}\u0002${t.o.idioma ?? ""}\u0002${t.o.datatype ?? ""}` : t.o.valor;
+      const h = huella(`${t.s.valor}\u0001${t.p}\u0001${t.o.tipo}${o}\u0001${g}`);
+      const conjunto = this.contados[h % 16];
+      if (conjunto.has(h)) return;
+      conjunto.add(h);
       const a = this.acumulado(g);
       a.triples++;
       const dueno = t.s.tipo === "iri" ? nodoDeIri(t.s.valor) : null;

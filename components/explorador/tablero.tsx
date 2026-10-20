@@ -53,7 +53,8 @@ export function Tablero({
   // Fuentes con corte: las instantáneas fechadas. Las reglas se cuentan aparte, y lo que no tiene corte (las provincias) no cuenta.
   const conCorte = pulso?.fuentes.filter((f) => !f.derivado && f.corte) ?? [];
   const reglas = pulso?.fuentes.filter((f) => f.derivado) ?? [];
-  const fuentesMayores = [...conCorte].sort((a, b) => b.triples - a.triples).slice(0, 8);
+  const fuentes = pulso?.fuentes.filter((f) => !f.derivado) ?? [];
+  const fuentesMayores = [...fuentes].sort((a, b) => b.triples - a.triples).slice(0, 8);
 
   return (
     <div className="space-y-3 lg:space-y-4">
@@ -67,7 +68,7 @@ export function Tablero({
           <Cifra
             etiqueta={<Termino clave="triple">Triples RDF</Termino>}
             valor={pulso ? formatInt(pulso.triples) : "—"}
-            nota="Cada uno con su fuente y su corte, o su regla"
+            nota="Contado en cada nodo que lo trae, sin las empresas que son solo su fila del padrón; cada uno con su fuente o su regla"
           />
           <Cifra
             etiqueta="Abiertos a ofertas ahora"
@@ -144,6 +145,11 @@ export function Tablero({
                 </li>
               ))}
             </ul>
+            {abiertos.data.filas.length > 4 && (
+              <p className="border-t border-hairline px-4 py-2 text-xs text-ink-soft sm:hidden">
+                Las 4 más recientes de {formatInt(abiertos.data.total)} abiertas; el resto, en la lista con filtros.
+              </p>
+            )}
             {/* Desde `sm`: la tabla. */}
             <div className="hidden sm:block">
             <Table className="tabla-densa">
@@ -208,11 +214,12 @@ export function Tablero({
           <Card as="section" aria-labelledby="tablero-fuentes" className="px-4 py-3">
             <CardTitle id="tablero-fuentes">De dónde sale el grafo</CardTitle>
             <p className="mt-0.5 text-xs text-ink-soft">
-              Las fuentes que más triples afirman. Cada una abre lo que aporta: sus clases, su esquema y dónde se cruza con otras.
+              Las ocho fuentes que más triples distintos afirman (cada uno una vez, con las empresas que son solo su fila del padrón:
+              por eso pueden sumar más que la cifra de arriba). Cada una abre lo que aporta.
             </p>
             <BarrasHorizontales
               className="mt-3"
-              etiqueta="Triples que afirma cada fuente en el grafo compilado"
+              etiqueta="Triples distintos que afirma cada fuente en el grafo compilado"
               barras={fuentesMayores.map((f) => ({
                 clave: f.clave,
                 etiqueta: f.etiqueta,
@@ -224,7 +231,7 @@ export function Tablero({
               lineas={1}
             />
             <Button asChild variant="secondary" className="mt-3">
-              <Link href={hrefFuente(null)}>{`Ver las ${formatInt(conCorte.length)} fuentes y ${formatInt(reglas.length)} reglas`}</Link>
+              <Link href={hrefFuente(null)}>{`Ver las ${formatInt(fuentes.length)} fuentes y ${formatInt(reglas.length)} reglas`}</Link>
             </Button>
           </Card>
         )}

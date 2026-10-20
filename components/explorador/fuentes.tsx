@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Cifra, TiraDeCifras } from "@/components/papel";
+import { Termino } from "@/components/termino";
 import Plegable from "@/components/plegable";
 import { BarrasHorizontales, MatrizCruzada, RedVecinos, VerComoTabla, type ColumnaCruzada, type FilaCruzada, type VecinoRed } from "@/components/graficos";
 import { IconExternal } from "@/components/icons";
@@ -138,7 +139,7 @@ export function Fuentes({
   onAbrir,
 }: {
   datos: FuentesVista;
-  ontologia: OntologiaVista | undefined;
+  ontologia: OntologiaVista;
   fuente: string | null;
   hrefFuente: (clave: string | null) => string;
   hrefClase: (curie: string) => string;
@@ -217,9 +218,7 @@ function Panorama({
     return {
       clave: f.clave,
       etiqueta: f.etiqueta,
-      href: hrefFuente(f.clave),
       valores: columnas.map((c) => por.get(c.clave) ?? null),
-      hrefs: columnas.map(() => hrefFuente(f.clave)),
     };
   });
   const juntas = uniones(datos, n);
@@ -233,13 +232,15 @@ function Panorama({
           ¿Qué aporta cada fuente al grafo?
         </CardTitle>
         <p className="mt-1 max-w-prose text-sm leading-relaxed text-ink-soft">
-          Cada triple del grafo lleva la fuente de donde sale, con su fecha de corte, o la regla que lo deduce de otras. Cada fila es
-          una fuente; cada columna, una clase de nodo; el tono, cuántos triples afirma esa fuente sobre esa clase. Una fuente sola dice
+          Cada <Termino clave="triple">triple</Termino> del grafo lleva la fuente de donde sale, con su fecha de corte, o la regla
+          que lo deduce de otras. Cada fila es una fuente; cada columna, una clase de <Termino clave="nodo">nodo</Termino>; el tono,
+          cuántos triples afirma esa fuente sobre lo que es de esa clase. Una fuente sola dice
           poco; donde dos tocan la misma clase, el grafo junta lo que el Estado publica por separado.
         </p>
       </Card>
-      <TiraDeCifras className="rounded-lg border border-hairline bg-surface">
-        <Cifra etiqueta="Fuentes" valor={formatInt(fuentes.length)} nota={`${formatInt(deFuentes)} triples, el ${parte(deFuentes, datos.triples)} del grafo`} />
+      <Card as="section" aria-label="Las fuentes en cifras">
+      <TiraDeCifras className="border-0">
+        <Cifra etiqueta="Fuentes" valor={formatInt(fuentes.length)} nota={`${formatInt(deFuentes)} triples, el ${parte(deFuentes, datos.triples)} de los que tienen fuente`} />
         <Cifra
           etiqueta="Reglas de Socrático"
           valor={formatInt(reglas.length)}
@@ -247,15 +248,18 @@ function Panorama({
         />
         <Cifra etiqueta="Clases donde se cruzan" valor={formatInt(juntas.length)} nota="las tocan dos fuentes o más" />
         <Cifra
-          etiqueta="Triples con su fuente"
+          etiqueta="Triples distintos, por fuente"
           valor={formatInt(datos.triples)}
-          nota="cada uno una vez por fuente que lo afirma, con las empresas que son solo su fila del padrón"
+          nota="cada uno una vez por fuente; más que los del tablero, que cuenta cada triple en cada nodo que lo trae y deja fuera las empresas que son solo su fila del padrón"
         />
       </TiraDeCifras>
+      </Card>
 
       <Card as="section" aria-labelledby="fuentes-matriz" className="px-4 py-4">
         <CardTitle id="fuentes-matriz">Qué clases llena cada fuente</CardTitle>
-        <p className="mt-0.5 text-xs text-ink-soft">Cada fila abre su fuente. Una columna es la clase del sujeto del triple.</p>
+        <p className="mt-0.5 text-xs text-ink-soft">
+          Una columna es la clase de aquello de lo que habla el triple. Cada fuente se abre en la lista de fuentes.
+        </p>
         <MatrizCruzada
           filas={filas}
           columnas={columnas}
@@ -265,18 +269,14 @@ function Panorama({
         <VerComoTabla
           className="-mx-4 sm:-mx-4"
           nombre="fuentes"
-          columnas={[{ titulo: "Fuente" }, { titulo: "Clases que llena" }, { titulo: "Triples", numerica: true }]}
-          filas={fuentes.map((f) => ({
-            clave: f.clave,
-            celdas: [
-              f.etiqueta,
-              (f.aporte?.clases ?? [])
-                .filter(([c]) => n.esClase(c))
-                .map(([c, v]) => `${n.clase(c)} (${formatInt(v)})`)
-                .join(", ") || "—",
-              formatInt(f.aporte?.triples ?? 0),
-            ],
-          }))}
+          columnas={[{ titulo: "Fuente" }, { titulo: "La clase que más llena" }, { titulo: "Clases", numerica: true }, { titulo: "Triples", numerica: true }]}
+          filas={fuentes.map((f) => {
+            const suyas = (f.aporte?.clases ?? []).filter(([c]) => n.esClase(c));
+            return {
+              clave: f.clave,
+              celdas: [f.etiqueta, suyas[0] ? n.clase(suyas[0][0]) : "—", formatInt(suyas.length), formatInt(f.aporte?.triples ?? 0)],
+            };
+          })}
         />
       </Card>
 
@@ -396,12 +396,22 @@ function FichaDeFuente({
       </Card>
 
       {a ? (
-        <TiraDeCifras className="rounded-lg border border-hairline bg-surface">
-          <Cifra etiqueta="Triples que afirma" valor={formatInt(a.triples)} nota={`el ${parte(a.triples, datos.triples)} del grafo`} />
-          <Cifra etiqueta="Nodos que describe" valor={formatInt(a.nodos)} nota="sujetos distintos de sus triples" />
+        <Card as="section" aria-label="La fuente en cifras">
+        <TiraDeCifras className="border-0">
+          <Cifra
+            etiqueta={<Termino clave="triple">Triples que afirma</Termino>}
+            valor={formatInt(a.triples)}
+            nota={`el ${parte(a.triples, datos.triples)} de los que tienen fuente`}
+          />
+          <Cifra
+            etiqueta="Nodos de los que habla"
+            valor={formatInt(a.nodos)}
+            nota="un cargo cuenta en su persona; lo que no es un nodo del grafo (una declaración jurada) no cuenta"
+          />
           <Cifra etiqueta="Clases que llena" valor={formatInt(clasesPropias.length)} nota={centro ? `sobre todo ${n.clase(centro)}` : undefined} />
-          <Cifra etiqueta="Predicados que usa" valor={formatInt(a.predicados.length)} nota={`compilado el ${formatFecha(datos.compilado)}`} />
+          <Cifra etiqueta="Relaciones y datos que usa" valor={formatInt(a.predicados.length)} nota={`compilado el ${formatFecha(datos.compilado)}`} />
         </TiraDeCifras>
+        </Card>
       ) : (
         <p className="text-sm text-ink-soft">El grafo compilado no le cuenta ningún triple a esta fuente.</p>
       )}
@@ -541,13 +551,13 @@ function FichaDeFuente({
               { de: f.etiqueta, t: cruce.este },
               { de: otraDelCruce.etiqueta, t: cruce.aquel },
             ].map((x) => (
-              <div key={x.de} className="rounded-md border border-hairline px-3 py-2">
+              <Card key={x.de} className="px-3 py-2">
                 <dt className="text-xs text-ink-soft">Según {x.de}</dt>
                 <dd className="mt-0.5">
                   <span className="font-medium text-ink">{n.prop(x.t[0])}</span>{" "}
                   <span className="break-words font-mono text-xs text-ink-soft">{valor(x.t[1])}</span>
                 </dd>
-              </div>
+              </Card>
             ))}
           </dl>
         </Card>
