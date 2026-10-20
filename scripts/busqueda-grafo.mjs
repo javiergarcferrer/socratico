@@ -142,8 +142,13 @@ const FUERA = {
     grafos: new Set(["proveedores", "padron", "plataforma"]),
   },
 };
-/** Tipos del grafo que el buscador no trae: los abren su mapa y la vertical de empresas, que busca el padrón. */
-const NO_BUSCABLES = { provincia: "provincias", empresa: "empresas del padrón" };
+/**
+ * Tipos del grafo que el buscador no trae: las provincias las abre su mapa;
+ * las empresas, la vertical de empresas, que busca el padrón; una votación del
+ * pleno, su iniciativa y la ficha de la Cámara (su moción casi siempre es una
+ * fórmula del acta: «que fuesen dejadas sobre la mesa…»).
+ */
+const NO_BUSCABLES = { provincia: "provincias", empresa: "empresas del padrón", votacion: "votaciones del pleno" };
 /** Tipos del corpus cuya entrada guarda la dirección de fuera de un nodo (el archivo, la página en datos.gob.do, la ficha del tribunal). */
 const SIEMPRE_NODO = new Set(["documento", "dato", "sentencia"]);
 

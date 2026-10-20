@@ -154,6 +154,7 @@ export const CLASE_DE_TIPO: Record<TipoNodoRdf, string> = {
   documento: "Documento publicado",
   conjunto: "Conjunto de datos abiertos",
   sentencia: "Sentencia",
+  votacion: "Votación del pleno",
 };
 
 /** Los grupos de aristas, en el orden en que se leen. */
@@ -164,6 +165,7 @@ export type GrupoRelacion =
   | "obras"
   | "normas"
   | "sentencias"
+  | "votaciones"
   | "decretos"
   | "entidades"
   | "lugares"
@@ -177,6 +179,7 @@ export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "obras", etiqueta: "Obras públicas y sus contratos" },
   { id: "normas", etiqueta: "Normas que nombra y que la nombran" },
   { id: "sentencias", etiqueta: "Sentencias" },
+  { id: "votaciones", etiqueta: "Votaciones del pleno" },
   { id: "decretos", etiqueta: "Decretos" },
   { id: "entidades", etiqueta: "La misma entidad y quien la supervisa" },
   { id: "lugares", etiqueta: "Provincias" },
@@ -273,6 +276,11 @@ const V = {
   paginaDeDatos: expandir("dcat:landingPage"),
   sentencia: expandir("soc:Sentencia"),
   dictadaPor: expandir("soc:dictadaPor"),
+  votacion: expandir("soc:Votacion"),
+  celebradaPor: expandir("soc:celebradaPor"),
+  sobre: expandir("soc:sobre"),
+  votosAFavor: expandir("soc:votosAFavor"),
+  votosEnContra: expandir("soc:votosEnContra"),
   descripcion: expandir("dct:description"),
 } as const;
 
@@ -343,6 +351,13 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
   };
   const esDocumento = (n: string) => esDe(n, V.documento) && !esDe(n, V.declaracionJurada);
   const esSentencia = (n: string) => esDe(n, V.sentencia);
+  /** Una votación vecina: su recuento y el día en que se votó. */
+  const votacionVecina = (n: string) => {
+    const si = uno(n, V.votosAFavor, "literal");
+    const no = uno(n, V.votosEnContra, "literal");
+    const fecha = uno(n, V.fecha, "literal");
+    return { detalle: si != null && no != null ? `${si} a favor, ${no} en contra` : null, fecha, movimiento: fecha ? "Votada" : null };
+  };
   /** Una sentencia vecina: de qué trata y el día en que se dictó. */
   const sentenciaVecina = (n: string) => {
     const relativo = uno(n, V.descripcion, "literal");
@@ -508,6 +523,12 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       case V.dictadaPor:
         agregar({ grupo: "sentencias", verbo: "La dicta", neutro: "El tribunal que la dicta", ...hacia(o), nombre: nombre(o) });
         break;
+      case V.celebradaPor:
+        agregar({ grupo: "votaciones", verbo: "En el pleno de", neutro: "La cámara que vota", ...hacia(o), nombre: nombre(o) });
+        break;
+      case V.sobre:
+        agregar({ grupo: "votaciones", verbo: "Votó sobre", neutro: "Una votación sobre la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
+        break;
       case V.fuente:
         // La ficha de una sentencia en el sitio del tribunal: el camino a su texto.
         if (esSentencia(sujeto)) {
@@ -566,6 +587,10 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       if (pr) agregar({ grupo: "procesos", verbo: "Contrato con", neutro: "Un contrato del proceso", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) });
     } else if (x.p === V.inscritaComo && esDe(sujeto, V.proveedor)) {
       agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) });
+    } else if (x.p === V.celebradaPor) {
+      agregar({ grupo: "votaciones", verbo: "Votó en el pleno", neutro: "La cámara que vota", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) });
+    } else if (x.p === V.sobre) {
+      agregar({ grupo: "votaciones", verbo: "Votada en el pleno", neutro: "Una votación sobre la iniciativa", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) });
     } else if (x.p === V.dictadaPor) {
       agregar({ grupo: "sentencias", verbo: "Dictó", neutro: "El tribunal que la dicta", ...hacia(s), nombre: nombre(s), ...sentenciaVecina(s) });
     } else if ((x.p === V.deroga || x.p === V.modifica || x.p === V.cita) && esSentencia(s)) {

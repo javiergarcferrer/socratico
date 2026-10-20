@@ -358,8 +358,8 @@ tabla(
   })),
 );
 
-// normas, iniciativas y citas: del grafo compilado (el volcado no las trae,
-// porque sus títulos nombran personas), sin el título.
+// normas, iniciativas, citas y votaciones: del grafo compilado (el volcado no
+// las trae, porque sus títulos nombran personas), sin el título ni la moción.
 {
   const C = await import(pathToFileURL(path.join(RAIZ, "lib", "grafo-compilado.ts")).href);
   const N = await import(pathToFileURL(path.join(RAIZ, "lib", "grafo-nodo.ts")).href);
@@ -412,9 +412,36 @@ tabla(
       }
     }
   }
+  // Las votaciones del pleno, sin la moción, y las iniciativas sobre las que se votó en cada una.
+  const votaciones = [];
+  const votacionesIniciativas = [];
+  for (const k of await C.clavesCompiladas("votacion")) {
+    const n = { tipo: "votacion", id: k };
+    const d = await C.leerDescripcion(n);
+    if (!d) throw new Error(`votacion:${k} está en el índice del compilado y no se lee`);
+    const s = N.iriDe(n);
+    const mias = d.triples.filter((t) => t.s.valor === s);
+    const de = (p) => mias.find((t) => t.p === p)?.o.valor ?? null;
+    const id = G.rutaDeNodo(n);
+    votaciones.push({
+      id,
+      numero: de(`${SOC}codigo`),
+      sesion: de(`${DO}sesion`),
+      legislatura: de(`${DO}legislatura`),
+      fecha: de(`${SOC}fecha`),
+      a_favor: numero(de(`${SOC}votosAFavor`)),
+      en_contra: numero(de(`${SOC}votosEnContra`)),
+      abstenciones: numero(de(`${SOC}abstenciones`)),
+      presentes: numero(de(`${SOC}presentes`)),
+      miembros: numero(de(`${SOC}miembros`)),
+    });
+    for (const t of mias) if (t.p === `${SOC}sobre`) votacionesIniciativas.push({ votacion: id, iniciativa: rutaDe(t.o.valor) });
+  }
   tabla("normas", corteDe("decretos", "leyes", "resoluciones"), normas);
   tabla("iniciativas", corteDe("congreso"), iniciativas);
   tabla("citas", corteDe("decretos", "leyes", "resoluciones", "congreso"), citas);
+  tabla("votaciones", corteDe("votaciones"), votaciones);
+  tabla("votaciones_iniciativas", corteDe("votaciones"), votacionesIniciativas);
 }
 
 /* ------------------------------------------------------------ escribir */

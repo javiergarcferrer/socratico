@@ -32,6 +32,8 @@ const GUARDABLE: Record<TipoNodoRdf, TipoEntrada | null> = {
   documento: "documento",
   conjunto: "dato",
   sentencia: "sentencia",
+  // Una votación no se guarda: el tipo no está en `espacios.tipo_valido`.
+  votacion: null,
 };
 
 /**
@@ -136,6 +138,7 @@ const CURIE_DE_TIPO: Record<TipoNodoRdf, string> = {
   documento: "soc:Documento",
   conjunto: "soc:ConjuntoDeDatos",
   sentencia: "soc:Sentencia",
+  votacion: "soc:Votacion",
 };
 
 /**

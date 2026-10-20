@@ -44,6 +44,7 @@ const REPETIDAS = new Set([
   "eli:date_document",
   "schema:identifier",
   "schema:dateCreated",
+  "schema:startDate",
 ]);
 
 let conceptos: Map<string, string> | null = null;

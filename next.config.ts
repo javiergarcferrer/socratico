@@ -139,6 +139,8 @@ const nextConfig: NextConfig = {
     "/constitucional": ["./datos/grafo/meta.json", "./datos/grafo/nodos/sentencia/**"],
     "/tse": ["./datos/grafo/meta.json", "./datos/grafo/nodos/sentencia/**"],
     "/constitucional/[numero]": ["./datos/grafo/ld/meta.json", "./datos/grafo/ld/sentencia/**"],
+    // La de una votación del pleno: lee el voto nominal en vivo e incrusta su schema.org.
+    "/congreso/votaciones/[id]": ["./datos/grafo/ld/meta.json", "./datos/grafo/ld/votacion/**"],
     "/tse/[ficha]": ["./datos/grafo/ld/meta.json", "./datos/grafo/ld/sentencia/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
@@ -149,7 +151,7 @@ const nextConfig: NextConfig = {
   // Las claves casan como subcadena: «/proveedores» también es
   // «/proveedores/[rpe]» y «/api/proveedores», que no usan el índice.
   outputFileTracingExcludes: {
-    "*": ["./public/data/{congreso,sentencias}.json", "./public/data/busqueda/corpus.json", "./public/data/grafo/grafo.{nt,trig}.gz"],
+    "*": ["./public/data/{congreso,sentencias,votaciones}.json", "./public/data/busqueda/corpus.json", "./public/data/grafo/grafo.{nt,trig}.gz"],
     // Vercel corre sobre glibc: la versión musl de DuckDB (~74 MB) sobra.
     "/api/sql": ["./node_modules/@duckdb/node-bindings-linux-x64-musl/**"],
     // Las fichas del grafo leen instantáneas por nombre variable y el trazado
@@ -231,6 +233,7 @@ const nextConfig: NextConfig = {
       // Una sentencia, no el listado: el número del TC o la ficha del visor del TSE.
       "/constitucional/:numero(TC-\\d+-\\d+)",
       "/tse/:ficha([A-Za-z0-9+=_-]+)",
+      "/congreso/votaciones/:id(\\d+)",
     ];
     return [
       ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>

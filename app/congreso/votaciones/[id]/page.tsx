@@ -22,6 +22,8 @@ import {
 } from "@/lib/congreso";
 import { formatFecha, SIN_DATO } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
+import { schemaOrgDe } from "@/lib/grafo-ld";
+import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 
 // Una votación cerrada no cambia: el SIL se consulta como mucho una vez al día.
 // Dinámica: el voto nominal ya se cachea un día por `fetch` en
@@ -39,9 +41,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const d = await cargarVotacion(Number(id));
   if (d === "caida") return { title: "Votación del pleno" };
   if (d === "inexistente") return { title: "Votación no encontrada" };
+  // Su RDF solo si el grafo compilado la trae: la ficha lee el SIL en vivo y conoce votaciones más nuevas que la instantánea.
+  const nodo = { tipo: "votacion" as const, id: String(Number(id)) };
+  const enGrafo = (await schemaOrgDe(nodo)) != null;
   return {
     title: d.votacion.titulo,
-    alternates: { canonical: enlace.votacion(id) },
+    alternates: { canonical: enlace.votacion(id), ...(enGrafo ? { types: alternasRdf(nodo) } : {}) },
     description: `${d.votacion.si} a favor, ${d.votacion.no} en contra: cómo votó cada diputado.`,
   };
 }
@@ -281,6 +286,8 @@ export default async function VotacionPage({ params }: Props) {
         voto; «Ausente» es quien no figuraba presente en esa votación. Presentes
         = a favor + en contra + abstenciones + presentes que no votaron.
       </p>
+      {/* Es un nodo del grafo si la instantánea de votaciones la trae (las del día siguiente al corte, todavía no). */}
+      <EnElGrafo nodo={{ tipo: "votacion", id: String(id) }} className="mt-6" />
     </div>
   );
 }

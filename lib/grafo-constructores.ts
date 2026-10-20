@@ -31,6 +31,7 @@ import {
   type Documento as DocumentoBiblioteca,
 } from "@/lib/biblioteca";
 import { getSentencias, sentenciaPorClave, type Sentencia, type Tribunal } from "@/lib/sentencias";
+import { getVotaciones, votacionPorId, type VotacionPleno } from "@/lib/votaciones";
 import { declaracionesDe, declaracionesDeInstitucion, getDeclaraciones } from "@/lib/declaraciones";
 import { entidadDeInstitucion, entidadPorRnc, entidadPorSlug, getFinancieras, institucionDe } from "@/lib/financieras";
 import { empresaPorRnc, padronEmpresas } from "@/lib/empresas";
@@ -136,6 +137,8 @@ export async function describirEnVivo(n: NodoRdf, ligero = false): Promise<Descr
       return describirConjunto(n.id);
     case "sentencia":
       return describirSentencia(n.id, ligero);
+    case "votacion":
+      return describirVotacion(Number(n.id), ligero);
   }
 }
 
@@ -198,6 +201,8 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
   if (!biblioteca || !catalogo) throw new Error("falta una instantánea: documentos/indice.json o catalogo.json");
   const sentencias = await getSentencias();
   if (!sentencias) throw new Error("falta una instantánea: sentencias.json");
+  const votaciones = await getVotaciones();
+  if (!votaciones) throw new Error("falta una instantánea: votaciones.json");
   const cargo = (origen: OrigenCargo, url: string | null): DefinicionGrafo => ({
     clave: `cargos-${origen}`,
     etiqueta: `Cargos: ${ETIQUETA_ORIGEN[origen]}`,
@@ -339,6 +344,14 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
         "Las sentencias que los dos tribunales publican en sus listados (el TC desde 2012, el TSE desde 2021): número, fecha, expedientes, de qué tratan («Relativo a», recortado) y su ficha en el sitio del tribunal.",
       fuentes: [sentencias.fuentes.tc, sentencias.fuentes.tse],
       corte: dia(sentencias.generado),
+    },
+    {
+      clave: "votaciones",
+      etiqueta: "Votaciones del pleno de la Cámara de Diputados",
+      descripcion:
+        "Las votaciones del pleno que el SIL registra en las sesiones de 2020-2024 y 2024-2028: sesión, legislatura, fecha, moción, recuento (sí, no, abstenciones, presentes, miembros) y las iniciativas sobre las que se votó. El voto de cada diputado no se copia.",
+      fuentes: [votaciones.fuente],
+      corte: dia(votaciones.generado),
     },
     {
       clave: "ofac",
@@ -671,6 +684,13 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
     // Un tribunal: las sentencias más recientes que dictó.
     const dictadas = (await indiceSentencias()).porTribunal.get(inst.id) ?? [];
     for (const d of dictadas.slice(0, TOPE_SENTENCIAS)) vecinaSentencia(d, x);
+    // La Cámara de Diputados: sus votaciones del pleno más recientes.
+    const votadas = (await indiceVotaciones()).porCamara.get(inst.id) ?? [];
+    for (const v of votadas.slice(0, TOPE_VOTACIONES)) vecinaVotacion(v, x);
+    if (votadas.length > TOPE_VOTACIONES) {
+      const mas = `Se describen sus ${TOPE_VOTACIONES} votaciones del pleno más recientes de las ${votadas.length.toLocaleString("es-DO")} que registra el SIL en las sesiones de 2020-2024 y 2024-2028.`;
+      nota = nota ? `${nota} ${mas}` : mas;
+    }
     if (dictadas.length > TOPE_SENTENCIAS) {
       const mas = `Se describen sus ${TOPE_SENTENCIAS} sentencias más recientes de las ${dictadas.length.toLocaleString("es-DO")} que publica su listado.`;
       nota = nota ? `${nota} ${mas}` : mas;
@@ -1632,7 +1652,14 @@ async function describirIniciativa(id: string, ligero = false): Promise<Descripc
   );
   if (i.tituloModificado) x.de("congreso", t(s, "dct:alternative", lit(i.tituloModificado, "es")));
   x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.iniciativa(id)}`)));
-  if (!ligero) await normasAlrededor(n, x, ix);
+  if (!ligero) {
+    await normasAlrededor(n, x, ix);
+    // Las votaciones del pleno que la decidieron.
+    for (const v of (await indiceVotaciones()).porIniciativa.get(Number(id)) ?? []) {
+      x.de("votaciones", t(VOTACION(v.id), "soc:sobre", iri(s)));
+      vecinaVotacion(v, x);
+    }
+  }
   return { triples: x.triples, grafos: x.grafos, titulo: i.titulo };
 }
 
@@ -1995,6 +2022,123 @@ async function describirSentencia(k: string, ligero = false): Promise<Descripcio
   return { triples: x.triples, grafos: x.grafos, titulo: nombre };
 }
 
+/* ------------------------------------------------------------ votaciones */
+
+const VOTACION = (id: number) => iriDe({ tipo: "votacion", id: String(id) });
+const TOPE_VOTACIONES = 12;
+/** La cámara cuyo pleno vota en el SIL, en el clasificador de DIGEPRES. */
+const CAMARA_DE_DIPUTADOS = 900102;
+
+interface IndiceVotaciones {
+  /** Por número del SIL de la iniciativa: sus votaciones, en orden de número. */
+  porIniciativa: Map<number, VotacionPleno[]>;
+  /** Por institución: sus votaciones, de la más reciente a la más vieja. */
+  porCamara: Map<number, VotacionPleno[]>;
+}
+
+let votacionesMemo: Promise<IndiceVotaciones> | null = null;
+
+function indiceVotaciones(): Promise<IndiceVotaciones> {
+  votacionesMemo ??= (async () => {
+    const todas = await getVotaciones();
+    if (!todas) throw new Error("falta una instantánea: votaciones.json");
+    if (!institucionPorId(CAMARA_DE_DIPUTADOS)) throw new Error(`el clasificador no trae la institución ${CAMARA_DE_DIPUTADOS} (Cámara de Diputados)`);
+    const ix = await indiceNormas();
+    const porIniciativa = new Map<number, VotacionPleno[]>();
+    for (const v of todas.lista) {
+      for (const i of v.iniciativas) {
+        if (!ix.iniciativas.has(String(i))) continue;
+        const lista = porIniciativa.get(i) ?? [];
+        if (!lista.length) porIniciativa.set(i, lista);
+        lista.push(v);
+      }
+    }
+    const recientes = [...todas.lista].sort((a, b) => porTexto(b.fecha ?? "", a.fecha ?? "") || b.id - a.id);
+    return { porIniciativa, porCamara: new Map([[CAMARA_DE_DIPUTADOS, recientes]]) };
+  })();
+  return votacionesMemo;
+}
+
+/** Las votaciones que son nodo, en orden de clave. */
+export async function clavesDeVotaciones(): Promise<string[]> {
+  const v = await getVotaciones();
+  if (!v) throw new Error("falta una instantánea: votaciones.json");
+  return v.lista.map((x) => String(x.id));
+}
+
+/**
+ * El nombre de una votación: su título en el SIL y la sesión que la lista,
+ * «Sesión 037, Votación 047 (00038-2024-PLO)». El título numera la sesión
+ * dentro de su legislatura y una sesión que continúa a otra conserva su
+ * numeración (en 852 de 7,409, el título da una sesión anterior): las dos
+ * cosas van a la vista. Dos votaciones llevan el mismo título y la misma
+ * sesión en el SIL (21782 y 21783, 20409 y 20410): su número las distingue.
+ * Quince títulos escriben «Sesiòn»; el nombre lo escribe bien.
+ */
+const nombreVotacion = (v: VotacionPleno) =>
+  `${sinCedula(v.titulo).replace(/Sesiòn/g, "Sesión").replace(/\s+/g, " ").trim()}${v.sesion ? ` (${v.sesion})` : ""}`;
+
+/** Una votación como vecina: lo que es, cómo se llama, su número, su cámara, su fecha y su recuento. */
+function vecinaVotacion(v: VotacionPleno, x: Afirmaciones): void {
+  const s = VOTACION(v.id);
+  x.de(
+    "votaciones",
+    t(s, "rdf:type", iri("soc:Votacion")),
+    t(s, "rdfs:label", lit(nombreVotacion(v), "es")),
+    t(s, "soc:codigo", lit(String(v.id))),
+    t(s, "soc:tipoDeEvento", iri("soc:evento-votacion")),
+    t(s, "soc:celebradaPor", iri(DE(CAMARA_DE_DIPUTADOS))),
+    t(s, "soc:votosAFavor", entero(v.si)),
+    t(s, "soc:votosEnContra", entero(v.no)),
+  );
+  if (v.fecha) x.de("votaciones", t(s, "soc:fecha", fecha(v.fecha)));
+}
+
+async function describirVotacion(id: number, ligero = false): Promise<Descripcion | null> {
+  const v = await votacionPorId(id);
+  if (!v) return null;
+  const n: NodoRdf = { tipo: "votacion", id: String(id) };
+  const s = iriDe(n);
+  const nombre = nombreVotacion(v);
+  const camara = institucionPorId(CAMARA_DE_DIPUTADOS);
+  if (!camara) throw new Error(`el clasificador no trae la institución ${CAMARA_DE_DIPUTADOS}`);
+  const x = new Afirmaciones();
+  x.de(
+    "votaciones",
+    t(s, "rdf:type", iri("soc:Votacion")),
+    t(s, "rdf:type", iri("schema:Event")),
+    t(s, "rdfs:label", lit(nombre, "es")),
+    t(s, "schema:name", lit(nombre, "es")),
+    t(s, "soc:codigo", lit(String(v.id))),
+    t(s, "soc:tipoDeEvento", iri("soc:evento-votacion")),
+    t(s, "soc:celebradaPor", iri(DE(camara.id))),
+    t(s, "schema:organizer", iri(DE(camara.id))),
+    t(s, "soc:votosAFavor", entero(v.si)),
+    t(s, "soc:votosEnContra", entero(v.no)),
+    t(s, "soc:abstenciones", entero(v.abstencion)),
+  );
+  const mocion = sinCedula(v.mocion).trim();
+  if (mocion) x.de("votaciones", t(s, "dct:description", lit(mocion, "es")), t(s, "schema:description", lit(mocion, "es")));
+  if (v.fecha) x.de("votaciones", t(s, "soc:fecha", fecha(v.fecha)), t(s, "schema:startDate", fecha(v.fecha)));
+  if (v.presentes != null) x.de("votaciones", t(s, "soc:presentes", entero(v.presentes)));
+  if (v.miembros != null) x.de("votaciones", t(s, "soc:miembros", entero(v.miembros)));
+  if (v.sesion) x.de("votaciones", t(s, "do:sesion", lit(v.sesion)));
+  if (v.legislatura) x.de("votaciones", t(s, "do:legislatura", lit(v.legislatura)));
+  x.de("instituciones", t(DE(camara.id), "rdfs:label", lit(camara.nombre, "es")));
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.votacion(id)}`)));
+  // Las iniciativas sobre las que se votó, si el grafo las tiene.
+  if (!ligero) {
+    const ix = await indiceNormas();
+    for (const i of v.iniciativas) {
+      const ini: NodoRdf = { tipo: "iniciativa", id: String(i) };
+      if (!ix.iniciativas.has(ini.id)) continue;
+      x.de("votaciones", t(s, "soc:sobre", iri(iriDe(ini))));
+      await vecinaNormativa(ini, x, ix);
+    }
+  }
+  return { triples: x.triples, grafos: x.grafos, titulo: nombre };
+}
+
 /* ------------------------------------------------------------ el conjunto */
 
 /** Cuántos nodos de cada clase tiene el grafo hoy: para VoID y para `/grafo`. */
@@ -2022,6 +2166,7 @@ export async function inventarioEnVivo(): Promise<ClaseContada[]> {
       getCatalogo(),
     ]);
   const sentencias = await getSentencias();
+  const votacionesPleno = await getVotaciones();
   const cargos = f?.personas.reduce((n, p) => n + p.cargos.length, 0) ?? 0;
   const decretos = indice ? Object.values(indice.anios).reduce((a, b) => a + b, 0) + indice.sinFecha : 0;
   const medidas = sanc ? sanc.proveedores.reduce((n, p) => n + p.eventos.length, 0) : 0;
@@ -2082,6 +2227,13 @@ export async function inventarioEnVivo(): Promise<ClaseContada[]> {
       n: sentencias?.lista.length ?? 0,
       fuente: "Tribunal Constitucional y Tribunal Superior Electoral",
       corte: dia(sentencias?.generado),
+    },
+    {
+      clase: "soc:Votacion",
+      etiqueta: "Votaciones del pleno de Diputados",
+      n: votacionesPleno?.lista.length ?? 0,
+      fuente: "SIL de la Cámara de Diputados",
+      corte: dia(votacionesPleno?.generado),
     },
   ];
   return filas.filter((c) => c.n > 0);

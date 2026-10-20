@@ -345,6 +345,34 @@ export const TABLAS: Tabla[] = [
     ],
   },
   {
+    nombre: "votaciones",
+    clase: "soc:Votacion",
+    descripcion:
+      "Las votaciones del pleno de la Cámara de Diputados que el SIL registra en las sesiones de 2020-2024 y 2024-2028, sin la moción (se lee una a una con fetch): sesión, legislatura, fecha y recuento. El voto de cada diputado no está: lo da la ficha de la votación, en vivo. Las iniciativas sobre las que se votó, en votaciones_iniciativas.",
+    fuente: "SIL de la Cámara de Diputados",
+    columnas: [
+      { nombre: "id", tipo: "VARCHAR", clave: true, descripcion: "La ruta de su ficha (/congreso/votaciones/22842), que es su id en fetch." },
+      { nombre: "numero", propiedad: "soc:codigo", descripcion: "Su número en el SIL (22842)." },
+      { nombre: "sesion", propiedad: "do:sesion", descripcion: "La sesión: 00014-2026-SLO (secuencia, año y legislatura)." },
+      { nombre: "legislatura", propiedad: "do:legislatura", descripcion: "2026-SLO (segunda legislatura ordinaria de 2026) o 2026-PLO (primera)." },
+      { nombre: "fecha", propiedad: "soc:fecha", tipo: "DATE", descripcion: "Fecha de la sesión." },
+      { nombre: "a_favor", propiedad: "soc:votosAFavor", descripcion: "Votos por el sí." },
+      { nombre: "en_contra", propiedad: "soc:votosEnContra", descripcion: "Votos por el no." },
+      { nombre: "abstenciones", propiedad: "soc:abstenciones", descripcion: "Abstenciones." },
+      { nombre: "presentes", propiedad: "soc:presentes", descripcion: "Diputados presentes: los que votaron y los presentes que no votaron." },
+      { nombre: "miembros", propiedad: "soc:miembros", descripcion: "Diputados de la cámara en esa votación (190)." },
+    ],
+  },
+  {
+    nombre: "votaciones_iniciativas",
+    descripcion: "Sobre qué iniciativas se votó en cada votación: una fila por votación e iniciativa (una votación puede ser sobre un grupo; una iniciativa, votarse varias veces).",
+    fuente: "SIL de la Cámara de Diputados",
+    columnas: [
+      { nombre: "votacion", tipo: "VARCHAR", clave: true, descripcion: "La votación (votaciones.id)." },
+      { nombre: "iniciativa", tipo: "VARCHAR", clave: true, descripcion: "La iniciativa (iniciativas.id)." },
+    ],
+  },
+  {
     nombre: "citas",
     descripcion:
       "Qué ley o qué decreto con ficha nombra el título de cada norma o iniciativa, y qué le hace según el verbo que lo antecede. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás es cita. En una iniciativa, deroga y modifica son lo que propone.",

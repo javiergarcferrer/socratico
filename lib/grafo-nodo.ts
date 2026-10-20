@@ -67,7 +67,8 @@ export type ClaveGrafo =
   | "citas"
   | "documentos"
   | "datos"
-  | "sentencias";
+  | "sentencias"
+  | "votaciones";
 
 /** Lo que afirma una descripción mientras se arma: cada triple con el grafo de donde sale. */
 export class Afirmaciones {
@@ -96,8 +97,8 @@ export const FORMATO_GRAFO = 2;
  * espacios, un proveedor su RPE, una obra su SNIP y una iniciativa su número
  * del SIL sin ceros a la izquierda, un proceso su código tal cual, un
  * documento la dirección de su archivo sin `https://`, un conjunto de datos
- * su nombre en datos.gob.do y una sentencia su `claveSentencia`. `null` si no
- * puede ser un nodo.
+ * su nombre en datos.gob.do, una sentencia su `claveSentencia` y una
+ * votación su número del SIL. `null` si no puede ser un nodo.
  */
 export function claveCompilada(n: NodoRdf): string | null {
   switch (n.tipo) {
@@ -115,6 +116,7 @@ export function claveCompilada(n: NodoRdf): string | null {
     case "proveedor":
     case "obra":
     case "iniciativa":
+    case "votacion":
       return /^\d{1,10}$/.test(n.id) ? String(Number(n.id)) : null;
     default:
       return n.id;
@@ -162,6 +164,7 @@ export const TIPOS_COMPILADOS: readonly TipoNodoRdf[] = [
   "documento",
   "conjunto",
   "sentencia",
+  "votacion",
 ];
 
 /*

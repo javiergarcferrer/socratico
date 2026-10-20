@@ -29,7 +29,7 @@
  *  - No entra ninguna persona natural: ni las personas con cargo ni sus
  *    cargos, ni los decretos, las leyes y las resoluciones (sus títulos
  *    nombran a quien designan, pensionan o reconocen), ni las declaraciones
- *    juradas, ni las fichas del Congreso con sus iniciativas, ni los
+ *    juradas, ni las fichas del Congreso con sus iniciativas y sus votaciones, ni los
  *    documentos de las bibliotecas institucionales (un título puede nombrar a
  *    una persona: «Declaración jurada de…», «Designación de…»), ni las
  *    sentencias del TC y del TSE (lo que el listado dice de cada una nombra a las partes,
@@ -284,7 +284,7 @@ const meta = {
     datos: leer("catalogo.json").generado,
   },
   excluye:
-    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, las leyes y las resoluciones (sus títulos nombran personas), ni las declaraciones juradas, ni las fichas del Congreso con sus iniciativas, ni los documentos de las bibliotecas institucionales (un título puede nombrar a una persona), ni las sentencias del TC y del TSE (lo que el listado dice de cada una nombra a las partes), ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra).",
+    "Ninguna persona natural: ni las personas con cargo ni sus cargos, ni los decretos, las leyes y las resoluciones (sus títulos nombran personas), ni las declaraciones juradas, ni las fichas del Congreso con sus iniciativas y sus votaciones, ni los documentos de las bibliotecas institucionales (un título puede nombrar a una persona), ni las sentencias del TC y del TSE (lo que el listado dice de cada una nombra a las partes), ni los proveedores que no están atados a una empresa, con lo que cuelga de ellos (sus contrataciones, sus medidas y sus contratos de obra).",
 };
 writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
 console.error(

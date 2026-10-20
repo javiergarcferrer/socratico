@@ -13,9 +13,9 @@
  *    personas naturales;
  *  · una muestra de personas y de los decretos que las nombran, de
  *    iniciativas del Congreso y de las leyes, resoluciones y decretos que
- *    nombran, de documentos de las bibliotecas institucionales y de
- *    sentencias del TC y del TSE, pedidos uno a uno a `/api/grafo` (el
- *    volcado no los trae);
+ *    nombran, de documentos de las bibliotecas institucionales, de
+ *    sentencias del TC y del TSE y de votaciones del pleno, pedidos uno a uno
+ *    a `/api/grafo` (el volcado no los trae);
  *  · unido todo con la ontología (`/ontologia.ttl`): SHACL lee de ahí las
  *    subclases, y los conceptos de las listas cerradas están ahí.
  *
@@ -29,7 +29,7 @@
  * el grafo emite solo los de ahora.
  *
  * Uso:
- *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200] [--sentencias 200]
+ *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200] [--sentencias 200] [--votaciones 200]
  * Sale con 1 si hay una violación o un término sin declarar.
  */
 import { readFileSync } from "node:fs";
@@ -50,6 +50,7 @@ const N_PERSONAS = Number(arg("personas", "300"));
 const N_INICIATIVAS = Number(arg("iniciativas", "200"));
 const N_DOCUMENTOS = Number(arg("documentos", "200"));
 const N_SENTENCIAS = Number(arg("sentencias", "200"));
+const N_VOTACIONES = Number(arg("votaciones", "200"));
 const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
 const SOC = `${W3ID}/def/core#`;
 const DO = `${W3ID}/def/do#`;
@@ -158,6 +159,13 @@ for (let i = 0; muestraSentencias.length < N_SENTENCIAS && i < todasSentencias.l
 await enLotes(muestraSentencias.slice(0, N_SENTENCIAS), 8, (x) =>
   pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(rutaSentencia(x))}`).then((t) => qPersonas.push(...quads(t, "N-Triples"))),
 );
+// Una muestra de votaciones repartida por la instantánea, en su orden: las que
+// deciden alguna iniciativa y las que no.
+const { votaciones } = JSON.parse(readFileSync(path.join(RAIZ, "public", "data", "votaciones.json"), "utf8"));
+const muestraVotaciones = votaciones.filter((_, i) => i % Math.max(1, Math.floor(votaciones.length / N_VOTACIONES)) === 0).slice(0, N_VOTACIONES);
+await enLotes(muestraVotaciones, 8, (v) =>
+  pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(`/congreso/votaciones/${v.id}`)}`).then((t) => qPersonas.push(...quads(t, "N-Triples"))),
+);
 const msLeer = performance.now() - t0;
 
 // Los términos del grafo que la ontología no declara, y los de la v1.
@@ -204,7 +212,7 @@ console.log(
   `${(volcado.length + qPersonas.length).toLocaleString("en-US")} triples de ${nodos.toLocaleString("en-US")} nodos ` +
     `(volcado entero, ${muestra.length.toLocaleString("en-US")} personas, ${decretos.size.toLocaleString("en-US")} decretos, ` +
     `${Math.min(muestraIniciativas.length, N_INICIATIVAS).toLocaleString("en-US")} iniciativas y ${Math.min(normas.size, N_INICIATIVAS).toLocaleString("en-US")} normas que nombran, ` +
-    `${muestraDocumentos.length.toLocaleString("en-US")} documentos, ${Math.min(muestraSentencias.length, N_SENTENCIAS).toLocaleString("en-US")} sentencias) · ` +
+    `${muestraDocumentos.length.toLocaleString("en-US")} documentos, ${Math.min(muestraSentencias.length, N_SENTENCIAS).toLocaleString("en-US")} sentencias, ${muestraVotaciones.length.toLocaleString("en-US")} votaciones) · ` +
     `leer ${Math.round(msLeer / 1000)} s, validar ${Math.round(msValidar / 1000)} s`,
 );
 for (const [termino, n] of sinDeclarar) console.log(`SIN DECLARAR ${termino} (${n} veces)`);

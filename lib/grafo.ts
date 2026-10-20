@@ -215,8 +215,8 @@ function enRuta(ruta: string): string {
  * proveedor, el código del proceso de compra (tal cual, con sus espacios si
  * los trae), el SNIP de la obra, el número del SIL de la iniciativa, la
  * dirección del archivo sin `https://` del documento (`claveDocumento`), el
- * nombre en datos.gob.do del conjunto de datos o la clave de la sentencia
- * (`claveSentencia`).
+ * nombre en datos.gob.do del conjunto de datos, la clave de la sentencia
+ * (`claveSentencia`) o el número del SIL de la votación.
  */
 export type TipoNodoRdf =
   | "funcionario"
@@ -233,7 +233,8 @@ export type TipoNodoRdf =
   | "iniciativa"
   | "documento"
   | "conjunto"
-  | "sentencia";
+  | "sentencia"
+  | "votacion";
 
 export interface NodoRdf {
   tipo: TipoNodoRdf;
@@ -276,6 +277,8 @@ export function rutaDeNodo(n: NodoRdf): string {
       return enlace.conjunto(n.id);
     case "sentencia":
       return enlace.sentencia(n.id);
+    case "votacion":
+      return enlace.votacion(n.id);
   }
 }
 
@@ -351,6 +354,8 @@ export function nodoDeRuta(ruta: string): NodoRdf | null {
   if ((m = /^\/normativa\/(decreto|ley|resolucion)\/(\d{1,4}-\d{2,4})$/.exec(d(r)))) {
     return { tipo: m[1] as "decreto" | "ley" | "resolucion", id: numeroCanonico(m[1], m[2]) };
   }
+  // Una votación del pleno, por su número del SIL, sin ceros a la izquierda.
+  if ((m = /^\/congreso\/votaciones\/(\d{1,9})$/.exec(r))) return { tipo: "votacion", id: String(Number(m[1])) };
   // El número del SIL, sin ceros a la izquierda: «/congreso/0158590» es la 158590.
   if ((m = /^\/congreso\/(\d{1,8})$/.exec(r))) return { tipo: "iniciativa", id: String(Number(m[1])) };
   if ((m = /^\/provincias\/([a-z0-9-]{3,60})$/.exec(r))) return { tipo: "provincia", id: m[1] };

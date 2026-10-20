@@ -107,12 +107,13 @@ async function claves() {
   }
   // Los proveedores, los procesos de compra y las obras; las leyes, las
   // resoluciones y las iniciativas; los documentos de las bibliotecas y los
-  // conjuntos de datos; las sentencias: el conjunto que sus constructores describen.
-  const [compras, normas, publicaciones, sentencias] = await Promise.all([
+  // conjuntos de datos; las sentencias y las votaciones: el conjunto que sus constructores describen.
+  const [compras, normas, publicaciones, sentencias, votaciones] = await Promise.all([
     C.clavesDeCompras(),
     C.clavesDeNormas(),
     C.clavesDePublicaciones(),
     C.clavesDeSentencias(),
+    C.clavesDeVotaciones(),
   ]);
   // En el orden de los fragmentos: así se escriben y así se recorren.
   const orden = (xs) => [...xs].sort(N.compararClaves);
@@ -132,6 +133,7 @@ async function claves() {
     documento: orden(publicaciones.documento),
     conjunto: orden(publicaciones.conjunto),
     sentencia: orden(sentencias),
+    votacion: orden(votaciones),
   };
 }
 

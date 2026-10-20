@@ -285,6 +285,15 @@ export default async function FuentesPage() {
             norma tiene ficha; y las leyes y los decretos con ficha que su título nombra. Lo que
             un proyecto de ley deroga o modifica, lo propone: no lo cambia.
           </p>
+          <p className="mt-2 text-[13px] text-ink-soft sm:text-xs">
+            Las votaciones del pleno de las sesiones de los dos períodos se guardan en otra
+            instantánea (
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-votaciones.py</code>
+            ): sesión, moción, recuento y las iniciativas sobre las que se votó en cada una, como nodos del
+            grafo. El voto de cada diputado no se copia —son diecinueve páginas por votación, y
+            leerlas todas cargaría al SIL un día entero—: lo lee en vivo la ficha de cada
+            votación. El Senado vota en su propio sistema y no entra.
+          </p>
         </Fuente>
 
         <Fuente

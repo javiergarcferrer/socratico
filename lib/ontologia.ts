@@ -52,16 +52,16 @@ import {
  * (una Persona de aquí es una `schema:Person`, no al revés);
  * `rdfs:subPropertyOf` igual; `skos:closeMatch` o `skos:broadMatch` hacia
  * Wikidata, cuyos elementos no son clases OWL. Cada QID se verificó contra
- * Wikidata el 30-09-2026 (docs/INFRAESTRUCTURA.md §5.7), el de la sentencia
- * (Q3769186) en QLever el 20-10-2026; los términos nuevos no llevan QID hasta
+ * Wikidata el 30-09-2026 (docs/INFRAESTRUCTURA.md §5.7), los de la sentencia
+ * (Q3769186) y la votación (Q189760) en QLever el 20-10-2026; los términos nuevos no llevan QID hasta
  * verificarlo. Los nombres de FollowTheMoney se comprobaron
  * en followthemoney.tech el 01-10-2026; los de ePO, en su documentación.
  */
 
-export const VERSION = "2.4.0";
+export const VERSION = "2.5.0";
 export const PUBLICADA = "2026-10-20";
 /** La versión anterior de los dos módulos (`owl:priorVersion`). */
-export const ANTERIOR = "2.3.0";
+export const ANTERIOR = "2.4.0";
 
 /** El núcleo, neutral de país, o el módulo de la República Dominicana. */
 export type Modulo = "soc" | "do";
@@ -355,11 +355,13 @@ export const CLASES: Clase[] = [
     id: "Votacion",
     etiqueta: "Votación",
     etiquetaEn: "Vote event",
-    comentario: "Una votación de una cámara sobre una iniciativa: un evento, con su resultado.",
+    comentario:
+      "Una votación del pleno de una cámara, como la registra su sistema de información legislativa: en qué sesión, qué se sometió (la moción), sobre qué iniciativas y con qué resultado. El voto de cada legislador no se copia: lo da la cámara en la ficha de la votación.",
     padre: "soc:Evento",
     subClaseDe: [],
+    wikidata: [{ qid: "Q189760", relacion: "broadMatch", nombre: "voto" }],
     ftm: "Event",
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "Documento",
@@ -721,7 +723,7 @@ export const PROPIEDADES: Propiedad[] = [
     rango: ["skos:Concept"],
     funcional: true,
     obligatoriaEn: ["soc:Evento"],
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "prueba",
@@ -1107,12 +1109,12 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "código",
     etiquetaEn: "code",
     comentario:
-      "El código que el sistema de compras da al proceso o al contrato, el número de expediente que la cámara da a una iniciativa o el número de una sentencia: «MOPC-CCC-LPN-2026-0013», «INDRHI-2023-00444», «06360-2024-2028-CD», «TC/0986/26».",
-    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa", "soc:Sentencia"],
+      "El código que el sistema de compras da al proceso o al contrato, el número de expediente que la cámara da a una iniciativa, el número de una sentencia o el que el sistema de la cámara da a una votación: «MOPC-CCC-LPN-2026-0013», «INDRHI-2023-00444», «06360-2024-2028-CD», «TC/0986/26», «22842».",
+    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa", "soc:Sentencia", "soc:Votacion"],
     rango: ["xsd:string"],
     subPropiedadDe: ["dct:identifier"],
     funcional: true,
-    obligatoriaEn: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa", "soc:Sentencia"],
+    obligatoriaEn: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa", "soc:Sentencia", "soc:Votacion"],
     estado: "en-uso",
   },
   {
@@ -1274,10 +1276,78 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "objeto",
     etiqueta: "sobre",
     etiquetaEn: "on",
-    comentario: "La iniciativa que se vota.",
+    comentario: "La iniciativa que se vota: una votación puede decidir varias juntas (un grupo de resoluciones). Solo se ata a una iniciativa que el grafo tiene.",
     dominio: ["soc:Votacion"],
     rango: ["soc:Iniciativa"],
-    estado: "definido",
+    estado: "en-uso",
+  },
+  {
+    id: "celebradaPor",
+    tipo: "objeto",
+    etiqueta: "celebrada por",
+    etiquetaEn: "held by",
+    comentario: "La cámara en cuyo pleno se vota: la Cámara de Diputados.",
+    dominio: ["soc:Votacion"],
+    rango: ["soc:Institucion"],
+    subPropiedadDe: ["schema:organizer"],
+    funcional: true,
+    obligatoriaEn: ["soc:Votacion"],
+    estado: "en-uso",
+  },
+  {
+    id: "votosAFavor",
+    tipo: "dato",
+    etiqueta: "votos a favor",
+    etiquetaEn: "votes in favour",
+    comentario: "Los votos por el sí, según el recuento de la cámara.",
+    dominio: ["soc:Votacion"],
+    rango: ["xsd:integer"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "votosEnContra",
+    tipo: "dato",
+    etiqueta: "votos en contra",
+    etiquetaEn: "votes against",
+    comentario: "Los votos por el no, según el recuento de la cámara.",
+    dominio: ["soc:Votacion"],
+    rango: ["xsd:integer"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "abstenciones",
+    tipo: "dato",
+    etiqueta: "abstenciones",
+    etiquetaEn: "abstentions",
+    comentario: "Las abstenciones, según el recuento de la cámara.",
+    dominio: ["soc:Votacion"],
+    rango: ["xsd:integer"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "presentes",
+    tipo: "dato",
+    etiqueta: "presentes",
+    etiquetaEn: "members present",
+    comentario: "Los legisladores presentes en la votación: los que votaron y los presentes que no votaron.",
+    dominio: ["soc:Votacion"],
+    rango: ["xsd:integer"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "miembros",
+    tipo: "dato",
+    etiqueta: "miembros",
+    etiquetaEn: "members",
+    comentario: "Los legisladores de la cámara en esa votación (en la Cámara de Diputados, 190).",
+    dominio: ["soc:Votacion"],
+    rango: ["xsd:integer"],
+    funcional: true,
+    estado: "en-uso",
   },
   {
     id: "promulgadaComo",
@@ -1513,6 +1583,30 @@ export const PROPIEDADES: Propiedad[] = [
     estado: "en-uso",
   },
   {
+    id: "sesion",
+    modulo: "do",
+    tipo: "dato",
+    etiqueta: "sesión",
+    etiquetaEn: "sitting",
+    comentario: "El número de la sesión en que se vota, como lo escribe el SIL: «00014-2026-SLO» (secuencia, año y legislatura).",
+    dominio: ["soc:Votacion"],
+    rango: ["xsd:string"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "legislatura",
+    modulo: "do",
+    tipo: "dato",
+    etiqueta: "legislatura",
+    etiquetaEn: "legislative session",
+    comentario: "La legislatura de la sesión: «2026-SLO» (segunda legislatura ordinaria de 2026), «2025-PLO» (primera).",
+    dominio: ["soc:Votacion"],
+    rango: ["xsd:string"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
     id: "temaDeDatos",
     modulo: "do",
     tipo: "objeto",
@@ -1604,6 +1698,7 @@ const TIPOS_DE_EVENTO: [string, string][] = [
   ["adjudicacion", "Adjudicación"],
   ["promulgacion", "Promulgación"],
   ["derogacion", "Derogación"],
+  ["votacion", "Votación del pleno"],
 ];
 
 /** Los registros del Estado dominicano que emiten identificadores. */
@@ -1631,7 +1726,7 @@ export function esquemas(): Esquema[] {
     {
       id: "tiposDeEvento",
       etiqueta: "Tipos de evento",
-      comentario: "Lo que cambia el estado del grafo: abre o cierra ocupaciones, membresías y vigencias.",
+      comentario: "Qué pasó: lo que abre o cierra ocupaciones, membresías y vigencias, y la votación del pleno.",
       conceptos: TIPOS_DE_EVENTO.map(([id, etiqueta]) => ({ id: `evento-${id}`, etiqueta })),
     },
     {

@@ -273,6 +273,12 @@ const sentenciaConLey = sentencias.tc
 // «TC/0273/24»: su ficha aquí y la del Tribunal.
 const fichaTc = (n) => `/constitucional/TC-${n.slice(3, 7)}-${n.slice(8, 10)}`;
 const fichaEnTc = (n) => sentencias.ficha_tc.replace("{}", `${n.slice(3, 7)}${n.slice(8, 10)}`);
+// La votación del pleno más reciente sobre una sola iniciativa, y esa iniciativa es nodo.
+const votacionesPleno = leer("votaciones.json").votaciones;
+const iniciativasNodo = new Set(congreso.filas.map((f) => f[0]));
+const votacionConIniciativa = votacionesPleno
+  .filter((v) => v.iniciativas.length === 1 && iniciativasNodo.has(v.iniciativas[0]))
+  .sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? "") || b.id - a.id)[0];
 
 /* ------------------------------------------------------------------ casos */
 
@@ -757,6 +763,36 @@ const CASOS = [
     },
   },
   {
+    pregunta: "Una votación del pleno: su recuento, la iniciativa sobre la que se votó, y la iniciativa llega a ella en un salto; SQL las cuenta",
+    async correr() {
+      exigir(votacionConIniciativa, "no hay oráculo: ninguna votación decide una sola iniciativa que sea nodo");
+      const v = votacionConIniciativa;
+      const ficha = `/congreso/votaciones/${v.id}`;
+      const iniciativa = `/congreso/${v.iniciativas[0]}`;
+      const { datos, error } = await llamar("fetch", { id: ficha });
+      exigir(!error, error);
+      exigir(datos.metadata.claseRdf === "soc:Votacion", `clase ${datos.metadata.claseRdf}`);
+      exigir(datos.text.includes(`- Votos a favor: ${v.si.toLocaleString("es-DO")}`), `no dice ${v.si} votos a favor`);
+      exigir(datos.text.includes(`- Votos en contra: ${v.no.toLocaleString("es-DO")}`), `no dice ${v.no} votos en contra`);
+      exigir(datos.text.includes(`Votó sobre:`) && datos.text.includes(`→ ${iniciativa}`), `no dice que se votó sobre ${iniciativa}`);
+      exigir(datos.text.includes("Cámara de Diputados"), "no dice que se votó en la Cámara de Diputados");
+      const ini = await llamar("fetch", { id: iniciativa, group: "votaciones" });
+      exigir(!ini.error, ini.error);
+      exigir(ini.datos.text.includes(`→ ${ficha}`), `la iniciativa no nombra la votación ${v.id}`);
+      const camino = await llamar("path", { from: iniciativa, to: ficha });
+      exigir(!camino.error, camino.error);
+      exigir(camino.datos.encontrado && camino.datos.saltos === 1, `${camino.datos.saltos} saltos`);
+      const q = await llamar("query", {
+        sql: `SELECT (SELECT count(*) FROM votaciones), (SELECT count(*) FROM votaciones_iniciativas WHERE votacion = '${ficha}'), (SELECT a_favor FROM votaciones WHERE id = '${ficha}')`,
+      });
+      exigir(!q.error, q.error);
+      const [total, deEsta, aFavor] = q.datos.filas[0];
+      exigir(total === votacionesPleno.length, `${total} votaciones en SQL; la instantánea trae ${votacionesPleno.length}`);
+      exigir(deEsta === 1 && aFavor === v.si, `SQL: ${deEsta} iniciativas y ${aFavor} a favor`);
+      return `${v.titulo} (${v.fecha}): ${v.si}–${v.no} → ${iniciativa}`;
+    },
+  },
+  {
     pregunta: "Las páginas de search siguen una a otra, con y sin tipo",
     async correr() {
       for (const [args, porPagina] of [
@@ -912,7 +948,7 @@ const CASOS = [
       const tablas = t.datos.filas.map((f) => f[0]).join(",");
       exigir(
         tablas ===
-          "citas,conjuntos,contrataciones,contratos_obra,empresas,equivalencias,financieras,iniciativas,instituciones,medidas,normas,obras,obras_contratos,obras_procesos,obras_provincias,procesos,procesos_obra,proveedores,provincias",
+          "citas,conjuntos,contrataciones,contratos_obra,empresas,equivalencias,financieras,iniciativas,instituciones,medidas,normas,obras,obras_contratos,obras_procesos,obras_provincias,procesos,procesos_obra,proveedores,provincias,votaciones,votaciones_iniciativas",
         `tablas: ${tablas}`,
       );
       const p = await llamar("query", { sql: "SELECT count(*) FROM proveedores WHERE rnc IS NULL OR NOT regexp_matches(rnc, '^[0-9]{9}$')" });
@@ -921,10 +957,10 @@ const CASOS = [
       const c = await llamar("query", { sql: "SELECT count(*) FROM contratos_obra c LEFT JOIN proveedores p ON p.rpe = c.proveedor_rpe WHERE p.rpe IS NULL" });
       exigir(!c.error && c.datos.filas[0][0] === 0, `${c.datos?.filas?.[0]?.[0] ?? c.error} contratos de obra sin empresa`);
       const titulos = await llamar("query", {
-        sql: "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_name IN ('normas', 'iniciativas', 'citas') AND (column_name ILIKE '%titulo%' OR column_name ILIKE '%nombre%' OR column_name ILIKE '%firma%')",
+        sql: "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_name IN ('normas', 'iniciativas', 'citas', 'votaciones', 'votaciones_iniciativas') AND (column_name ILIKE '%titulo%' OR column_name ILIKE '%nombre%' OR column_name ILIKE '%firma%' OR column_name ILIKE '%mocion%')",
       });
       exigir(!titulos.error && titulos.datos.filas.length === 0, `columnas que nombran: ${JSON.stringify(titulos.datos?.filas ?? titulos.error)}`);
-      return "19 tablas; cada proveedor y cada contratista, atados a una empresa; normas e iniciativas sin título";
+      return "21 tablas; cada proveedor y cada contratista, atados a una empresa; normas e iniciativas sin título, votaciones sin moción";
     },
   },
   {
