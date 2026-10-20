@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * El modo «Preguntar» del banco de trabajo (`/explorar`): la misma
+ * El modo «Preguntar» del banco de trabajo (la portada, `/`): la misma
  * recuperación sobre el grafo que la herramienta `retrieve` del servidor MCP
  * (`recuperar` en `lib/mcp.ts`, GraphRAG sin modelo): las entidades que la
  * pregunta nombra, con sus datos y sus aristas; la evidencia del índice; la

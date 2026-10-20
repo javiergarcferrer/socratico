@@ -55,13 +55,13 @@ const nextConfig: NextConfig = {
       "./public/data/empresas/**",
       "./public/data/wikidata.json",
     ],
-    // El banco de trabajo (`/explorar`, `lib/explorar.ts`): la búsqueda junta
+    // El banco de trabajo (la portada, `lib/explorar.ts`): la búsqueda junta
     // el índice, los nombres del grafo compilado y el padrón; el inspector
     // describe un nodo del compilado (o una empresa por su fila del padrón) y
     // lee de `meta.json` la fuente y el corte de cada triple; la página solo
-    // cuenta el compilado. «Preguntar» es `retrieve` del MCP: lleva lo mismo
-    // que `/mcp`. Las claves casan como subcadena: van enteras.
-    "/explorar": ["./datos/grafo/meta.json"],
+    // cuenta el compilado (su `meta.json` lo halla el trazado: una clave «/»
+    // casaría con todas las rutas). «Preguntar» es `retrieve` del MCP: lleva
+    // lo mismo que `/mcp`. Las claves casan como subcadena: van enteras.
     "/api/explorar/buscar": [
       "./public/data/busqueda/**",
       "./datos/grafo/meta.json",
@@ -150,7 +150,7 @@ const nextConfig: NextConfig = {
     // Las claves casan como subcadena: «/grafo» es también «/api/grafo».
     "/grafo": ["./public/data/procesos.json"],
     "/.well-known": ["./public/data/procesos.json"],
-    // No «/explorar»: casaría con «/api/explorar/preguntar», que sí lee los procesos.
+    // No «/»: casaría con todas las rutas; «/api/explorar/preguntar» sí lee los procesos.
     "/api/explorar/buscar": ["./public/data/procesos.json"],
     "/api/explorar/nodo": ["./public/data/procesos.json"],
     "/empresas": ["./public/data/procesos.json"],
@@ -241,6 +241,8 @@ const nextConfig: NextConfig = {
       // dice de cada uno viaja en el TriG; quien sigue el IRI llega a la página de las fuentes.
       { source: "/:clase(fuente|derivado)/:ruta*", destination: "/fuentes", statusCode: 303 as const },
       { source: "/def/fabric", destination: "/ontologia.fabric.ttl", statusCode: 303 as const },
+      // El banco de trabajo vivía en `/explorar`; hoy es la portada. La consulta viaja con la redirección.
+      { source: "/explorar", destination: "/", permanent: true },
     ];
   },
   async headers() {

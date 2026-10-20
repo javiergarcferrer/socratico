@@ -7,7 +7,7 @@ import { llevaCedula } from "@/lib/padron";
 import { CLAVES_FACETA, type Exploracion, type Faceta, type FilaExplorada } from "@/lib/explorar-tipos";
 
 /**
- * La búsqueda del banco de trabajo del grafo (`/explorar`,
+ * La búsqueda del banco de trabajo del grafo (la portada, `/`,
  * docs/INFRAESTRUCTURA.md §7.7): una sola caja que busca a la vez en todas
  * las clases del grafo y en el índice de la plataforma, con las facetas
  * contadas. El inspector vive aparte (`lib/explorar-nodo.ts`) para que su

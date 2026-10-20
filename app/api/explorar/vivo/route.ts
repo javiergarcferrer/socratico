@@ -4,7 +4,7 @@ import { vivoDelNodo } from "@/lib/explorar-vivo";
 export const dynamic = "force-dynamic";
 
 /**
- * Lo que la fuente dice ahora de un nodo del banco de trabajo (`/explorar`):
+ * Lo que la fuente dice ahora de un nodo del banco de trabajo (la portada, `/`):
  * los procesos abiertos de una institución, la etapa y los contratos de un
  * proceso, la condición de una iniciativa (`lib/explorar-vivo.ts`). Aparte de
  * `/api/explorar/nodo` porque su ventana es otra: el grafo cambia con un

@@ -1080,7 +1080,7 @@ export async function getCompetencia(codigoProceso: string): Promise<Competencia
 /**
  * Como `getCompetencia`, pero un fallo del origen **lanza** en vez de volverse
  * «sin ofertas»: lo usa quien debe decir «la DGCP no contestó» aparte de «no
- * hay ofertas cargadas» (el inspector de `/explorar`, `lib/explorar-vivo.ts`).
+ * hay ofertas cargadas» (el inspector de la portada (`/`), `lib/explorar-vivo.ts`).
  */
 export async function leerCompetencia(codigoProceso: string): Promise<Competencia | null> {
   const data = await dgcpFetch<Oferta>("/ofertas", { proceso: codigoProceso, limit: 1000 }, 1800);

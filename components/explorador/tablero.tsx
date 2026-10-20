@@ -37,7 +37,7 @@ export function useAbiertos() {
  * las del grafo son de su compilación; la de la DGCP, de la lectura de hace
  * un momento.
  */
-export function Tablero({ pulso }: { pulso: Pulso | null }) {
+export function Tablero({ pulso, hrefClase }: { pulso: Pulso | null; /** La clase abierta en el recorrido de la ontología. */ hrefClase: (curie: string) => string }) {
   const abiertos = useAbiertos();
   // Fuentes con corte: las instantáneas fechadas. Las reglas se cuentan aparte, y lo que no tiene corte (las provincias) no cuenta.
   const conCorte = pulso?.fuentes.filter((f) => !f.derivado && f.corte) ?? [];
@@ -181,11 +181,11 @@ export function Tablero({ pulso }: { pulso: Pulso | null }) {
         {pulso && (
           <Card as="section" aria-labelledby="tablero-clases" className="px-4 py-3">
             <CardTitle id="tablero-clases">Nodos por clase</CardTitle>
-            <p className="mt-0.5 text-xs text-ink-soft">Cuántos registros de cada clase son nodos del grafo compilado.</p>
+            <p className="mt-0.5 text-xs text-ink-soft">Cuántos registros de cada clase son nodos del grafo compilado. Cada clase abre su lugar en la ontología.</p>
             <BarrasHorizontales
               className="mt-3"
               etiqueta="Nodos del grafo por clase"
-              barras={pulso.porClase.map((c) => ({ clave: c.tipo, etiqueta: c.clase, valor: c.nodos, cifra: formatInt(c.nodos) }))}
+              barras={pulso.porClase.map((c) => ({ clave: c.tipo, etiqueta: c.clase, valor: c.nodos, cifra: formatInt(c.nodos), href: hrefClase(c.curie) }))}
               lineas={1}
             />
           </Card>

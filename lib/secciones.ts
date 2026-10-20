@@ -305,7 +305,7 @@ export interface DestinoBusqueda {
 export const BUSQUEDAS: DestinoBusqueda[] = [
   {
     etiqueta: "El grafo entero",
-    href: "/explorar",
+    href: "/",
     alcance:
       "Busca mientras escribes en las catorce clases del grafo a la vez —personas con cargo, instituciones, empresas del padrón, proveedores, compras, obras, normas, iniciativas, documentos, datos— y en el índice de la plataforma, con la cuenta de cada clase; cada resultado que es un nodo se abre al lado y se recorre por sus relaciones.",
   },

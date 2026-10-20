@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { keepPreviousData, useIsFetching, useQuery } from "@tanstack/react-query";
-import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
+import { createSerializer, parseAsInteger, parseAsJson, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CampoBusqueda } from "@/components/campo-busqueda";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -14,18 +14,32 @@ import { BUSQUEDAS } from "@/lib/secciones";
 import { formatFecha, formatHora } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { cn } from "@/lib/cn";
-import { CLAVES_FACETA, type Exploracion, type Pulso } from "@/lib/explorar-tipos";
+import { CLAVES_FACETA, type Exploracion, type OntologiaVista, type Pulso } from "@/lib/explorar-tipos";
+import { TIPOS_OBJETO, tipoObjeto, type PedidoObjetos } from "@/lib/objetos";
 import { Inspector, type PasoRastro } from "./inspector";
 import { Preguntar } from "./preguntar";
 import { RedDelNodo } from "./red";
 import { Facetas, Resultados } from "./resultados";
 import { Tablero, useAbiertos } from "./tablero";
+import { ClasesDeObjeto, FiltrosDeObjeto, Objetos } from "./objetos";
+import { ArbolDeClases, Ontologia } from "./ontologia";
 import { clicSimple } from "./clic";
 
 const MODOS = ["buscar", "preguntar"] as const;
 
 /** Lo que recorre «Buscar»: la misma frase que la paleta pone junto al destino (`BUSQUEDAS`). */
-const ALCANCE = BUSQUEDAS.find((b) => b.href === "/explorar")?.alcance;
+const ALCANCE = BUSQUEDAS.find((b) => b.href === "/")?.alcance;
+
+const SECCIONES_BANCO = ["objetos", "ontologia"] as const;
+type SeccionBanco = "tablero" | (typeof SECCIONES_BANCO)[number];
+
+/** Los filtros de categoría del explorador de objetos en la URL: `{"estado":"Terminado"}`. */
+function filtrosValidos(v: unknown): Record<string, string> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const salida: Record<string, string> = {};
+  for (const [k, x] of Object.entries(v)) if (/^[a-z_]+$/.test(k) && typeof x === "string") salida[k] = x;
+  return salida;
+}
 
 const ESTADO_URL = {
   q: parseAsString.withDefault(""),
@@ -34,7 +48,21 @@ const ESTADO_URL = {
   nodo: parseAsString,
   pagina: parseAsInteger.withDefault(1),
   vista: parseAsStringLiteral(["red"] as const),
+  // La sección del centro cuando no se busca: el tablero (sin parámetro), los objetos o la ontología.
+  seccion: parseAsStringLiteral(SECCIONES_BANCO),
+  // El explorador de objetos: la clase, el filtro de texto, los de categoría, el orden y la página.
+  tipo: parseAsString,
+  filtro: parseAsString.withDefault(""),
+  cat: parseAsJson(filtrosValidos),
+  orden: parseAsString,
+  dir: parseAsStringLiteral(["asc", "desc"] as const),
+  hoja: parseAsInteger.withDefault(1),
+  // El recorrido de la ontología: la clase abierta (`soc:Institucion`).
+  clase: parseAsString,
 };
+
+/** La dirección del banco con un estado dado: los enlaces que se abren en otra pestaña llevan todo. */
+const serializar = createSerializer(ESTADO_URL);
 
 export interface Ejemplo {
   ruta: string;
@@ -49,7 +77,7 @@ export interface PreguntaEjemplo {
 }
 
 /**
- * El banco de trabajo del grafo (`/explorar`): la plataforma entera como lo
+ * El banco de trabajo del grafo (la portada, `/`): la plataforma entera como lo
  * que es, un grafo de registros del Estado ligados entre sí, en una mesa de
  * análisis con la forma de las de Blueprint (el tema `.tema-blueprint` de
  * `app/globals.css`): la barra con la caja arriba; a la izquierda, las clases
@@ -63,7 +91,17 @@ export interface PreguntaEjemplo {
  * «atrás». Lo tecleado busca mientras se escribe (con rebote); una pregunta,
  * que junta más evidencia y cuesta más, solo al enviarla.
  */
-export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; preguntas: PreguntaEjemplo[]; pulso: Pulso | null }) {
+export function Banco({
+  ejemplos,
+  preguntas,
+  pulso,
+  ontologia,
+}: {
+  ejemplos: Ejemplo[];
+  preguntas: PreguntaEjemplo[];
+  pulso: Pulso | null;
+  ontologia: OntologiaVista;
+}) {
   const [url, setUrl] = useQueryStates(ESTADO_URL, { history: "replace" });
   const [texto, setTexto] = useState(url.q);
   // Las rutas por las que se llegó al nodo abierto, de la primera a la anterior.
@@ -82,6 +120,7 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
   const ancho = useEsAncho();
   const preguntar = url.modo === "preguntar";
   const preguntando = useIsFetching({ queryKey: ["preguntar"] }) > 0;
+  const buscando = !preguntar && url.q.trim().length >= 2;
 
   useEffect(() => {
     enviado.current = url.q;
@@ -151,8 +190,42 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
   const cerrar = () => void setUrl({ nodo: null, vista: null });
   // La red se dibuja solo desde `lg`: por debajo, sus rótulos bajarían de 12 px.
   const enRed = ancho && !!url.nodo && url.vista === "red";
-  const hacia = (ruta: string) =>
-    enlace.explorar({ q: url.q || null, faceta: url.faceta, modo: preguntar ? "preguntar" : null, nodo: ruta, vista: "red" });
+  const hacia = (ruta: string) => serializar("/", { ...url, nodo: ruta, vista: "red" });
+  const hrefNodo = (ruta: string) => serializar("/", { ...url, nodo: ruta });
+  const hrefClase = (curie: string) => serializar("/", { ...url, q: null, modo: null, seccion: "ontologia", clase: curie });
+
+  /*
+    Lo que ocupa el centro: una búsqueda o una pregunta mandan mientras haya
+    algo escrito; si no, la sección elegida en la barra de secciones.
+  */
+  const seccion: SeccionBanco = url.seccion ?? "tablero";
+  const enCentro: "pregunta" | "busqueda" | SeccionBanco = preguntar && q.length >= 3 ? "pregunta" : buscando ? "busqueda" : seccion;
+  const sinInspector = !url.nodo && (enCentro === "objetos" || enCentro === "ontologia");
+  const irA = (s: SeccionBanco, extra: Partial<typeof url> = {}) => {
+    setTexto("");
+    enviado.current = "";
+    void setUrl({ q: null, faceta: null, pagina: null, modo: null, seccion: s === "tablero" ? null : s, ...extra }, { history: "push" });
+  };
+
+  // El explorador de objetos: el pedido sale entero de la URL.
+  const tipo = tipoObjeto(url.tipo) ?? TIPOS_OBJETO[0];
+  const pedido: PedidoObjetos = {
+    tipo,
+    texto: url.filtro,
+    filtros: Object.fromEntries(Object.entries(url.cat ?? {}).filter(([k]) => tipo.facetas.some((f) => f.col === k))),
+    orden: url.orden ?? tipo.orden.col,
+    dir: url.dir ?? tipo.orden.dir,
+    pagina: url.hoja,
+  };
+  const onTexto = useCallback((t: string) => void setUrl({ filtro: t || null, hoja: null }), [setUrl]);
+  const onTipo = (id: string) =>
+    void setUrl({ seccion: "objetos", tipo: id === TIPOS_OBJETO[0].id ? null : id, filtro: null, cat: null, orden: null, dir: null, hoja: null }, { history: "push" });
+  const onFiltro = (col: string, valor: string | null) => {
+    const cat = { ...pedido.filtros };
+    if (valor == null) delete cat[col];
+    else cat[col] = valor;
+    void setUrl({ cat: Object.keys(cat).length ? cat : null, hoja: null }, { history: "push" });
+  };
 
   const cambiarModo = (m: string) => {
     if (!m || m === url.modo) return;
@@ -180,7 +253,6 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
   ) : null;
 
   const datos = busqueda.data;
-  const buscando = !preguntar && q.length >= 2;
 
   return (
     <div className="flex min-h-[calc(100dvh-var(--alto-cabecera))] flex-col">
@@ -224,28 +296,60 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
         </div>
       </header>
 
-      <div className="grid flex-1 lg:grid-cols-[15rem_minmax(0,1fr)_25rem] xl:grid-cols-[16rem_minmax(0,1fr)_27rem]">
+      <BarraDeSecciones
+        activa={enCentro === "pregunta" || enCentro === "busqueda" ? null : enCentro}
+        busqueda={enCentro === "pregunta" ? "Tu pregunta" : enCentro === "busqueda" ? `Búsqueda: «${q}»` : null}
+        href={(s) => serializar("/", { ...url, q: null, faceta: null, pagina: null, modo: null, seccion: s === "tablero" ? null : s })}
+        onIr={(s) => irA(s)}
+      />
+
+      {/* En los objetos y la ontología, sin nodo abierto, la columna del inspector se pliega: la tabla gana el ancho. */}
+      <div
+        className={cn(
+          "grid flex-1",
+          sinInspector ? "lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]" : "lg:grid-cols-[15rem_minmax(0,1fr)_25rem] xl:grid-cols-[16rem_minmax(0,1fr)_27rem]",
+        )}
+      >
         {/* El panel izquierdo: las clases de lo hallado y los puntos de partida. */}
-        <aside aria-label="Clases y puntos de partida" className="hidden border-r border-hairline bg-surface lg:block">
+        <aside aria-label={enCentro === "objetos" ? "Clase y filtros" : enCentro === "ontologia" ? "Clases de la ontología" : "Clases y puntos de partida"} className="hidden border-r border-hairline bg-surface lg:block">
           <div className="sticky top-[var(--alto-cabecera)] max-h-[calc(100dvh-var(--alto-cabecera))] space-y-5 overflow-y-auto px-3 py-4">
-            {buscando && datos && !datos.cedula && datos.facetas.length > 0 && (
-              <nav aria-labelledby="lateral-clases">
-                <p id="lateral-clases" className="rotulo mb-2 px-1 text-ink-soft">
-                  Clases
-                </p>
-                <Facetas datos={datos} faceta={url.faceta} onFaceta={(f) => void setUrl({ faceta: f, pagina: null })} vertical />
-              </nav>
+            {enCentro === "objetos" ? (
+              <>
+                <nav aria-labelledby="lateral-objetos">
+                  <p id="lateral-objetos" className="rotulo mb-2 px-1 text-ink-soft">
+                    Clase de objeto
+                  </p>
+                  <ClasesDeObjeto tipo={tipo} onTipo={onTipo} vertical />
+                </nav>
+                <FiltrosDeObjeto pedido={pedido} onFiltro={onFiltro} />
+              </>
+            ) : enCentro === "ontologia" ? (
+              <div>
+                <p className="rotulo mb-2 px-1 text-ink-soft">Clases de la ontología</p>
+                <ArbolDeClases ontologia={ontologia} clase={url.clase} hrefClase={hrefClase} />
+              </div>
+            ) : (
+              <>
+                {buscando && datos && !datos.cedula && datos.facetas.length > 0 && (
+                  <nav aria-labelledby="lateral-clases">
+                    <p id="lateral-clases" className="rotulo mb-2 px-1 text-ink-soft">
+                      Clases
+                    </p>
+                    <Facetas datos={datos} faceta={url.faceta} onFaceta={(f) => void setUrl({ faceta: f, pagina: null })} vertical />
+                  </nav>
+                )}
+                <PuntosDePartida ejemplos={ejemplos} preguntas={preguntas} onAbrir={abrirDesdeLista} />
+              </>
             )}
-            <PuntosDePartida ejemplos={ejemplos} preguntas={preguntas} onAbrir={abrirDesdeLista} />
           </div>
         </aside>
 
         {/* Una sección y no un `main`: el `main` es el de la página (`app/layout.tsx`). */}
-        <section aria-label="Tablero y resultados" className="min-w-0 space-y-3 p-3 lg:space-y-4 lg:p-4">
+        <section aria-label={ETIQUETA_CENTRO[enCentro]} className="min-w-0 space-y-3 p-3 lg:space-y-4 lg:p-4">
           {enRed && <RedDelNodo ruta={url.nodo!} hacia={hacia} onCerrar={() => void setUrl({ vista: null }, { history: "push" })} />}
-          {preguntar && q.length >= 3 ? (
+          {enCentro === "pregunta" ? (
             <Preguntar pregunta={q} onAbrir={abrir} />
-          ) : buscando ? (
+          ) : enCentro === "busqueda" ? (
             <Resultados
               consulta={busqueda}
               faceta={url.faceta}
@@ -254,9 +358,23 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
               onPagina={(p) => void setUrl({ pagina: p > 1 ? p : null })}
               onAbrir={abrirDesdeLista}
             />
+          ) : enCentro === "objetos" ? (
+            <Objetos
+              pedido={pedido}
+              nodo={url.nodo}
+              hrefNodo={hrefNodo}
+              onTexto={onTexto}
+              onOrden={(col, dir) => void setUrl({ orden: col, dir, hoja: null })}
+              onFiltro={onFiltro}
+              onHoja={(h) => void setUrl({ hoja: h > 1 ? h : null })}
+              onTipo={onTipo}
+              onAbrir={abrirDesdeLista}
+            />
+          ) : enCentro === "ontologia" ? (
+            <Ontologia ontologia={ontologia} clase={url.clase} hrefClase={hrefClase} onObjetos={onTipo} />
           ) : (
             <>
-              <Tablero pulso={pulso} />
+              <Tablero pulso={pulso} hrefClase={hrefClase} />
               {/* En el teléfono no hay panel izquierdo: los puntos de partida van debajo del tablero. */}
               <div className="lg:hidden">
                 <PuntosDePartida ejemplos={ejemplos} preguntas={preguntas} onAbrir={abrirDesdeLista} />
@@ -266,7 +384,7 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
         </section>
 
         {/* El panel derecho: el nodo abierto. */}
-        <aside aria-label="El nodo abierto" className="hidden border-l border-hairline bg-surface lg:block">
+        <aside aria-label="El nodo abierto" className={cn("hidden border-l border-hairline bg-surface", !sinInspector && "lg:block")}>
           <div ref={panel} className="sticky top-[var(--alto-cabecera)] max-h-[calc(100dvh-var(--alto-cabecera))] overflow-y-auto">
             {(ancho && inspector) || (
               <div className="px-4 py-5 text-sm leading-relaxed text-ink-soft">
@@ -289,6 +407,65 @@ export function Banco({ ejemplos, preguntas, pulso }: { ejemplos: Ejemplo[]; pre
         {!ancho && inspector}
       </BottomSheet>
     </div>
+  );
+}
+
+const ETIQUETA_CENTRO: Record<"pregunta" | "busqueda" | SeccionBanco, string> = {
+  pregunta: "La evidencia de la pregunta",
+  busqueda: "Resultados de la búsqueda",
+  tablero: "Tablero",
+  objetos: "Objetos",
+  ontologia: "Ontología",
+};
+
+const SECCIONES_BARRA: { id: SeccionBanco; etiqueta: string; nota: string }[] = [
+  { id: "tablero", etiqueta: "Tablero", nota: "Lo que hay en el grafo y lo abierto ahora" },
+  { id: "objetos", etiqueta: "Objetos", nota: "Cada clase como tabla: filtra, ordena, suma" },
+  { id: "ontologia", etiqueta: "Ontología", nota: "Las clases y cómo se ligan" },
+];
+
+/**
+ * Las secciones de la mesa, como las pestañas de la barra de una aplicación
+ * de Blueprint: el tablero, el explorador de objetos y el recorrido de la
+ * ontología. Son enlaces (se abren en otra pestaña con todo su estado) que,
+ * con un clic simple, cambian la sección sin recargar. Mientras se busca o se
+ * pregunta, la pestaña encendida es la búsqueda, y tocar una sección la deja.
+ */
+function BarraDeSecciones({
+  activa,
+  busqueda,
+  href,
+  onIr,
+}: {
+  activa: SeccionBanco | null;
+  busqueda: string | null;
+  href: (s: SeccionBanco) => string;
+  onIr: (s: SeccionBanco) => void;
+}) {
+  return (
+    <nav aria-label="Secciones del banco" className="flex items-stretch gap-1 overflow-x-auto border-b border-hairline bg-surface px-2 [scrollbar-width:none] lg:px-3">
+      {SECCIONES_BARRA.map((s) => (
+        <Link
+          key={s.id}
+          href={href(s.id)}
+          title={s.nota}
+          aria-current={activa === s.id ? "page" : undefined}
+          onClick={(e) => {
+            if (!clicSimple(e)) return;
+            e.preventDefault();
+            onIr(s.id);
+          }}
+          className="relative inline-flex min-h-11 shrink-0 items-center px-3 text-sm font-medium text-ink-soft hover:text-ink aria-[current=page]:text-ink aria-[current=page]:after:absolute aria-[current=page]:after:inset-x-2 aria-[current=page]:after:bottom-0 aria-[current=page]:after:h-0.5 aria-[current=page]:after:bg-brand-500 sm:min-h-10"
+        >
+          {s.etiqueta}
+        </Link>
+      ))}
+      {busqueda && (
+        <span aria-current="page" className="relative ml-1 inline-flex min-h-11 min-w-0 items-center border-l border-hairline px-3 text-sm font-medium text-ink after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-brand-500 sm:min-h-10">
+          <span className="truncate">{busqueda}</span>
+        </span>
+      )}
+    </nav>
   );
 }
 

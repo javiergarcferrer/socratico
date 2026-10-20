@@ -165,7 +165,7 @@ export const enlace = {
   },
   /**
    * El banco de trabajo del grafo: una búsqueda, una faceta, una pregunta o
-   * un nodo abierto en el inspector (`/explorar?q=…&nodo=/instituciones/4`).
+   * un nodo abierto en el inspector (`/?q=…&nodo=/instituciones/4`). El banco es la portada.
    */
   explorar(p: { q?: string | null; faceta?: string | null; modo?: "preguntar" | null; nodo?: string | null; vista?: "red" | null } = {}): string {
     const partes = [
@@ -175,7 +175,7 @@ export const enlace = {
       p.nodo ? `nodo=${enRuta(p.nodo)}` : null,
       p.vista ? `vista=${p.vista}` : null,
     ].filter(Boolean);
-    return partes.length ? `/explorar?${partes.join("&")}` : "/explorar";
+    return partes.length ? `/?${partes.join("&")}` : "/";
   },
   /** El camino más corto entre dos fichas, en el explorador. */
   caminoGrafo(de: string, a: string): string {

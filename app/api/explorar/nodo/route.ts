@@ -4,7 +4,7 @@ import { inspeccionar } from "@/lib/explorar-nodo";
 export const dynamic = "force-dynamic";
 
 /**
- * Un nodo del grafo para el inspector del banco de trabajo (`/explorar`): sus
+ * Un nodo del grafo para el inspector del banco de trabajo (la portada, `/`): sus
  * datos, sus aristas por grupo y de qué fuente y corte sale cada triple
  * (`lib/explorar.ts`). `?ruta=` es la ruta de su ficha, como en `/api/grafo`.
  */

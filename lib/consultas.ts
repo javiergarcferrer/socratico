@@ -21,12 +21,14 @@ export const claves = {
   seguimiento: (tipo: string, id: string) => ["seguimiento", tipo, id] as const,
   /** La instantánea de la nómina (`/data/nomina.json`). */
   nomina: ["nomina"] as const,
-  /** El banco de trabajo del grafo (`/explorar`): una búsqueda, un nodo, una pregunta. */
+  /** El banco de trabajo del grafo (la portada, `/`): una búsqueda, un nodo, una pregunta. */
   explorar: (q: string, faceta: string | null, pagina: number) => ["explorar", q, faceta, pagina] as const,
   nodo: (ruta: string) => ["nodo", ruta] as const,
   vivo: (ruta: string) => ["vivo", ruta] as const,
   abiertos: ["abiertos"] as const,
   preguntar: (q: string) => ["preguntar", q] as const,
+  /** Una consulta de solo lectura sobre las tablas del grafo (`/api/sql`), por su texto: el explorador de objetos. */
+  sql: (q: string) => ["sql", q] as const,
 };
 
 /**
@@ -77,4 +79,18 @@ export function abiertosAhora<T>(signal?: AbortSignal) {
 
 export function preguntarAlGrafo<T>(q: string, signal?: AbortSignal) {
   return leerJson<T>(`/api/explorar/preguntar?q=${encodeURIComponent(q)}`, signal);
+}
+
+/** Lo que responde `/api/sql` (`lib/grafo-sql.ts`). */
+export interface RespuestaSql {
+  columnas: string[];
+  filas: unknown[][];
+  truncada: boolean;
+  ms: number;
+  generadas: string | null;
+}
+
+/** SQL de solo lectura sobre las tablas del grafo: el GET, que la CDN cachea mientras dure el despliegue. */
+export function consultarTablas(q: string, signal?: AbortSignal) {
+  return leerJson<RespuestaSql>(`/api/sql?q=${encodeURIComponent(q)}`, signal);
 }

@@ -170,7 +170,7 @@ export default function Paleta() {
   // recorrerlo. Luego «Toda la plataforma», y después la búsqueda de la
   // vertical en la que ya está el lector, que es la que más probablemente quería.
   const peso = (d: DestinoBusqueda) =>
-    d.href === "/explorar" ? 3 : d.href === "/buscar" ? 2 : Number(!!actual && d.seccion === actual.id);
+    d.href === "/" ? 3 : d.href === "/buscar" ? 2 : Number(!!actual && d.seccion === actual.id);
   const destinos = [...BUSQUEDAS].sort((a, b) => peso(b) - peso(a));
 
   return (

@@ -1,5 +1,5 @@
 /**
- * Lo que el banco de trabajo del grafo (`/explorar`) recibe de sus tres rutas
+ * Lo que el banco de trabajo del grafo (la portada, `/`) recibe de sus tres rutas
  * (`/api/explorar/buscar`, `/api/explorar/nodo`, `/api/explorar/preguntar`).
  * Solo tipos y constantes: viaja al navegador, así que no importa nada del
  * servidor (`lib/explorar.ts` es quien los llena).
@@ -107,7 +107,7 @@ export interface Pulso {
   grafos: number;
   compilado: string | null;
   /** Cuántos nodos tiene cada clase, de la más poblada a la menos. */
-  porClase: { tipo: string; clase: string; nodos: number }[];
+  porClase: { tipo: string; clase: string; nodos: number; /** La clase de la ontología: `soc:Institucion`. */ curie: string }[];
   /** Los grafos con nombre: de qué fuente y de qué corte, o de qué regla, sale cada triple. */
   fuentes: { clave: string; etiqueta: string; corte: string | null; derivado: boolean }[];
 }
@@ -173,3 +173,34 @@ export type ClaveFacetaPedida = (typeof CLAVES_FACETA)[number];
 
 /** Cuántas aristas de un grupo viajan al inspector; el resto lo dice la cuenta y lo abre la red del nodo. */
 export const ARISTAS_POR_GRUPO = 40;
+
+/** Una clase de la ontología como la recorre el banco: su lugar en la jerarquía y cuántos nodos tiene el grafo. */
+export interface ClaseVista {
+  /** `soc:Institucion`. */
+  curie: string;
+  etiqueta: string;
+  comentario: string;
+  /** La clase de aquí de la que es un caso, si tiene. */
+  padre: string | null;
+  enUso: boolean;
+  /** Los nodos del grafo compilado de esta clase, si es una clase con nodos propios. */
+  nodos: number | null;
+}
+
+/** Una propiedad de la ontología: una relación entre clases o un dato de una clase. */
+export interface PropiedadVista {
+  curie: string;
+  tipo: "objeto" | "dato";
+  etiqueta: string;
+  comentario: string;
+  dominio: string[];
+  rango: string[];
+  enUso: boolean;
+}
+
+/** La ontología entera, compacta, para el recorrido de clases del banco (`lib/ontologia.ts`). */
+export interface OntologiaVista {
+  version: string;
+  clases: ClaseVista[];
+  propiedades: PropiedadVista[];
+}

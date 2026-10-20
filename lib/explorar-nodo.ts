@@ -3,10 +3,11 @@ import { CLASE_DE_TIPO, GRUPOS, claveNodo, describir, iriDe, relacionesDesdeTrip
 import { metaGrafo, type GrafoConNombre } from "@/lib/grafo-compilado";
 import { datosDe } from "@/lib/grafo-hechos";
 import type { TipoEntrada } from "@/lib/espacios";
-import { ARISTAS_POR_GRUPO, type Inspeccion, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
+import { CLASES, PROPIEDADES, VERSION, curie } from "@/lib/ontologia";
+import { ARISTAS_POR_GRUPO, type Inspeccion, type OntologiaVista, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
 
 /**
- * El inspector del banco de trabajo del grafo (`/explorar`,
+ * El inspector del banco de trabajo del grafo (la portada, `/`,
  * docs/INFRAESTRUCTURA.md §7.7): un nodo con lo que dice de sí, sus aristas
  * por grupo y de qué grafo con nombre —qué fuente y qué corte, o qué regla—
  * sale cada triple; y el tamaño del compilado para la banda de la página.
@@ -109,10 +110,59 @@ export async function pulsoDelGrafo(): Promise<Pulso | null> {
   const nodos = Object.values(m.tipos).reduce((s, t) => s + t.nodos, 0) + m.empresasSolas;
   // Las empresas que solo son su fila del padrón también son nodos (las describe su fila): cuentan con su clase.
   const porClase = (Object.entries(m.tipos) as [TipoNodoRdf, { nodos: number }][])
-    .map(([tipo, t]) => ({ tipo, clase: CLASE_DE_TIPO[tipo], nodos: t.nodos + (tipo === "empresa" ? m.empresasSolas : 0) }))
+    .map(([tipo, t]) => ({ tipo, clase: CLASE_DE_TIPO[tipo], curie: CURIE_DE_TIPO[tipo], nodos: t.nodos + (tipo === "empresa" ? m.empresasSolas : 0) }))
     .sort((a, b) => b.nodos - a.nodos);
   const fuentes = m.grafos
     .filter((g) => g.clave !== "plataforma")
     .map((g) => ({ clave: g.clave, etiqueta: etiquetaUnica(g, m.grafos), corte: g.corte, derivado: !!g.derivado }));
   return { triples: m.triples, nodos, clases: Object.keys(m.tipos).length, grafos: m.grafos.length, compilado: m.generado, porClase, fuentes };
+}
+
+/** La clase de la ontología de cada tipo de nodo del grafo compilado. */
+const CURIE_DE_TIPO: Record<TipoNodoRdf, string> = {
+  funcionario: "soc:Persona",
+  institucion: "soc:Institucion",
+  "entidad-financiera": "soc:EntidadFinanciera",
+  empresa: "soc:Empresa",
+  decreto: "soc:Decreto",
+  provincia: "soc:Provincia",
+  proveedor: "soc:Proveedor",
+  proceso: "soc:ProcesoDeContratacion",
+  obra: "soc:ProyectoDeInversion",
+  ley: "soc:Ley",
+  resolucion: "soc:Resolucion",
+  iniciativa: "soc:Iniciativa",
+  documento: "soc:Documento",
+  conjunto: "soc:ConjuntoDeDatos",
+};
+
+/**
+ * La ontología, compacta, para el recorrido de clases del banco: cada clase
+ * con su padre y sus nodos en el compilado (los de `pulso.porClase`), cada
+ * propiedad con su dominio y su rango. Las clases de fuera (`org:`, `prov:`)
+ * no se recorren: solo las de `soc:` y `do:`.
+ */
+export function ontologiaDelGrafo(pulso: Pulso | null): OntologiaVista {
+  const nodos = new Map<string, number>();
+  for (const c of pulso?.porClase ?? []) nodos.set(c.curie, c.nodos);
+  return {
+    version: VERSION,
+    clases: CLASES.map((c) => ({
+      curie: curie(c),
+      etiqueta: c.etiqueta,
+      comentario: c.comentario,
+      padre: c.padre ? (c.padre.includes(":") ? c.padre : `soc:${c.padre}`) : null,
+      enUso: c.estado === "en-uso",
+      nodos: nodos.get(curie(c)) ?? null,
+    })),
+    propiedades: PROPIEDADES.map((p) => ({
+      curie: curie(p),
+      tipo: p.tipo,
+      etiqueta: p.etiqueta,
+      comentario: p.comentario,
+      dominio: p.dominio,
+      rango: p.rango,
+      enUso: p.estado === "en-uso",
+    })),
+  };
 }

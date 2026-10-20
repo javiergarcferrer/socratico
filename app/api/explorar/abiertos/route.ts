@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 /**
  * Lo abierto a ofertas en todo el Estado ahora (`abiertosAhora`,
  * `lib/explorar-vivo.ts`): la cuenta de la DGCP y los publicados más
- * recientes, para el tablero de `/explorar`. Ventana de cinco minutos, la del
+ * recientes, para el tablero de la portada (`/`). Ventana de cinco minutos, la del
  * adaptador; 502 si la DGCP no contesta.
  */
 export async function GET() {

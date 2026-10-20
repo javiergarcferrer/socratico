@@ -1820,7 +1820,7 @@ async function contextoDeNodo(n: NodoRdf, por: string): Promise<z.infer<typeof E
   };
 }
 
-/** Lo que devuelve `retrieve`; lo pinta también el modo «Preguntar» de `/explorar`. */
+/** Lo que devuelve `retrieve`; lo pinta también el modo «Preguntar» de la portada (`/`). */
 export type Recuperacion = z.infer<typeof Recuperado>;
 
 export async function recuperar(pregunta: string, limite: number = TOPE_RECUPERAR.evidencias): Promise<Recuperacion> {

@@ -7,7 +7,7 @@ import { PREFIJOS, compactar, expandir, type Triple } from "@/lib/rdf";
  * Lo que un nodo del grafo dice de sí mismo —sus literales y los conceptos de
  * la ontología que lo clasifican—, en llano y sin repetir: «Siglas: MINERD»,
  * «Valor estimado: RD$ 12 000 000». Lo leen el servidor MCP (`lib/mcp.ts`,
- * `fetch` y `retrieve`) y el inspector del banco de trabajo (`/explorar`),
+ * `fetch` y `retrieve`) y el inspector del banco de trabajo (la portada, `/`),
  * para que un asistente y una persona lean el mismo dato con la misma etiqueta
  * (docs/INFRAESTRUCTURA.md §7.6).
  */

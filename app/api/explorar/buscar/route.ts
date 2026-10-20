@@ -5,7 +5,7 @@ import { recortar } from "@/lib/raiz";
 export const dynamic = "force-dynamic";
 
 /**
- * La búsqueda del banco de trabajo (`/explorar`): lo tecleado en todas las
+ * La búsqueda del banco de trabajo (la portada, `/`): lo tecleado en todas las
  * clases del grafo y en el índice a la vez, con las facetas contadas
  * (`lib/explorar.ts`). El índice, el padrón y el grafo compilado no viajan al
  * navegador; aquí se busca y salen las filas.

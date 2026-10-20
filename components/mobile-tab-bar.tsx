@@ -104,7 +104,7 @@ export function subirArriba() {
  */
 export function subeConLaPestana(pathname: string): boolean {
   return (
-    pathname === "/explorar" ||
+    pathname === "/" ||
     FIJAS.some((id) => SECCIONES.find((s) => s.id === id)?.href === pathname)
   );
 }
@@ -135,13 +135,13 @@ export default function MobileTabBar() {
   ).filter(Boolean);
 
   const tabs = [
-    // La primera casilla es el explorador, no la portada: la plataforma se
-    // busca y se analiza en el banco de trabajo. La portada sigue en la marca.
+    // La primera casilla es el explorador, que es la portada: la plataforma se
+    // busca y se analiza en el banco de trabajo. Lo de hoy vive en «Más» (/hoy).
     {
-      href: "/explorar",
+      href: "/",
       label: "Explorar",
       Icon: IconGrid,
-      activa: pathname === "/explorar",
+      activa: pathname === "/",
       barra: "bg-brand-500",
       texto: "text-brand-700",
     },

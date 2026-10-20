@@ -46,10 +46,10 @@ export default function Megamenu() {
         <NavigationMenuItem>
           <NavigationMenuLink asChild>
             <Link
-              href="/explorar"
+              href="/"
               className={navigationMenuDisparador}
-              data-activo={pathname === "/explorar"}
-              aria-current={pathname === "/explorar" ? "page" : undefined}
+              data-activo={pathname === "/"}
+              aria-current={pathname === "/" ? "page" : undefined}
             >
               Explorador
             </Link>
@@ -57,8 +57,8 @@ export default function Megamenu() {
         </NavigationMenuItem>
         {MENU.map((grupo) => (
           <NavigationMenuItem key={grupo.id} value={grupo.id}>
-            {/* En /explorar se enciende «Explorador», no el grupo que también lo lista. */}
-            <NavigationMenuTrigger data-activo={!enComunidad && pathname !== "/explorar" && grupoActivo(grupo, pathname)}>
+            {/* En la portada se enciende «Explorador», no el grupo que también la lista. */}
+            <NavigationMenuTrigger data-activo={!enComunidad && pathname !== "/" && grupoActivo(grupo, pathname)}>
               {grupo.label}
             </NavigationMenuTrigger>
             <NavigationMenuContent>

@@ -8,7 +8,7 @@ import type { AbiertosAhora, FilaViva, Vivo } from "@/lib/explorar-tipos";
 
 /**
  * Lo que la fuente dice **ahora** de un nodo del banco de trabajo
- * (`/explorar`, docs/INFRAESTRUCTURA.md §7.7). El grafo se compila de
+ * (la portada, `/`, docs/INFRAESTRUCTURA.md §7.7). El grafo se compila de
  * instantáneas; las fichas, en cambio, leen en vivo la DGCP y el SIL. Aquí se
  * juntan las dos cosas en el inspector: junto a lo que el grafo dice de una
  * institución, sus procesos abiertos a ofertas hoy; junto a un proceso, su
