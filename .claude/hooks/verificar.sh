@@ -131,37 +131,54 @@ fi
 #     independent units run at once —the cédula scan, the compiled graph
 #     against its builders, the search against the graph, and the build with
 #     the MCP evaluation and SHACL over `next start`— and report in this fixed
-#     order. Each is deterministic over the files it reads: a green is
-#     remembered under `huella_de` those files (lib.sh), and the same content
-#     is not checked twice (a rebase that does not touch them, a rerun). One
-#     byte of input changed and the unit runs whole; a red is never remembered.
+#     order. Each prints `OK <línea>` or `FAIL <línea>` per check, then its
+#     detail. A green is remembered under `huella_de` the files the unit reads
+#     (lib.sh), and the same content is not checked twice (a rebase that does
+#     not touch them, a rerun); one byte of input changed and the unit runs
+#     whole; a red is never remembered.
 if [ "$modo" = "--completo" ]; then
   TMPD="$(mktemp -d)"
-  # Interrupted (a timeout, ^C), nothing the gate started may outlive it.
-  trap 'kill $(jobs -p) 2>/dev/null; rm -f "$TMPD"/* 2>/dev/null; rmdir "$TMPD" 2>/dev/null' EXIT
+  # Each unit in its own process group (`set -m`): interrupted (a timeout,
+  # ^C), the gate kills the whole group, so no `next build`, `next start` or
+  # checker outlives it.
+  set -m
+  parar() { local j; for j in $(jobs -p); do kill -- -"$j" 2>/dev/null; done; rm -f "$TMPD"/* 2>/dev/null; rmdir "$TMPD" 2>/dev/null; }
+  trap parar EXIT
+  # Una señal sale por EXIT, y EXIT para los grupos.
+  trap 'exit 143' TERM INT
 
-  # unidad <nombre> <huella> <función>: corre la función (o lee su verde) y deja
-  # <nombre>.rc, <nombre>.out (el informe: una línea por `ok`) y <nombre>.via.
+  # unidad <nombre> <días> <función> <rutas…>: corre la función (o lee su
+  # verde, si es de hace menos de <días>) y deja <nombre>.rc, .out y .via. El
+  # verde se guarda solo si la huella de después es la de antes: lo que cambió
+  # mientras corría no se archiva bajo el estado de partida.
   unidad() {
-    local nombre="$1" h="$2" fn="$3" s
-    if memo_leer "$nombre" "$h" > "$TMPD/$nombre.out" 2>/dev/null; then
+    # Dentro de la unidad, sin control de trabajos: lo que lance (`next start`)
+    # queda en su grupo, y matar el grupo lo alcanza.
+    set +m
+    local nombre="$1" dias="$2" fn="$3" h h2 s; shift 3
+    h="$(huella_de "$@")" || h=""
+    if [ -n "$h" ] && memo_leer "$nombre" "$h" "$dias" > "$TMPD/$nombre.out" 2>/dev/null; then
       echo 0 > "$TMPD/$nombre.rc"; echo "memo" > "$TMPD/$nombre.via"; return
     fi
     s=$(date +%s)
     "$fn" > "$TMPD/$nombre.out" 2>&1; echo $? > "$TMPD/$nombre.rc"
     echo "$(( $(date +%s) - s )) s" > "$TMPD/$nombre.via"
-    [ "$(cat "$TMPD/$nombre.rc")" = 0 ] && memo_guardar "$nombre" "$h" "$(cat "$TMPD/$nombre.out")"
+    h2="$(huella_de "$@")" || h2=""
+    if [ "$(cat "$TMPD/$nombre.rc")" = 0 ] && [ -n "$h" ] && [ "$h" = "$h2" ] && grep -q '^OK ' "$TMPD/$nombre.out"; then
+      memo_guardar "$nombre" "$h" "$(grep '^OK ' "$TMPD/$nombre.out")"
+    fi
   }
 
   # 5c. Nunca la cédula: ninguna instantánea de public/data ni tabla de
   #     public/tablas, que se sirven tal cual, ni el grafo compilado de datos/,
   #     que viaja en las funciones, la guarda, ni la que traiga un título
-  #     oficial. Lee ~230 MB; las tablas Parquet las lee DuckDB.
+  #     oficial. Lee ~230 MB; las formas, de scripts/privacidad.py; las tablas
+  #     Parquet las lee DuckDB.
   u_cedulas() {
     local ced
     ced="$(python3 "$(dirname "$0")/cedulas.py" "$ROOT" 2>&1; node "$(dirname "$0")/cedulas-tablas.mjs" "$ROOT" 2>&1)" && [ -z "$ced" ] \
-      && { echo "privacy: no cédula in public/data, public/tablas or datos"; return 0; }
-    printf '%s\n' "$ced" | head -5; return 1
+      && { echo "OK privacy: no cédula in public/data, public/tablas or datos"; return 0; }
+    echo "FAIL a cédula reached a snapshot — scripts/privacidad.py"; printf '%s\n' "$ced" | head -5; return 1
   }
   # 5d. The graph the server reads is what the builders say (§7.4):
   #     `describir()` reads datos/grafo/, so a stale one silently serves the
@@ -169,16 +186,17 @@ if [ "$modo" = "--completo" ]; then
   #     triple, with what the server's own reader gets.
   u_grafo() {
     local g
-    g="$(node scripts/build-grafo.mjs --comprobar 2>&1)" && { echo "compiled graph: $(printf '%s\n' "$g" | tail -1)"; return 0; }
-    printf '%s\n' "$g" | tail -10; return 1
+    g="$(node scripts/build-grafo.mjs --comprobar 2>&1)" && { echo "OK compiled graph: $(printf '%s\n' "$g" | tail -1)"; return 0; }
+    echo "FAIL compiled graph out of date — node scripts/build-grafo.mjs"; printf '%s\n' "$g" | tail -10; return 1
   }
   # 5e. The search says what the graph says (§8.2): every corpus entry that
   #     leads to a node leads to one compiled node, and every searchable node
   #     has its entry, save those `FUERA` leaves out by a stated rule.
   u_busqueda() {
-    [ -f public/data/busqueda/corpus.json ] || { echo "search ↔ graph: no corpus"; return 0; }
+    [ -f public/data/busqueda/corpus.json ] || return 0
     local c
-    c="$(node --no-warnings scripts/busqueda-grafo.mjs --comprobar 2>&1)" && { echo "search ↔ graph: $(printf '%s\n' "$c" | tail -1)"; return 0; }
+    c="$(node --no-warnings scripts/busqueda-grafo.mjs --comprobar 2>&1)" && { echo "OK search ↔ graph: $(printf '%s\n' "$c" | tail -1)"; return 0; }
+    echo "FAIL search and graph disagree — python3 scripts/build-busqueda.py (after build-grafo.mjs), then build-indice-busqueda.mjs"
     printf '%s\n' "$c" | tail -10; return 1
   }
   # 6. Build (the only real gate this repo has), then 6b the MCP server
@@ -189,7 +207,7 @@ if [ "$modo" = "--completo" ]; then
   u_build() {
     local log="${TMPDIR:-/tmp}/socratico-build.log" slog="${TMPDIR:-/tmp}/socratico-start.log" puerto srv listo=0 e s rc=0
     if ! timeout 600 npm run build > "$log" 2>&1; then echo "FAIL npm run build (see $log)"; tail -30 "$log"; return 1; fi
-    rm -f "$log"; echo "npm run build"
+    rm -f "$log"; echo "OK npm run build"
     puerto="$(node -e 'const s=require("net").createServer().listen(0,()=>{console.log(s.address().port);s.close()})')"
     node node_modules/next/dist/bin/next start -p "$puerto" > "$slog" 2>&1 &
     srv=$!
@@ -197,9 +215,9 @@ if [ "$modo" = "--completo" ]; then
     if [ "$listo" != 1 ]; then kill "$srv" 2>/dev/null; echo "FAIL next start did not answer in 60 s"; tail -5 "$slog"; return 1; fi
     timeout 300 node scripts/eval-mcp.mjs --url "http://localhost:$puerto/mcp" > "$TMPD/mcp.log" 2>&1 & e=$!
     timeout 300 node scripts/validar-grafo.mjs --url "http://localhost:$puerto" --personas 300 > "$TMPD/shacl.log" 2>&1 & s=$!
-    if wait "$e"; then echo "mcp: $(tail -1 "$TMPD/mcp.log")"
+    if wait "$e"; then echo "OK mcp: $(tail -1 "$TMPD/mcp.log")"
     else rc=1; echo "FAIL mcp: scripts/eval-mcp.mjs against next start"; grep -E 'FAIL|casos' "$TMPD/mcp.log" | head -15; fi
-    if wait "$s"; then echo "graph: $(tail -1 "$TMPD/shacl.log")"
+    if wait "$s"; then echo "OK graph: $(tail -1 "$TMPD/shacl.log")"
     else
       rc=1; echo "FAIL graph: scripts/validar-grafo.mjs (SHACL against lib/ontologia.ts)"
       # A crash (a 500, a timeout, out of memory) matches none of the report lines: its last lines instead.
@@ -209,38 +227,42 @@ if [ "$modo" = "--completo" ]; then
     return "$rc"
   }
 
-  # Lo que lee cada unidad: lo que cambia su veredicto, y nada menos.
-  unidad cedulas "$(huella_de public/data public/tablas datos .claude/hooks/cedulas.py .claude/hooks/cedulas-tablas.mjs package-lock.json)" u_cedulas &
-  unidad grafo "$(huella_de lib scripts public/data datos package-lock.json)" u_grafo &
-  unidad busqueda "$(huella_de lib scripts public/data datos package-lock.json)" u_busqueda &
+  # Lo que lee cada unidad: lo que cambia su veredicto, y nada menos. El build
+  # además lee fuentes en vivo al prerenderizar y `.env*` (ignorado por git):
+  # su verde dura un día, y su huella lleva las variables `NEXT_PUBLIC_*` y
+  # los `.env*` que haya.
+  unidad cedulas 30 u_cedulas public/data public/tablas datos scripts/privacidad.py .claude/hooks/cedulas.py .claude/hooks/cedulas-tablas.mjs package-lock.json &
+  unidad grafo 30 u_grafo lib scripts public/data datos package-lock.json &
+  unidad busqueda 30 u_busqueda lib scripts public/data datos package-lock.json &
   # El build lee el árbol entero, salvo los .md: ni Next ni el MCP ni el SHACL
-  # leen un documento (lo nombran en comentarios), y un cambio solo de docs
-  # no vuelve a construir.
-  unidad build "$(huella_de . ':(exclude)*.md')" u_build &
+  # leen un documento (lo nombran en comentarios).
+  HUELLA_EXTRA="$(env | grep '^NEXT_PUBLIC_' | sort; cat .env* 2>/dev/null | sha256sum)" unidad build 1 u_build . ':(exclude)*.md' &
   wait
+  set +m
 
   for n in cedulas grafo busqueda build; do
-    via="$(cat "$TMPD/$n.via" 2>/dev/null)"
-    if [ "$(cat "$TMPD/$n.rc" 2>/dev/null)" = 0 ]; then
-      while IFS= read -r linea; do [ -n "$linea" ] && ok "$linea ($via)"; done < "$TMPD/$n.out"
-    else
-      case "$n" in
-        cedulas) mal "a cédula reached a snapshot — scripts/privacidad.py ($via)" ;;
-        grafo) mal "compiled graph out of date — node scripts/build-grafo.mjs ($via)" ;;
-        busqueda) mal "search and graph disagree — python3 scripts/build-busqueda.py (after build-grafo.mjs), then build-indice-busqueda.mjs ($via)" ;;
-        build) mal "build, MCP or SHACL ($via)" ;;
+    via="$(cat "$TMPD/$n.via" 2>/dev/null)"; rc="$(cat "$TMPD/$n.rc" 2>/dev/null)"; dijo=0
+    while IFS= read -r linea; do
+      case "$linea" in
+        "OK "*) ok "${linea#OK } ($via)"; dijo=1 ;;
+        "FAIL "*) mal "${linea#FAIL } ($via)"; dijo=1 ;;
+        *) printf '       %s\n' "$linea" ;;
       esac
-      sed 's/^/       /' "$TMPD/$n.out" | head -40
-    fi
+    done < <(head -60 "$TMPD/$n.out" 2>/dev/null)
+    # A unit that failed without saying which check (it died, it was killed) still fails.
+    [ "$rc" != 0 ] && [ "$dijo" = 0 ] && mal "$n: the unit ended with status ${rc:-?} and no report ($via)"
+    [ "$rc" != 0 ] && ! grep -q '^FAIL ' "$TMPD/$n.out" 2>/dev/null && [ "$dijo" = 1 ] && mal "$n: the unit ended with status $rc ($via)"
   done
-  rm -f "$TMPD"/* 2>/dev/null; rmdir "$TMPD" 2>/dev/null; trap - EXIT
+  trap - EXIT TERM INT; parar
 fi
 
 # 7. The stamp. `main` deploys to production on every push, so the gate has to
 # sit IN FRONT of the push — CI behind it cannot un-ship a red. A full green on
 # a clean tree stamps HEAD's sha in .git/harness-gate; guard-bash.sh refuses a
 # push to main without a stamp that matches. A rebase or a new commit voids it
-# on purpose: the pre-rebase green never counts for the tree being pushed.
+# on purpose: the stamp is earned by a run over the tree being pushed. A unit
+# whose inputs the rebase did not touch answers from its memo, which holds
+# only because its key names every file it reads (lib.sh, `huella_de`).
 if [ "$fallos" -eq 0 ] && [ "$modo" = "--completo" ]; then
   if [ -z "$(git status --porcelain 2>/dev/null)" ]; then
     git rev-parse HEAD > "$(git rev-parse --git-dir)/harness-gate" 2>/dev/null \
