@@ -213,8 +213,10 @@ if [ "$modo" = "--completo" ]; then
   unidad cedulas "$(huella_de public/data public/tablas datos .claude/hooks/cedulas.py .claude/hooks/cedulas-tablas.mjs package-lock.json)" u_cedulas &
   unidad grafo "$(huella_de lib scripts public/data datos package-lock.json)" u_grafo &
   unidad busqueda "$(huella_de lib scripts public/data datos package-lock.json)" u_busqueda &
-  # El build lee el árbol entero.
-  unidad build "$(huella_de .)" u_build &
+  # El build lee el árbol entero, salvo los .md: ni Next ni el MCP ni el SHACL
+  # leen un documento (lo nombran en comentarios), y un cambio solo de docs
+  # no vuelve a construir.
+  unidad build "$(huella_de . ':(exclude)*.md')" u_build &
   wait
 
   for n in cedulas grafo busqueda build; do
