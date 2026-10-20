@@ -31,6 +31,7 @@ export const claves = {
   sql: (q: string) => ["sql", q] as const,
   /** La ontología compacta del recorrido de clases (`/api/explorar/ontologia`). */
   ontologia: ["ontologia"] as const,
+  fuentes: ["fuentes"] as const,
 };
 
 /**
@@ -85,6 +86,10 @@ export function preguntarAlGrafo<T>(q: string, signal?: AbortSignal) {
 
 export function leerOntologia<T>(signal?: AbortSignal) {
   return leerJson<T>("/api/explorar/ontologia", signal);
+}
+
+export function leerFuentes<T>(signal?: AbortSignal) {
+  return leerJson<T>("/api/explorar/fuentes", signal);
 }
 
 /** Lo que responde `/api/sql` (`lib/grafo-sql.ts`). */

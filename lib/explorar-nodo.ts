@@ -4,7 +4,8 @@ import { metaGrafo, type GrafoConNombre } from "@/lib/grafo-compilado";
 import { datosDe } from "@/lib/grafo-hechos";
 import type { TipoEntrada } from "@/lib/espacios";
 import { CLASES, PROPIEDADES, VERSION, curie } from "@/lib/ontologia";
-import { ARISTAS_POR_GRUPO, type Inspeccion, type OntologiaVista, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
+import { ARISTAS_POR_GRUPO, type FuentesVista, type Inspeccion, type OntologiaVista, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
+import { CURIE_DE_TIPO } from "@/lib/grafo-fuentes";
 
 /**
  * El inspector del banco de trabajo del grafo (la portada, `/`,
@@ -117,29 +118,41 @@ export async function pulsoDelGrafo(): Promise<Pulso | null> {
     .sort((a, b) => b.nodos - a.nodos);
   const fuentes = m.grafos
     .filter((g) => g.clave !== "plataforma")
-    .map((g) => ({ clave: g.clave, etiqueta: etiquetaUnica(g, m.grafos), corte: g.corte, derivado: !!g.derivado }));
+    .map((g) => ({ clave: g.clave, etiqueta: etiquetaUnica(g, m.grafos), corte: g.corte, derivado: !!g.derivado, triples: m.porFuente?.[g.clave]?.triples ?? 0 }));
   return { triples: m.triples, nodos, clases: Object.keys(m.tipos).length, grafos: m.grafos.length, compilado: m.generado, porClase, fuentes };
 }
 
-/** La clase de la ontología de cada tipo de nodo del grafo compilado. */
-const CURIE_DE_TIPO: Record<TipoNodoRdf, string> = {
-  funcionario: "soc:Persona",
-  institucion: "soc:Institucion",
-  "entidad-financiera": "soc:EntidadFinanciera",
-  empresa: "soc:Empresa",
-  decreto: "soc:Decreto",
-  provincia: "soc:Provincia",
-  proveedor: "soc:Proveedor",
-  proceso: "soc:ProcesoDeContratacion",
-  obra: "soc:ProyectoDeInversion",
-  ley: "soc:Ley",
-  resolucion: "soc:Resolucion",
-  iniciativa: "soc:Iniciativa",
-  documento: "soc:Documento",
-  conjunto: "soc:ConjuntoDeDatos",
-  sentencia: "soc:Sentencia",
-  votacion: "soc:Votacion",
-};
+
+/**
+ * Las fuentes del grafo para la sección «Fuentes» del banco: cada grafo con
+ * nombre —una fuente con su corte, o una regla— con lo que el compilador
+ * contó que aporta (`porFuente`). La plataforma misma (la página de cada nodo)
+ * no es una fuente y no sale.
+ */
+export async function fuentesDelGrafo(): Promise<FuentesVista | null> {
+  const m = await metaGrafo();
+  if (!m?.porFuente) return null;
+  const porFuente = m.porFuente;
+  const fuentes = m.grafos
+    .filter((g) => g.clave !== "plataforma")
+    .map((g) => {
+      const a = porFuente[g.clave];
+      return {
+        clave: g.clave,
+        etiqueta: etiquetaUnica(g, m.grafos),
+        descripcion: g.descripcion,
+        urls: g.fuentes,
+        corte: g.corte,
+        deriva: g.derivado ? g.derivado.de.filter((x) => x !== "plataforma") : null,
+        aporte: a
+          ? { triples: a.triples, nodos: a.nodos, clases: Object.entries(a.clases), predicados: Object.entries(a.predicados), aristas: a.aristas, cruce: a.cruce }
+          : null,
+      };
+    })
+    .sort((x, y) => (y.aporte?.triples ?? 0) - (x.aporte?.triples ?? 0));
+  const triples = Object.values(porFuente).reduce((s, a) => s + a.triples, 0);
+  return { compilado: m.generado, triples, fuentes };
+}
 
 /**
  * La ontología, compacta, para el recorrido de clases del banco: cada clase

@@ -32,16 +32,28 @@ export function useAbiertos() {
  * El tablero de inicio del banco de trabajo: lo que hay en el grafo y lo que
  * pasa ahora, antes de buscar nada. Cuatro cifras (los nodos y los triples
  * del compilado, lo abierto a ofertas hoy según la DGCP, las fuentes), los
- * nodos por clase, las licitaciones abiertas más recientes —en vivo— y cada
- * fuente con su fecha de corte. Cada cifra dice de dónde sale y a qué fecha:
+ * nodos por clase, las licitaciones abiertas más recientes —en vivo— y las
+ * fuentes que más triples afirman, cada una hacia lo que aporta (la sección
+ * «Fuentes»). Cada cifra dice de dónde sale y a qué fecha:
  * las del grafo son de su compilación; la de la DGCP, de la lectura de hace
  * un momento.
  */
-export function Tablero({ pulso, hrefClase }: { pulso: Pulso | null; /** La clase abierta en el recorrido de la ontología. */ hrefClase: (curie: string) => string }) {
+export function Tablero({
+  pulso,
+  hrefClase,
+  hrefFuente,
+}: {
+  pulso: Pulso | null;
+  /** La clase abierta en el recorrido de la ontología. */
+  hrefClase: (curie: string) => string;
+  /** Una fuente abierta en la sección «Fuentes» (`null`: todas). */
+  hrefFuente: (clave: string | null) => string;
+}) {
   const abiertos = useAbiertos();
   // Fuentes con corte: las instantáneas fechadas. Las reglas se cuentan aparte, y lo que no tiene corte (las provincias) no cuenta.
   const conCorte = pulso?.fuentes.filter((f) => !f.derivado && f.corte) ?? [];
   const reglas = pulso?.fuentes.filter((f) => f.derivado) ?? [];
+  const fuentesMayores = [...conCorte].sort((a, b) => b.triples - a.triples).slice(0, 8);
 
   return (
     <div className="space-y-3 lg:space-y-4">
@@ -72,6 +84,7 @@ export function Tablero({ pulso, hrefClase }: { pulso: Pulso | null; /** La clas
           <Cifra
             etiqueta="Fuentes con corte"
             valor={pulso ? formatInt(conCorte.length) : "—"}
+            href={pulso ? hrefFuente(null) : undefined}
             nota={pulso ? `y ${formatInt(reglas.length)} reglas que derivan de ellas` : undefined}
           />
         </TiraDeCifras>
@@ -106,9 +119,9 @@ export function Tablero({ pulso, hrefClase }: { pulso: Pulso | null; /** La clas
           <p className="px-4 pb-4 text-sm text-ink-soft">La DGCP no tiene ningún proceso abierto a ofertas en este momento.</p>
         ) : (
           <>
-            {/* Por debajo de `sm`: tarjetas. */}
+            {/* Por debajo de `sm`: tarjetas, las cuatro más recientes; el resto, en la lista con filtros. */}
             <ul className="divide-y divide-hairline border-t border-hairline sm:hidden">
-              {abiertos.data.filas.map((f) => (
+              {abiertos.data.filas.slice(0, 4).map((f) => (
                 <li key={f.href ?? f.titulo} className="relative px-4 py-3">
                   {f.marca && (
                     <MarcaEstado tono={f.marca.tono} title={f.marca.original ?? undefined} className="mb-1">
@@ -192,36 +205,27 @@ export function Tablero({ pulso, hrefClase }: { pulso: Pulso | null; /** La clas
         )}
 
         {pulso && (
-          <Card as="section" aria-labelledby="tablero-fuentes">
-            <div className="px-4 pb-2 pt-3">
-              <CardTitle id="tablero-fuentes">De dónde sale el grafo</CardTitle>
-              <p className="mt-0.5 text-xs text-ink-soft">
-                Cada triple vive en el grafo con nombre de su fuente y su corte, o de la regla que lo deduce de otras.
-              </p>
-            </div>
-            <Table className="tabla-densa">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fuente o regla</TableHead>
-                  <TableHead className="text-right">Corte</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pulso.fuentes.map((f) => (
-                  <TableRow key={f.clave}>
-                    <TableCell className="py-1.5 text-[13px]">{f.etiqueta}</TableCell>
-                    <TableCell numerica className="whitespace-nowrap py-1.5 text-[13px] text-ink-soft">
-                      {f.derivado ? "regla" : f.corte ? formatFecha(f.corte) : "sin corte"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <p className="border-t border-hairline px-4 py-2 text-xs text-ink-soft">
-              <Link href="/fuentes" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
-                Qué alimenta la plataforma, con sus límites
-              </Link>
+          <Card as="section" aria-labelledby="tablero-fuentes" className="px-4 py-3">
+            <CardTitle id="tablero-fuentes">De dónde sale el grafo</CardTitle>
+            <p className="mt-0.5 text-xs text-ink-soft">
+              Las fuentes que más triples afirman. Cada una abre lo que aporta: sus clases, su esquema y dónde se cruza con otras.
             </p>
+            <BarrasHorizontales
+              className="mt-3"
+              etiqueta="Triples que afirma cada fuente en el grafo compilado"
+              barras={fuentesMayores.map((f) => ({
+                clave: f.clave,
+                etiqueta: f.etiqueta,
+                valor: f.triples,
+                cifra: formatInt(f.triples),
+                detalle: f.corte ? `corte del ${formatFecha(f.corte)}` : undefined,
+                href: hrefFuente(f.clave),
+              }))}
+              lineas={1}
+            />
+            <Button asChild variant="secondary" className="mt-3">
+              <Link href={hrefFuente(null)}>{`Ver las ${formatInt(conCorte.length)} fuentes y ${formatInt(reglas.length)} reglas`}</Link>
+            </Button>
           </Card>
         )}
       </div>

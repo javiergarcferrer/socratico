@@ -6,7 +6,7 @@
  * arma una descripción al pedirla: la lee de ahí (`lib/grafo-compilado.ts`,
  * y el schema.org de cada ficha, `lib/grafo-ld.ts`).
  *
- *   datos/grafo/meta.json                  conteos, huella, inventario y la primera clave de cada fragmento
+ *   datos/grafo/meta.json                  conteos, huella, inventario, lo que aporta cada fuente (`porFuente`) y la primera clave de cada fragmento
  *   datos/grafo/nodos/<tipo>/NNN.json.br   la descripción entera de cada nodo
  *   datos/grafo/ld/<tipo>/NNN.json.br      el schema.org de cada ficha
  *   datos/grafo/ld/meta.json               la primera clave de cada fragmento de schema.org
@@ -80,6 +80,7 @@ const T = await lib("tablas-compras");
 const ESQ = await lib("ontologia-esquemas");
 const O = await lib("ontologia");
 const RZ = await lib("raiz");
+const AF = await lib("grafo-fuentes");
 
 const t0 = performance.now();
 const segundos = () => `${Math.round((performance.now() - t0) / 1000)} s`;
@@ -351,6 +352,8 @@ async function compilar(todas) {
   const escritos = [];
   let empresasSolas = 0;
   let triplesTotal = 0;
+  // Lo que aporta cada fuente: clases, predicados y aristas, cada cuádruple una vez (`lib/grafo-fuentes.ts`).
+  const aportes = new AF.AportesPorFuente();
   for (const tipo of N.TIPOS_COMPILADOS) {
     const nodos = [];
     const lds = [];
@@ -360,6 +363,7 @@ async function compilar(todas) {
       const n = { tipo, id: clave };
       const d = await C.describirEnVivo(n);
       if (!d) continue;
+      aportes.sumar(n, d);
       for (const f of contraLaOntologia(d)) fuera.push(f);
       const ld = LD.aSchemaOrg((await C.describirEnVivo(n, true)).triples, N.iriDe(n));
       let conRegistro = true;
@@ -420,6 +424,7 @@ async function compilar(todas) {
     huella: huella.digest("hex"),
     inventario: await C.inventarioEnVivo(),
     wikidata: await C.enlacesWikidataEnVivo(),
+    porFuente: aportes.resultado(),
   };
   writeFileSync(path.join(SALIDA, "ld", "meta.json"), `${JSON.stringify({ formato: N.FORMATO_GRAFO, limites: limitesLd })}\n`);
   // El índice de nombres y los decretos de cada firma: lo que buscan `buscarNodos` y `signed_decrees` sin abrir las instantáneas.
@@ -451,6 +456,8 @@ async function comprobar(todas) {
   if (meta.formato !== N.FORMATO_GRAFO || metaLd.formato !== N.FORMATO_GRAFO) anotar("meta", `formato ${meta.formato}, se esperaba ${N.FORMATO_GRAFO}`);
   let nodos = 0;
   let fichas = 0;
+  // Lo que aporta cada fuente, recontado sobre el compilado leído por `describir()`.
+  const aportes = new AF.AportesPorFuente();
   for (const tipo of N.TIPOS_COMPILADOS) {
     // La descripción entera, por el mismo `describir()` que llama el servidor.
     let conRegistro = 0;
@@ -460,7 +467,9 @@ async function comprobar(todas) {
       const vivo = await C.describirEnVivo(n);
       if (!vivo) continue;
       nodos++;
-      const por = diferencia(await R.describir(n), vivo);
+      const compilado = await R.describir(n);
+      if (compilado) aportes.sumar(n, compilado);
+      const por = diferencia(compilado, vivo);
       if (por) anotar(`${tipo}:${clave}`, por);
       for (const f of contraLaOntologia(vivo)) anotar(`${tipo}:${clave} (ontología)`, f);
       const conRegistroEste = tipo !== "empresa" || diferencia(vivo, N.describirEmpresaSola(await E.empresaPorRnc(clave))) !== null;
@@ -492,6 +501,7 @@ async function comprobar(todas) {
   if (JSON.stringify(compras) !== JSON.stringify(await T.publicadoPorInstitucion(I.INSTITUCIONES))) anotar("compras", "lo publicado por institución cambió");
   await comprobarNombresYFirmas(meta, anotar);
   if (JSON.stringify(wikidata) !== JSON.stringify(meta.wikidata)) anotar("wikidata", "los enlaces a Wikidata cambiaron");
+  if (JSON.stringify(aportes.resultado()) !== JSON.stringify(meta.porFuente)) anotar("porFuente", "lo que aporta cada fuente no es lo que dice el compilado");
   return { malos: malos.length, nodos, fichas, triples: meta.triples };
 }
 

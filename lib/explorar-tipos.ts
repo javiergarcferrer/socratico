@@ -109,7 +109,7 @@ export interface Pulso {
   /** Cuántos nodos tiene cada clase, de la más poblada a la menos. */
   porClase: { tipo: string; clase: string; nodos: number; /** La clase de la ontología: `soc:Institucion`. */ curie: string }[];
   /** Los grafos con nombre: de qué fuente y de qué corte, o de qué regla, sale cada triple. */
-  fuentes: { clave: string; etiqueta: string; corte: string | null; derivado: boolean }[];
+  fuentes: { clave: string; etiqueta: string; corte: string | null; derivado: boolean; /** Los triples que afirma (`porFuente`). */ triples: number }[];
 }
 
 /** Lo abierto a ofertas en todo el Estado ahora, leído de la DGCP (`/api/explorar/abiertos`). */
@@ -203,4 +203,38 @@ export interface OntologiaVista {
   version: string;
   clases: ClaseVista[];
   propiedades: PropiedadVista[];
+}
+
+/** Lo que una fuente aporta al grafo (`porFuente` de `datos/grafo/meta.json`, `lib/grafo-fuentes.ts`). */
+export interface AporteVista {
+  triples: number;
+  nodos: number;
+  /** [clase del sujeto, triples], de más a menos. */
+  clases: [string, number][];
+  /** [predicado, triples], de más a menos. */
+  predicados: [string, number][];
+  /** [clase del sujeto, predicado, clase del objeto o «dato»/«fuera», triples]. */
+  aristas: [string, string, string, number][];
+  cruce: { ruta: string; titulo: string; otra: string; este: [string, string]; aquel: [string, string] } | null;
+}
+
+/** Una fuente o una regla del grafo, con lo que aporta. */
+export interface FuenteVista {
+  clave: string;
+  etiqueta: string;
+  descripcion: string;
+  /** Las direcciones de donde se lee. */
+  urls: string[];
+  corte: string | null;
+  /** Una regla: las fuentes de las que deduce. */
+  deriva: string[] | null;
+  aporte: AporteVista | null;
+}
+
+/** Las fuentes del grafo, para la sección «Fuentes» del banco (`/api/explorar/fuentes`). */
+export interface FuentesVista {
+  compilado: string;
+  /** Los triples distintos del grafo (la suma de los de cada fuente y regla). */
+  triples: number;
+  fuentes: FuenteVista[];
 }

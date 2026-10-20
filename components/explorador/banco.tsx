@@ -6,18 +6,20 @@ import { keepPreviousData, useIsFetching, useQuery } from "@tanstack/react-query
 import { createSerializer, parseAsInteger, parseAsJson, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import Plegable from "@/components/plegable";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { EsqueletoFilas } from "@/components/esqueleto";
 import { CampoBusqueda } from "@/components/campo-busqueda";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { useRebotado } from "@/components/rebotado";
-import { claves, explorarGrafo, leerOntologia } from "@/lib/consultas";
+import { claves, explorarGrafo, leerFuentes, leerOntologia } from "@/lib/consultas";
 import { enlace } from "@/lib/grafo";
 import { BUSQUEDAS } from "@/lib/secciones";
 import { formatFecha, formatHora } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { cn } from "@/lib/cn";
-import { CLAVES_FACETA, type Exploracion, type OntologiaVista, type Pulso } from "@/lib/explorar-tipos";
+import { CLAVES_FACETA, type Exploracion, type FuentesVista, type OntologiaVista, type Pulso } from "@/lib/explorar-tipos";
 import { TIPOS_OBJETO, tipoObjeto, type PedidoObjetos } from "@/lib/objetos";
 import { Inspector, type PasoRastro } from "./inspector";
 import { Preguntar } from "./preguntar";
@@ -26,6 +28,7 @@ import { Facetas, Resultados } from "./resultados";
 import { Tablero, useAbiertos } from "./tablero";
 import { ClasesDeObjeto, FiltrosDeObjeto, Objetos } from "./objetos";
 import { ArbolDeClases, Ontologia } from "./ontologia";
+import { Fuentes, ListaDeFuentes } from "./fuentes";
 import { clicSimple } from "./clic";
 
 const MODOS = ["buscar", "preguntar"] as const;
@@ -33,7 +36,7 @@ const MODOS = ["buscar", "preguntar"] as const;
 /** Lo que recorre «Buscar»: la misma frase que la paleta pone junto al destino (`BUSQUEDAS`). */
 const ALCANCE = BUSQUEDAS.find((b) => b.href === "/")?.alcance;
 
-const SECCIONES_BANCO = ["objetos", "ontologia"] as const;
+const SECCIONES_BANCO = ["objetos", "fuentes", "ontologia"] as const;
 type SeccionBanco = "tablero" | (typeof SECCIONES_BANCO)[number];
 
 /** Los filtros de categoría del explorador de objetos en la URL: `{"estado":"Terminado"}`. */
@@ -62,6 +65,8 @@ const ESTADO_URL = {
   hoja: parseAsInteger.withDefault(1),
   // El recorrido de la ontología: la clase abierta (`soc:Institucion`).
   clase: parseAsString,
+  // Las fuentes: la abierta, por la clave de su grafo con nombre (`padron`).
+  fuente: parseAsString,
 };
 
 /** La dirección del banco con un estado dado: los enlaces que se abren en otra pestaña llevan todo. */
@@ -197,6 +202,7 @@ export function Banco({
   const hacia = (ruta: string) => serializar("/", { ...url, nodo: ruta, vista: "red" });
   const hrefNodo = (ruta: string) => serializar("/", { ...url, nodo: ruta });
   const hrefClase = (curie: string) => serializar("/", { ...url, q: null, modo: null, seccion: "ontologia", clase: curie });
+  const hrefFuente = (clave: string | null) => serializar("/", { ...url, q: null, modo: null, seccion: "fuentes", fuente: clave });
 
   /*
     Lo que ocupa el centro: una búsqueda o una pregunta mandan mientras haya
@@ -204,12 +210,19 @@ export function Banco({
   */
   const seccion: SeccionBanco = url.seccion ?? "tablero";
   const enCentro: "pregunta" | "busqueda" | SeccionBanco = preguntar && q.length >= 3 ? "pregunta" : buscando ? "busqueda" : seccion;
-  const sinInspector = !url.nodo && (enCentro === "objetos" || enCentro === "ontologia");
+  const sinInspector = !url.nodo && (enCentro === "objetos" || enCentro === "ontologia" || enCentro === "fuentes");
   // La ontología se pide al abrir su sección: no viaja con la portada.
   const ontologia = useQuery({
     queryKey: claves.ontologia,
     queryFn: ({ signal }) => leerOntologia<OntologiaVista>(signal),
-    enabled: enCentro === "ontologia",
+    enabled: enCentro === "ontologia" || enCentro === "fuentes",
+    staleTime: Infinity,
+  });
+  // Lo que aporta cada fuente: lo leen la sección «Fuentes» y la ficha de cada clase.
+  const fuentes = useQuery({
+    queryKey: claves.fuentes,
+    queryFn: ({ signal }) => leerFuentes<FuentesVista>(signal),
+    enabled: enCentro === "fuentes" || enCentro === "ontologia",
     staleTime: Infinity,
   });
   const irA = (s: SeccionBanco, extra: Partial<typeof url> = {}) => {
@@ -322,7 +335,7 @@ export function Banco({
         )}
       >
         {/* El panel izquierdo: las clases de lo hallado y los puntos de partida. */}
-        <aside aria-label={enCentro === "objetos" ? "Clase y filtros" : enCentro === "ontologia" ? "Clases de la ontología" : "Clases y puntos de partida"} className="hidden border-r border-hairline bg-surface lg:block">
+        <aside aria-label={enCentro === "objetos" ? "Clase y filtros" : enCentro === "ontologia" ? "Clases de la ontología" : enCentro === "fuentes" ? "Fuentes del grafo" : "Clases y puntos de partida"} className="hidden border-r border-hairline bg-surface lg:block">
           <div className="sticky top-[var(--alto-cabecera)] max-h-[calc(100dvh-var(--alto-cabecera))] space-y-5 overflow-y-auto px-3 py-4">
             {enCentro === "objetos" ? (
               <>
@@ -334,6 +347,8 @@ export function Banco({
                 </nav>
                 <FiltrosDeObjeto pedido={pedido} onFiltro={onFiltro} idBase="faceta-panel" />
               </>
+            ) : enCentro === "fuentes" ? (
+              fuentes.data && <ListaDeFuentes datos={fuentes.data} activa={url.fuente} hrefFuente={hrefFuente} />
             ) : enCentro === "ontologia" ? (
               <div>
                 <p className="rotulo mb-2 px-1 text-ink-soft">Clases de la ontología</p>
@@ -382,9 +397,39 @@ export function Banco({
               onTipo={onTipo}
               onAbrir={abrirDesdeLista}
             />
+          ) : enCentro === "fuentes" ? (
+            fuentes.data ? (
+              <Fuentes
+                datos={fuentes.data}
+                ontologia={ontologia.data}
+                fuente={url.fuente}
+                hrefFuente={hrefFuente}
+                hrefClase={hrefClase}
+                hrefNodo={hrefNodo}
+                onAbrir={abrirDesdeLista}
+              />
+            ) : fuentes.isError ? (
+              <EstadoVacio
+                variante="caida"
+                titulo="No se pudieron leer las fuentes del grafo."
+                accion={
+                  <Button variant="secondary" onClick={() => void fuentes.refetch()}>
+                    Intentar de nuevo
+                  </Button>
+                }
+              >
+                La búsqueda, el tablero, los objetos y la ontología siguen en pie. Qué alimenta la plataforma, con sus límites, se lee en
+                /fuentes.
+              </EstadoVacio>
+            ) : (
+              <div role="status" aria-busy="true">
+                <span className="sr-only">Leyendo las fuentes del grafo…</span>
+                <EsqueletoFilas n={8} />
+              </div>
+            )
           ) : enCentro === "ontologia" ? (
             ontologia.data ? (
-              <Ontologia ontologia={ontologia.data} clase={url.clase} hrefClase={hrefClase} onObjetos={onTipo} />
+              <Ontologia ontologia={ontologia.data} fuentes={fuentes.data} clase={url.clase} hrefClase={hrefClase} hrefFuente={hrefFuente} onObjetos={onTipo} />
             ) : ontologia.isError ? (
               <EstadoVacio
                 variante="caida"
@@ -405,11 +450,21 @@ export function Banco({
             )
           ) : (
             <>
-              <Tablero pulso={pulso} hrefClase={hrefClase} />
-              {/* En el teléfono no hay panel izquierdo: los puntos de partida van debajo del tablero. */}
-              <div className="lg:hidden">
-                <PuntosDePartida ejemplos={ejemplos} preguntas={preguntas} onAbrir={abrirDesdeLista} />
-              </div>
+              {/*
+                En el teléfono no hay panel izquierdo: los puntos de partida van
+                encima del tablero, plegados, que es por donde se empieza.
+              */}
+              <Card as="section" aria-label="Por dónde empezar" className="overflow-hidden lg:hidden">
+                <Plegable
+                  etiqueta={`Por dónde empezar: ${preguntas.length + ejemplos.length} preguntas y nodos`}
+                  etiquetaCerrar="Ocultar por dónde empezar"
+                >
+                  <div className="px-3 py-3">
+                    <PuntosDePartida ejemplos={ejemplos} preguntas={preguntas} onAbrir={abrirDesdeLista} />
+                  </div>
+                </Plegable>
+              </Card>
+              <Tablero pulso={pulso} hrefClase={hrefClase} hrefFuente={hrefFuente} />
             </>
           )}
         </section>
@@ -421,9 +476,8 @@ export function Banco({
               <div className="px-4 py-5 text-sm leading-relaxed text-ink-soft">
                 <p className="rotulo text-ink-soft">Inspector</p>
                 <p className="mt-2">
-                  Abre cualquier resultado que sea un nodo y aparece aquí: lo que dice de sí, lo que su fuente dice ahora, con
-                  quién se liga y de qué fuente y de qué fecha sale cada dato. Cada vecino se abre aquí mismo: así se recorre el
-                  grafo, de arista en arista.
+                  Abre un resultado o un nodo de partida: aquí se lee, con la fuente y la fecha de cada dato, y cada vecino se abre
+                  aquí mismo.
                 </p>
               </div>
             )}
@@ -446,18 +500,20 @@ const ETIQUETA_CENTRO: Record<"pregunta" | "busqueda" | SeccionBanco, string> = 
   busqueda: "Resultados de la búsqueda",
   tablero: "Tablero",
   objetos: "Objetos",
+  fuentes: "Fuentes",
   ontologia: "Ontología",
 };
 
 const SECCIONES_BARRA: { id: SeccionBanco; etiqueta: string; nota: string }[] = [
   { id: "tablero", etiqueta: "Tablero", nota: "Lo que hay en el grafo y lo abierto ahora" },
   { id: "objetos", etiqueta: "Objetos", nota: "Cada clase como tabla: filtra, ordena, suma" },
+  { id: "fuentes", etiqueta: "Fuentes", nota: "Qué aporta cada fuente al grafo y dónde se cruzan" },
   { id: "ontologia", etiqueta: "Ontología", nota: "Las clases y cómo se ligan" },
 ];
 
 /**
  * Las secciones de la mesa, como las pestañas de la barra de una aplicación
- * de Blueprint: el tablero, el explorador de objetos y el recorrido de la
+ * de Blueprint: el tablero, el explorador de objetos, las fuentes y el recorrido de la
  * ontología. Son enlaces (se abren en otra pestaña con todo su estado) que,
  * con un clic simple, cambian la sección sin recargar. Mientras se busca o se
  * pregunta, la pestaña encendida es la búsqueda, y tocar una sección la deja.
@@ -502,20 +558,14 @@ function BarraDeSecciones({
 
 /**
  * La barra de estado de la mesa, como la de una aplicación de análisis: de
- * cuándo es el grafo, cuánto tiene y si la fuente en vivo contesta. Comparte
- * la consulta de lo abierto ahora con el tablero.
+ * cuándo es el grafo y si la fuente en vivo contesta (cuánto tiene lo dice el
+ * tablero, una vez). Comparte la consulta de lo abierto ahora con el tablero.
  */
 function BarraDeEstado({ pulso }: { pulso: Pulso | null }) {
   const abiertos = useAbiertos();
   return (
     <footer aria-label="Estado del grafo" className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-hairline bg-surface px-3 py-1.5 font-mono text-xs text-ink-soft lg:px-4">
       {pulso?.compilado && <span>Grafo compilado el {formatFecha(pulso.compilado)}</span>}
-      {pulso && (
-        <span>
-          {formatInt(pulso.nodos)} nodos · {formatInt(pulso.triples)} triples · {formatInt(pulso.fuentes.filter((f) => !f.derivado).length)} fuentes y{" "}
-          {formatInt(pulso.fuentes.filter((f) => f.derivado).length)} reglas
-        </span>
-      )}
       <span className="inline-flex items-center gap-1.5" aria-live="polite">
         <span
           aria-hidden

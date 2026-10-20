@@ -7,6 +7,7 @@ export { BarrasHorizontales, FilaBarra, MarcaBarra, type Barra } from "./barras-
 export { SerieTemporal, type Punto } from "./serie-temporal";
 export { BarraApilada, type Segmento } from "./barra-apilada";
 export { MatrizMensual, type FilaMatriz } from "./matriz-mensual";
+export { MatrizCruzada, type FilaCruzada, type ColumnaCruzada } from "./matriz-cruzada";
 export { Multiples, maximoComun } from "./multiples";
 export { Leyenda, EscalaSecuencial, type EntradaLeyenda } from "./leyenda";
 export { VerComoTabla, type ColumnaTabla } from "./ver-como-tabla";

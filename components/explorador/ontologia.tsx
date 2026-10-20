@@ -10,7 +10,8 @@ import { RedVecinos, type VecinoRed } from "@/components/graficos";
 import { formatInt } from "@/lib/nomina";
 import { cn } from "@/lib/cn";
 import { tipoDeClase } from "@/lib/objetos";
-import type { ClaseVista, OntologiaVista, PropiedadVista } from "@/lib/explorar-tipos";
+import type { ClaseVista, FuentesVista, OntologiaVista, PropiedadVista } from "@/lib/explorar-tipos";
+import { FuentesDeClase } from "./fuentes";
 
 /** Un término de la ontología como se lee en llano, si es de aquí; el nombre corto, si es de fuera (`org:Organization`, `xsd:date`). */
 function nombreDe(o: OntologiaVista, curie: string): string {
@@ -101,13 +102,18 @@ export function ArbolDeClases({ ontologia, clase, hrefClase }: { ontologia: Onto
  */
 export function Ontologia({
   ontologia,
+  fuentes,
   clase,
   hrefClase,
+  hrefFuente,
   onObjetos,
 }: {
   ontologia: OntologiaVista;
+  /** Lo que aporta cada fuente, si ya llegó: la ficha de una clase dice cuáles la llenan. */
+  fuentes?: FuentesVista;
   clase: string | null;
   hrefClase: (curie: string) => string;
+  hrefFuente: (clave: string) => string;
   /** Abre la clase en el explorador de objetos, si tiene tabla. */
   onObjetos: (tipo: string) => void;
 }) {
@@ -122,7 +128,14 @@ export function Ontologia({
           </div>
         </Plegable>
       </Card>
-      {c ? <FichaDeClase ontologia={ontologia} c={c} hrefClase={hrefClase} onObjetos={onObjetos} /> : <Resumen ontologia={ontologia} hrefClase={hrefClase} />}
+      {c ? (
+        <>
+          <FichaDeClase ontologia={ontologia} c={c} hrefClase={hrefClase} onObjetos={onObjetos} />
+          {fuentes && <FuentesDeClase datos={fuentes} curie={c.curie} hrefFuente={hrefFuente} />}
+        </>
+      ) : (
+        <Resumen ontologia={ontologia} hrefClase={hrefClase} />
+      )}
     </div>
   );
 }

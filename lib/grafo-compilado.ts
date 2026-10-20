@@ -1,3 +1,4 @@
+import type { AporteFuente } from "@/lib/grafo-fuentes";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { brotliDecompressSync } from "node:zlib";
@@ -82,6 +83,8 @@ export interface MetaGrafo {
   huella: string;
   inventario: ClaseContada[];
   wikidata: { total: number; generado: string | null; porTipo: Record<string, number> };
+  /** Lo que aporta cada grafo con nombre: clases, predicados, aristas y un cruce (`lib/grafo-fuentes.ts`). */
+  porFuente?: Record<string, AporteFuente>;
 }
 
 let metaMemo: Promise<MetaGrafo | null> | null = null;
