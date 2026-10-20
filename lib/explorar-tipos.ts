@@ -5,7 +5,7 @@
  * servidor (`lib/explorar.ts` es quien los llena).
  */
 
-/** Una fila del resultado: un nodo del grafo o un registro del índice que no lo es (una sentencia, un cargo de la nómina). */
+/** Una fila del resultado: un nodo del grafo o un registro del índice que no lo es (un cargo de la nómina, un legislador). */
 export interface FilaExplorada {
   /** Única en la lista: la ruta del nodo, o la dirección del registro. */
   clave: string;

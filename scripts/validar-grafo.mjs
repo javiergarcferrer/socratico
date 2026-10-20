@@ -13,13 +13,14 @@
  *    personas naturales;
  *  · una muestra de personas y de los decretos que las nombran, de
  *    iniciativas del Congreso y de las leyes, resoluciones y decretos que
- *    nombran, y de documentos de las bibliotecas institucionales, pedidos uno
- *    a uno a `/api/grafo` (el volcado no los trae);
+ *    nombran, de documentos de las bibliotecas institucionales y de
+ *    sentencias del TC y del TSE, pedidos uno a uno a `/api/grafo` (el
+ *    volcado no los trae);
  *  · unido todo con la ontología (`/ontologia.ttl`): SHACL lee de ahí las
  *    subclases, y los conceptos de las listas cerradas están ahí.
  *
  * Una forma con `sh:class` falla cuando el nodo de llegada no tiene ese
- * tipo. Si es una persona, una norma, una iniciativa o un documento sin **ningún** tipo, es
+ * tipo. Si es una persona, una norma, una iniciativa, un documento o una sentencia sin **ningún** tipo, es
  * que la muestra no lo describe (el volcado no los trae y solo se piden
  * algunos): eso se cuenta aparte. Cualquier otro nodo sin tipo es una arista
  * colgando —el volcado sí trae todo lo demás— y cuenta como violación.
@@ -28,7 +29,7 @@
  * el grafo emite solo los de ahora.
  *
  * Uso:
- *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200]
+ *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200] [--sentencias 200]
  * Sale con 1 si hay una violación o un término sin declarar.
  */
 import { readFileSync } from "node:fs";
@@ -48,12 +49,13 @@ const URL_BASE = arg("url", "http://localhost:3000").replace(/\/$/, "");
 const N_PERSONAS = Number(arg("personas", "300"));
 const N_INICIATIVAS = Number(arg("iniciativas", "200"));
 const N_DOCUMENTOS = Number(arg("documentos", "200"));
+const N_SENTENCIAS = Number(arg("sentencias", "200"));
 const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
 const SOC = `${W3ID}/def/core#`;
 const DO = `${W3ID}/def/do#`;
 const V1 = /ESPACIO_V1 = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
-// Lo que la muestra puede no describir: personas, normas, iniciativas y documentos (el volcado no los trae).
-const SOLO_EN_MUESTRA = /\/(funcionarios|normativa|congreso|documentos)\//;
+// Lo que la muestra puede no describir: personas, normas, iniciativas, documentos y sentencias (el volcado no los trae).
+const SOLO_EN_MUESTRA = /\/(funcionarios|normativa|congreso|documentos|constitucional|tse)\//;
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const CLASE_SH = "http://www.w3.org/ns/shacl#ClassConstraintComponent";
 
@@ -140,6 +142,22 @@ await enLotes(muestraDocumentos, 8, (f) => {
   const ruta = `/documentos/${f[3].replace(/^https:\/\//, "").split("/").map(encodeURIComponent).join("/")}`;
   return pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(ruta)}`).then((t) => qPersonas.push(...quads(t, "N-Triples")));
 });
+// Una muestra de sentencias: la mitad, las del TC que nombran una ley o una
+// sentencia (las que llevan aristas); el resto repartido por los dos
+// listados, en el orden del archivo. Cada una por la ruta de su ficha
+// (`enlace.sentencia` de `lib/grafo.ts`).
+const listadoSentencias = JSON.parse(readFileSync(path.join(RAIZ, "public", "data", "sentencias.json"), "utf8"));
+const rutaSentencia = (x) =>
+  x.n.startsWith("TC/") ? `/constitucional/TC-${x.n.slice(3, 7)}-${x.n.slice(8, 10)}` : `/tse/${encodeURIComponent(x.u.split("/").pop())}`;
+const todasSentencias = [...listadoSentencias.tc, ...listadoSentencias.tse];
+const conCitas = listadoSentencias.tc.filter((x) => /\bLey\b|\bTC\/\d/.test(x.r));
+const muestraSentencias = conCitas.filter((_, i) => i % Math.max(1, Math.floor(conCitas.length / (N_SENTENCIAS / 2))) === 0);
+for (let i = 0; muestraSentencias.length < N_SENTENCIAS && i < todasSentencias.length; i += Math.max(1, Math.floor(todasSentencias.length / N_SENTENCIAS))) {
+  if (!muestraSentencias.includes(todasSentencias[i])) muestraSentencias.push(todasSentencias[i]);
+}
+await enLotes(muestraSentencias.slice(0, N_SENTENCIAS), 8, (x) =>
+  pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(rutaSentencia(x))}`).then((t) => qPersonas.push(...quads(t, "N-Triples"))),
+);
 const msLeer = performance.now() - t0;
 
 // Los términos del grafo que la ontología no declara, y los de la v1.
@@ -186,7 +204,7 @@ console.log(
   `${(volcado.length + qPersonas.length).toLocaleString("en-US")} triples de ${nodos.toLocaleString("en-US")} nodos ` +
     `(volcado entero, ${muestra.length.toLocaleString("en-US")} personas, ${decretos.size.toLocaleString("en-US")} decretos, ` +
     `${Math.min(muestraIniciativas.length, N_INICIATIVAS).toLocaleString("en-US")} iniciativas y ${Math.min(normas.size, N_INICIATIVAS).toLocaleString("en-US")} normas que nombran, ` +
-    `${muestraDocumentos.length.toLocaleString("en-US")} documentos) · ` +
+    `${muestraDocumentos.length.toLocaleString("en-US")} documentos, ${Math.min(muestraSentencias.length, N_SENTENCIAS).toLocaleString("en-US")} sentencias) · ` +
     `leer ${Math.round(msLeer / 1000)} s, validar ${Math.round(msValidar / 1000)} s`,
 );
 for (const [termino, n] of sinDeclarar) console.log(`SIN DECLARAR ${termino} (${n} veces)`);
@@ -199,6 +217,6 @@ const conforme = grupos.size === 0 && sinDeclarar.size === 0 && deV1.size === 0;
 console.log(
   `${conforme ? "conforme" : "no conforme"}: ` +
     `${[...grupos.values()].reduce((s, g) => s + g.n, 0).toLocaleString("en-US")} violaciones, ${sinDeclarar.size} términos sin declarar, ` +
-    `${deV1.size} IRIs de la v1, ${fueraDeMuestra.toLocaleString("en-US")} enlaces a personas, normas, iniciativas o documentos fuera de la muestra`,
+    `${deV1.size} IRIs de la v1, ${fueraDeMuestra.toLocaleString("en-US")} enlaces a personas, normas, iniciativas, documentos o sentencias fuera de la muestra`,
 );
 process.exit(conforme ? 0 : 1);

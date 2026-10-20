@@ -50,7 +50,7 @@ import {
 import { agujas, plano as planoConsulta, pruebas, sinTildes } from "@/lib/raiz";
 import { INDICE } from "@/lib/indice";
 import { PANTALLAS } from "@/lib/pantallas";
-import { enlace, nodoDeRuta } from "@/lib/grafo";
+import { claveSentencia, enlace, nodoDeRuta } from "@/lib/grafo";
 import { documentoPorClave } from "@/lib/biblioteca";
 import { llevaCedula, sinCedula } from "@/lib/padron";
 
@@ -1001,15 +1001,20 @@ function detalleProveedor(d: Entrada): string {
 /**
  * Adónde lleva una entrada del corpus: a la ficha de su nodo cuando el corpus
  * guarda su identidad en la fuente —el RPE de un proveedor, el código de un
- * proceso, la dirección del archivo de un documento o la del conjunto en
- * datos.gob.do—; si no, a la dirección que trae. La misma que coteja
+ * proceso, la dirección del archivo de un documento, la del conjunto en
+ * datos.gob.do o el número y la ficha de una sentencia (`claveSentencia`)—;
+ * si no, a la dirección que trae. La misma que coteja
  * `scripts/busqueda-grafo.mjs --comprobar` con el grafo compilado.
  */
-export function hrefDeEntrada(d: Pick<Entrada, "t" | "h" | "r">): string | null {
+export function hrefDeEntrada(d: Pick<Entrada, "t" | "h" | "r" | "d">): string | null {
   if (d.t === "proveedor" && d.r) return enlace.proveedor(d.r);
   if (d.t === "proceso" && d.r) return enlace.proceso(d.r);
   if (d.t === "documento" && d.h) return enlace.documentoDeArchivo(d.h) ?? d.h;
   if (d.t === "dato" && d.h) return enlace.conjuntoDeOrigen(d.h) ?? d.h;
+  if (d.t === "sentencia" && d.d) {
+    const k = claveSentencia({ n: d.d, u: d.h });
+    return k ? enlace.sentencia(k) : (d.h ?? null);
+  }
   return d.h ?? null;
 }
 

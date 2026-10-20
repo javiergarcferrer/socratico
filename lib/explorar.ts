@@ -54,6 +54,7 @@ const FACETA_DE_NODO: Record<TipoNodoRdf, ClaveFaceta> = {
   iniciativa: "iniciativa",
   documento: "documento",
   conjunto: "dato",
+  sentencia: "sentencia",
 };
 
 /** Cuántas filas trae una página de una faceta, y cuántas de cada fuente en «Todo». */

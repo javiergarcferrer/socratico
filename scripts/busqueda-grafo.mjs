@@ -144,8 +144,8 @@ const FUERA = {
 };
 /** Tipos del grafo que el buscador no trae: los abren su mapa y la vertical de empresas, que busca el padrón. */
 const NO_BUSCABLES = { provincia: "provincias", empresa: "empresas del padrón" };
-/** Tipos del corpus cuya entrada guarda la dirección de fuera de un nodo (el archivo, la página en datos.gob.do). */
-const SIEMPRE_NODO = new Set(["documento", "dato"]);
+/** Tipos del corpus cuya entrada guarda la dirección de fuera de un nodo (el archivo, la página en datos.gob.do, la ficha del tribunal). */
+const SIEMPRE_NODO = new Set(["documento", "dato", "sentencia"]);
 
 async function comprobar() {
   const t0 = Date.now();
@@ -159,7 +159,7 @@ async function comprobar() {
   let enlazan = 0;
   for (const d of corpus.docs) {
     const h = B.hrefDeEntrada(d);
-    // Un documento o un conjunto de datos es siempre un nodo: su entrada lleva a su ficha.
+    // Un documento, un conjunto de datos o una sentencia es siempre un nodo: su entrada lleva a su ficha.
     if (SIEMPRE_NODO.has(d.t) && !h?.startsWith("/")) fallar(`una entrada de ${d.t} sin ficha`, `${d.h} (${d.ti})`);
     if (typeof h !== "string" || !h.startsWith("/")) continue;
     if (d.t === "legislador") legisladores.add(h);

@@ -31,7 +31,8 @@ export type TipoNodo =
   | "cargo"
   | "funcionario"
   | "entidad-financiera"
-  | "empresa";
+  | "empresa"
+  | "sentencia";
 
 /** El tipo de norma, tal como lo nombra la Consultoría, y su tramo de URL. */
 export const RUTA_NORMA: Record<string, string> = {
@@ -156,6 +157,17 @@ export const enlace = {
     return slug ? enlace.conjunto(slug) : null;
   },
   /**
+   * Una sentencia del Tribunal Constitucional por su número
+   * (`/constitucional/TC-0986-26` para la TC/0986/26) o del Tribunal Superior
+   * Electoral por su ficha en el visor del tribunal (`/tse/QTNYYm5E…`): la
+   * numeración del TSE se repite, y lo único que distingue a dos sentencias es
+   * esa ficha. La clave es la de `claveSentencia`.
+   */
+  sentencia(clave: string): string {
+    const k = clave.trim();
+    return k.startsWith("TSE-") ? `/tse/${encodeURIComponent(k.slice(4))}` : `/constitucional/${encodeURIComponent(k)}`;
+  },
+  /**
    * Un nodo en el explorador del grafo, por la ruta de su ficha:
    * `/grafo?nodo=/funcionarios/luis-rodolfo-abinader-corona`. Sin ruta, la
    * portada del explorador.
@@ -202,8 +214,9 @@ function enRuta(ruta: string): string {
  * de la ley o de la resolución, el slug de la provincia, el RPE del
  * proveedor, el código del proceso de compra (tal cual, con sus espacios si
  * los trae), el SNIP de la obra, el número del SIL de la iniciativa, la
- * dirección del archivo sin `https://` del documento (`claveDocumento`) o el
- * nombre en datos.gob.do del conjunto de datos.
+ * dirección del archivo sin `https://` del documento (`claveDocumento`), el
+ * nombre en datos.gob.do del conjunto de datos o la clave de la sentencia
+ * (`claveSentencia`).
  */
 export type TipoNodoRdf =
   | "funcionario"
@@ -219,7 +232,8 @@ export type TipoNodoRdf =
   | "resolucion"
   | "iniciativa"
   | "documento"
-  | "conjunto";
+  | "conjunto"
+  | "sentencia";
 
 export interface NodoRdf {
   tipo: TipoNodoRdf;
@@ -260,7 +274,29 @@ export function rutaDeNodo(n: NodoRdf): string {
       return enlace.documento(n.id);
     case "conjunto":
       return enlace.conjunto(n.id);
+    case "sentencia":
+      return enlace.sentencia(n.id);
   }
+}
+
+/** Un número del Tribunal Constitucional: «TC/0986/26», como lo escribe su listado. */
+const NUMERO_TC = /^TC\/(\d{4})\/(\d{2})$/;
+/** La ficha de una sentencia del TC en su sitio: `…/consultas/secretaría/sentencias/tc098626` (la tilde, codificada o no). */
+const FICHA_TC = /^https:\/\/tc\.gob\.do\/consultas\/secretar(?:%C3%AD|í)a\/sentencias\/tc(\d{4})(\d{2})$/i;
+/** La ficha de una sentencia en el visor del TSE: `…/documento/contenciosas/<ficha>`. */
+const FICHA_TSE = /^https:\/\/visorpdf\.tse\.do\/documento\/contenciosas\/([A-Za-z0-9+=_-]{8,64})$/;
+
+/**
+ * La clave de una sentencia: «TC-0986-26» la del Tribunal Constitucional, por
+ * su número; «TSE-<ficha>» la del Tribunal Superior Electoral, por su ficha
+ * en el visor (su número se repite: 697 números para 713 sentencias el
+ * 2026-09-27). `null` si no es ninguna de las dos.
+ */
+export function claveSentencia(s: { n: string; u?: string | null }): string | null {
+  const tc = NUMERO_TC.exec(s.n.trim());
+  if (tc) return `TC-${tc[1]}-${tc[2]}`;
+  const tse = s.u ? FICHA_TSE.exec(s.u.trim()) : null;
+  return tse ? `TSE-${tse[1]}` : null;
 }
 
 /**
@@ -329,6 +365,11 @@ export function nodoDeRuta(ruta: string): NodoRdf | null {
   if ((m = /^\/documentos\/([a-z0-9.-]+\.[a-z]{2,}(?:\/[^/]+)+)$/i.exec(r))) {
     return { tipo: "documento", id: m[1].split("/").map(d).join("/").normalize("NFC") };
   }
+  if ((m = /^\/constitucional\/(TC-\d{4}-\d{2})$/.exec(r))) return { tipo: "sentencia", id: m[1] };
+  if ((m = /^\/tse\/([^/]{8,96})$/.exec(r))) {
+    const ficha = d(m[1]);
+    return /^[A-Za-z0-9+=_-]{8,64}$/.test(ficha) ? { tipo: "sentencia", id: `TSE-${ficha}` } : null;
+  }
   if ((m = /^\/datos\/([^/]{1,200})$/.exec(r))) {
     const slug = d(m[1]);
     return /^[a-z0-9_-]+$/.test(slug) ? { tipo: "conjunto", id: slug } : null;
@@ -338,7 +379,8 @@ export function nodoDeRuta(ruta: string): NodoRdf | null {
 
 /**
  * El nodo que alguien pide por una dirección: la ruta de una ficha, su IRI
- * entero, la de un conjunto en datos.gob.do o la del archivo de un documento.
+ * entero, la de un conjunto en datos.gob.do, la ficha de una sentencia en el
+ * sitio de su tribunal o la del archivo de un documento.
  * Solo para lo que se pide (el `id` de `fetch`, `?nodo=` del explorador):
  * cualquier dirección https puede ser un documento, y si lo es lo dice el
  * grafo compilado, no esta función. Para clasificar los IRIs de una
@@ -352,6 +394,11 @@ export function nodoDeDireccion(texto: string, sitio: string): NodoRdf | null {
     const slug = slugDeConjunto(x);
     return slug ? { tipo: "conjunto", id: slug } : null;
   }
+  // La ficha de una sentencia en el sitio de su tribunal.
+  const tc = FICHA_TC.exec(x);
+  if (tc) return { tipo: "sentencia", id: `TC-${tc[1]}-${tc[2]}` };
+  const tse = FICHA_TSE.exec(x);
+  if (tse) return { tipo: "sentencia", id: `TSE-${tse[1]}` };
   const clave = claveDocumento(x);
   return clave ? { tipo: "documento", id: clave } : null;
 }

@@ -118,6 +118,7 @@ const LISTADO_DE_CLASE: Record<string, string> = {
   "soc:Iniciativa": "/congreso",
   "soc:Documento": "/documentos",
   "soc:ConjuntoDeDatos": "/datos",
+  "soc:Sentencia": "/constitucional",
 };
 
 async function Portada({ consulta }: { consulta: string }) {

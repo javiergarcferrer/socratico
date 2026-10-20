@@ -1162,6 +1162,13 @@ export default async function FuentesPage() {
             2012 se guarda en una instantánea (
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-sentencias.py</code>
             , unas 11,400 sentencias): número, fecha, expediente y de qué trata.
+            De esa instantánea sale también cada sentencia como nodo del grafo, con
+            ficha propia: el tribunal que la dicta, sus expedientes, las leyes y los
+            decretos con ficha que nombra lo que el listado dice de ella y las sentencias del
+            Tribunal que nombra por su número. Que la nombre no dice qué decidió
+            sobre ella: eso está en su texto. Como lo que dice el listado nombra a las partes,
+            casi siempre particulares, las sentencias no entran al grafo descargable
+            ni a las tablas SQL.
           </p>
         </Fuente>
 
@@ -1180,7 +1187,9 @@ export default async function FuentesPage() {
             La misma instantánea del buscador guarda sus 713 sentencias desde 2021,
             recorriendo todas las páginas. El visor pagina un orden con empates:
             algunas fichas salen en dos páginas y puede que otras en ninguna (en
-            2024, 402 filas para 396 fichas distintas).
+            2024, 402 filas para 396 fichas distintas). Cada ficha es un nodo del
+            grafo con su página aquí, como las del Tribunal Constitucional; un
+            número que se repite no se cita, porque no dice cuál de las dos es.
           </p>
         </Fuente>
 

@@ -52,15 +52,16 @@ import {
  * (una Persona de aquí es una `schema:Person`, no al revés);
  * `rdfs:subPropertyOf` igual; `skos:closeMatch` o `skos:broadMatch` hacia
  * Wikidata, cuyos elementos no son clases OWL. Cada QID se verificó contra
- * Wikidata el 30-09-2026 (docs/INFRAESTRUCTURA.md §5.7); los términos nuevos no
- * llevan QID hasta verificarlo. Los nombres de FollowTheMoney se comprobaron
+ * Wikidata el 30-09-2026 (docs/INFRAESTRUCTURA.md §5.7), el de la sentencia
+ * (Q3769186) en QLever el 20-10-2026; los términos nuevos no llevan QID hasta
+ * verificarlo. Los nombres de FollowTheMoney se comprobaron
  * en followthemoney.tech el 01-10-2026; los de ePO, en su documentación.
  */
 
-export const VERSION = "2.3.0";
-export const PUBLICADA = "2026-10-05";
+export const VERSION = "2.4.0";
+export const PUBLICADA = "2026-10-20";
 /** La versión anterior de los dos módulos (`owl:priorVersion`). */
-export const ANTERIOR = "2.2.0";
+export const ANTERIOR = "2.3.0";
 
 /** El núcleo, neutral de país, o el módulo de la República Dominicana. */
 export type Modulo = "soc" | "do";
@@ -398,11 +399,13 @@ export const CLASES: Clase[] = [
     id: "Sentencia",
     etiqueta: "Sentencia",
     etiquetaEn: "Court ruling",
-    comentario: "Una sentencia de una alta corte (el Tribunal Constitucional, el Tribunal Superior Electoral).",
+    comentario:
+      "Una sentencia de una alta corte (el Tribunal Constitucional, el Tribunal Superior Electoral), como la registra el listado público del tribunal: su número, su fecha, sus expedientes y de qué trata. El grafo guarda su ficha en el sitio del tribunal, nunca su texto.",
     padre: "soc:Documento",
     subClaseDe: [],
+    wikidata: [{ qid: "Q3769186", relacion: "closeMatch", nombre: "sentencia" }],
     ftm: "Document",
-    estado: "definido",
+    estado: "en-uso",
   },
   {
     id: "Mencion",
@@ -790,6 +793,19 @@ export const PROPIEDADES: Propiedad[] = [
     estado: "en-uso",
     v1: true,
   },
+  {
+    id: "dictadaPor",
+    tipo: "objeto",
+    etiqueta: "dictada por",
+    etiquetaEn: "issued by",
+    comentario: "El tribunal que dicta la sentencia: el Tribunal Constitucional o el Tribunal Superior Electoral.",
+    dominio: ["soc:Sentencia"],
+    rango: ["soc:Institucion"],
+    subPropiedadDe: ["dct:creator", "schema:author"],
+    funcional: true,
+    obligatoriaEn: ["soc:Sentencia"],
+    estado: "en-uso",
+  },
 
   /* ------------------------------------------------------------- decretos */
   {
@@ -858,8 +874,8 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "fecha",
     etiquetaEn: "date",
     comentario:
-      "La fecha que registra la fuente: la de una norma según la Consultoría Jurídica, la del movimiento de un cargo (su designación, su cese), la de una medida, la de un evento, la de publicación de un proceso de compra, la de depósito de una iniciativa. Un año solo, si la fuente no da el día.",
-    dominio: ["soc:Norma", "soc:Cargo", "soc:Sancion", "soc:Evento", "soc:ProcesoDeContratacion", "soc:Iniciativa"],
+      "La fecha que registra la fuente: la de una norma según la Consultoría Jurídica, la del movimiento de un cargo (su designación, su cese), la de una medida, la de un evento, la de publicación de un proceso de compra, la de depósito de una iniciativa, la de una sentencia. Un año solo, si la fuente no da el día.",
+    dominio: ["soc:Norma", "soc:Cargo", "soc:Sancion", "soc:Evento", "soc:ProcesoDeContratacion", "soc:Iniciativa", "soc:Sentencia"],
     rango: ["xsd:date", "xsd:gYear"],
     estado: "en-uso",
     v1: true,
@@ -884,9 +900,9 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "cita",
     etiquetaEn: "cites",
     comentario:
-      "Una norma que nombra su título, leída con reglas fijas sobre la redacción oficial («…de la Ley núm. 87-01»). Si el verbo que la antecede dice qué le hace y quien la nombra puede hacerlo —una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos—, se afirma la propiedad más precisa (`soc:deroga`, `soc:modifica`); si no, esta. Un documento de la biblioteca de una institución solo cita: no es una norma. Solo se ata a una ley o a un decreto que tiene ficha.",
+      "Una norma que nombra su título, leída con reglas fijas sobre la redacción oficial («…de la Ley núm. 87-01»). Si el verbo que la antecede dice qué le hace y quien la nombra puede hacerlo —una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos—, se afirma la propiedad más precisa (`soc:deroga`, `soc:modifica`); si no, esta. Un documento de la biblioteca de una institución solo cita: no es una norma. Una sentencia también solo cita: lo que decide sobre una norma está en su texto, no en lo que dice de ella el listado; nombra además otras sentencias («relativo a la Sentencia TC/0425/24»). Solo se ata a una ley o a un decreto que tiene ficha, o a una sentencia que el grafo tiene.",
     dominio: ["soc:Norma", "soc:Iniciativa", "soc:Documento"],
-    rango: ["soc:Norma"],
+    rango: ["soc:Norma", "soc:Sentencia"],
     subPropiedadDe: ["dct:references"],
     estado: "en-uso",
   },
@@ -1091,12 +1107,12 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "código",
     etiquetaEn: "code",
     comentario:
-      "El código que el sistema de compras da al proceso o al contrato, o el número de expediente que la cámara da a una iniciativa: «MOPC-CCC-LPN-2026-0013», «INDRHI-2023-00444», «06360-2024-2028-CD».",
-    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa"],
+      "El código que el sistema de compras da al proceso o al contrato, el número de expediente que la cámara da a una iniciativa o el número de una sentencia: «MOPC-CCC-LPN-2026-0013», «INDRHI-2023-00444», «06360-2024-2028-CD», «TC/0986/26».",
+    dominio: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa", "soc:Sentencia"],
     rango: ["xsd:string"],
     subPropiedadDe: ["dct:identifier"],
     funcional: true,
-    obligatoriaEn: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa"],
+    obligatoriaEn: ["soc:ProcesoDeContratacion", "soc:Contrato", "soc:Iniciativa", "soc:Sentencia"],
     estado: "en-uso",
   },
   {
@@ -1482,6 +1498,18 @@ export const PROPIEDADES: Propiedad[] = [
     dominio: ["soc:Norma"],
     rango: ["xsd:string"],
     funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "expediente",
+    modulo: "do",
+    tipo: "dato",
+    etiqueta: "expediente",
+    etiquetaEn: "case file",
+    comentario:
+      "El número del expediente que la sentencia resuelve, como lo da el tribunal: «TC-05-2023-0048», «TSE-05-0009-2026». Una sentencia que resuelve varios expedientes juntos los lleva todos; la que el listado deja sin uno («N/D»), ninguno.",
+    dominio: ["soc:Sentencia"],
+    rango: ["xsd:string"],
     estado: "en-uso",
   },
   {

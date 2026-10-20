@@ -8,8 +8,11 @@ Policía Nacional», «Junta Central Electoral»). El número y el expediente va
 en el texto auxiliar con sus variantes de escritura (`TC/0123/24`,
 `TC-0123-24`, `0123/24`), porque así se citan en la prensa y en otras
 sentencias. Ningún listado trae la materia como campo propio: está dentro de
-la descripción. El enlace es la ficha del Tribunal (el PDF no está en el
-listado), externa.
+la descripción. `h` es la ficha del Tribunal (el PDF no está en el listado);
+el buscador lleva a la ficha de la sentencia en la plataforma, que es un nodo
+del grafo (`hrefDeEntrada` de `lib/busqueda.ts`, por el número y esa ficha).
+El «Relativo a» llega con etiquetas HTML en unas 200 filas («<span>»): se
+quitan, como en `lib/sentencias.ts`.
 """
 import json
 import pathlib
@@ -30,10 +33,15 @@ def _variantes(numero: str) -> list[str]:
     )
 
 
+def _sin_etiquetas(texto: str) -> str:
+    # También la que el recorte a 300 caracteres dejó abierta al final («…de las <span»).
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]*(?:>|$)", " ", texto)).strip()
+
+
 def _entrada(s: dict, tribunal: str, href: str) -> dict:
     e = {
         "t": "sentencia",
-        "ti": s.get("r") or f"Sentencia {s['n']}",
+        "ti": _sin_etiquetas(s.get("r") or "") or f"Sentencia {s['n']}",
         "x": " ".join(_variantes(s["n"]) + ([s["x"]] if s.get("x") else [])),
         "d": s["n"],
         "on": tribunal,

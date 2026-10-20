@@ -153,10 +153,22 @@ export const CLASE_DE_TIPO: Record<TipoNodoRdf, string> = {
   iniciativa: "Iniciativa legislativa",
   documento: "Documento publicado",
   conjunto: "Conjunto de datos abiertos",
+  sentencia: "Sentencia",
 };
 
 /** Los grupos de aristas, en el orden en que se leen. */
-export type GrupoRelacion = "cargos" | "compras" | "procesos" | "obras" | "normas" | "decretos" | "entidades" | "lugares" | "publicaciones" | "registros";
+export type GrupoRelacion =
+  | "cargos"
+  | "compras"
+  | "procesos"
+  | "obras"
+  | "normas"
+  | "sentencias"
+  | "decretos"
+  | "entidades"
+  | "lugares"
+  | "publicaciones"
+  | "registros";
 
 export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "cargos", etiqueta: "Cargos" },
@@ -164,6 +176,7 @@ export const GRUPOS: readonly { id: GrupoRelacion; etiqueta: string }[] = [
   { id: "procesos", etiqueta: "Procesos de compra" },
   { id: "obras", etiqueta: "Obras públicas y sus contratos" },
   { id: "normas", etiqueta: "Normas que nombra y que la nombran" },
+  { id: "sentencias", etiqueta: "Sentencias" },
   { id: "decretos", etiqueta: "Decretos" },
   { id: "entidades", etiqueta: "La misma entidad y quien la supervisa" },
   { id: "lugares", etiqueta: "Provincias" },
@@ -258,6 +271,9 @@ const V = {
   formato: expandir("soc:formato"),
   fechaDeSubida: expandir("soc:fechaDeSubida"),
   paginaDeDatos: expandir("dcat:landingPage"),
+  sentencia: expandir("soc:Sentencia"),
+  dictadaPor: expandir("soc:dictadaPor"),
+  descripcion: expandir("dct:description"),
 } as const;
 
 /**
@@ -326,6 +342,13 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
     return { detalle: uno(d, V.formato, "literal"), fecha, movimiento: fecha ? "Subido" : null };
   };
   const esDocumento = (n: string) => esDe(n, V.documento) && !esDe(n, V.declaracionJurada);
+  const esSentencia = (n: string) => esDe(n, V.sentencia);
+  /** Una sentencia vecina: de qué trata y el día en que se dictó. */
+  const sentenciaVecina = (n: string) => {
+    const relativo = uno(n, V.descripcion, "literal");
+    const fecha = uno(n, V.fecha, "literal");
+    return { detalle: relativo ? recortar(relativo, 160) : null, fecha, movimiento: fecha ? "Dictada" : null };
+  };
   // Una cita la hace una norma, que la dice, o una iniciativa, que la propone.
   const CITA: Record<string, { verbo: string; neutro: string; propuesta: string }> = {
     [V.deroga]: { verbo: "deroga", neutro: "Derogación, según el título", propuesta: "derogar" },
@@ -471,11 +494,27 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       case V.deroga:
       case V.modifica:
       case V.cita: {
+        // Una sentencia que nombra otra sentencia; lo que nombra una sentencia sale de lo que dice su listado, no de un título.
+        if (esSentencia(o)) {
+          agregar({ grupo: "sentencias", verbo: "Cita la sentencia", neutro: "Una sentencia que nombra otra", ...hacia(o), nombre: nombre(o), ...sentenciaVecina(o) });
+          break;
+        }
         const c = CITA[x.p];
         const verbo = delSujetoEsProyecto && c.propuesta ? `Propone ${c.propuesta}` : mayuscula(c.verbo);
-        agregar({ grupo: "normas", verbo, neutro: c.neutro, ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
+        const neutro = esSentencia(sujeto) ? "Una sentencia que nombra la norma" : c.neutro;
+        agregar({ grupo: "normas", verbo, neutro, ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
         break;
       }
+      case V.dictadaPor:
+        agregar({ grupo: "sentencias", verbo: "La dicta", neutro: "El tribunal que la dicta", ...hacia(o), nombre: nombre(o) });
+        break;
+      case V.fuente:
+        // La ficha de una sentencia en el sitio del tribunal: el camino a su texto.
+        if (esSentencia(sujeto)) {
+          const sitio = /^https?:\/\/([^/]+)/.exec(o)?.[1] ?? o;
+          agregar({ grupo: "sentencias", verbo: "Su ficha en el tribunal", neutro: "Su ficha en el tribunal", nodo: null, href: o, externo: true, nombre: `La ficha en ${sitio}` });
+        }
+        break;
       case V.promulgadaComo:
         agregar({ grupo: "normas", verbo: "Se promulgó como", neutro: "La norma en que se convirtió la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
         break;
@@ -527,6 +566,18 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       if (pr) agregar({ grupo: "procesos", verbo: "Contrato con", neutro: "Un contrato del proceso", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) });
     } else if (x.p === V.inscritaComo && esDe(sujeto, V.proveedor)) {
       agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) });
+    } else if (x.p === V.dictadaPor) {
+      agregar({ grupo: "sentencias", verbo: "Dictó", neutro: "El tribunal que la dicta", ...hacia(s), nombre: nombre(s), ...sentenciaVecina(s) });
+    } else if ((x.p === V.deroga || x.p === V.modifica || x.p === V.cita) && esSentencia(s)) {
+      // Una sentencia solo cita: «Una sentencia la cita».
+      agregar({
+        grupo: "sentencias",
+        verbo: `Una sentencia ${pronombre} cita`,
+        neutro: esSentencia(sujeto) ? "Una sentencia que nombra otra" : "Una sentencia que nombra la norma",
+        ...hacia(s),
+        nombre: nombre(s),
+        ...sentenciaVecina(s),
+      });
     } else if (x.p === V.deroga || x.p === V.modifica || x.p === V.cita) {
       const c = CITA[x.p];
       // «La deroga», «Lo modifica»; de una iniciativa, «Un proyecto propone derogarla», «Un proyecto lo cita»; de un documento, «Un documento la cita».

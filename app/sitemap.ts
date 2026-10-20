@@ -54,6 +54,9 @@ async function rutasDeNormas(): Promise<string[]> {
  * Los documentos de las bibliotecas institucionales, tampoco: su título es
  * el que les puso la institución y puede nombrar a una persona (por eso no
  * entran al volcado); se llega a ellos desde la biblioteca y la institución.
+ * Ni las sentencias del TC y del TSE: lo que el listado dice de cada una nombra a las
+ * partes, que casi siempre son particulares; se llega a ellas desde el
+ * buscador, las normas que nombran y la ficha de su tribunal.
  * Tampoco van las ~490 mil fichas de `/empresas`: un mapa de medio millón de
  * direcciones pasa del tope de 50 mil por archivo, cambia con cada corte
  * mensual de la DGII y casi todas son empresas que nadie busca en el

@@ -30,6 +30,7 @@ import {
   tituloLegible,
   type Documento as DocumentoBiblioteca,
 } from "@/lib/biblioteca";
+import { getSentencias, sentenciaPorClave, type Sentencia, type Tribunal } from "@/lib/sentencias";
 import { declaracionesDe, declaracionesDeInstitucion, getDeclaraciones } from "@/lib/declaraciones";
 import { entidadDeInstitucion, entidadPorRnc, entidadPorSlug, getFinancieras, institucionDe } from "@/lib/financieras";
 import { empresaPorRnc, padronEmpresas } from "@/lib/empresas";
@@ -133,6 +134,8 @@ export async function describirEnVivo(n: NodoRdf, ligero = false): Promise<Descr
       return describirDocumento(n.id, ligero);
     case "conjunto":
       return describirConjunto(n.id);
+    case "sentencia":
+      return describirSentencia(n.id, ligero);
   }
 }
 
@@ -193,6 +196,8 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
   ]);
   if (!leyes || !resoluciones) throw new Error("falta una instantánea: leyes.json o normativa.json");
   if (!biblioteca || !catalogo) throw new Error("falta una instantánea: documentos/indice.json o catalogo.json");
+  const sentencias = await getSentencias();
+  if (!sentencias) throw new Error("falta una instantánea: sentencias.json");
   const cargo = (origen: OrigenCargo, url: string | null): DefinicionGrafo => ({
     clave: `cargos-${origen}`,
     etiqueta: `Cargos: ${ETIQUETA_ORIGEN[origen]}`,
@@ -328,6 +333,14 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       corte: dia(catalogo.generado),
     },
     {
+      clave: "sentencias",
+      etiqueta: "Sentencias del Tribunal Constitucional y del Tribunal Superior Electoral",
+      descripcion:
+        "Las sentencias que los dos tribunales publican en sus listados (el TC desde 2012, el TSE desde 2021): número, fecha, expedientes, de qué tratan («Relativo a», recortado) y su ficha en el sitio del tribunal.",
+      fuentes: [sentencias.fuentes.tc, sentencias.fuentes.tse],
+      corte: dia(sentencias.generado),
+    },
+    {
       clave: "ofac",
       etiqueta: "Lista SDN de la OFAC",
       descripcion: "Las entradas de la lista de sanciones del Tesoro de los Estados Unidos atadas a un RNC dominicano.",
@@ -405,10 +418,10 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       clave: "citas",
       etiqueta: "Normas que nombra un título (regla)",
       descripcion:
-        "Qué ley o qué decreto nombra el título de una ley, un decreto, una resolución, una iniciativa o un documento de la biblioteca de una institución, y qué le hace según el verbo que lo antecede: la deroga, la modifica (o la reforma, le sustituye o le adiciona un texto) o solo la cita. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás, un documento incluido, queda como cita. Solo se ata a una ley o a un decreto con ficha.",
+        "Qué ley o qué decreto nombra el título de una ley, un decreto, una resolución, una iniciativa o un documento de la biblioteca de una institución, o lo que el listado dice de una sentencia, y qué le hace según el verbo que lo antecede: la deroga, la modifica (o la reforma, le sustituye o le adiciona un texto) o solo la cita. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás, un documento o una sentencia incluidos, queda como cita. Solo se ata a una ley o a un decreto con ficha; una sentencia cita además las sentencias del Tribunal Constitucional que nombra por su número («TC/0425/24»).",
       fuentes: [],
       corte: dia(congreso.generado),
-      derivado: { de: ["leyes", "decretos", "resoluciones", "congreso", "documentos"] },
+      derivado: { de: ["leyes", "decretos", "resoluciones", "congreso", "documentos", "sentencias"] },
     },
     {
       clave: "plataforma",
@@ -653,6 +666,13 @@ async function describirInstitucion(id: number, ligero = false): Promise<Descrip
     }
     if (recientes.length < docs.length) {
       const mas = `Se describen sus ${recientes.length} documentos más recientes, uno por título y día, de los ${docs.length.toLocaleString("es-DO")} que publica en su portal.`;
+      nota = nota ? `${nota} ${mas}` : mas;
+    }
+    // Un tribunal: las sentencias más recientes que dictó.
+    const dictadas = (await indiceSentencias()).porTribunal.get(inst.id) ?? [];
+    for (const d of dictadas.slice(0, TOPE_SENTENCIAS)) vecinaSentencia(d, x);
+    if (dictadas.length > TOPE_SENTENCIAS) {
+      const mas = `Se describen sus ${TOPE_SENTENCIAS} sentencias más recientes de las ${dictadas.length.toLocaleString("es-DO")} que publica su listado.`;
       nota = nota ? `${nota} ${mas}` : mas;
     }
   }
@@ -1309,6 +1329,8 @@ interface IndiceNormas {
 }
 
 const clave = (n: NodoRdf) => `${n.tipo}:${n.id}`;
+/** Una sentencia del Tribunal Constitucional nombrada por su número: «TC/0425/24», «TC/425/24». */
+const CITA_TC = /\bTC\/0*(\d{1,4})\/(\d{2})\b/g;
 const porTexto = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 let normasMemo: Promise<IndiceNormas> | null = null;
@@ -1400,6 +1422,29 @@ function indiceNormas(): Promise<IndiceNormas> {
       const k = claveDocumento(d.url);
       if (k) await citar({ tipo: "documento", id: k }, tituloLegible(sinCedula(d.titulo)), d.fecha);
     }
+    /*
+      Las sentencias: lo que el listado dice de ellas nombra leyes y decretos (solo los cita: lo
+      que una sentencia le hace a una norma está en su texto) y sentencias del
+      Tribunal Constitucional por su número, «relativo a la Sentencia
+      TC/0425/24». Una del TSE no se cita por número: se repite.
+    */
+    const sentencias = await getSentencias();
+    if (!sentencias) throw new Error("falta una instantánea: sentencias.json");
+    const tcs = new Set(sentencias.lista.filter((x) => x.tribunal === "tc").map((x) => x.clave));
+    for (const x of sentencias.lista) {
+      const de: NodoRdf = { tipo: "sentencia", id: x.clave };
+      const texto = sinCedula(x.relativo);
+      await citar(de, texto, x.fecha);
+      for (const m of texto.matchAll(CITA_TC)) {
+        const k = `TC-${m[1].padStart(4, "0")}-${m[2]}`;
+        if (k === x.clave || !tcs.has(k)) continue;
+        const a: NodoRdf = { tipo: "sentencia", id: k };
+        if ((salen.get(clave(de)) ?? []).some((y) => clave(y.a) === clave(a))) continue;
+        const arista: Arista = { de, a, cita: "cita", fecha: x.fecha };
+        salen.set(clave(de), [...(salen.get(clave(de)) ?? []), arista]);
+        entran.set(clave(a), [...(entran.get(clave(a)) ?? []), arista]);
+      }
+    }
     for (const lista of entran.values()) lista.sort((x, y) => porTexto(y.fecha ?? "", x.fecha ?? "") || porTexto(clave(x.de), clave(y.de)));
 
     // La promulgación que registra el SIL: «Ley núm. 43-26», «Res. núm. 48-26»; «N/A» no es ninguna.
@@ -1467,6 +1512,11 @@ async function vecinaNormativa(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): P
     if (d) vecinoDocumento(d, x);
     return;
   }
+  if (n.tipo === "sentencia") {
+    const d = await sentenciaPorClave(n.id);
+    if (d) vecinaSentencia(d, x);
+    return;
+  }
   if (n.tipo === "iniciativa") {
     const i = ix.iniciativas.get(n.id);
     if (!i) return;
@@ -1493,8 +1543,8 @@ function conceptoSil(i: Iniciativa, campo: "tipo" | "condicion" | "grupo"): stri
 function triplesCita(a: Arista, x: Afirmaciones): void {
   const p = PROPIEDAD_CITA[a.cita];
   x.de("citas", t(iriDe(a.de), p.soc, iri(iriDe(a.a))));
-  // Ni una iniciativa (todavía no es un recurso legal) ni un documento (no es una norma) dicen ELI.
-  if (a.de.tipo !== "iniciativa" && a.de.tipo !== "documento") x.de("citas", t(iriDe(a.de), p.eli, iri(iriDe(a.a))));
+  // Ni una iniciativa (todavía no es un recurso legal) ni un documento o una sentencia (no son normas) dicen ELI.
+  if (a.de.tipo !== "iniciativa" && a.de.tipo !== "documento" && a.de.tipo !== "sentencia") x.de("citas", t(iriDe(a.de), p.eli, iri(iriDe(a.a))));
 }
 
 /** Las citas que hace un nodo y las que le llegan, y la iniciativa de la que nació o la norma en que se convirtió. */
@@ -1858,6 +1908,93 @@ async function describirConjunto(slug: string): Promise<Descripcion | null> {
   return { triples: x.triples, grafos: x.grafos, titulo: c.titulo };
 }
 
+/* ------------------------------------------------------------- sentencias */
+
+const SENTENCIA = (k: string) => iriDe({ tipo: "sentencia", id: k });
+const TOPE_SENTENCIAS = 12;
+/** El tribunal que dicta las sentencias de cada listado, en el clasificador de DIGEPRES. */
+const TRIBUNAL: Record<Tribunal, number> = { tc: 900403, tse: 900405 };
+const SIGLA_TRIBUNAL: Record<Tribunal, string> = { tc: "TC", tse: "TSE" };
+
+let sentenciasMemo: Promise<{ porTribunal: Map<number, Sentencia[]> }> | null = null;
+
+/** Las sentencias de cada tribunal, de la más reciente a la más vieja (y, en un mismo día, del número mayor al menor). */
+function indiceSentencias(): Promise<{ porTribunal: Map<number, Sentencia[]> }> {
+  sentenciasMemo ??= (async () => {
+    const todas = await getSentencias();
+    if (!todas) throw new Error("falta una instantánea: sentencias.json");
+    const porTribunal = new Map<number, Sentencia[]>();
+    for (const t of ["tc", "tse"] as const) {
+      if (!institucionPorId(TRIBUNAL[t])) throw new Error(`el clasificador no trae la institución ${TRIBUNAL[t]} (${SIGLA_TRIBUNAL[t]})`);
+      const lista = todas.lista.filter((x) => x.tribunal === t);
+      lista.sort((a, b) => porTexto(b.fecha ?? "", a.fecha ?? "") || porTexto(b.clave, a.clave));
+      porTribunal.set(TRIBUNAL[t], lista);
+    }
+    return { porTribunal };
+  })();
+  return sentenciasMemo;
+}
+
+/** Las sentencias que son nodo, en orden de clave. */
+export async function clavesDeSentencias(): Promise<string[]> {
+  const s = await getSentencias();
+  if (!s) throw new Error("falta una instantánea: sentencias.json");
+  return s.lista.map((x) => x.clave);
+}
+
+/** El nombre de una sentencia: «Sentencia TC/0986/26». */
+const nombreSentencia = (d: Sentencia) => `Sentencia ${d.numero}`;
+
+/** Una sentencia como vecina: lo que es, cómo se llama, su número, su tribunal, su fecha y de qué trata. */
+function vecinaSentencia(d: Sentencia, x: Afirmaciones): void {
+  const s = SENTENCIA(d.clave);
+  x.de(
+    "sentencias",
+    t(s, "rdf:type", iri("soc:Sentencia")),
+    t(s, "rdfs:label", lit(nombreSentencia(d), "es")),
+    t(s, "soc:codigo", lit(d.numero)),
+    t(s, "soc:dictadaPor", iri(DE(TRIBUNAL[d.tribunal]))),
+    t(s, "dct:description", lit(sinCedula(d.relativo), "es")),
+  );
+  if (d.fecha) x.de("sentencias", t(s, "soc:fecha", fecha(d.fecha)));
+}
+
+async function describirSentencia(k: string, ligero = false): Promise<Descripcion | null> {
+  const d = await sentenciaPorClave(k);
+  if (!d) return null;
+  const n: NodoRdf = { tipo: "sentencia", id: k };
+  const s = iriDe(n);
+  const nombre = nombreSentencia(d);
+  const relativo = sinCedula(d.relativo);
+  const tribunal = institucionPorId(TRIBUNAL[d.tribunal]);
+  if (!tribunal) throw new Error(`el clasificador no trae la institución ${TRIBUNAL[d.tribunal]}`);
+  const x = new Afirmaciones();
+  x.de(
+    "sentencias",
+    t(s, "rdf:type", iri("soc:Sentencia")),
+    t(s, "rdf:type", iri("foaf:Document")),
+    t(s, "rdf:type", iri("schema:DigitalDocument")),
+    t(s, "rdfs:label", lit(nombre, "es")),
+    t(s, "schema:name", lit(nombre, "es")),
+    t(s, "soc:codigo", lit(d.numero)),
+    t(s, "schema:identifier", lit(d.numero)),
+    t(s, "dct:description", lit(relativo, "es")),
+    t(s, "schema:description", lit(relativo, "es")),
+    t(s, "schema:inLanguage", lit("es")),
+    t(s, "soc:dictadaPor", iri(DE(tribunal.id))),
+    t(s, "schema:author", iri(DE(tribunal.id))),
+    // Su ficha en el sitio del tribunal, de donde sale el registro y donde está su texto.
+    t(s, "dct:source", iri(d.ficha)),
+  );
+  if (d.fecha) x.de("sentencias", t(s, "soc:fecha", fecha(d.fecha)), t(s, "schema:dateCreated", fecha(d.fecha)));
+  for (const e of d.expedientes) x.de("sentencias", t(s, "do:expediente", lit(e)));
+  x.de("instituciones", t(DE(tribunal.id), "rdfs:label", lit(tribunal.nombre, "es")));
+  x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.sentencia(k)}`)));
+  // Las leyes, los decretos y las sentencias que nombra, y las que la nombran.
+  if (!ligero) await normasAlrededor(n, x, await indiceNormas());
+  return { triples: x.triples, grafos: x.grafos, titulo: nombre };
+}
+
 /* ------------------------------------------------------------ el conjunto */
 
 /** Cuántos nodos de cada clase tiene el grafo hoy: para VoID y para `/grafo`. */
@@ -1884,6 +2021,7 @@ export async function inventarioEnVivo(): Promise<ClaseContada[]> {
       getIndiceBiblioteca(),
       getCatalogo(),
     ]);
+  const sentencias = await getSentencias();
   const cargos = f?.personas.reduce((n, p) => n + p.cargos.length, 0) ?? 0;
   const decretos = indice ? Object.values(indice.anios).reduce((a, b) => a + b, 0) + indice.sinFecha : 0;
   const medidas = sanc ? sanc.proveedores.reduce((n, p) => n + p.eventos.length, 0) : 0;
@@ -1938,6 +2076,13 @@ export async function inventarioEnVivo(): Promise<ClaseContada[]> {
       corte: dia(biblioteca?.generado),
     },
     { clase: "soc:ConjuntoDeDatos", etiqueta: "Conjuntos de datos abiertos", n: publicaciones.conjunto.length, fuente: "datos.gob.do", corte: dia(catalogo?.generado) },
+    {
+      clase: "soc:Sentencia",
+      etiqueta: "Sentencias del TC y del TSE",
+      n: sentencias?.lista.length ?? 0,
+      fuente: "Tribunal Constitucional y Tribunal Superior Electoral",
+      corte: dia(sentencias?.generado),
+    },
   ];
   return filas.filter((c) => c.n > 0);
 }

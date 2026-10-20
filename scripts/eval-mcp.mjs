@@ -264,6 +264,15 @@ const documentoConLey = biblioteca.filas
   .map((f) => ({ f, ley: canonLey(LEY_EN_TITULO.exec(legible(f[0]))?.[1] ?? "") }))
   .filter((x) => x.ley && esLeyNodo(x.ley) && institucionDeDocumento(x.f))
   .sort((a, b) => masReciente(a.f, b.f))[0];
+// La sentencia del TC más reciente cuyo «Relativo a» nombra una ley que es nodo del grafo.
+const sentencias = leer("sentencias.json");
+const sentenciaConLey = sentencias.tc
+  .map((x) => ({ x, ley: canonLey(LEY_EN_TITULO.exec(x.r)?.[1] ?? "") }))
+  .filter((c) => c.ley && esLeyNodo(c.ley))
+  .sort((a, b) => (b.x.f ?? "").localeCompare(a.x.f ?? "") || b.x.n.localeCompare(a.x.n))[0];
+// «TC/0273/24»: su ficha aquí y la del Tribunal.
+const fichaTc = (n) => `/constitucional/TC-${n.slice(3, 7)}-${n.slice(8, 10)}`;
+const fichaEnTc = (n) => sentencias.ficha_tc.replace("{}", `${n.slice(3, 7)}${n.slice(8, 10)}`);
 
 /* ------------------------------------------------------------------ casos */
 
@@ -722,6 +731,32 @@ const CASOS = [
     },
   },
   {
+    pregunta: "Una sentencia del TC que nombra una ley: el buscador lleva a su nodo, su ficha en el Tribunal también, y llega a la ley en un salto",
+    async correr() {
+      exigir(sentenciaConLey, "no hay oráculo: ninguna sentencia del TC nombra una ley con ficha");
+      const { x, ley } = sentenciaConLey;
+      const ficha = fichaTc(x.n);
+      const enTc = fichaEnTc(x.n);
+      const hallado = await llamar("search", { query: x.n, type: "sentencia" });
+      exigir(!hallado.error, hallado.error);
+      exigir(hallado.datos.results[0]?.id === ficha, `el primero es ${hallado.datos.results[0]?.id}; debía ser ${ficha}`);
+      for (const id of [ficha, enTc]) {
+        const { datos, error } = await llamar("fetch", { id });
+        exigir(!error, `${error} (${id})`);
+        exigir(datos.metadata.claseRdf === "soc:Sentencia", `clase ${datos.metadata.claseRdf} (${id})`);
+        exigir(datos.id === ficha, `el id es ${datos.id}, no su ficha (${id})`);
+        exigir(datos.text.includes("La dicta: Tribunal Constitucional"), `no dice que la dicta el Tribunal Constitucional (${id})`);
+        exigir(datos.text.includes(`Ley ${ley}`), `no nombra la Ley ${ley} (${id})`);
+        exigir(datos.text.includes(enTc), `no da su ficha en el Tribunal (${id})`);
+      }
+      const { datos, error } = await llamar("path", { from: ficha, to: `Ley ${ley}` });
+      exigir(!error, error);
+      exigir(datos.encontrado, datos.explicacion);
+      exigir(datos.saltos === 1, `${datos.saltos} saltos; de qué trata la nombra`);
+      return `${x.n} (${x.f}) → Ley ${ley}`;
+    },
+  },
+  {
     pregunta: "Las páginas de search siguen una a otra, con y sin tipo",
     async correr() {
       for (const [args, porPagina] of [
@@ -1029,6 +1064,7 @@ const CASOS = [
       exigir(!nt.includes(`${SOC}DeclaracionJurada`), "trae declaraciones juradas");
       exigir(!nt.includes(`${SITIO}/normativa/`), "trae decretos, leyes o resoluciones");
       exigir(!nt.includes(`${SITIO}/congreso/`), "trae legisladores o iniciativas");
+      exigir(!nt.includes(`${SITIO}/constitucional/`) && !nt.includes(`${SITIO}/tse/`) && !nt.includes(`${SOC}Sentencia`), "trae sentencias");
       const [rpe, , , monto] = topMinerd[0];
       const arista = `<${SITIO}/proveedores/${rpe}#contratacion-${MINERD.id}> <${SOC}montoContratado> "${monto}"`;
       if (rncDe[rpe]) exigir(nt.includes(arista), "no trae la mayor contratación del MINERD");

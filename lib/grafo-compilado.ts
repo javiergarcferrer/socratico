@@ -164,6 +164,20 @@ export async function leerDescripcion(n: NodoRdf): Promise<Descripcion | undefin
 }
 
 /**
+ * Si el compilado tiene registro de un nodo, sin decodificar sus triples: lo
+ * pregunta un listado en vivo (las sentencias de `/constitucional` y `/tse`)
+ * para llevar cada fila a su ficha solo si la ficha existe.
+ */
+export async function tieneNodo(n: NodoRdf): Promise<boolean> {
+  const meta = await metaGrafo();
+  const clave = claveCompilada(n);
+  const i = !meta || clave == null ? -1 : fragmentoDe(clave, meta.tipos[n.tipo]?.limites ?? []);
+  if (clave == null || i < 0) return false;
+  const f = await leerFragmento(n.tipo, i);
+  return f?.nodos[clave] != null;
+}
+
+/**
  * Las claves de todos los nodos de un tipo que el compilado describe,
  * fragmento a fragmento: lo recorren el buscador (`scripts/busqueda-grafo.mjs`)
  * y su comprobación contra el grafo. Lanza si un fragmento no se lee.

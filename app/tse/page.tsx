@@ -16,6 +16,8 @@ import Plegable from "@/components/plegable";
 import Antiguedad from "@/components/antiguedad";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import { agujas, contieneTodas, plano, recortar } from "@/lib/raiz";
+import { claveSentencia, enlace } from "@/lib/grafo";
+import { tieneNodo } from "@/lib/grafo-compilado";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/tse" },
@@ -36,7 +38,10 @@ const ANIOS_VISIBLES = 5;
  *
  * Año, búsqueda y página viven en la URL: una búsqueda se comparte tal cual.
  * El PDF no se enlaza directo porque su dirección solo aparece en la ficha de
- * cada sentencia; la fila lleva a esa ficha, en el visor del Tribunal.
+ * cada sentencia. La fila lleva a la ficha de la sentencia aquí (un nodo del
+ * grafo, `components/ficha-sentencia.tsx`), que enlaza la del Tribunal; si el
+ * grafo no la tiene todavía (posterior al corte de la instantánea), a la ficha
+ * en el visor del Tribunal (`tieneNodo`).
  */
 export default async function TsePage({
   searchParams,
@@ -136,6 +141,15 @@ export default async function TsePage({
   const paginas = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
   const pagina = Math.min(Math.max(1, Math.floor(Number(sp.pagina)) || 1), paginas);
   const vista = filas.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+  // Cada fila lleva a su ficha si el grafo la tiene; una sentencia posterior al
+  // corte de la instantánea no tiene ficha todavía y lleva al Tribunal.
+  const fichas = await Promise.all(
+    vista.map(async (s) => {
+      const clave = claveSentencia({ n: s.numero, u: s.ficha });
+      const hay = clave ? await tieneNodo({ tipo: "sentencia", id: clave }).catch(() => false) : false;
+      return hay && clave ? enlace.sentencia(clave) : null;
+    }),
+  );
   const fechadas = todas.filter((s) => s.fecha);
   const ultima = fechadas[0];
   const primera = fechadas[fechadas.length - 1];
@@ -191,23 +205,29 @@ export default async function TsePage({
               ` El visor tiene más páginas de las ${formatInt(d.paginas)} que leemos: la lista de este año está incompleta.`}
           </p>
           <ol className="mt-2 divide-y divide-hairline border-t border-hairline">
-            {vista.map((s) => (
+            {vista.map((s, i) => (
               <li key={s.ficha} className="relative px-5 py-3 sm:px-6">
                 <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs text-ink-soft">
-                  <a
-                    href={s.ficha}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-sm font-semibold text-ink estira hover:text-brand-700"
-                  >
-                    {s.numero}
-                    <span className="sr-only"> (abre la ficha en el visor del Tribunal)</span>
-                  </a>
+                  {fichas[i] ? (
+                    <Link href={fichas[i]!} className="font-mono text-sm font-semibold text-ink estira hover:text-brand-700">
+                      {s.numero}
+                    </Link>
+                  ) : (
+                    <a
+                      href={s.ficha}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-sm font-semibold text-ink estira hover:text-brand-700"
+                    >
+                      {s.numero}
+                      <span className="sr-only"> (abre la ficha en el visor del Tribunal)</span>
+                    </a>
+                  )}
                   {s.fecha ? <Antiguedad iso={s.fecha} /> : <span>sin fecha legible</span>}
                   {/*
-                    La sentencia no tiene ficha propia aquí: se guarda desde su
-                    fila, con la ficha del Tribunal como dirección (un mismo
-                    número puede tener dos fichas, así que la clave es la ficha).
+                    Se guarda con la ficha del Tribunal como dirección, como en su
+                    ficha de aquí: un mismo número puede tener dos fichas, y lo
+                    guardado antes de que hubiera ficha aquí sigue reconociéndose.
                   */}
                   <Guardar
                     referencia={{

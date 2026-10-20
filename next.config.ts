@@ -133,6 +133,13 @@ const nextConfig: NextConfig = {
     // Las de un conjunto de datos y de un documento, con corchetes: no los listados /datos y /documentos.
     "/datos/[slug]": ["./datos/grafo/ld/**"],
     "/documentos/[...ruta]": ["./datos/grafo/ld/**"],
+    // La de una sentencia lee su nodo del compilado (`sentencias.json` no viaja en ninguna
+    // función), y los listados preguntan si una fila tiene ficha. Como subcadena, «/tse»
+    // y «/constitucional» casan también con las fichas: llevan el schema.org de la suya.
+    "/constitucional": ["./datos/grafo/meta.json", "./datos/grafo/nodos/sentencia/**"],
+    "/tse": ["./datos/grafo/meta.json", "./datos/grafo/nodos/sentencia/**"],
+    "/constitucional/[numero]": ["./datos/grafo/ld/meta.json", "./datos/grafo/ld/sentencia/**"],
+    "/tse/[ficha]": ["./datos/grafo/ld/meta.json", "./datos/grafo/ld/sentencia/**"],
   },
   // Las instantáneas que solo lee `scripts/build-busqueda.py` no viajan en
   // ninguna función: su contenido ya está en el corpus (los procesos, además,
@@ -161,6 +168,22 @@ const nextConfig: NextConfig = {
     "/provincias": ["./public/data/procesos.json"],
     "/proveedores/*": ["./public/data/busqueda/**"],
     "/api/proveedores": ["./public/data/busqueda/**"],
+    // Los listados y las fichas de sentencias solo leen los nodos de sentencia (`tieneNodo`,
+    // `describir`) y su schema.org: el trazado, por leer el compilado con una ruta variable,
+    // les metía el compilado entero y el padrón de empresas (`describir` lo usa para una
+    // empresa sin registro), ~70 MB.
+    "/constitucional": [
+      "./datos/grafo/{nodos,ld}/!(sentencia)/**",
+      "./datos/grafo/{vecinos,firmados}/**",
+      "./datos/grafo/nombres.json.br",
+      "./public/data/empresas/**",
+    ],
+    "/tse": [
+      "./datos/grafo/{nodos,ld}/!(sentencia)/**",
+      "./datos/grafo/{vecinos,firmados}/**",
+      "./datos/grafo/nombres.json.br",
+      "./public/data/empresas/**",
+    ],
     // Los RSS no leen el grafo; el de una iniciativa casa con la clave «/congreso/[id]» de arriba.
     "/api/feed": ["./datos/grafo/**"],
   },
@@ -205,6 +228,9 @@ const nextConfig: NextConfig = {
       // La dirección del archivo, con sus barras, en un solo parámetro: uno repetido
       // (`:ruta+`) no cabe en la consulta del destino y la redirección falla.
       "/documentos/:ruta(.+)",
+      // Una sentencia, no el listado: el número del TC o la ficha del visor del TSE.
+      "/constitucional/:numero(TC-\\d+-\\d+)",
+      "/tse/:ficha([A-Za-z0-9+=_-]+)",
     ];
     return [
       ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>

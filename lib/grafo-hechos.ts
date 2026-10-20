@@ -23,6 +23,8 @@ const ETIQUETA_EXTERNA: Record<string, string> = {
   "schema:alternateName": "Siglas u otro nombre",
   "schema:jobTitle": "Cargo principal",
   "schema:description": "Descripción",
+  // De qué trata una sentencia: lo dice también `schema:description`, con la misma etiqueta y el mismo valor.
+  "dct:description": "Descripción",
   "dct:title": "Título",
   "dct:alternative": "Título modificado",
   "foaf:homepage": "Sitio web",
@@ -40,6 +42,8 @@ const REPETIDAS = new Set([
   "schema:legislationDate",
   "eli:id_local",
   "eli:date_document",
+  "schema:identifier",
+  "schema:dateCreated",
 ]);
 
 let conceptos: Map<string, string> | null = null;
@@ -65,7 +69,7 @@ export function datosDe(triples: Triple[], sujeto: string): { dato: string; valo
     if (x.o.tipo === "literal") {
       if (x.o.datatype === BOOLEANO) valor = x.o.valor === "true" ? "sí" : "no";
       else if (x.o.datatype === ENTERO_XSD) valor = ENTERO.format(Number(x.o.valor));
-      else if (p === "dct:title" || p === "schema:description" || p === "do:etiquetaConsultoria") valor = desdeMayusculas(x.o.valor);
+      else if (p === "dct:title" || p === "schema:description" || p === "dct:description" || p === "do:etiquetaConsultoria") valor = desdeMayusculas(x.o.valor);
       else if (p === "do:aviso") valor = AVISO_DECRETO[x.o.valor as AvisoDecreto]?.llano ?? x.o.valor;
       else if (p === "soc:valorEstimado" || p === "soc:monto") valor = `RD$ ${ENTERO.format(Number(x.o.valor))}`;
       else if (p === "soc:avance") valor = `${x.o.valor} % (declarado)`;

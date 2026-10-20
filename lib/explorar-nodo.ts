@@ -31,6 +31,7 @@ const GUARDABLE: Record<TipoNodoRdf, TipoEntrada | null> = {
   iniciativa: "proyecto",
   documento: "documento",
   conjunto: "dato",
+  sentencia: "sentencia",
 };
 
 /**
@@ -134,6 +135,7 @@ const CURIE_DE_TIPO: Record<TipoNodoRdf, string> = {
   iniciativa: "soc:Iniciativa",
   documento: "soc:Documento",
   conjunto: "soc:ConjuntoDeDatos",
+  sentencia: "soc:Sentencia",
 };
 
 /**

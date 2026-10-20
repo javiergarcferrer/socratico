@@ -162,7 +162,7 @@ const NOTAS: Partial<Record<TipoResultado, string>> = {
   financiera:
     "Bancos, asociaciones y corporaciones de crédito de la Superintendencia de Bancos, AFP, aseguradoras y cooperativas de ahorro del IDECOOP, por nombre, razón social, siglas o RNC. Se encuentran por palabra, no por tema.",
   iniciativa: "Proyectos de ley y de resolución del SIL de la Cámara de Diputados, por su título y número de expediente.",
-  sentencia: "Del Tribunal Constitucional (desde 2012) y del Tribunal Superior Electoral (desde 2021), por lo que dice su listado; el texto de la sentencia no se busca. Abren la ficha del Tribunal.",
+  sentencia: "Del Tribunal Constitucional (desde 2012) y del Tribunal Superior Electoral (desde 2021), por lo que dice su listado; el texto de la sentencia no se busca. Abren su ficha aquí, que lleva a la del Tribunal.",
   norma: "Los decretos con número y año del registro de la Consultoría Jurídica (desde 1986), todas las leyes desde 1844 y los reglamentos y resoluciones de los últimos cuatro años. Las leyes sin ficha propia abren su PDF en la Consultoría Jurídica.",
 };
 
@@ -412,7 +412,7 @@ function sueldoDe(r: Resultado): string | null {
 
 function FilaResultado({ r, q, corte }: { r: Resultado; q: string; corte?: string }) {
   const titulo = EN_MAYUSCULAS.has(r.tipo) ? desdeMayusculas(r.titulo) : r.titulo;
-  const fila = (
+  return (
     <Fila
       href={r.href}
       externo={r.externo}
@@ -426,20 +426,6 @@ function FilaResultado({ r, q, corte }: { r: Resultado; q: string; corte?: strin
         ) : null
       }
     />
-  );
-  /*
-    Una sentencia no tiene ficha propia en la plataforma (la fila lleva al
-    Tribunal), así que se guarda desde aquí; lo demás se guarda en su ficha.
-  */
-  if (r.tipo !== "sentencia" || !r.href) return fila;
-  return (
-    <div className="flex items-center gap-2 pr-3 sm:pr-4">
-      <div className="min-w-0 flex-1">{fila}</div>
-      <Guardar
-        referencia={{ tipo: "sentencia", ref: r.href, titulo: `Sentencia ${titulo}`.slice(0, 300), href: r.href }}
-        className="h-9 shrink-0"
-      />
-    </div>
   );
 }
 

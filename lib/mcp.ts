@@ -82,26 +82,27 @@ import { conceptoDe, datosDe } from "@/lib/grafo-hechos";
  */
 
 /** Cambia cuando cambia la forma de una herramienta. */
-export const VERSION_MCP = "2.3.0";
+export const VERSION_MCP = "2.4.0";
 
 const AVISO =
   "Socrático.do es una herramienta independiente y no oficial: ordena lo que publica el Estado dominicano, con su fuente y su fecha de corte.";
 
 const INSTRUCCIONES = `Socrático.do ordena lo que publica el Estado dominicano. Es una herramienta independiente y no oficial.
 
-Qué hay: un grafo de personas con cargo público, instituciones del Estado, decretos, leyes, resoluciones, iniciativas del Congreso, entidades financieras supervisadas, personas jurídicas del padrón de la DGII, provincias, proveedores del Estado, procesos de compra, obras públicas, documentos que las instituciones publican en sus portales y conjuntos de datos abiertos, con sus relaciones (cargos, firmas, supervisión, quién publica cada documento y cada conjunto de datos, declaraciones juradas publicadas, medidas de la DGCP, la lista SDN de la OFAC, Wikidata, quién convoca cada proceso, quién ejecuta cada obra y dónde, a quién se le contrató, qué ley o decreto deroga, modifica o cita el título de cada norma o iniciativa, y en qué norma se convirtió cada iniciativa); y un índice de búsqueda de compras públicas, proveedores, normas, iniciativas del Congreso, sentencias, obras, documentos institucionales y datos abiertos. Todo sale de instantáneas de fuentes públicas (del Estado dominicano, más la lista SDN de la OFAC y los identificadores de Wikidata): cada respuesta dice su fuente y su fecha de corte.
+Qué hay: un grafo de personas con cargo público, instituciones del Estado, decretos, leyes, resoluciones, iniciativas del Congreso, entidades financieras supervisadas, personas jurídicas del padrón de la DGII, provincias, proveedores del Estado, procesos de compra, obras públicas, documentos que las instituciones publican en sus portales, conjuntos de datos abiertos y sentencias del Tribunal Constitucional y del Tribunal Superior Electoral, con sus relaciones (cargos, firmas, supervisión, quién publica cada documento y cada conjunto de datos, qué tribunal dicta cada sentencia y qué leyes, decretos y sentencias nombra, declaraciones juradas publicadas, medidas de la DGCP, la lista SDN de la OFAC, Wikidata, quién convoca cada proceso, quién ejecuta cada obra y dónde, a quién se le contrató, qué ley o decreto deroga, modifica o cita el título de cada norma o iniciativa, y en qué norma se convirtió cada iniciativa); y un índice de búsqueda de compras públicas, proveedores, normas, iniciativas del Congreso, sentencias, obras, documentos institucionales y datos abiertos. Todo sale de instantáneas de fuentes públicas (del Estado dominicano, más la lista SDN de la OFAC y los identificadores de Wikidata): cada respuesta dice su fuente y su fecha de corte.
 
 Cómo se usa:
 0. Para una pregunta en llano, empieza por retrieve: trae en una llamada la evidencia con que contestarla (registros del buscador, las entidades del grafo que nombra con sus datos, relaciones y compras, y la consulta de compras que pide, si pide una), cada pieza con su fuente y su fecha, y las llamadas exactas para seguir.
 1. search con palabras: un nombre, un RNC de nueve cifras, «Decreto 497-25», un tema. Cada resultado trae un id. Ordena por parecido, no por monto ni fecha; con type se queda en un solo tipo (proceso, proveedor, norma…).
 2. fetch con ese id: el registro, con su fuente, su fecha y, si es un nodo del grafo, sus relaciones.
 3. Compras públicas: procurement filtra y ordena por monto o por fecha todos los procesos de compra de los últimos doce meses (por año, institución, estado, modalidad, objeto y palabras de la carátula) y da su total y su suma; contracting_history da lo contratado desde 2015 por un proveedor, por una institución o por el país, con sus mayores contrapartes. Para «la mayor», «las más recientes», «las abiertas» o «cuánto compra», usa estas, no search.
-4. query corre SQL de solo lectura sobre las tablas del grafo sin personas naturales (instituciones, proveedores, empresas, contrataciones, medidas, financieras, provincias; las obras con sus provincias, sus procesos y sus contratos; las normas, las iniciativas y las citas entre ellas, sin títulos) y los procesos de compra: para contar, cruzar y ordenar lo que las demás no ordenan. fetch con group y page recorre todas las relaciones de un nodo por páginas (quién dirige una institución: group cargos; a quién le contrató: group compras; sus procesos y sus obras con sus contratos: group procesos y group obras; qué normas nombra una norma o una iniciativa y quién la nombra: group normas); path busca la cadena más corta de relaciones entre dos nodos, también a través de lo que una institución le contrató a una empresa; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo y dice dónde descargarlo.
+4. query corre SQL de solo lectura sobre las tablas del grafo sin personas naturales (instituciones, proveedores, empresas, contrataciones, medidas, financieras, provincias; las obras con sus provincias, sus procesos y sus contratos; las normas, las iniciativas y las citas entre ellas, sin títulos) y los procesos de compra: para contar, cruzar y ordenar lo que las demás no ordenan. fetch con group y page recorre todas las relaciones de un nodo por páginas (quién dirige una institución: group cargos; a quién le contrató: group compras; sus procesos y sus obras con sus contratos: group procesos y group obras; qué normas nombra una norma o una iniciativa y quién la nombra: group normas; las sentencias más recientes de un tribunal y las que nombran una ley o otra sentencia: group sentencias); path busca la cadena más corta de relaciones entre dos nodos, también a través de lo que una institución le contrató a una empresa; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo y dice dónde descargarlo.
 
 Reglas al usar estos datos:
 - Cita la fuente y la fecha de corte de cada dato; son instantáneas, no tiempo real.
 - El valor de un proceso de compra es el estimado al publicarlo, no lo adjudicado ni lo pagado. Quién ganó un proceso solo está en el grafo si el proceso es de una obra (sus contratos, de MapaInversiones); si no, la ficha del proceso (su url) lo lee en vivo de la DGCP.
 - Qué norma deroga, modifica o cita otra se lee de su título con reglas fijas: lo que un proyecto de ley deroga o modifica lo propone, no lo cambia, y que una ley modifique otra no dice qué artículos ni si la reforma sigue vigente. El texto oficial manda (el PDF de la norma).
+- Que una sentencia nombre una ley no dice qué decidió sobre ella: lo dice su texto, en su ficha en el tribunal (la relación «Su ficha en el tribunal»). De qué trata una sentencia nombra a las partes, casi siempre particulares: no son personas con cargo público.
 - «Persona expuesta políticamente» (PEP) es una categoría legal (Ley 155-17, art. 2, num. 19): quien ocupa, u ocupó en los últimos tres años, un cargo obligado a declarar patrimonio. No es una acusación.
 - Una persona se identifica por su nombre normalizado, nunca por su cédula. Dos grafías son dos nodos, y dos personas con el mismo nombre pueden ser distintas: no afirmes que dos registros son la misma persona si la respuesta no lo dice.
 - Una relación dice lo que registra su fuente (un cargo, una firma, una supervisión); no implica parentesco, sociedad ni conducta indebida.
@@ -247,7 +248,7 @@ function nodoDe(id: string, para: string): NodoRdf {
   if (d?.clase === "nodo") return d.nodo;
   if (d?.clase === "externo" && d.nodo) return d.nodo;
   throw new Aviso(
-    `«${recortar(id, 120)}» no es un nodo del grafo. ${para} funciona con personas con cargo público, instituciones, entidades financieras, empresas, decretos, leyes y resoluciones con ficha, provincias, proveedores, procesos de compra, obras, iniciativas del Congreso, documentos de las bibliotecas institucionales y conjuntos de datos abiertos: usa el id que devuelve search (por ejemplo «/funcionarios/luis-rodolfo-abinader-corona», «/instituciones/5», «/normativa/ley/87-01» u «/obras/12416»).`,
+    `«${recortar(id, 120)}» no es un nodo del grafo. ${para} funciona con personas con cargo público, instituciones, entidades financieras, empresas, decretos, leyes y resoluciones con ficha, provincias, proveedores, procesos de compra, obras, iniciativas del Congreso, documentos de las bibliotecas institucionales, conjuntos de datos abiertos y sentencias del Tribunal Constitucional y del TSE: usa el id que devuelve search (por ejemplo «/funcionarios/luis-rodolfo-abinader-corona», «/instituciones/5», «/normativa/ley/87-01» u «/obras/12416»).`,
   );
 }
 
@@ -268,6 +269,7 @@ const CLASE_RDF: Record<TipoNodoRdf, string> = {
   iniciativa: "soc:Iniciativa",
   documento: "soc:Documento",
   conjunto: "soc:ConjuntoDeDatos",
+  sentencia: "soc:Sentencia",
 };
 
 /** De dónde sale un nodo y de cuándo es, y los cortes de todas las instantáneas del grafo (de ahí salen sus relaciones). */
@@ -635,7 +637,7 @@ async function leer(id: string): Promise<Documento> {
   }
   let doc: Documento | null = null;
   if (d.clase === "nodo") doc = (await leerNodo(d.nodo)) ?? (await leerRegistro(rutaDeNodo(d.nodo)));
-  // Una dirección de fuera: el nodo, si el grafo lo tiene (un documento, un conjunto de datos); si no, su registro del buscador (una sentencia).
+  // Una dirección de fuera: el nodo, si el grafo lo tiene (un documento, un conjunto de datos, la ficha de una sentencia en su tribunal); si no, su registro del buscador.
   else if (d.clase === "externo") doc = (d.nodo ? await leerNodo(d.nodo) : null) ?? (await leerRegistro(d.url));
   else doc = await leerRegistro(d.ruta);
   if (!doc) {
@@ -2337,7 +2339,7 @@ export function servidorMcp(): McpServer {
     "fetch",
     {
       title: tituloHerramienta("fetch"),
-      description: `Lee un registro de Socrático.do por el id que devolvió search (o la dirección de su ficha, un RNC, «Decreto 497-25» o «Ley 87-01»). Un nodo del grafo (persona, institución, entidad financiera, empresa, decreto, ley, resolución, iniciativa del Congreso, provincia, proveedor, proceso de compra u obra) trae sus datos, sus compras y sus relaciones (hasta ${POR_GRUPO_FETCH} por grupo: ${GRUPOS.map((g) => g.id).join(", ")}), con su fuente y fecha de corte; otro registro trae el resumen del índice y la dirección de su fuente. Con group y page recorre un grupo de relaciones de un nodo entero, de ${POR_PAGINA_RELACIONES} en ${POR_PAGINA_RELACIONES} (quién dirige una institución: group «cargos»; a quién le contrató: group «compras»).`,
+      description: `Lee un registro de Socrático.do por el id que devolvió search (o la dirección de su ficha, un RNC, «Decreto 497-25» o «Ley 87-01»). Un nodo del grafo (persona, institución, entidad financiera, empresa, decreto, ley, resolución, iniciativa del Congreso, provincia, proveedor, proceso de compra, obra, documento, conjunto de datos o sentencia) trae sus datos, sus compras y sus relaciones (hasta ${POR_GRUPO_FETCH} por grupo: ${GRUPOS.map((g) => g.id).join(", ")}), con su fuente y fecha de corte; otro registro trae el resumen del índice y la dirección de su fuente. Con group y page recorre un grupo de relaciones de un nodo entero, de ${POR_PAGINA_RELACIONES} en ${POR_PAGINA_RELACIONES} (quién dirige una institución: group «cargos»; a quién le contrató: group «compras»).`,
       inputSchema: z.strictObject({
         id: Id.describe("El id de un resultado de search."),
         group: z.enum(GRUPOS_ID).optional().describe("Solo para un nodo del grafo: las relaciones de este grupo, todas, por páginas."),
