@@ -35,6 +35,8 @@ export const claves = {
   sparql: (q: string) => ["sparql", q] as const,
   /** Lo que el editor de SPARQL autocompleta (`/sparql/terminos`). */
   terminosSparql: ["sparql-terminos"] as const,
+  /** El camino entre dos nodos y sus alternos (`/api/grafo/camino`), para el lienzo del banco. */
+  camino: (de: string, a: string) => ["camino", de, a] as const,
 };
 
 /**
@@ -73,6 +75,10 @@ export function explorarGrafo<T>(q: string, faceta: string | null, pagina: numbe
 
 export function inspeccionarNodo<T>(ruta: string, signal?: AbortSignal) {
   return leerJson<T>(`/api/explorar/nodo?ruta=${encodeURIComponent(ruta)}`, signal);
+}
+
+export function caminoEntre<T>(de: string, a: string, signal?: AbortSignal) {
+  return leerJson<T>(`/api/grafo/camino?de=${encodeURIComponent(de)}&a=${encodeURIComponent(a)}`, signal);
 }
 
 export function vivoDelNodo<T>(ruta: string, signal?: AbortSignal) {

@@ -25,16 +25,19 @@ import { GRAFO_FORMAS, GRAFO_ONTOLOGIA, VOLCADO_SPARQL } from "@/lib/sparql-meta
 import { clicSimple } from "@/components/explorador/clic";
 import type { PasoRastro } from "@/components/explorador/inspector";
 import EJEMPLOS from "./ejemplos.json";
+import { Plantillas } from "./plantillas";
 
 /**
- * La sección SPARQL del banco de trabajo (`/?seccion=sparql`): el editor, las
- * doce consultas de ejemplo con su resultado verificado y la tabla de lo que
+ * La sección SPARQL del banco de trabajo (`/?seccion=sparql`): las plantillas
+ * de investigación con su formulario (`plantillas.tsx`), el editor, las doce
+ * consultas de ejemplo con su resultado verificado y la tabla de lo que
  * responde `/sparql` (docs/INFRAESTRUCTURA.md §7.12). Cada IRI que es un nodo
  * de la plataforma abre su ficha en el inspector, como en Objetos.
  *
- * «Abrir en el lienzo» siembra en el lienzo del banco (`components/grafo/`)
- * los nodos del resultado: el banco pasa `onLienzo` desde `lg`, donde se
- * dibuja; sin él, el botón no se pinta.
+ * «Abrir en el lienzo»: el banco pasa `onLienzo` desde `lg`, donde hay
+ * lienzo; recibe los nodos del resultado (hasta `LIENZO_MAX`) y, de un
+ * CONSTRUCT o un DESCRIBE, sus triples entre nodos como aristas. Sin él, el
+ * botón no se pinta.
  */
 
 export interface EjemploSparql {
@@ -84,15 +87,16 @@ export function Sparql({
   hrefNodo,
   onAbrir,
   onLienzo,
-  topeLienzo = 150,
 }: {
   nodo: string | null;
   hrefNodo: (ruta: string) => string;
   onAbrir: (p: PasoRastro) => void;
-  /** El gancho del lienzo: recibe las rutas de los nodos del resultado. */
-  onLienzo?: (rutas: string[]) => void;
-  /** Cuántos nodos recibe el lienzo de una vez. */
-  topeLienzo?: number;
+  /**
+   * El gancho del lienzo: recibe los nodos del resultado (con su nombre, si la
+   * fila lo dice sin ambigüedad) y, de un CONSTRUCT o un DESCRIBE, los
+   * triples entre dos nodos como aristas.
+   */
+  onLienzo?: (semillas: SemillaSparql[], aristas: AristaSparql[]) => void;
 }) {
   const [id] = useEjemploSparql();
   const ejemplo = LISTA.find((e) => e.id === id) ?? LISTA[0];
@@ -119,12 +123,23 @@ export function Sparql({
     if (texto.trim() === enviada.trim()) void consulta.refetch();
     else setEnviada(texto);
   };
+  // Lo que llenó una plantilla: su pregunta rotula el editor mientras la consulta sea esa.
+  const [llenada, setLlenada] = useState<{ consulta: string; pregunta: string } | null>(null);
+  const llenar = (q: string, pregunta: string) => {
+    setLlenada({ consulta: q, pregunta });
+    setTexto(q);
+    setEnviada(q);
+    setPagina(1);
+  };
   const esEjemplo = enviada === ejemplo.consulta;
   const tabla = consulta.data ? comoTabla(consulta.data) : null;
-  const rutas = tabla ? rutasDe(tabla.filas) : [];
+  const etiquetas = new Map((terminos.data?.terminos ?? []).map((t) => [t.curie, t.etiqueta]));
+  const lienzo = tabla ? paraLienzo(tabla, consulta.data?.tipo === "triples", etiquetas) : null;
+  const rotulo = esEjemplo && texto === ejemplo.consulta ? ejemplo.pregunta : llenada && texto === llenada.consulta ? llenada.pregunta : "Tu consulta";
 
   return (
     <div className="space-y-3">
+      <Plantillas nodo={nodo} onLlenar={llenar} />
       <Card as="section" aria-labelledby="sparql-titulo">
         <div className="border-b border-hairline px-4 py-3">
           <CardTitle id="sparql-titulo">Consulta SPARQL</CardTitle>
@@ -148,7 +163,7 @@ export function Sparql({
 
         <div className="space-y-2 px-4 py-3">
           <Label htmlFor="sparql-consulta" className="text-sm font-semibold text-ink">
-            {esEjemplo ? ejemplo.pregunta : "Tu consulta"}
+            {rotulo}
           </Label>
           <Editor
             id="sparql-consulta"
@@ -191,11 +206,11 @@ export function Sparql({
           </div>
           {consulta.data && (
             <div className="flex flex-wrap gap-2">
-              {onLienzo && rutas.length > 0 && (
-                <Button variant="secondary" onClick={() => onLienzo(rutas)}>
-                  {rutas.length > topeLienzo
-                    ? `Abrir en el lienzo los primeros ${formatInt(topeLienzo)} de ${formatInt(rutas.length)} nodos`
-                    : `Abrir los ${formatInt(rutas.length)} nodos en el lienzo`}
+              {onLienzo && lienzo && lienzo.semillas.length > 0 && (
+                <Button variant="secondary" onClick={() => onLienzo(lienzo.semillas, lienzo.aristas)}>
+                  {lienzo.recortado
+                    ? `Abrir los primeros ${formatInt(lienzo.semillas.length)} nodos en el lienzo`
+                    : `Abrir ${lienzo.semillas.length === 1 ? "su nodo" : `sus ${formatInt(lienzo.semillas.length)} nodos`} en el lienzo`}
                 </Button>
               )}
               {consulta.data.tipo === "triples" ? (
@@ -328,13 +343,64 @@ function rutaDe(c: CeldaSparql | undefined): string | null {
   return nodoDeRuta(ruta) ? ruta : null;
 }
 
-function rutasDe(filas: Record<string, CeldaSparql>[]): string[] {
-  const vistas = new Set<string>();
-  for (const f of filas) for (const c of Object.values(f)) {
-    const r = rutaDe(c);
-    if (r) vistas.add(r);
+/** Un nodo del resultado para el lienzo, y una arista entre dos (`components/grafo/modelo.ts`, `Semilla` y `AristaSembrada`). */
+export interface SemillaSparql {
+  ruta: string;
+  titulo?: string;
+}
+export interface AristaSparql {
+  de: string;
+  a: string;
+  verbo: string;
+}
+
+/** Cuántos nodos de un resultado se llevan al lienzo: más no se leen en un dibujo, y la tabla los tiene todos. */
+export const LIENZO_MAX = 300;
+
+const XSD_STRING = "http://www.w3.org/2001/XMLSchema#string";
+const NOMBRES = new Set(["http://www.w3.org/2000/01/rdf-schema#label", "http://schema.org/name", "http://schema.org/legalName", "http://purl.org/dc/terms/title"]);
+
+/**
+ * Lo que el resultado lleva al lienzo: cada IRI que es un nodo, en el orden
+ * en que aparece. En filas (SELECT), un nodo toma el nombre del primer
+ * literal de texto de su fila (en el orden de sus variables) solo si es el
+ * único nodo de ella; en triples
+ * (CONSTRUCT, DESCRIBE), de su `rdfs:label`, `schema:name` o `dct:title`, y
+ * cada triple entre dos nodos es una arista con la etiqueta de su relación.
+ */
+function paraLienzo(tabla: Tabla, triples: boolean, etiquetas: Map<string, string>) {
+  const semillas = new Map<string, SemillaSparql>();
+  const aristas: AristaSparql[] = [];
+  const poner = (ruta: string, titulo?: string) => {
+    const s = semillas.get(ruta);
+    if (!s) semillas.set(ruta, titulo ? { ruta, titulo } : { ruta });
+    else if (titulo && !s.titulo) s.titulo = titulo;
+  };
+  for (const f of tabla.filas) {
+    if (triples) {
+      const de = rutaDe(f.sujeto);
+      const a = rutaDe(f.objeto);
+      if (de) poner(de, f.objeto?.type === "literal" && NOMBRES.has(f.predicado?.value ?? "") ? f.objeto.value : undefined);
+      if (a) poner(a);
+      if (de && a && de !== a) {
+        const curie = compactar(f.predicado.value) ?? f.predicado.value;
+        aristas.push({ de, a, verbo: etiquetas.get(curie) ?? curie });
+      }
+      continue;
+    }
+    const rutas = [...new Set(Object.values(f).flatMap((c) => rutaDe(c) ?? []))];
+    // Un nombre es texto: un número, una fecha o un monto no nombran un nodo (sin nombre, el lienzo lo lee del índice).
+    const texto = tabla.variables.map((v) => f[v]).find((c) => c?.type === "literal" && (!c.datatype || c.datatype === XSD_STRING || c["xml:lang"]));
+    const titulo = rutas.length === 1 ? texto?.value : undefined;
+    for (const r of rutas) poner(r, titulo);
   }
-  return [...vistas];
+  const todas = [...semillas.values()];
+  const dentro = new Set(todas.slice(0, LIENZO_MAX).map((s) => s.ruta));
+  return {
+    semillas: todas.slice(0, LIENZO_MAX),
+    aristas: aristas.filter((x) => dentro.has(x.de) && dentro.has(x.a)),
+    recortado: todas.length > LIENZO_MAX,
+  };
 }
 
 const NUMERICOS = new Set(["integer", "decimal", "double", "float", "long", "int"].map((t) => `http://www.w3.org/2001/XMLSchema#${t}`));

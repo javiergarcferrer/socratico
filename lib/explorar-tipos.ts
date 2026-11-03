@@ -244,3 +244,37 @@ export interface OntologiaVista {
   clases: ClaseVista[];
   propiedades: PropiedadVista[];
 }
+
+/** Un salto de un camino, como lo recibe el banco (`/api/grafo/camino`, `lib/grafo-rdf.ts` `camino`). */
+export interface PasoVisto {
+  ruta: string;
+  nombre: string;
+  tipo: string;
+  clase: string;
+  /** La arista que llega desde el paso anterior, sin dirección; `null` en el primero. */
+  via: string | null;
+  /** La misma arista con su verbo, quién la dice y de qué fuente y corte sale; `null` en el primero. */
+  arista: {
+    verbo: string;
+    dice: "anterior" | "este" | null;
+    grafo: string | null;
+    fuente: string | null;
+    corte: string | null;
+    derivada: boolean;
+  } | null;
+}
+
+/** Un camino entre dos nodos y sus alternos con aristas disjuntas, o por qué no se encontró. */
+export interface CaminoVisto {
+  de: { ruta: string; titulo: string };
+  a: { ruta: string; titulo: string };
+  /** El primero es el más corto que se encontró; los demás, alternos sin aristas de los anteriores. Vacío si no hay. */
+  caminos: PasoVisto[][];
+  motivo: "agotado" | "saltos" | "fichas" | null;
+  /** Fichas abiertas para el primero, y en total con los alternos. */
+  exploradas: number;
+  exploradasConAlternos: number;
+  tope: { saltos: number; fichas: number; alternos: number };
+  /** La página del camino, para leerlo entero o compartirlo. */
+  pagina: string;
+}

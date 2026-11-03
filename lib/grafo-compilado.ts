@@ -87,6 +87,17 @@ export interface MetaGrafo {
   calidad?: CalidadGrafo;
 }
 
+/**
+ * La etiqueta de un grafo con nombre, sin que dos se confundan: los titulares
+ * y los suplentes de la JCE se llaman igual en el compilado, y su fuente es
+ * lo que los distingue («Miembros Suplentes»).
+ */
+export function etiquetaUnica(g: GrafoConNombre, todos: GrafoConNombre[]): string {
+  if (!todos.some((o) => o.clave !== g.clave && o.etiqueta === g.etiqueta)) return g.etiqueta;
+  const ultimo = g.fuentes[0]?.replace(/\/+$/, "").split("/").pop()?.replace(/[-_]+/g, " ");
+  return ultimo ? `${g.etiqueta} (${ultimo})` : `${g.etiqueta} (${g.clave})`;
+}
+
 let metaMemo: Promise<MetaGrafo | null> | null = null;
 
 /** El índice del compilado, o `null` si no está (o es de otro formato). */

@@ -1,6 +1,6 @@
 import { nodoDeRuta, rutaDeNodo, type TipoNodoRdf } from "@/lib/grafo";
 import { CLASE_DE_TIPO, GRUPOS, claveNodo, describir, iriDe, relacionesDesdeTriples } from "@/lib/grafo-rdf";
-import { metaGrafo, type GrafoConNombre } from "@/lib/grafo-compilado";
+import { etiquetaUnica, metaGrafo } from "@/lib/grafo-compilado";
 import type { CalidadGrafo } from "@/lib/grafo-calidad";
 import { datosDe, formaDe } from "@/lib/grafo-hechos";
 import type { TipoEntrada } from "@/lib/espacios";
@@ -108,17 +108,6 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
     fuentes,
     guardable: GUARDABLE[nodo.tipo],
   };
-}
-
-/**
- * La etiqueta de un grafo con nombre, sin que dos se confundan: los titulares
- * y los suplentes de la JCE se llaman igual en el compilado, y su fuente es
- * lo que los distingue («Miembros Suplentes»).
- */
-function etiquetaUnica(g: GrafoConNombre, todos: GrafoConNombre[]): string {
-  if (!todos.some((o) => o.clave !== g.clave && o.etiqueta === g.etiqueta)) return g.etiqueta;
-  const ultimo = g.fuentes[0]?.replace(/\/+$/, "").split("/").pop()?.replace(/[-_]+/g, " ");
-  return ultimo ? `${g.etiqueta} (${ultimo})` : `${g.etiqueta} (${g.clave})`;
 }
 
 /** El tamaño del grafo compilado: lo que la barra del banco dice que se está recorriendo. */

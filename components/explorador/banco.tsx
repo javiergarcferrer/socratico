@@ -11,27 +11,28 @@ import { EsqueletoFilas } from "@/components/esqueleto";
 import { CampoBusqueda } from "@/components/campo-busqueda";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { useRebotado } from "@/components/rebotado";
-import { claves, explorarGrafo, leerOntologia } from "@/lib/consultas";
+import { caminoEntre, claves, explorarGrafo, leerOntologia } from "@/lib/consultas";
 import { enlace } from "@/lib/grafo";
 import { BUSQUEDAS } from "@/lib/secciones";
 import { formatFecha, formatHora } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { cn } from "@/lib/cn";
-import { CLAVES_FACETA, type Exploracion, type OntologiaVista, type Pulso } from "@/lib/explorar-tipos";
+import { CLAVES_FACETA, type CaminoVisto, type Exploracion, type OntologiaVista, type Pulso } from "@/lib/explorar-tipos";
 import { TIPOS_OBJETO, tipoObjeto, type PedidoObjetos } from "@/lib/objetos";
 import { Inspector, type PasoRastro } from "./inspector";
 import { Preguntar } from "./preguntar";
 import { RedDelNodo } from "./red";
 import { ESTADO_LIENZO, SIN_LIENZO } from "@/components/grafo/estado";
-
-/** Las semillas que caben en el enlace del lienzo (`SEMILLAS_EN_ENLACE` de `components/grafo/lienzo.tsx`, que no se importa aquí: arrastraría sigma). */
-const SEMILLAS_LIENZO = 150;
 import { Facetas, Resultados } from "./resultados";
 import { Tablero, useAbiertos } from "./tablero";
 import { ClasesDeObjeto, FiltrosDeObjeto, Objetos } from "./objetos";
 import { ArbolDeClases, Ontologia } from "./ontologia";
 import { clicSimple } from "./clic";
-import { EjemplosSparql, Sparql } from "@/components/sparql/sparql";
+import { EjemplosSparql, Sparql, type AristaSparql, type SemillaSparql } from "@/components/sparql/sparql";
+import type { LienzoApi } from "@/components/grafo/lienzo";
+import type { AristaSembrada, Semilla } from "@/components/grafo/modelo";
+import { esTipo } from "@/components/grafo/familias";
+import { CaminoEnBanco } from "./camino";
 
 const MODOS = ["buscar", "preguntar"] as const;
 
@@ -213,6 +214,89 @@ export function Banco({
     setEnfocar(false);
     if (ruta !== url.nodo) void setUrl({ nodo: ruta }, { history: "push" });
   };
+  /*
+    Lo que llega al lienzo desde fuera de él —un resultado de SPARQL, un
+    camino—, por su API (`LienzoApi`). Si el lienzo no está montado, se abre
+    la red y lo pendiente se aplica en cuanto la API llega por la referencia.
+  */
+  const lienzoApi = useRef<LienzoApi | null>(null);
+  const pendiente = useRef<((api: LienzoApi) => void) | null>(null);
+  const conectarLienzo = useCallback((api: LienzoApi | null) => {
+    lienzoApi.current = api;
+    if (api && pendiente.current) {
+      const aplicar = pendiente.current;
+      pendiente.current = null;
+      aplicar(api);
+    }
+  }, []);
+  const alLienzo = (inicio: string, aplicar: (api: LienzoApi) => void) => {
+    centro.current?.scrollIntoView({ block: "start" });
+    if (enRed && lienzoApi.current) return aplicar(lienzoApi.current);
+    pendiente.current = aplicar;
+    if (!enRed) void setUrl({ nodo: url.nodo ?? inicio, vista: "red" }, { history: "push" });
+  };
+
+  /** «Abrir en el lienzo» de SPARQL: los nodos del resultado reemplazan la vista, con las aristas de un CONSTRUCT. */
+  const sparqlAlLienzo = (semillas: SemillaSparql[], aristas: AristaSparql[]) => {
+    for (const x of semillas) if (x.titulo) titulos.current.set(x.ruta, x.titulo);
+    setPedidoCamino(null);
+    alLienzo(semillas[0].ruta, (api) => {
+      // Un camino resaltado antes apagaría todo lo nuevo.
+      api.resaltarCamino(null);
+      api.sembrar(semillas, { aristas, reemplazar: true });
+    });
+  };
+
+  /*
+    El camino entre el primer nodo del rastro y el abierto, con sus alternos
+    (`/api/grafo/camino`): se siembran todos sus pasos con el verbo y el grafo
+    de cada salto, y se resalta el elegido. La lista va en el centro.
+  */
+  const [pedidoCamino, setPedidoCamino] = useState<{ de: PasoRastro; a: PasoRastro } | null>(null);
+  const [caminoElegido, setCaminoElegido] = useState(0);
+  // Cada pedido dibuja otra vez, aunque sea el mismo par y su respuesta venga de la caché.
+  const [vezCamino, setVezCamino] = useState(0);
+  const caminoQ = useQuery({
+    queryKey: claves.camino(pedidoCamino?.de.ruta ?? "", pedidoCamino?.a.ruta ?? ""),
+    queryFn: ({ signal }) => caminoEntre<CaminoVisto>(pedidoCamino!.de.ruta, pedidoCamino!.a.ruta, signal),
+    enabled: !!pedidoCamino,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const rutasDelCamino = (v: CaminoVisto, i: number) => v.caminos[i]?.map((p) => p.ruta) ?? null;
+  useEffect(() => {
+    const v = caminoQ.data;
+    if (!v || !pedidoCamino || !v.caminos.length) return;
+    const semillas = new Map<string, Semilla>();
+    const aristas: AristaSembrada[] = [];
+    for (const c of v.caminos) {
+      c.forEach((p, i) => {
+        if (!semillas.has(p.ruta)) semillas.set(p.ruta, { ruta: p.ruta, titulo: p.nombre, tipo: esTipo(p.tipo) ? p.tipo : null });
+        const antes = c[i - 1];
+        if (!antes || !p.arista) return;
+        // La arista va del extremo que la dice: su verbo se lee desde ahí.
+        const [de, a] = p.arista.dice === "este" ? [p.ruta, antes.ruta] : [antes.ruta, p.ruta];
+        aristas.push({ de, a, verbo: p.arista.verbo, grafo: p.arista.grafo });
+      });
+    }
+    const elegido = Math.min(caminoElegido, v.caminos.length - 1);
+    alLienzo(v.a.ruta, (api) => {
+      api.sembrar([...semillas.values()], { aristas });
+      api.resaltarCamino(rutasDelCamino(v, elegido));
+    });
+    // Se siembra una vez por pedido; elegir otro camino solo cambia el resalte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caminoQ.data, vezCamino]);
+  const elegirCamino = (i: number) => {
+    setCaminoElegido(i);
+    if (caminoQ.data) lienzoApi.current?.resaltarCamino(rutasDelCamino(caminoQ.data, i));
+  };
+  const quitarCamino = () => {
+    setPedidoCamino(null);
+    setCaminoElegido(0);
+    lienzoApi.current?.resaltarCamino(null);
+  };
+
   const hrefNodo = (ruta: string) => serializar("/", { ...url, nodo: ruta });
   const hrefClase = (curie: string) => serializar("/", { ...url, q: null, modo: null, seccion: "ontologia", clase: curie });
 
@@ -278,6 +362,15 @@ export function Banco({
       pestana={pestana}
       onPestana={setPestana}
       onRed={() => void setUrl({ vista: enRed ? null : "red" }, { history: "push" })}
+      onCamino={
+        ancho
+          ? (de, a) => {
+              setCaminoElegido(0);
+              setPedidoCamino({ de, a });
+              setVezCamino((n) => n + 1);
+            }
+          : undefined
+      }
     />
   ) : null;
 
@@ -383,11 +476,25 @@ export function Banco({
           {enRed && (
             <RedDelNodo
               ruta={url.nodo!}
+              api={conectarLienzo}
               onInspeccionar={inspeccionarDesdeRed}
               onCerrar={() => {
                 void setUrl({ vista: null }, { history: "push" });
                 centro.current?.focus();
               }}
+            />
+          )}
+          {ancho && pedidoCamino && (
+            <CaminoEnBanco
+              de={pedidoCamino.de}
+              a={pedidoCamino.a}
+              visto={caminoQ.data}
+              error={caminoQ.error}
+              elegido={caminoElegido}
+              onElegir={elegirCamino}
+              onQuitar={quitarCamino}
+              hrefNodo={hrefNodo}
+              onAbrir={abrir}
             />
           )}
           {enCentro === "pregunta" ? (
@@ -415,22 +522,7 @@ export function Banco({
               onAbrir={abrirDesdeLista}
             />
           ) : enCentro === "sparql" ? (
-            <Sparql
-              nodo={url.nodo}
-              hrefNodo={hrefNodo}
-              onAbrir={abrirDesdeLista}
-              // El lienzo se dibuja solo desde `lg`; sus semillas viajan en la URL (`ls`), y caben 150 (`SEMILLAS_EN_ENLACE`).
-              topeLienzo={SEMILLAS_LIENZO}
-              onLienzo={
-                ancho
-                  ? (rutas) => {
-                      const semillas = rutas.slice(0, SEMILLAS_LIENZO);
-                      void setLienzo({ ...SIN_LIENZO, ls: semillas, lx: [] });
-                      void setUrl({ nodo: semillas[0], vista: "red" }, { history: "push" });
-                    }
-                  : undefined
-              }
-            />
+            <Sparql nodo={url.nodo} hrefNodo={hrefNodo} onAbrir={abrirDesdeLista} onLienzo={ancho ? sparqlAlLienzo : undefined} />
           ) : enCentro === "ontologia" ? (
             ontologia.data ? (
               <Ontologia ontologia={ontologia.data} clase={url.clase} hrefClase={hrefClase} onObjetos={onTipo} />

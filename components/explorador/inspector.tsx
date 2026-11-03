@@ -62,6 +62,7 @@ export function Inspector({
   onCargado,
   enRed,
   onRed,
+  onCamino,
   pestana,
   onPestana,
   onAbrir,
@@ -81,6 +82,8 @@ export function Inspector({
   /** Si su red está dibujada en el banco; `null` donde no se dibuja (por debajo de `lg`). */
   enRed: boolean | null;
   onRed: () => void;
+  /** Dibuja en el lienzo del banco el camino desde el primer nodo del rastro hasta este; sin él, el camino se abre en su página. */
+  onCamino?: (de: PasoRastro, a: PasoRastro) => void;
   onAbrir: (paso: PasoRastro) => void;
   onVolverA: (indice: number) => void;
   onCerrar: () => void;
@@ -147,7 +150,17 @@ export function Inspector({
           {consulta.error.message} La lista de la izquierda sigue en pie; su ficha también se abre desde ahí.
         </EstadoVacio>
       ) : (
-        <Cuerpo n={consulta.data} rastro={rastro} onAbrir={onAbrir} titulo={titulo} enRed={enRed} onRed={onRed} pestana={pestana} onPestana={onPestana} />
+        <Cuerpo
+          n={consulta.data}
+          rastro={rastro}
+          onAbrir={onAbrir}
+          titulo={titulo}
+          enRed={enRed}
+          onRed={onRed}
+          onCamino={onCamino}
+          pestana={pestana}
+          onPestana={onPestana}
+        />
       )}
     </Card>
   );
@@ -160,9 +173,11 @@ function Cuerpo({
   titulo,
   enRed,
   onRed,
+  onCamino,
   pestana,
   onPestana,
 }: {
+  onCamino?: (de: PasoRastro, a: PasoRastro) => void;
   pestana: string;
   onPestana: (p: string) => void;
   n: Inspeccion;
@@ -211,6 +226,12 @@ function Cuerpo({
               <Link href={enlace.caminoGrafo(origen.ruta, n.ruta)} rel="nofollow">
                 Camino desde {recortar(origen.titulo, 24)}
               </Link>
+            </Button>
+          )}
+          {origen && origen.ruta !== n.ruta && onCamino && (
+            // Desde `lg`, el mismo camino y sus alternos en el lienzo, con su lista en el banco.
+            <Button variant="secondary" size="sm" onClick={() => onCamino(origen, { ruta: n.ruta, titulo: n.titulo })}>
+              Dibujar el camino
             </Button>
           )}
         </div>

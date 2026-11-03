@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { SITIO } from "@/lib/sitio";
+import { PLANTILLAS, llenarPlantilla } from "@/lib/plantillas";
 import { enlace, nodoDeDireccion, nodoDeRuta, numeroCanonico, rutaDeNodo, type NodoRdf, type TipoNodoRdf } from "@/lib/grafo";
 import {
   CLASE_DE_TIPO,
@@ -16,6 +17,7 @@ import {
   volcadoDelGrafo,
   relacionesDesdeTriples,
   type GrupoRelacion,
+  type Paso as PasoCamino,
   type Relacion,
 } from "@/lib/grafo-rdf";
 import {
@@ -83,7 +85,7 @@ import { conceptoDe, datosDe } from "@/lib/grafo-hechos";
  */
 
 /** Cambia cuando cambia la forma de una herramienta. */
-export const VERSION_MCP = "2.6.0";
+export const VERSION_MCP = "2.7.0";
 
 const AVISO =
   "Socrático.do es una herramienta independiente y no oficial: ordena lo que publica el Estado dominicano, con su fuente y su fecha de corte.";
@@ -780,6 +782,20 @@ const Paso = z.object({
   nombre: z.string(),
   clase: z.string(),
   via: z.string().nullable().describe("La relación que llega a este paso desde el anterior; null en el primero."),
+  arista: z
+    .object({
+      verbo: z.string().describe("Cómo la lee la ficha que la dice: «Cargo en», «Le contrató a»."),
+      dice: z
+        .enum(["anterior", "este"])
+        .nullable()
+        .describe("anterior: la dice el paso de donde se viene (el verbo va de ese a este); este: la dice este paso; null: ninguna de las dos fichas la trae como relación."),
+      grafo: z.string().nullable().describe("La clave del grafo con nombre de donde sale: una fuente con su corte, o una regla de Socrático."),
+      fuente: z.string().nullable(),
+      corte: z.string().nullable().describe("La fecha de corte de la fuente (ISO)."),
+      derivada: z.boolean().describe("La deriva una regla de Socrático; no la publica una fuente."),
+    })
+    .nullable()
+    .describe("La misma relación con su verbo, su fuente y su corte; null en el primero."),
 });
 
 const Cadena = z.object({
@@ -791,8 +807,32 @@ const Cadena = z.object({
   explicacion: z.string(),
   explorador: z.string().describe("El mismo camino, dibujado en Socrático.do."),
   cortes: z.string().describe("Las instantáneas de donde salen las relaciones del camino, con su fecha."),
+  alternos: z
+    .array(z.object({ saltos: z.number(), pasos: z.array(Paso) }))
+    .describe(
+      `Hasta ${TOPE_CAMINO.alternos} caminos más entre los mismos dos nodos, ninguno con una relación (un par de nodos) de los anteriores, cada uno el primero que se encontró sin ellas dentro del mismo tope; como la búsqueda no es exhaustiva, uno puede ser más corto que pasos. Vacío si no hay otro o no hubo camino.`,
+    ),
   aviso: z.string(),
 });
+
+const pasoMcp = (p: PasoCamino): z.infer<typeof Paso> => ({ id: rutaDeNodo(p.nodo), nombre: p.nombre, clase: CLASE_DE_TIPO[p.nodo.tipo], via: p.via, arista: p.arista });
+
+/**
+ * Las plantillas de investigación (`lib/plantillas.ts`) como ejemplos de la
+ * descripción de `sparql`: la pregunta, lo que alcanza y la consulta llena
+ * con los valores verificados, sin los PREFIX (ya están declarados).
+ */
+function ejemplosPlantillas(): string {
+  return PLANTILLAS.map((p) => {
+    const q = (llenarPlantilla(p) ?? "")
+      .split("\n")
+      .filter((l) => !/^\s*(PREFIX|#)/.test(l))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return `- ${p.pregunta} (${p.alcance}) ${q}`;
+  }).join("\n");
+}
 
 async function cadena(desde: string, hasta: string): Promise<z.infer<typeof Cadena>> {
   const a = nodoDe(desde, "path");
@@ -801,16 +841,20 @@ async function cadena(desde: string, hasta: string): Promise<z.infer<typeof Cade
   const explorador = absoluta(enlace.caminoGrafo(rutaDeNodo(a), rutaDeNodo(b)));
   const tope = { saltos: TOPE_CAMINO.saltos, fichas: TOPE_CAMINO.fichas };
   if (c.pasos) {
+    // La búsqueda no es exhaustiva: un alterno puede salir más corto que el primero, y se dice.
+    const alternoMasCorto = c.alternos.map((x) => x.length - 1).filter((n) => n < c.pasos!.length - 1).sort((x, y) => x - y)[0] ?? null;
     return {
       encontrado: true,
       saltos: c.pasos.length - 1,
-      pasos: c.pasos.map((p) => ({ id: rutaDeNodo(p.nodo), nombre: p.nombre, clase: CLASE_DE_TIPO[p.nodo.tipo], via: p.via })),
+      pasos: c.pasos.map(pasoMcp),
       exploradas: c.exploradas,
       tope,
-      explicacion:
-        "El camino más corto que se encontró, leyendo las relaciones sin dirección. Cada paso es una relación que registra una fuente del Estado; un camino no implica parentesco, sociedad ni conducta indebida.",
+      explicacion: alternoMasCorto
+        ? `El primer camino que se encontró, leyendo las relaciones sin dirección; un alterno es más corto (${alternoMasCorto} saltos): sin las relaciones ya usadas la búsqueda abre otras fichas y da con él. Cada paso es una relación que registra una fuente del Estado; un camino no implica parentesco, sociedad ni conducta indebida.`
+        : "El camino más corto que se encontró, leyendo las relaciones sin dirección. Cada paso es una relación que registra una fuente del Estado; un camino no implica parentesco, sociedad ni conducta indebida.",
       explorador,
       cortes,
+      alternos: c.alternos.map((x) => ({ saltos: x.length - 1, pasos: x.map(pasoMcp) })),
       aviso: AVISO,
     };
   }
@@ -820,7 +864,7 @@ async function cadena(desde: string, hasta: string): Promise<z.infer<typeof Cade
       : c.motivo === "saltos"
         ? `No se encontró en ${c.maxSaltos} saltos; puede haber uno más largo.`
         : `Se abrieron ${c.exploradas} fichas sin encontrarlo, el tope de la búsqueda; puede haber un camino que no se alcanzó.`;
-  return { encontrado: false, saltos: null, pasos: [], exploradas: c.exploradas, tope, explicacion, explorador, cortes, aviso: AVISO };
+  return { encontrado: false, saltos: null, pasos: [], exploradas: c.exploradas, tope, explicacion, explorador, cortes, alternos: [], aviso: AVISO };
 }
 
 /* -------------------------------------------------------- signed_decrees */
@@ -2534,7 +2578,9 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
     "sparql",
     {
       title: tituloHerramienta("sparql"),
-      description: `SPARQL 1.1 de solo lectura (Oxigraph) sobre el grafo entero sin personas naturales: ${VOLCADO_SPARQL.cuadruplos.toLocaleString("en")} cuádruplos, del volcado del ${VOLCADO_SPARQL.generado}. Hay instituciones (soc:Institucion), empresas del padrón (soc:Empresa, con do:rnc), proveedores atados a una empresa (soc:Proveedor, soc:inscritaComo), procesos de compra (soc:ProcesoDeContratacion, soc:comprador), contrataciones agregadas (soc:Contratacion), obras (soc:ProyectoDeInversion, soc:ejecutadoPor), contratos de obra (soc:Contrato), medidas de la DGCP (soc:MedidaDGCP), entidades financieras, provincias, conjuntos de datos y owl:sameAs a Wikidata. No hay personas, normas, iniciativas, votaciones, sentencias ni documentos: esos se leen uno a uno con fetch. Cada triple está en el grafo con nombre de su fuente y su corte (GRAPH ?g { … }; el grafo por omisión es la unión de todos); la ontología está en el grafo <${GRAFO_ONTOLOGIA_SPARQL}> y sus formas SHACL en <${GRAFO_FORMAS_SPARQL}>, para preguntarle al modelo qué clases y relaciones hay. Los prefijos de la ontología (soc:, do:, schema:, org:, rov:, epo:, prov:, dct:, skos:, owl:, rdfs:, xsd:, sh:, wd:…) ya están declarados. Solo SELECT, ASK, CONSTRUCT o DESCRIBE; sin SERVICE; sin productos cartesianos evidentes (cada parte de la consulta comparte una variable con otra; lo que no es evidente lo corta el plazo); cada consulta se corta a los 10 s y una respuesta de más de 4 MB se rechaza. Devuelve hasta ${TOPE_FILAS_SPARQL} filas o triples; el punto SPARQL da hasta 10 000. Para contar o sumar por tablas, query suele ser más rápido; para recorrer relaciones, citar la fuente de cada arista o preguntarle a la ontología, esta.`,
+      description: `SPARQL 1.1 de solo lectura (Oxigraph) sobre el grafo entero sin personas naturales: ${VOLCADO_SPARQL.cuadruplos.toLocaleString("en")} cuádruplos, del volcado del ${VOLCADO_SPARQL.generado}. Hay instituciones (soc:Institucion), empresas del padrón (soc:Empresa, con do:rnc), proveedores atados a una empresa (soc:Proveedor, soc:inscritaComo), procesos de compra (soc:ProcesoDeContratacion, soc:comprador), contrataciones agregadas (soc:Contratacion), obras (soc:ProyectoDeInversion, soc:ejecutadoPor), contratos de obra (soc:Contrato), medidas de la DGCP (soc:MedidaDGCP), entidades financieras, provincias, conjuntos de datos y owl:sameAs a Wikidata. No hay personas, normas, iniciativas, votaciones, sentencias ni documentos: esos se leen uno a uno con fetch. Cada triple está en el grafo con nombre de su fuente y su corte (GRAPH ?g { … }; el grafo por omisión es la unión de todos); la ontología está en el grafo <${GRAFO_ONTOLOGIA_SPARQL}> y sus formas SHACL en <${GRAFO_FORMAS_SPARQL}>, para preguntarle al modelo qué clases y relaciones hay. Los prefijos de la ontología (soc:, do:, schema:, org:, rov:, epo:, prov:, dct:, skos:, owl:, rdfs:, xsd:, sh:, wd:…) ya están declarados. Solo SELECT, ASK, CONSTRUCT o DESCRIBE; sin SERVICE; sin productos cartesianos evidentes (cada parte de la consulta comparte una variable con otra; lo que no es evidente lo corta el plazo); cada consulta se corta a los 10 s y una respuesta de más de 4 MB se rechaza. Devuelve hasta ${TOPE_FILAS_SPARQL} filas o triples; el punto SPARQL da hasta 10 000. Para contar o sumar por tablas, query suele ser más rápido; para recorrer relaciones, citar la fuente de cada arista o preguntarle a la ontología, esta.
+Plantillas de investigación verificadas (cambia el IRI, el año o la provincia por los que pide la pregunta):
+${ejemplosPlantillas()}`,
       inputSchema: z.strictObject({
         query: z
           .string()
@@ -2554,7 +2600,7 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
     "path",
     {
       title: tituloHerramienta("path"),
-      description: `La cadena más corta de relaciones registradas por el Estado entre dos nodos del grafo (por ejemplo, una persona y una institución, o dos personas), buscando desde los dos extremos a la vez: hasta ${TOPE_CAMINO.saltos} saltos y ${TOPE_CAMINO.fichas} fichas abiertas. Si no la encuentra, dice por qué.`,
+      description: `La cadena más corta de relaciones registradas por el Estado entre dos nodos del grafo (por ejemplo, una persona y una institución, o dos personas), buscando desde los dos extremos a la vez: hasta ${TOPE_CAMINO.saltos} saltos y ${TOPE_CAMINO.fichas} fichas abiertas. Cada salto dice su verbo, qué ficha lo dice y de qué fuente y corte sale. En alternos, hasta ${TOPE_CAMINO.alternos} caminos más sin relaciones repetidas, dentro del mismo tope. Si no la encuentra, dice por qué.`,
       inputSchema: z.strictObject({
         from: Id.describe("El id del primer nodo."),
         to: Id.describe("El id del segundo nodo."),

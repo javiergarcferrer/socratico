@@ -1,0 +1,147 @@
+[
+  {
+    "id": "concentracion",
+    "clases": [
+      "soc:Institucion",
+      "soc:Contratacion"
+    ],
+    "pregunta": "¿Cuánto de lo que contrata una institución se lo llevan sus cinco mayores proveedores?",
+    "alcance": "Lo contratado desde 2015 (contratado, no pagado) entre la institución y cada proveedor, en los pares mayores del grafo: sus 12 mayores proveedores y aquellos de los que es de los 8 mayores clientes. La cuota es sobre lo que suman esos pares, no sobre el total de la institución: es un techo de la cuota real.",
+    "parametros": [
+      {
+        "clave": "institucion",
+        "tipo": "institucion",
+        "etiqueta": "Institución",
+        "porOmision": "237"
+      }
+    ],
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# La cuota de cada uno es sobre la suma de los pares mayores de la institución\n# en el grafo, no sobre su total: es un techo de la cuota real.\nSELECT ?proveedor ?nombre ?contratado ?cuota\nWHERE {\n  { SELECT ?institucion (SUM(?monto) AS ?total)\n    WHERE { VALUES ?institucion { {{institucion}} }\n            ?c a soc:Contratacion ; soc:contratante ?institucion ; soc:montoContratado ?monto }\n    GROUP BY ?institucion }\n  { SELECT ?institucion ?proveedor (SUM(?monto) AS ?contratado)\n    WHERE { VALUES ?institucion { {{institucion}} }\n            ?c a soc:Contratacion ; soc:contratante ?institucion ;\n               soc:contratista ?proveedor ; soc:montoContratado ?monto }\n    GROUP BY ?institucion ?proveedor\n    ORDER BY DESC(?contratado) ?proveedor\n    LIMIT 5 }\n  OPTIONAL { ?proveedor rdfs:label ?nombre }\n  BIND(ROUND(1000 * ?contratado / ?total) / 10 AS ?cuota)\n}\nORDER BY DESC(?contratado) ?proveedor",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 5,
+      "primera": {
+        "proveedor": "https://socratico.vercel.app/proveedores/767#id",
+        "nombre": "Cecomsa, SRL",
+        "contratado": "7785404428",
+        "cuota": "7.8"
+      }
+    }
+  },
+  {
+    "id": "clientes",
+    "clases": [
+      "soc:Proveedor",
+      "soc:Empresa",
+      "soc:Contratacion"
+    ],
+    "pregunta": "¿Qué instituciones le contratan a un proveedor, y cuánto?",
+    "alcance": "Lo contratado desde 2015 (contratado, no pagado), en los pares mayores del grafo: las instituciones de las que el proveedor es de los 12 mayores, y sus 8 mayores clientes. Una institución que le contrató poco puede no estar.",
+    "parametros": [
+      {
+        "clave": "proveedor",
+        "tipo": "proveedor",
+        "etiqueta": "Proveedor (RPE)",
+        "porOmision": "767"
+      }
+    ],
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\n\nSELECT ?institucion ?nombre ?contratos ?contratado\nWHERE {\n  ?c a soc:Contratacion ;\n     soc:contratista {{proveedor}} ;\n     soc:contratante ?institucion ;\n     soc:numeroDeContratos ?contratos ;\n     soc:montoContratado ?contratado .\n  ?institucion schema:name ?nombre .\n}\nORDER BY DESC(?contratado) ?institucion",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 58,
+      "primera": {
+        "institucion": "https://socratico.vercel.app/instituciones/237#id",
+        "nombre": "Ministerio de Educación",
+        "contratos": "32",
+        "contratado": "7785404428"
+      }
+    }
+  },
+  {
+    "id": "medidas-despues",
+    "clases": [
+      "do:MedidaDGCP",
+      "soc:Proveedor",
+      "soc:Contrato"
+    ],
+    "pregunta": "¿Qué proveedores con una medida de la DGCP tienen un contrato de obra cuyo proceso se publicó después?",
+    "alcance": "Medidas de la DGCP desde el año que se elija y contratos de obra de MapaInversiones cuyo proceso se publicó después de la medida. Solo se compara la fecha de publicación del proceso, y el grafo solo la tiene para los procesos de los doce meses de la tabla de la DGCP (del 25 sep 2025 al 25 sep 2026: 303 de los 925 contratos de obra); lo contratado por par desde 2015 no trae fecha. Una medida puede ser temporal o haber vencido. Solo proveedores atados a una empresa.",
+    "parametros": [
+      {
+        "clave": "desde",
+        "tipo": "anio",
+        "etiqueta": "Medidas desde el año",
+        "porOmision": "2015"
+      }
+    ],
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX do: <https://w3id.org/socratico/def/do#>\nPREFIX schema: <http://schema.org/>\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n\nSELECT ?empresa ?nombre ?medida ?fechaMedida ?contrato ?proceso ?fechaProceso\nWHERE {\n  ?proveedor soc:tieneMedida ?medida .\n  ?medida a do:MedidaDGCP ; soc:fecha ?fechaMedida .\n  FILTER(?fechaMedida >= {{desde}})\n  ?contrato a soc:Contrato ; soc:contratista ?proveedor ; soc:delProceso ?proceso .\n  ?proceso soc:fecha ?fechaProceso .\n  FILTER(?fechaProceso > ?fechaMedida)\n  ?empresa soc:inscritaComo ?proveedor ; schema:legalName ?nombre .\n}\nORDER BY DESC(?fechaProceso) ?contrato ?medida",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 3,
+      "primera": {
+        "empresa": "https://socratico.vercel.app/empresas/130408637#id",
+        "nombre": "SOLUCIONES CORPORATIVAS SRL",
+        "medida": "https://socratico.vercel.app/proveedores/6546#medida-gnp2cn",
+        "fechaMedida": "2019-02-26",
+        "contrato": "https://socratico.vercel.app/proveedores/6546#contrato-MEM-2025-00557",
+        "proceso": "https://socratico.vercel.app/procesos/MEM-DAF-CD-2025-0149#id",
+        "fechaProceso": "2025-10-17"
+      }
+    }
+  },
+  {
+    "id": "obras-sin-contrato",
+    "clases": [
+      "soc:ProyectoDeInversion",
+      "soc:Provincia",
+      "soc:Contrato"
+    ],
+    "pregunta": "¿Qué obras de una provincia no tienen ningún contrato atado?",
+    "alcance": "Obras de MapaInversiones en la provincia (una obra de varias provincias cuenta en cada una) sin un contrato de obra que la nombre, de mayor a menor costo publicado. Que MapaInversiones no ate un contrato no quiere decir que no lo haya.",
+    "parametros": [
+      {
+        "clave": "provincia",
+        "tipo": "provincia",
+        "etiqueta": "Provincia",
+        "porOmision": "santiago"
+      }
+    ],
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?obra ?nombre ?estado ?costo ?ejecutora\nWHERE {\n  ?obra a soc:ProyectoDeInversion ;\n        soc:enProvincia {{provincia}} ;\n        rdfs:label ?nombre ;\n        soc:estado ?estado ;\n        soc:valorEstimado ?costo .\n  OPTIONAL { ?obra soc:ejecutadoPor ?i . ?i schema:name ?ejecutora }\n  FILTER NOT EXISTS { ?contrato a soc:Contrato ; soc:paraProyecto ?obra }\n}\nORDER BY DESC(?costo) ?obra",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 178,
+      "primera": {
+        "obra": "https://socratico.vercel.app/obras/16305#id",
+        "nombre": "Reconstrucción de Obras Complementarias Carretera Turística Gregorio Luperón, Provincias Santiago- Puerto Plata",
+        "estado": "En ejecución",
+        "costo": "15765303686.87",
+        "ejecutora": "Ministerio de Obras Públicas y Comunicaciones"
+      }
+    }
+  },
+  {
+    "id": "conjuntos",
+    "clases": [
+      "soc:Institucion",
+      "soc:ConjuntoDeDatos"
+    ],
+    "pregunta": "¿Qué conjuntos de datos abiertos publica una institución?",
+    "alcance": "Conjuntos de datos.gob.do cuya organización publicadora se identificó con la institución, con sus formatos como los escribe el portal.",
+    "parametros": [
+      {
+        "clave": "institucion",
+        "tipo": "institucion",
+        "etiqueta": "Institución",
+        "porOmision": "237"
+      }
+    ],
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX dct: <http://purl.org/dc/terms/>\n\nSELECT ?conjunto ?titulo (GROUP_CONCAT(DISTINCT ?formato; separator=\", \") AS ?formatos)\nWHERE {\n  ?conjunto a soc:ConjuntoDeDatos ;\n            soc:publicadaPor {{institucion}} ;\n            dct:title ?titulo .\n  OPTIONAL { ?conjunto soc:formato ?formato }\n}\nGROUP BY ?conjunto ?titulo\nORDER BY ?titulo ?conjunto",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 8,
+      "primera": {
+        "conjunto": "https://socratico.vercel.app/datos/centros-educativos-de-republica-dominicana#id",
+        "titulo": "Centros Educativos de República Dominicana, Período Escolar 2022-2024"
+      }
+    }
+  }
+]

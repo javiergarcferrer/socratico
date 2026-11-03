@@ -160,6 +160,8 @@ export function Lienzo({
   const [semillasGrandes, setSemillasGrandes] = useState<string[] | null>(null);
   const [sembradas, setSembradas] = useState<AristaSembrada[]>([]);
   const conocidos = useRef(new Map<string, Semilla>());
+  // Lo último que se sembró, antes de que la red se rehaga: un resalte pedido en el mismo turno no lo vuelve a sembrar.
+  const recienSembradas = useRef(new Set<string>());
   const porAnunciar = useRef<string | null>(null);
 
   /*
@@ -393,6 +395,7 @@ export function Lienzo({
       for (const n of nodos) conocidos.current.set(n.ruta, { ...conocidos.current.get(n.ruta), ...n });
       const base = opciones.reemplazar ? [] : semillas;
       const todas = [...new Set([...base, ...nodos.map((n) => n.ruta)])];
+      recienSembradas.current = new Set(todas);
       setSembradas((s) => (opciones.reemplazar ? (opciones.aristas ?? []) : [...s, ...(opciones.aristas ?? [])]));
       if (todas.length > SEMILLAS_EN_ENLACE) {
         setSemillasGrandes(todas);
@@ -409,7 +412,7 @@ export function Lienzo({
   const resaltarCamino = useCallback<LienzoApi["resaltarCamino"]>(
     (pasos) => {
       if (pasos?.length) {
-        const faltan = pasos.filter((p) => !red.nodos.has(p));
+        const faltan = pasos.filter((p) => !red.nodos.has(p) && !recienSembradas.current.has(p));
         if (faltan.length) {
           sembrar(
             faltan.map((ruta) => ({ ruta })),

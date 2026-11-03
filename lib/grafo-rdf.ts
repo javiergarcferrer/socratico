@@ -19,6 +19,7 @@ import {
   decretoCompilado,
   leerDescripcion,
   leerVecinos,
+  etiquetaUnica,
   metaGrafo,
   triplesDeGrafos,
   type ClaseContada,
@@ -734,16 +735,42 @@ export async function vecinosDe(n: NodoRdf): Promise<{ titulo: string; vecinos: 
 
 /* ---------------------------------------------------------------- caminos */
 
+/**
+ * La arista de un salto tal como la dice una ficha: su verbo, qué extremo la
+ * dice y de qué grafo con nombre sale (la fuente con su corte, o la regla).
+ */
+export interface AristaCamino {
+  /** Cómo la lee el extremo que la dice: «Cargo en», «Lo firma», «Le contrató a». */
+  verbo: string;
+  /**
+   * Qué extremo la dice: `anterior` si la lee el paso de donde se viene (el
+   * verbo va de ese hacia este), `este` si la lee el paso al que se llega;
+   * `null` si ninguna de las dos fichas la trae como relación (el verbo es
+   * entonces la forma sin dirección).
+   */
+  dice: "anterior" | "este" | null;
+  /** La clave del grafo con nombre (`ClaveGrafo`); `null` si ninguna de las dos fichas la trae. */
+  grafo: ClaveGrafo | null;
+  /** La fuente o la regla, en llano; `null` sin grafo. */
+  fuente: string | null;
+  /** La fecha de corte de la fuente (ISO), si la tiene. */
+  corte: string | null;
+  /** La arista la deriva una regla de Socrático, no la publica una fuente. */
+  derivada: boolean;
+}
+
 export interface Paso {
   nodo: NodoRdf;
   nombre: string;
   /** La arista que llega a este paso desde el anterior, sin dirección; `null` en el primero. */
   via: string | null;
+  /** La misma arista con su verbo, su fuente y su corte; `null` en el primero. */
+  arista: AristaCamino | null;
 }
 
 export interface Camino {
   pasos: Paso[] | null;
-  /** Cuántas fichas se abrieron buscando. */
+  /** Cuántas fichas se abrieron buscando el primer camino. */
   exploradas: number;
   /**
    * Por qué no hay camino: `agotado` si ya no quedaba a quién abrir desde
@@ -752,21 +779,41 @@ export interface Camino {
    */
   motivo: "agotado" | "saltos" | "fichas" | null;
   maxSaltos: number;
+  /**
+   * Hasta `TOPE_CAMINO.alternos` caminos más, ninguno con una arista de los
+   * anteriores (aristas disjuntas, no nodos: dos caminos pueden pasar por la
+   * misma institución por aristas distintas), cada uno el primero que se
+   * encontró sin las ya usadas, dentro del mismo tope de saltos y de fichas.
+   * La búsqueda no es exhaustiva (una arista la dice a veces un solo
+   * extremo, y sin las usadas se abren otras fichas): un alterno puede salir
+   * más corto que `pasos`, que sigue siendo el primero para no cambiar lo que
+   * ya se respondía.
+   */
+  alternos: Paso[][];
+  /** Cuántas fichas distintas se abrieron en total, con las de los alternos (nunca más que el tope). */
+  exploradasConAlternos: number;
 }
 
-/** Hasta cuántos saltos y cuántas fichas abre una búsqueda de camino. */
-export const TOPE_CAMINO = { saltos: 6, fichas: 300 } as const;
+/** Hasta cuántos saltos y cuántas fichas abre una búsqueda de camino, y cuántos caminos alternos se buscan. */
+export const TOPE_CAMINO = { saltos: 6, fichas: 300, alternos: 3 } as const;
+
+/** La clave de una arista sin dirección ni verbo: el par de nodos. */
+const par = (x: string, y: string) => (x < y ? `${x}\u0000${y}` : `${y}\u0000${x}`);
+
+type PasoCrudo = { nodo: NodoRdf; nombre: string; via: string | null };
+
+/** Lo que cada búsqueda comparte: las fichas ya abiertas (cuentan una vez para el tope) y sus nombres. */
+interface Lecturas {
+  abiertas: Map<string, Promise<{ titulo: string; vecinos: Vecino[] } | null>>;
+}
 
 /**
- * El camino más corto que se encuentra entre dos fichas, por búsqueda en
- * anchura desde los dos extremos a la vez (siempre avanza el lado con menos
- * frontera). No es completo: una arista que solo dice un nodo que ningún lado
- * abre no se ve, y la página lo dice. Las aristas
- * se toman sin dirección: una institución solo describe sus cargos de hoy,
- * pero la persona que la dirigió en 2004 sí la nombra. Acotado en saltos y en
- * fichas abiertas; el resultado dice si el tope se alcanzó.
+ * Una búsqueda en anchura desde los dos extremos a la vez (siempre avanza el
+ * lado con menos frontera), sin pasar por las aristas `prohibidas`. Una ficha
+ * ya abierta por una búsqueda anterior no se vuelve a leer ni a contar: el
+ * tope de fichas es de todas las búsquedas juntas.
  */
-async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
+async function buscarUno(de: NodoRdf, a: NodoRdf, lecturas: Lecturas, prohibidas: ReadonlySet<string>): Promise<{ pasos: PasoCrudo[] | null; motivo: Camino["motivo"] }> {
   const { saltos: maxSaltos, fichas: maxFichas } = TOPE_CAMINO;
   const kDe = claveNodo(de);
   const kA = claveNodo(a);
@@ -775,15 +822,19 @@ async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
     [kDe, de],
     [kA, a],
   ]);
-  if (kDe === kA) {
-    const v = await vecindario(de);
-    return { pasos: v ? [{ nodo: de, nombre: v.titulo, via: null }] : null, exploradas: 1, motivo: v ? null : "agotado", maxSaltos };
-  }
+  const abrir = (k: string) => {
+    let p = lecturas.abiertas.get(k);
+    if (!p) {
+      p = vecinosDe(nodos.get(k)!);
+      lecturas.abiertas.set(k, p);
+    }
+    return p;
+  };
+  const lleno = () => lecturas.abiertas.size >= maxFichas;
   // padre[lado]: clave → { la clave desde donde se llegó, la arista }
   const padre = [new Map<string, { desde: string; via: string } | null>([[kDe, null]]), new Map<string, { desde: string; via: string } | null>([[kA, null]])];
-  let fronteras = [[kDe], [kA]];
+  const fronteras = [[kDe], [kA]];
   const profundidad = [0, 0];
-  let exploradas = 0;
   let encuentro: string | null = null;
 
   // Mientras quede frontera en algún lado: una arista la puede decir solo uno de
@@ -793,15 +844,14 @@ async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
     const otro = 1 - lado;
     const siguiente: string[] = [];
     for (const k of fronteras[lado]) {
-      if (exploradas >= maxFichas) break;
-      const v = await vecinosDe(nodos.get(k)!);
-      exploradas++;
+      if (lleno() && !lecturas.abiertas.has(k)) break;
+      const v = await abrir(k);
       if (!v) continue;
       nombres.set(k, v.titulo);
       for (const r of v.vecinos) {
         const kv = claveNodo(r.nodo);
         if (!nombres.has(kv)) nombres.set(kv, r.nombre);
-        if (padre[lado].has(kv)) continue;
+        if (padre[lado].has(kv) || prohibidas.has(par(k, kv))) continue;
         padre[lado].set(kv, { desde: k, via: r.via });
         nodos.set(kv, r.nodo);
         if (padre[otro].has(kv)) {
@@ -814,22 +864,22 @@ async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
     }
     profundidad[lado]++;
     fronteras[lado] = siguiente;
-    if (exploradas >= maxFichas) break;
+    if (lleno()) break;
   }
 
   if (!encuentro) {
-    const motivo = exploradas >= maxFichas ? "fichas" : !fronteras[0].length && !fronteras[1].length ? "agotado" : "saltos";
-    return { pasos: null, exploradas, motivo, maxSaltos };
+    const motivo = lleno() ? "fichas" : !fronteras[0].length && !fronteras[1].length ? "agotado" : "saltos";
+    return { pasos: null, motivo };
   }
 
   // De `de` al encuentro, y del encuentro a `a`.
-  const ida: Paso[] = [];
+  const ida: PasoCrudo[] = [];
   for (let k: string | undefined = encuentro; k; ) {
     const p = padre[0].get(k);
     ida.unshift({ nodo: nodos.get(k)!, nombre: nombres.get(k) ?? k, via: p?.via ?? null });
     k = p?.desde;
   }
-  const vuelta: Paso[] = [];
+  const vuelta: PasoCrudo[] = [];
   let via = padre[1].get(encuentro)?.via ?? null;
   for (let k = padre[1].get(encuentro)?.desde; k; ) {
     const p = padre[1].get(k);
@@ -837,14 +887,120 @@ async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
     via = p?.via ?? null;
     k = p?.desde;
   }
-  return { pasos: [...ida, ...vuelta], exploradas, motivo: null, maxSaltos };
+  return { pasos: [...ida, ...vuelta], motivo: null };
+}
+
+/**
+ * Cada salto con su verbo y su procedencia: la relación tal como la dice el
+ * paso de donde se viene o, si ese no la dice (una institución solo describe
+ * sus cargos de hoy), el paso al que se llega, y el grafo con nombre de su
+ * triple (`Relacion.grafo`) con la fuente y el corte del compilado.
+ */
+async function anotar(pasos: PasoCrudo[], relaciones: (n: NodoRdf) => Promise<Relacion[]>): Promise<Paso[]> {
+  const grafos = (await metaGrafo())?.grafos ?? [];
+  const porClave = new Map(grafos.map((g) => [g.clave, g]));
+  const buscar = (lista: Relacion[], otro: NodoRdf, via: string) => {
+    const k = claveNodo(otro);
+    const conNodo = lista.filter((r) => r.nodo && claveNodo(r.nodo) === k);
+    return conNodo.find((r) => r.neutro === via) ?? conNodo[0] ?? null;
+  };
+  const salida: Paso[] = [];
+  for (let i = 0; i < pasos.length; i++) {
+    const p = pasos[i];
+    if (i === 0 || !p.via) {
+      salida.push({ ...p, arista: null });
+      continue;
+    }
+    const antes = pasos[i - 1];
+    const desdeAntes = buscar(await relaciones(antes.nodo), p.nodo, p.via);
+    const r = desdeAntes ?? buscar(await relaciones(p.nodo), antes.nodo, p.via);
+    const g = r?.grafo ? porClave.get(r.grafo) : undefined;
+    salida.push({
+      ...p,
+      arista: {
+        verbo: r?.verbo ?? p.via,
+        dice: desdeAntes ? "anterior" : r ? "este" : null,
+        grafo: r?.grafo ?? null,
+        fuente: g ? (g.derivado ? g.etiqueta.replace(/\s*\(regla[^)]*\)$/, "") : etiquetaUnica(g, grafos)) : null,
+        corte: g?.corte ?? null,
+        derivada: !!g?.derivado,
+      },
+    });
+  }
+  return salida;
+}
+
+/**
+ * El camino más corto que se encuentra entre dos fichas y hasta tres
+ * alternos con aristas disjuntas. No es completo: una arista que solo dice un
+ * nodo que ningún lado abre no se ve, y la página lo dice. Las aristas se
+ * toman sin dirección: una institución solo describe sus cargos de hoy, pero
+ * la persona que la dirigió en 2004 sí la nombra. Acotado en saltos (cada
+ * camino) y en fichas abiertas (todas las búsquedas juntas); el resultado dice
+ * si el tope se alcanzó.
+ */
+async function buscarCamino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
+  const maxSaltos = TOPE_CAMINO.saltos;
+  const memo = new Map<string, Promise<Relacion[]>>();
+  const relaciones = (n: NodoRdf) => {
+    const k = claveNodo(n);
+    let p = memo.get(k);
+    if (!p) {
+      p = vecindario(n).then((v) => v?.relaciones ?? []);
+      memo.set(k, p);
+    }
+    return p;
+  };
+  if (claveNodo(de) === claveNodo(a)) {
+    const v = await vecindario(de);
+    return {
+      pasos: v ? [{ nodo: de, nombre: v.titulo, via: null, arista: null }] : null,
+      exploradas: 1,
+      motivo: v ? null : "agotado",
+      maxSaltos,
+      alternos: [],
+      exploradasConAlternos: 1,
+    };
+  }
+  const lecturas: Lecturas = { abiertas: new Map() };
+  const prohibidas = new Set<string>();
+  const primero = await buscarUno(de, a, lecturas, prohibidas);
+  const exploradas = lecturas.abiertas.size;
+  if (!primero.pasos) return { pasos: null, exploradas, motivo: primero.motivo, maxSaltos, alternos: [], exploradasConAlternos: exploradas };
+
+  const usar = (pasos: PasoCrudo[]) => pasos.slice(1).forEach((p, i) => prohibidas.add(par(claveNodo(pasos[i].nodo), claveNodo(p.nodo))));
+  usar(primero.pasos);
+  const alternos: PasoCrudo[][] = [];
+  while (alternos.length < TOPE_CAMINO.alternos && lecturas.abiertas.size < TOPE_CAMINO.fichas) {
+    const otro = await buscarUno(de, a, lecturas, prohibidas);
+    if (!otro.pasos) break;
+    alternos.push(otro.pasos);
+    usar(otro.pasos);
+  }
+  return {
+    pasos: await anotar(primero.pasos, relaciones),
+    exploradas,
+    motivo: null,
+    maxSaltos,
+    alternos: await Promise.all(alternos.map((x) => anotar(x, relaciones))),
+    exploradasConAlternos: lecturas.abiertas.size,
+  };
 }
 
 /**
  * La forma del resultado. Si cambia, cambia este número: la caché de datos
  * sobrevive a un despliegue y devolvería un resultado con la forma vieja.
  */
-const VERSION_CAMINO = "3";
+const VERSION_CAMINO = "4";
+
+/** Los mismos pasos leídos desde el otro extremo: cada arista con el paso al que llega, y quién la dice, al revés. */
+function alReves(pasos: Paso[]): Paso[] {
+  return [...pasos].reverse().map((p, i, lista) => {
+    if (i === 0) return { ...p, via: null, arista: null };
+    const a = lista[i - 1].arista;
+    return { ...p, via: lista[i - 1].via, arista: a ? { ...a, dice: a.dice === "anterior" ? "este" : a.dice === "este" ? "anterior" : null } : null };
+  });
+}
 
 /**
  * El camino, cacheado por par **sin orden** (de A a B es el de B a A, al
@@ -853,18 +1009,16 @@ const VERSION_CAMINO = "3";
  */
 export async function camino(de: NodoRdf, a: NodoRdf): Promise<Camino> {
   const [x, y] = [claveNodo(de), claveNodo(a)];
-  const alReves = x > y;
-  const [primero, segundo] = alReves ? [a, de] : [de, a];
+  const invertido = x > y;
+  const [primero, segundo] = invertido ? [a, de] : [de, a];
   const huella = (await metaGrafo())?.huella ?? "sin-compilado";
   const r = await unstable_cache(
     () => buscarCamino(primero, segundo),
     ["grafo-camino", VERSION_CAMINO, huella, claveNodo(primero), claveNodo(segundo)],
     { revalidate: 86400 },
   )();
-  if (!alReves || !r.pasos) return r;
-  // Del otro extremo: los mismos pasos, al revés, cada arista con el paso al que llega.
-  const pasos = [...r.pasos].reverse().map((p, i, lista) => ({ ...p, via: i === 0 ? null : lista[i - 1].via }));
-  return { ...r, pasos };
+  if (!invertido || !r.pasos) return r;
+  return { ...r, pasos: alReves(r.pasos), alternos: r.alternos.map(alReves) };
 }
 
 /* -------------------------------------------------------------- búsqueda */

@@ -1370,6 +1370,143 @@ const CASOS = [
     },
   },
   {
+    pregunta: "SPARQL: las plantillas de investigación dan lo verificado y lo mismo que SQL sobre los Parquet",
+    async correr() {
+      // La consulta se llena aquí, aparte de lib/plantillas.ts: si su forma de llenar cambia, el caso lo ve.
+      const plantillas = JSON.parse(readFileSync(path.join(RAIZ, "lib", "plantillas.json"), "utf8"));
+      const termino = {
+        institucion: (v) => `<${SITIO}/instituciones/${v}#id>`,
+        proveedor: (v) => `<${SITIO}/proveedores/${v}#id>`,
+        anio: (v) => `"${v}-01-01"^^<http://www.w3.org/2001/XMLSchema#date>`,
+        provincia: (v) => `<${SITIO}/provincias/${v}#id>`,
+      };
+      const sql = async (q) => {
+        const r = await llamar("query", { sql: q });
+        exigir(!r.error, `${q}: ${r.error}`);
+        return r.datos.filas;
+      };
+      // El oráculo de cada una: la misma pregunta en SQL sobre los Parquet, con sus valores por omisión.
+      const oraculos = {
+        async concentracion({ institucion }, d) {
+          const [[total]] = await sql(`SELECT sum(monto) FROM contrataciones WHERE institucion_id = ${Number(institucion)}`);
+          const top = await sql(`SELECT proveedor_rpe, sum(monto) AS m FROM contrataciones WHERE institucion_id = ${Number(institucion)} GROUP BY 1 ORDER BY m DESC, proveedor_rpe LIMIT 5`);
+          exigir(d.filas.length === top.length, `${d.filas.length} filas; SQL ${top.length}`);
+          top.forEach(([rpe, m], i) => {
+            const f = Object.fromEntries(d.variables.map((v, j) => [v, d.filas[i][j]]));
+            exigir(f.proveedor === `${SITIO}/proveedores/${rpe}#id`, `fila ${i + 1}: ${f.proveedor}; SQL RPE ${rpe}`);
+            exigir(Number(f.contratado) === Number(m), `RPE ${rpe}: ${f.contratado}; SQL ${m}`);
+            exigir(Math.abs(Number(f.cuota) - Math.round((1000 * m) / total) / 10) < 1e-9, `RPE ${rpe}: cuota ${f.cuota}; SQL ${Math.round((1000 * m) / total) / 10}`);
+          });
+        },
+        async clientes({ proveedor }, d) {
+          const filas = await sql(`SELECT institucion_id, contratos, monto FROM contrataciones WHERE proveedor_rpe = '${proveedor.replace(/\D/g, "")}'`);
+          const deSql = filas.map(([i, c, m]) => `${SITIO}/instituciones/${i}#id ${c} ${m}`).sort();
+          const deSparql = d.filas.map((f) => `${f[0]} ${Number(f[2])} ${Number(f[3])}`).sort();
+          exigir(JSON.stringify(deSql) === JSON.stringify(deSparql), `${deSparql.length} pares por SPARQL, ${deSql.length} por SQL, o distintos`);
+        },
+        async "medidas-despues"({ desde }, d) {
+          const [[n]] = await sql(
+            `SELECT count(*) FROM medidas m JOIN contratos_obra c ON c.proveedor_rpe = m.proveedor_rpe JOIN procesos p ON p.codigo = c.proceso_codigo WHERE m.fecha >= DATE '${Number(desde)}-01-01' AND p.fecha > m.fecha`,
+          );
+          exigir(d.filas.length === n, `${d.filas.length} filas; SQL ${n}`);
+        },
+        async "obras-sin-contrato"({ provincia }, d) {
+          const filas = await sql(
+            `SELECT o.snip FROM obras o JOIN obras_provincias op ON op.obra_snip = o.snip WHERE op.provincia_slug = '${provincia.replace(/[^a-z0-9-]/g, "")}' AND o.snip NOT IN (SELECT obra_snip FROM obras_contratos) ORDER BY o.valor_estimado DESC, o.snip`,
+          );
+          const deSparql = d.filas.map((f) => /\/obras\/([^#]+)#id$/.exec(f[0])?.[1]).sort();
+          exigir(JSON.stringify(filas.map((f) => f[0]).sort()) === JSON.stringify(deSparql), `${deSparql.length} obras por SPARQL, ${filas.length} por SQL, o distintas`);
+          exigir(`${SITIO}/obras/${filas[0][0]}#id` === d.filas[0][0], `la de mayor costo: ${d.filas[0][0]}; SQL ${filas[0][0]}`);
+        },
+        async conjuntos({ institucion }, d) {
+          const filas = await sql(`SELECT url FROM conjuntos WHERE institucion_id = ${Number(institucion)} ORDER BY url`);
+          const deSparql = d.filas.map((f) => f[0].replace(/#id$/, "")).sort();
+          exigir(JSON.stringify(filas.map((f) => f[0]).sort()) === JSON.stringify(deSparql), `${deSparql.length} conjuntos por SPARQL, ${filas.length} por SQL, o distintos`);
+        },
+      };
+      exigir(plantillas.length >= 5, `${plantillas.length} plantillas; el banco promete cinco o más`);
+      for (const p of plantillas) {
+        exigir(oraculos[p.id], `${p.id}: no tiene oráculo en SQL`);
+        let q = p.consulta;
+        const valores = {};
+        for (const par of p.parametros) {
+          valores[par.clave] = par.porOmision;
+          q = q.replaceAll(`{{${par.clave}}}`, termino[par.tipo](par.porOmision));
+        }
+        exigir(!/\{\{/.test(q), `${p.id}: quedó un hueco sin llenar`);
+        const { datos, error } = await llamar("sparql", { query: q });
+        exigir(!error, `${p.id}: ${error}`);
+        exigir(datos.filas.length === p.verificado.filas, `${p.id}: ${datos.filas.length} filas; se verificaron ${p.verificado.filas}`);
+        for (const [k, v] of Object.entries(p.verificado.primera)) {
+          const dado = datos.filas[0][datos.variables.indexOf(k)];
+          exigir(String(dado) === v || Number(dado) === Number(v), `${p.id}: ?${k} es ${dado}; se verificó ${v}`);
+        }
+        await oraculos[p.id](valores, datos);
+      }
+      // El MCP las da como ejemplos de sparql, llenas.
+      const lista = await rpc("tools/list");
+      const desc = lista.result.tools.find((t) => t.name === "sparql")?.description ?? "";
+      for (const p of plantillas) exigir(desc.includes(p.pregunta), `la descripción de sparql no trae «${p.pregunta}»`);
+      return `${plantillas.length} plantillas, cada una igual a su cuenta en SQL`;
+    },
+  },
+  {
+    pregunta: "path: los alternos no repiten relaciones, cada salto está en el volcado con el grafo que dice, y la forma de antes sigue",
+    async correr() {
+      const metaGrafo = JSON.parse(readFileSync(path.join(RAIZ, "datos", "grafo", "meta.json"), "utf8"));
+      const iriGrafo = new Map(metaGrafo.grafos.map((g) => [g.clave, g.iri]));
+      // El IRI de un nodo desde su id (la ruta de su ficha); null si no está en el volcado (personas, normas, Congreso…).
+      const iriDe = (id) => (PERSONALES.some((r) => id.startsWith(r)) ? null : `${SITIO}${id.replace(/^(\/instituciones\/\d+)-.*$/, "$1")}#id`);
+      const pares = [
+        [`/proveedores/${topMinerd[0][0]}`, `/instituciones/${MINERD.id}`],
+        [`/instituciones/${INAPA.id}`, `/instituciones/${MESCYT.id}`],
+      ];
+      let comprobados = 0;
+      let alternos = 0;
+      for (const [from, to] of pares) {
+        const { datos, error } = await llamar("path", { from, to });
+        exigir(!error, error);
+        exigir(datos.encontrado, `${from} → ${to}: ${datos.explicacion}`);
+        // La forma de antes, intacta: saltos, pasos con id, nombre, clase y via.
+        exigir(datos.saltos === datos.pasos.length - 1 && datos.pasos.every((x) => typeof x.id === "string" && "via" in x && "clase" in x), "la forma de antes cambió");
+        exigir(Array.isArray(datos.alternos) && datos.alternos.length <= 3, `alternos: ${JSON.stringify(datos.alternos)?.slice(0, 80)}`);
+        const usadas = new Set();
+        for (const [k, c] of [datos.pasos, ...datos.alternos.map((a) => a.pasos)].entries()) {
+          exigir(c[0].id === datos.pasos[0].id && c.at(-1).id === datos.pasos.at(-1).id, `camino ${k}: no va de un extremo al otro`);
+          for (let i = 1; i < c.length; i++) {
+            const par = [c[i - 1].id, c[i].id].sort().join(" ");
+            exigir(!usadas.has(par), `camino ${k}: repite la relación ${par}`);
+            usadas.add(par);
+            const a = c[i].arista;
+            exigir(a && a.verbo && (a.dice === "anterior" || a.dice === "este"), `camino ${k}, salto ${i}: sin arista`);
+            const x = iriDe(c[i - 1].id);
+            const y = iriDe(c[i].id);
+            if (!x || !y || !a.grafo) continue;
+            const g = iriGrafo.get(a.grafo);
+            exigir(g, `camino ${k}, salto ${i}: el grafo ${a.grafo} no está en el compilado`);
+            exigir(!a.corte || g.endsWith(`/${a.corte}`), `camino ${k}, salto ${i}: corte ${a.corte}, grafo ${g}`);
+            // Oráculo aparte: el volcado en Oxigraph tiene un triple de ese grafo que toca uno de los dos y,
+            // desde su otro término, llega al otro en uno o dos pasos en cualquier sentido (sin rdf:type):
+            // una contratación ata institución y proveedor, y el proveedor, a su empresa.
+            const paso = "!(rdf:type|^rdf:type)";
+            const ramas = [`{ GRAPH <${g}> { <${x}> ?p <${y}> } }`, `{ GRAPH <${g}> { <${y}> ?p <${x}> } }`];
+            for (const [u, v] of [[x, y], [y, x]]) {
+              for (const t of [`?m ?p <${u}>`, `<${u}> ?p ?m`]) for (const c of [paso, `${paso}/${paso}`]) ramas.push(`{ GRAPH <${g}> { ${t} } ?m ${c} <${v}> }`);
+            }
+            const ask = `ASK { ${ramas.join(" UNION ")} }`;
+            const r = await llamar("sparql", { query: ask });
+            exigir(r.datos?.booleano === true, `camino ${k}, salto ${i} (${c[i - 1].id} → ${c[i].id}, ${a.grafo}): el volcado no lo ata (${r.error ?? "falso"})`);
+            comprobados++;
+          }
+        }
+        alternos += datos.alternos.length;
+      }
+      exigir(comprobados >= 4, `solo ${comprobados} saltos comprobados contra el volcado`);
+      exigir(alternos > 0, "ningún par dio un alterno");
+      return `${alternos} alternos sin relaciones repetidas; ${comprobados} saltos atados en su grafo del volcado`;
+    },
+  },
+  {
     pregunta: "SPARQL: una actualización, LOAD, SERVICE, un producto cartesiano, una cédula y una respuesta de más de 4 MB se rechazan, y el motor responde después",
     async correr() {
       const vetadas = [
