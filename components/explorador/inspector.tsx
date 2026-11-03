@@ -20,7 +20,7 @@ import { enlace } from "@/lib/grafo";
 import { formatFecha, formatPesos } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import type { TipoEntrada } from "@/lib/espacios";
-import type { AristaVista, GrupoVisto, Inspeccion } from "@/lib/explorar-tipos";
+import type { AristaVista, FuenteVista, GrupoVisto, Inspeccion } from "@/lib/explorar-tipos";
 import { clicSimple } from "./clic";
 import { EnVivo } from "./en-vivo";
 
@@ -254,7 +254,7 @@ function Cuerpo({
           {n.grupos.length === 0 ? (
             <p className="px-4 py-3 text-sm text-ink-soft">Ninguna de las fuentes cruzadas liga este nodo con otro todavía.</p>
           ) : (
-            n.grupos.map((g) => <Grupo key={g.id} g={g} ruta={n.ruta} onAbrir={onAbrir} />)
+            n.grupos.map((g) => <Grupo key={g.id} g={g} ruta={n.ruta} fuentes={n.fuentes} onAbrir={onAbrir} />)
           )}
         </TabsContent>
 
@@ -309,24 +309,48 @@ function Cuerpo({
   );
 }
 
-function Grupo({ g, ruta, onAbrir }: { g: GrupoVisto; ruta: string; onAbrir: (p: PasoRastro) => void }) {
+function Grupo({
+  g,
+  ruta,
+  fuentes,
+  onAbrir,
+}: {
+  g: GrupoVisto;
+  ruta: string;
+  fuentes: Inspeccion["fuentes"];
+  onAbrir: (p: PasoRastro) => void;
+}) {
   const resto = g.total - g.aristas.length;
+  // La fuente se dice una vez si todas las aristas del grupo salen del mismo grafo; si no, en cada una.
+  const claves = new Set(g.aristas.map((a) => a.grafo));
+  const unica = claves.size === 1 && g.aristas[0]?.grafo ? fuentes[g.aristas[0].grafo] : undefined;
+  const fuenteDe = (a: AristaVista) => (unica || !a.grafo ? undefined : fuentes[a.grafo]);
+  const mezcla = !unica && g.aristas.some((a) => a.grafo && fuentes[a.grafo]);
   return (
     <section aria-labelledby={`inspector-${g.id}`} className="py-2">
       <h3 id={`inspector-${g.id}`} className="flex items-baseline justify-between gap-2 px-4 pt-1 text-sm font-bold text-ink">
         {g.etiqueta}
         <span className="font-mono text-xs font-normal tabular-nums text-ink-soft">{formatInt(g.total)}</span>
       </h3>
+      {unica && <FuenteDeArista f={unica} className="px-4" />}
+      {mezcla && (
+        <p className="px-4 text-xs leading-relaxed text-ink-soft">
+          De varias fuentes; cada arista dice la suya.{" "}
+          <Link href="/fuentes" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-10">
+            Qué es cada fuente
+          </Link>
+        </p>
+      )}
       <ul className="mt-1">
         {g.aristas.slice(0, VISIBLES).map((a, i) => (
-          <FilaArista key={`${g.id}-${i}`} a={a} onAbrir={onAbrir} />
+          <FilaArista key={`${g.id}-${i}`} a={a} fuente={fuenteDe(a)} onAbrir={onAbrir} />
         ))}
       </ul>
       {g.aristas.length > VISIBLES && (
         <Plegable etiqueta={`Ver las otras ${formatInt(g.aristas.length - VISIBLES)}`} etiquetaCerrar="Ocultarlas" className="px-4">
           <ul>
             {g.aristas.slice(VISIBLES).map((a, i) => (
-              <FilaArista key={`${g.id}-mas-${i}`} a={a} onAbrir={onAbrir} />
+              <FilaArista key={`${g.id}-mas-${i}`} a={a} fuente={fuenteDe(a)} onAbrir={onAbrir} />
             ))}
           </ul>
         </Plegable>
@@ -343,7 +367,7 @@ function Grupo({ g, ruta, onAbrir }: { g: GrupoVisto; ruta: string; onAbrir: (p:
   );
 }
 
-function FilaArista({ a, onAbrir }: { a: AristaVista; onAbrir: (p: PasoRastro) => void }) {
+function FilaArista({ a, fuente, onAbrir }: { a: AristaVista; fuente: FuenteVista | undefined; onAbrir: (p: PasoRastro) => void }) {
   const clase = "estira text-sm font-medium leading-snug text-ink hover:text-brand-700";
   const nombre = a.ruta ? (
     <Link
@@ -382,7 +406,33 @@ function FilaArista({ a, onAbrir }: { a: AristaVista; onAbrir: (p: PasoRastro) =
           {a.fecha ? <Antiguedad iso={a.fecha} prefijo={a.movimiento ?? undefined} /> : a.movimiento}
         </p>
       )}
+      {fuente && <FuenteDeArista f={fuente} enFila />}
     </li>
+  );
+}
+
+/**
+ * De dónde sale una arista: la fuente y su corte, o la regla de Socrático que
+ * la deduce. Bajo el título del grupo, la fuente enlaza a `/fuentes`, donde
+ * se declara; en una fila (un grupo de varias fuentes), y siempre en una
+ * regla, es solo texto: las reglas no tienen página y el enlace del grupo ya
+ * lleva a `/fuentes`.
+ */
+function FuenteDeArista({ f, enFila = false, className = "" }: { f: FuenteVista; enFila?: boolean; className?: string }) {
+  const nombre =
+    f.derivado || enFila ? (
+      f.etiqueta
+    ) : (
+      <Link href="/fuentes" className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-10">
+        {f.etiqueta}
+      </Link>
+    );
+  return (
+    <p className={`mt-0.5 text-xs leading-relaxed text-ink-soft ${className}`}>
+      {f.derivado ? "Regla de Socrático: " : "Fuente: "}
+      {nombre}
+      {!f.derivado && (f.corte ? <>, corte del <span className="font-mono tabular-nums">{formatFecha(f.corte)}</span></> : ", sin corte")}
+    </p>
   );
 }
 

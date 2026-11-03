@@ -4,7 +4,7 @@ import { metaGrafo, type GrafoConNombre } from "@/lib/grafo-compilado";
 import { datosDe } from "@/lib/grafo-hechos";
 import type { TipoEntrada } from "@/lib/espacios";
 import { CLASES, PROPIEDADES, VERSION, curie } from "@/lib/ontologia";
-import { ARISTAS_POR_GRUPO, type Inspeccion, type OntologiaVista, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
+import { ARISTAS_POR_GRUPO, type FuenteVista, type Inspeccion, type OntologiaVista, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
 
 /**
  * El inspector del banco de trabajo del grafo (la portada, `/`,
@@ -47,7 +47,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
   const [d, meta] = await Promise.all([describir(nodo), metaGrafo()]);
   if (!d) return null;
   const sujeto = iriDe(nodo);
-  const relaciones = relacionesDesdeTriples(d.triples, sujeto);
+  const relaciones = relacionesDesdeTriples(d.triples, sujeto, d.grafos);
   const propia = claveNodo(nodo);
   const otros = new Set(relaciones.flatMap((r) => (r.nodo && claveNodo(r.nodo) !== propia ? [claveNodo(r.nodo)] : [])));
 
@@ -67,6 +67,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
         ruta: r.nodo ? rutaDeNodo(r.nodo) : null,
         href: r.href,
         externo: r.externo,
+        grafo: r.grafo,
       })),
     };
   }).filter((g) => g.total > 0);
@@ -78,6 +79,17 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
     .filter((g) => porGrafo.has(g.clave) && g.clave !== "plataforma")
     .map((g) => ({ clave: g.clave, etiqueta: etiquetaUnica(g, meta!.grafos), corte: g.corte, derivado: !!g.derivado, triples: porGrafo.get(g.clave)! }))
     .sort((a, b) => Number(a.derivado) - Number(b.derivado) || b.triples - a.triples);
+
+  // La fuente de cada arista que viaja: la etiqueta, el corte y si es una regla.
+  const fuentes: Record<string, FuenteVista> = {};
+  const usados = new Set(grupos.flatMap((g) => g.aristas.flatMap((a) => (a.grafo ? [a.grafo] : []))));
+  for (const g of meta?.grafos ?? []) {
+    // `plataforma` (la ficha de cada nodo, un enlace de aquí) no es una fuente ni una regla: su arista no dice de dónde sale.
+    if (!usados.has(g.clave) || g.clave === "plataforma") continue;
+    // Una regla, sin el «(regla)» de su etiqueta; una fuente de cargos, sin «Cargos:»: el inspector ya dice qué es.
+    const etiqueta = g.derivado ? g.etiqueta.replace(/\s*\(regla[^)]*\)$/, "") : etiquetaUnica(g, meta!.grafos).replace(/^Cargos:\s*/, "");
+    fuentes[g.clave] = { etiqueta, corte: g.corte, derivado: !!g.derivado };
+  }
 
   return {
     ruta: rutaDeNodo(nodo),
@@ -91,6 +103,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
     vecinos: otros.size,
     triples: d.triples.length,
     procedencia,
+    fuentes,
     guardable: GUARDABLE[nodo.tipo],
   };
 }

@@ -63,6 +63,15 @@ export interface AristaVista {
   ruta: string | null;
   href: string | null;
   externo: boolean;
+  /** La clave del grafo con nombre de donde sale la arista (`Inspeccion.fuentes`); `null` si el compilado no lo dice. */
+  grafo: string | null;
+}
+
+/** Un grafo con nombre como lo lee el inspector: su fuente y su corte, o la regla de Socrático que lo deriva. */
+export interface FuenteVista {
+  etiqueta: string;
+  corte: string | null;
+  derivado: boolean;
 }
 
 export interface GrupoVisto {
@@ -95,6 +104,8 @@ export interface Inspeccion {
   vecinos: number;
   triples: number;
   procedencia: ProcedenciaVista[];
+  /** Cada grafo con nombre que nombra una arista de `grupos`, por su clave. */
+  fuentes: Record<string, FuenteVista>;
   /** Lo que se guarda en una investigación (`components/espacios/guardar.tsx`), si el tipo se guarda. */
   guardable: string | null;
 }

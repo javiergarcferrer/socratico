@@ -12,7 +12,7 @@ import { PROVINCIAS } from "@/lib/provincias";
 import { hrefWikidata } from "@/lib/wikidata";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
 import { desdeMayusculas } from "@/lib/congreso";
-import { describirEmpresaSola, iriDe, nombreDecreto, type Descripcion } from "@/lib/grafo-nodo";
+import { describirEmpresaSola, iriDe, nombreDecreto, type ClaveGrafo, type Descripcion } from "@/lib/grafo-nodo";
 import {
   buscarFinancieras,
   buscarPersonas,
@@ -216,6 +216,19 @@ export interface Relacion {
    * dice cuál. Nunca lo pagado.
    */
   monto: number | null;
+  /**
+   * De qué grafo con nombre sale la arista (`ClaveGrafo`: una fuente con su
+   * corte, o una regla de Socrático): el del triple que nombra el otro
+   * extremo. Si la arista atraviesa un nodo intermedio (un cargo, una
+   * contratación, un contrato de obra), manda el triple que ata el
+   * intermedio al destino —`soc:enInstitucion`, `soc:segunDecreto`,
+   * `soc:enProvincia`, `soc:titular`, `soc:contratante`, `soc:contratista`,
+   * `soc:paraProyecto`, `soc:delProceso`—, no el que lo ata al nodo de
+   * partida (un cargo sin institución, que no lleva a otro nodo, da el de
+   * `soc:ocupa`, del mismo grafo). Si dos triples dicen la misma arista, el
+   * primero. `null` si quien llama no pasó los grafos.
+   */
+  grafo: ClaveGrafo | null;
 }
 
 const V = {
@@ -291,15 +304,18 @@ const V = {
  * y a la provincia del cargo; desde una institución, una provincia o un
  * decreto, a la persona que lo ocupa.
  */
-export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relacion[] {
+export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos?: readonly ClaveGrafo[]): Relacion[] {
   const salen = new Map<string, Triple[]>();
   const entran = new Map<string, Triple[]>();
-  for (const x of triples) {
+  // El grafo de cada triple (`Descripcion.grafos`, en el mismo orden).
+  const grafoDe = new Map<Triple, ClaveGrafo>();
+  triples.forEach((x, i) => {
     if (x.s.tipo === "iri") salen.set(x.s.valor, [...(salen.get(x.s.valor) ?? []), x]);
     if (x.o.tipo === "iri") entran.set(x.o.valor, [...(entran.get(x.o.valor) ?? []), x]);
-  }
-  const uno = (s: string, p: string, tipo: Termino["tipo"]) =>
-    salen.get(s)?.find((x) => x.p === p && x.o.tipo === tipo)?.o.valor ?? null;
+    if (grafos?.[i]) grafoDe.set(x, grafos[i]);
+  });
+  const unoT = (s: string, p: string, tipo: Termino["tipo"]) => salen.get(s)?.find((x) => x.p === p && x.o.tipo === tipo) ?? null;
+  const uno = (s: string, p: string, tipo: Termino["tipo"]) => unoT(s, p, tipo)?.o.valor ?? null;
   const nombre = (s: string) => uno(s, V.etiqueta, "literal") ?? uno(s, V.titulo, "literal") ?? uno(s, V.nombre, "literal") ?? s;
   const esDe = (s: string, clase: string) => salen.get(s)?.some((x) => x.p === V.tipo && x.o.valor === clase) ?? false;
   const esCargo = (s: string) => esDe(s, V.cargo);
@@ -383,8 +399,9 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
 
   const salida: Relacion[] = [];
   const vistas = new Set<string>();
-  const agregar = (r: Omit<Relacion, "detalle" | "movimiento" | "fecha" | "monto"> & Partial<Relacion>) => {
-    const completa: Relacion = { detalle: null, movimiento: null, fecha: null, monto: null, ...r };
+  /** `por`: el triple que nombra el otro extremo; de él sale el grafo de la arista. */
+  const agregar = (r: Omit<Relacion, "detalle" | "movimiento" | "fecha" | "monto" | "grafo"> & Partial<Relacion>, por: Triple | null) => {
+    const completa: Relacion = { detalle: null, movimiento: null, fecha: null, monto: null, ...r, grafo: (por && grafoDe.get(por)) ?? null };
     const k = [completa.grupo, completa.verbo, completa.href, completa.nombre, completa.detalle, completa.fecha].join("|");
     if (vistas.has(k)) return;
     vistas.add(k);
@@ -401,7 +418,7 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
         const inst = uno(o, V.enInstitucion, "iri");
         const dec = uno(o, V.segunDecreto, "iri");
         const prov = uno(o, V.enProvincia, "iri");
-        if (inst) agregar({ grupo: "cargos", verbo: "Cargo en", neutro: `Cargo: ${cargo}`, ...hacia(inst), nombre: nombre(inst), ...base });
+        if (inst) agregar({ grupo: "cargos", verbo: "Cargo en", neutro: `Cargo: ${cargo}`, ...hacia(inst), nombre: nombre(inst), ...base }, unoT(o, V.enInstitucion, "iri"));
         else {
           const fuente = salen.get(o)?.find((y) => y.p === V.fuente && y.o.tipo === "iri")?.o.valor ?? null;
           agregar({
@@ -414,14 +431,14 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
             nombre: cargo,
             movimiento: base.movimiento,
             fecha: base.fecha,
-          });
+          }, x);
         }
-        if (dec) agregar({ grupo: "decretos", verbo: "Decreto de su cargo", neutro: `El decreto de su cargo: ${cargo}`, ...hacia(dec), nombre: nombre(dec), ...base });
-        if (prov) agregar({ grupo: "lugares", verbo: "Provincia de su cargo", neutro: `Cargo en la provincia: ${cargo}`, ...hacia(prov), nombre: nombre(prov), ...base });
+        if (dec) agregar({ grupo: "decretos", verbo: "Decreto de su cargo", neutro: `El decreto de su cargo: ${cargo}`, ...hacia(dec), nombre: nombre(dec), ...base }, unoT(o, V.segunDecreto, "iri"));
+        if (prov) agregar({ grupo: "lugares", verbo: "Provincia de su cargo", neutro: `Cargo en la provincia: ${cargo}`, ...hacia(prov), nombre: nombre(prov), ...base }, unoT(o, V.enProvincia, "iri"));
         break;
       }
       case V.firmadoPor:
-        agregar({ grupo: "decretos", verbo: "Lo firma", neutro: "La firma del decreto", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "decretos", verbo: "Lo firma", neutro: "La firma del decreto", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.firmo: {
         const titulo = uno(o, V.titulo, "literal");
@@ -433,23 +450,23 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
           nombre: nombre(o),
           detalle: titulo ? recortar(desdeMayusculas(titulo), 160) : null,
           fecha: uno(o, V.fecha, "literal"),
-        });
+        }, x);
         break;
       }
       case V.supervisadaPor:
-        agregar({ grupo: "entidades", verbo: "La supervisa", neutro: "La supervisión", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "entidades", verbo: "La supervisa", neutro: "La supervisión", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.mismo: {
         if (o.startsWith(PREFIJOS.wd)) {
           const qid = o.slice(PREFIJOS.wd.length);
-          agregar({ grupo: "registros", verbo: "En Wikidata", neutro: "Wikidata", nodo: null, href: hrefWikidata(qid), externo: true, nombre: qid });
+          agregar({ grupo: "registros", verbo: "En Wikidata", neutro: "Wikidata", nodo: null, href: hrefWikidata(qid), externo: true, nombre: qid }, x);
           break;
         }
         const h = hacia(o);
         if (h.nodo) {
-          agregar({ grupo: "entidades", verbo: "Es la misma entidad que", neutro: "La misma entidad en dos registros", ...h, nombre: nombre(o) });
+          agregar({ grupo: "entidades", verbo: "Es la misma entidad que", neutro: "La misma entidad en dos registros", ...h, nombre: nombre(o) }, x);
         } else if (h.href?.startsWith("/congreso/")) {
-          agregar({ grupo: "cargos", verbo: "En el Congreso", neutro: "Su ficha de legislador", ...h, nombre: "Su ficha de legislador" });
+          agregar({ grupo: "cargos", verbo: "En el Congreso", neutro: "Su ficha de legislador", ...h, nombre: "Su ficha de legislador" }, x);
         }
         break;
       }
@@ -463,81 +480,85 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
           externo: true,
           nombre: nombre(o),
           fecha: uno(o, V.subida, "literal"),
-        });
+        }, x);
         break;
       case V.inscritaComo:
-        agregar({ grupo: "registros", verbo: "Inscrita como proveedora", neutro: "Su inscripción de proveedora", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "registros", verbo: "Inscrita como proveedora", neutro: "Su inscripción de proveedora", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.codificacion:
         // El de un documento es su archivo, en el sitio de la institución; el de una norma, su PDF en la Consultoría.
         if (esDocumento(sujeto)) {
           const sitio = /^https?:\/\/([^/]+)/.exec(o)?.[1] ?? o;
-          agregar({ grupo: "publicaciones", verbo: "El archivo", neutro: "Su archivo", nodo: null, href: o, externo: true, nombre: `El archivo en ${sitio}` });
+          agregar({ grupo: "publicaciones", verbo: "El archivo", neutro: "Su archivo", nodo: null, href: o, externo: true, nombre: `El archivo en ${sitio}` }, x);
         } else {
-          agregar({ grupo: "registros", verbo: "Su texto", neutro: "Su texto", nodo: null, href: o, externo: true, nombre: "El PDF en la Consultoría Jurídica" });
+          agregar({ grupo: "registros", verbo: "Su texto", neutro: "Su texto", nodo: null, href: o, externo: true, nombre: "El PDF en la Consultoría Jurídica" }, x);
         }
         break;
       case V.paginaDeDatos:
-        agregar({ grupo: "publicaciones", verbo: "Sus archivos", neutro: "Su página en datos.gob.do", nodo: null, href: o, externo: true, nombre: "En datos.gob.do" });
+        agregar({ grupo: "publicaciones", verbo: "Sus archivos", neutro: "Su página en datos.gob.do", nodo: null, href: o, externo: true, nombre: "En datos.gob.do" }, x);
         break;
       case V.publicadaPor:
-        agregar({ grupo: "publicaciones", verbo: "Lo publica", neutro: "Quién lo publica", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "publicaciones", verbo: "Lo publica", neutro: "Quién lo publica", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.verTambien: {
         const h = hacia(o);
         if (!h.externo && h.href?.endsWith("/decretos")) {
           const n = uno(sujeto, V.decretosFirmados, "literal");
-          agregar({ grupo: "decretos", verbo: "Firmó", neutro: "Sus decretos firmados", ...h, nombre: n ? `${Number(n).toLocaleString("es-DO")} decretos` : "Sus decretos" });
+          // La cuenta la dice `soc:decretosFirmados` (grafo `firma`); el enlace a la lista es de la plataforma.
+          agregar(
+            { grupo: "decretos", verbo: "Firmó", neutro: "Sus decretos firmados", ...h, nombre: n ? `${Number(n).toLocaleString("es-DO")} decretos` : "Sus decretos" },
+            unoT(sujeto, V.decretosFirmados, "literal") ?? x,
+          );
         } else if (h.externo) {
-          agregar({ grupo: "registros", verbo: "En la lista de la OFAC", neutro: "La lista de la OFAC", ...h, nombre: "Su entrada en la lista SDN" });
+          agregar({ grupo: "registros", verbo: "En la lista de la OFAC", neutro: "La lista de la OFAC", ...h, nombre: "Su entrada en la lista SDN" }, x);
         }
         break;
       }
       case V.comprador:
-        agregar({ grupo: "procesos", verbo: "Lo convoca", neutro: "Quien convoca el proceso", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "procesos", verbo: "Lo convoca", neutro: "Quien convoca el proceso", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.ejecutadoPor:
-        agregar({ grupo: "obras", verbo: "La ejecuta", neutro: "Quien ejecuta la obra", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "obras", verbo: "La ejecuta", neutro: "Quien ejecuta la obra", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.paraProyecto:
-        agregar({ grupo: "obras", verbo: "Para la obra", neutro: "Un proceso para la obra", ...hacia(o), nombre: nombre(o), ...obraVecina(o) });
+        agregar({ grupo: "obras", verbo: "Para la obra", neutro: "Un proceso para la obra", ...hacia(o), nombre: nombre(o), ...obraVecina(o) }, x);
         break;
       case V.enProvincia:
         // La provincia de una obra; la de un cargo se lee atravesando el cargo.
-        agregar({ grupo: "lugares", verbo: "En la provincia", neutro: "Una obra en la provincia", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "lugares", verbo: "En la provincia", neutro: "Una obra en la provincia", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.deroga:
       case V.modifica:
       case V.cita: {
         // Una sentencia que nombra otra sentencia; lo que nombra una sentencia sale de lo que dice su listado, no de un título.
         if (esSentencia(o)) {
-          agregar({ grupo: "sentencias", verbo: "Cita la sentencia", neutro: "Una sentencia que nombra otra", ...hacia(o), nombre: nombre(o), ...sentenciaVecina(o) });
+          agregar({ grupo: "sentencias", verbo: "Cita la sentencia", neutro: "Una sentencia que nombra otra", ...hacia(o), nombre: nombre(o), ...sentenciaVecina(o) }, x);
           break;
         }
         const c = CITA[x.p];
         const verbo = delSujetoEsProyecto && c.propuesta ? `Propone ${c.propuesta}` : mayuscula(c.verbo);
         const neutro = esSentencia(sujeto) ? "Una sentencia que nombra la norma" : c.neutro;
-        agregar({ grupo: "normas", verbo, neutro, ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
+        agregar({ grupo: "normas", verbo, neutro, ...hacia(o), nombre: nombre(o), ...normaVecina(o) }, x);
         break;
       }
       case V.dictadaPor:
-        agregar({ grupo: "sentencias", verbo: "La dicta", neutro: "El tribunal que la dicta", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "sentencias", verbo: "La dicta", neutro: "El tribunal que la dicta", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.celebradaPor:
-        agregar({ grupo: "votaciones", verbo: "En el pleno de", neutro: "La cámara que vota", ...hacia(o), nombre: nombre(o) });
+        agregar({ grupo: "votaciones", verbo: "En el pleno de", neutro: "La cámara que vota", ...hacia(o), nombre: nombre(o) }, x);
         break;
       case V.sobre:
-        agregar({ grupo: "votaciones", verbo: "Votó sobre", neutro: "Una votación sobre la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
+        agregar({ grupo: "votaciones", verbo: "Votó sobre", neutro: "Una votación sobre la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) }, x);
         break;
       case V.fuente:
         // La ficha de una sentencia en el sitio del tribunal: el camino a su texto.
         if (esSentencia(sujeto)) {
           const sitio = /^https?:\/\/([^/]+)/.exec(o)?.[1] ?? o;
-          agregar({ grupo: "sentencias", verbo: "Su ficha en el tribunal", neutro: "Su ficha en el tribunal", nodo: null, href: o, externo: true, nombre: `La ficha en ${sitio}` });
+          agregar({ grupo: "sentencias", verbo: "Su ficha en el tribunal", neutro: "Su ficha en el tribunal", nodo: null, href: o, externo: true, nombre: `La ficha en ${sitio}` }, x);
         }
         break;
       case V.promulgadaComo:
-        agregar({ grupo: "normas", verbo: "Se promulgó como", neutro: "La norma en que se convirtió la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) });
+        agregar({ grupo: "normas", verbo: "Se promulgó como", neutro: "La norma en que se convirtió la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) }, x);
         break;
     }
   }
@@ -551,7 +572,7 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       const cargo = nombre(s);
       const base = { detalle: cargo, movimiento: movimiento(s), fecha: uno(s, V.fecha, "literal") };
       if (x.p === V.segunDecreto) {
-        agregar({ grupo: "decretos", verbo: "Registra el cargo de", neutro: `El decreto de su cargo: ${cargo}`, ...hacia(titular), nombre: nombre(titular), ...base });
+        agregar({ grupo: "decretos", verbo: "Registra el cargo de", neutro: `El decreto de su cargo: ${cargo}`, ...hacia(titular), nombre: nombre(titular), ...base }, unoT(s, V.titular, "iri"));
       } else {
         agregar({
           grupo: "cargos",
@@ -560,39 +581,39 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
           ...hacia(titular),
           nombre: nombre(titular),
           ...base,
-        });
+        }, unoT(s, V.titular, "iri"));
       }
     } else if (x.p === V.dirige) {
-      agregar({ grupo: "cargos", verbo: "La dirige", neutro: "La dirige", ...hacia(s), nombre: nombre(s) });
+      agregar({ grupo: "cargos", verbo: "La dirige", neutro: "La dirige", ...hacia(s), nombre: nombre(s) }, x);
     } else if (x.p === V.publicadaPor && esDe(s, V.conjuntoDeDatos)) {
-      agregar({ grupo: "publicaciones", verbo: "Publica los datos", neutro: "Quién lo publica", ...hacia(s), nombre: nombre(s) });
+      agregar({ grupo: "publicaciones", verbo: "Publica los datos", neutro: "Quién lo publica", ...hacia(s), nombre: nombre(s) }, x);
     } else if (x.p === V.publicadaPor && esDocumento(s)) {
-      agregar({ grupo: "publicaciones", verbo: "Publica el documento", neutro: "Quién lo publica", ...hacia(s), nombre: nombre(s), ...documentoVecino(s) });
+      agregar({ grupo: "publicaciones", verbo: "Publica el documento", neutro: "Quién lo publica", ...hacia(s), nombre: nombre(s), ...documentoVecino(s) }, x);
     } else if (x.p === V.publicadaPor) {
-      agregar({ grupo: "registros", verbo: "Publica la declaración", neutro: "Una declaración que publica", nodo: null, href: s, externo: true, nombre: nombre(s) });
+      agregar({ grupo: "registros", verbo: "Publica la declaración", neutro: "Una declaración que publica", nodo: null, href: s, externo: true, nombre: nombre(s) }, x);
     } else if (x.p === V.comprador) {
-      agregar({ grupo: "procesos", verbo: "Convocó", neutro: "Quien convoca el proceso", ...hacia(s), nombre: nombre(s), ...procesoVecino(s) });
+      agregar({ grupo: "procesos", verbo: "Convocó", neutro: "Quien convoca el proceso", ...hacia(s), nombre: nombre(s), ...procesoVecino(s) }, x);
     } else if (x.p === V.ejecutadoPor) {
-      agregar({ grupo: "obras", verbo: "Ejecuta", neutro: "Quien ejecuta la obra", ...hacia(s), nombre: nombre(s), ...obraVecina(s) });
+      agregar({ grupo: "obras", verbo: "Ejecuta", neutro: "Quien ejecuta la obra", ...hacia(s), nombre: nombre(s), ...obraVecina(s) }, x);
     } else if (x.p === V.enProvincia && esDe(s, V.proyecto)) {
-      agregar({ grupo: "obras", verbo: "Obra en la provincia", neutro: "Una obra en la provincia", ...hacia(s), nombre: nombre(s), ...obraVecina(s) });
+      agregar({ grupo: "obras", verbo: "Obra en la provincia", neutro: "Una obra en la provincia", ...hacia(s), nombre: nombre(s), ...obraVecina(s) }, x);
     } else if (x.p === V.paraProyecto && !esDe(s, V.contrato)) {
-      agregar({ grupo: "procesos", verbo: "Proceso de compra", neutro: "Un proceso para la obra", ...hacia(s), nombre: nombre(s), ...procesoVecino(s) });
+      agregar({ grupo: "procesos", verbo: "Proceso de compra", neutro: "Un proceso para la obra", ...hacia(s), nombre: nombre(s), ...procesoVecino(s) }, x);
     } else if (x.p === V.paraProyecto) {
       // Un contrato de la obra: a quién se le contrató.
       const pr = uno(s, V.contratista, "iri");
-      if (pr) agregar({ grupo: "obras", verbo: "Contrato con", neutro: "Un contrato de la obra", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) });
+      if (pr) agregar({ grupo: "obras", verbo: "Contrato con", neutro: "Un contrato de la obra", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) }, unoT(s, V.contratista, "iri"));
     } else if (x.p === V.delProceso) {
       const pr = uno(s, V.contratista, "iri");
-      if (pr) agregar({ grupo: "procesos", verbo: "Contrato con", neutro: "Un contrato del proceso", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) });
+      if (pr) agregar({ grupo: "procesos", verbo: "Contrato con", neutro: "Un contrato del proceso", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) }, unoT(s, V.contratista, "iri"));
     } else if (x.p === V.inscritaComo && esDe(sujeto, V.proveedor)) {
-      agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) });
+      agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) }, x);
     } else if (x.p === V.celebradaPor) {
-      agregar({ grupo: "votaciones", verbo: "Votó en el pleno", neutro: "La cámara que vota", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) });
+      agregar({ grupo: "votaciones", verbo: "Votó en el pleno", neutro: "La cámara que vota", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) }, x);
     } else if (x.p === V.sobre) {
-      agregar({ grupo: "votaciones", verbo: "Votada en el pleno", neutro: "Una votación sobre la iniciativa", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) });
+      agregar({ grupo: "votaciones", verbo: "Votada en el pleno", neutro: "Una votación sobre la iniciativa", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) }, x);
     } else if (x.p === V.dictadaPor) {
-      agregar({ grupo: "sentencias", verbo: "Dictó", neutro: "El tribunal que la dicta", ...hacia(s), nombre: nombre(s), ...sentenciaVecina(s) });
+      agregar({ grupo: "sentencias", verbo: "Dictó", neutro: "El tribunal que la dicta", ...hacia(s), nombre: nombre(s), ...sentenciaVecina(s) }, x);
     } else if ((x.p === V.deroga || x.p === V.modifica || x.p === V.cita) && esSentencia(s)) {
       // Una sentencia solo cita: «Una sentencia la cita».
       agregar({
@@ -602,12 +623,12 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
         ...hacia(s),
         nombre: nombre(s),
         ...sentenciaVecina(s),
-      });
+      }, x);
     } else if (x.p === V.deroga || x.p === V.modifica || x.p === V.cita) {
       const c = CITA[x.p];
       // «La deroga», «Lo modifica»; de una iniciativa, «Un proyecto propone derogarla», «Un proyecto lo cita»; de un documento, «Un documento la cita».
       if (esDocumento(s)) {
-        agregar({ grupo: "normas", verbo: `Un documento ${pronombre} ${c.verbo}`, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...documentoVecino(s) });
+        agregar({ grupo: "normas", verbo: `Un documento ${pronombre} ${c.verbo}`, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...documentoVecino(s) }, x);
         continue;
       }
       const verbo = esDe(s, V.iniciativa)
@@ -615,9 +636,9 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
           ? `Un proyecto propone ${c.propuesta}${pronombre}`
           : `Un proyecto ${pronombre} ${c.verbo}`
         : `${mayuscula(pronombre)} ${c.verbo}`;
-      agregar({ grupo: "normas", verbo, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...normaVecina(s) });
+      agregar({ grupo: "normas", verbo, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...normaVecina(s) }, x);
     } else if (x.p === V.promulgadaComo) {
-      agregar({ grupo: "normas", verbo: "Nació del proyecto", neutro: "La norma en que se convirtió la iniciativa", ...hacia(s), nombre: nombre(s), ...normaVecina(s) });
+      agregar({ grupo: "normas", verbo: "Nació del proyecto", neutro: "La norma en que se convirtió la iniciativa", ...hacia(s), nombre: nombre(s), ...normaVecina(s) }, x);
     }
   }
 
@@ -637,7 +658,7 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
     const pr = uno(x.s.valor, V.contratista, "iri");
     if (!pr) continue;
     const empresa = entran.get(pr)?.find((y) => y.p === V.inscritaComo && y.s.tipo === "iri")?.s.valor ?? null;
-    agregar({ grupo: "compras", verbo: "Contrató a", neutro: "Una contratación", ...hacia(empresa ?? pr), nombre: nombre(pr), ...cuanto(x.s.valor) });
+    agregar({ grupo: "compras", verbo: "Contrató a", neutro: "Una contratación", ...hacia(empresa ?? pr), nombre: nombre(pr), ...cuanto(x.s.valor) }, unoT(x.s.valor, V.contratista, "iri"));
   }
   // Las inscripciones de proveedor del nodo: él mismo si es una, o las de la empresa.
   const propias = esDe(sujeto, V.proveedor)
@@ -649,15 +670,15 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
       const k = y.s.valor;
       const inst = uno(k, V.contratante, "iri");
       if (inst) {
-        agregar({ grupo: "compras", verbo: "Le contrató", neutro: "Una contratación", ...hacia(inst), nombre: nombre(inst), ...cuanto(k) });
+        agregar({ grupo: "compras", verbo: "Le contrató", neutro: "Una contratación", ...hacia(inst), nombre: nombre(inst), ...cuanto(k) }, unoT(k, V.contratante, "iri"));
         continue;
       }
       // Un contrato de obra: las obras que paga y el proceso del que sale.
       const base = contratoVecino(k);
       for (const z of salen.get(k) ?? []) {
         if (z.o.tipo !== "iri") continue;
-        if (z.p === V.paraProyecto) agregar({ grupo: "obras", verbo: "Contrato en la obra", neutro: "Un contrato de la obra", ...hacia(z.o.valor), nombre: nombre(z.o.valor), ...base });
-        else if (z.p === V.delProceso) agregar({ grupo: "procesos", verbo: "Contrato del proceso", neutro: "Un contrato del proceso", ...hacia(z.o.valor), nombre: nombre(z.o.valor), ...base });
+        if (z.p === V.paraProyecto) agregar({ grupo: "obras", verbo: "Contrato en la obra", neutro: "Un contrato de la obra", ...hacia(z.o.valor), nombre: nombre(z.o.valor), ...base }, z);
+        else if (z.p === V.delProceso) agregar({ grupo: "procesos", verbo: "Contrato del proceso", neutro: "Un contrato del proceso", ...hacia(z.o.valor), nombre: nombre(z.o.valor), ...base }, z);
       }
     }
   }
@@ -668,7 +689,7 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string): Relac
     if (x.p !== V.designa || x.o.tipo !== "iri") continue;
     const h = hacia(x.o.valor);
     if (conCargo.has(h.href)) continue;
-    agregar({ grupo: "decretos", verbo: "Registra el cargo de", neutro: "Un cargo que registra el decreto", ...h, nombre: nombre(x.o.valor) });
+    agregar({ grupo: "decretos", verbo: "Registra el cargo de", neutro: "Un cargo que registra el decreto", ...h, nombre: nombre(x.o.valor) }, x);
   }
 
   // Por grupo, y dentro de cada uno en el orden de su fuente (estable): los
@@ -691,7 +712,7 @@ export interface Vecindario {
 export async function vecindario(n: NodoRdf): Promise<Vecindario | null> {
   const d = await describir(n);
   if (!d) return null;
-  return { nodo: n, titulo: d.titulo, clase: CLASE_DE_TIPO[n.tipo], nota: d.nota, relaciones: relacionesDesdeTriples(d.triples, iriDe(n)) };
+  return { nodo: n, titulo: d.titulo, clase: CLASE_DE_TIPO[n.tipo], nota: d.nota, relaciones: relacionesDesdeTriples(d.triples, iriDe(n), d.grafos) };
 }
 
 /** La clave de un nodo para conjuntos y mapas. */
