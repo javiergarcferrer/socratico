@@ -75,6 +75,14 @@ const servicios = deTipo(DCAT + "DataService");
 for (const sv of servicios) {
   const ep = de(sv, DCAT + "endpointURL")[0]?.value;
   if (!ep?.startsWith(SITIO + "/")) mal(`${sv} sin dcat:endpointURL de este sitio`);
+  else {
+    // Sin consulta, el punto responde la descripción del servicio.
+    const r = await fetch(BASE + ep.slice(SITIO.length), { headers: { Accept: "text/turtle", "User-Agent": UA } });
+    if (r.status !== 200) mal(`${ep} → ${r.status}`);
+    await r.arrayBuffer();
+  }
+  if (!conAviso(sv)) mal(`${sv} sin el aviso de herramienta no oficial`);
+  for (const p of ["title", "license"]) if (!de(sv, DCT + p).length) mal(`${sv} sin dct:${p}`);
 }
 
 /* ---------------------------------------------------------- 2. negociación */

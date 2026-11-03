@@ -3,6 +3,7 @@ import { enlace } from "@/lib/grafo";
 import { volcadoDelGrafo } from "@/lib/grafo-rdf";
 import { INFORME } from "@/lib/grafo-informe";
 import { TABLAS_GENERADAS, TABLAS_GRAFO } from "@/lib/grafo-tablas";
+import { DIRECCION_SPARQL } from "@/lib/sparql-meta";
 import { PUBLICADA, VERSION } from "@/lib/ontologia";
 import { ONTOLOGIA, ONTOLOGIA_DO, PAGINA_ONTOLOGIA, TIPO_MIME, aTurtle, entero, iri, lit, t, tipado, type Triple } from "@/lib/rdf";
 import volcadoMeta from "@/public/data/grafo/meta.json";
@@ -180,6 +181,24 @@ export async function GET() {
     fecha: INFORME.grafo,
     conformeA: "http://www.w3.org/ns/shacl#",
   });
+
+  // El punto SPARQL (§7.12): un servicio de consulta, de solo lectura, sobre el volcado.
+  if (volcado) {
+    const sv = `${SITIO}/dcat.ttl#sparql`;
+    x.push(
+      t(cat, "dcat:service", iri(sv)),
+      t(sv, "rdf:type", iri("dcat:DataService")),
+      t(sv, "dct:title", lit("Consultas SPARQL sobre el grafo sin personas naturales", "es")),
+      t(sv, "dct:description", lit(`SPARQL 1.1 de solo lectura sobre el volcado, con la ontología y sus formas SHACL en grafos con nombre. ${AVISO}`, "es")),
+      t(sv, "dcat:endpointURL", iri(DIRECCION_SPARQL)),
+      t(sv, "dcat:endpointDescription", iri(DIRECCION_SPARQL)),
+      t(sv, "dct:conformsTo", iri("http://www.w3.org/TR/sparql11-protocol/")),
+      t(sv, "dcat:servesDataset", iri(`${SITIO}/dcat.ttl#volcado`)),
+      t(sv, "dct:publisher", iri(editor)),
+      t(sv, "dct:license", iri(LICENCIA)),
+      t(sv, "dct:rights", lit(AVISO, "es")),
+    );
+  }
 
   const cabecera = `Catálogo DCAT de Socrático.do.\nHerramienta independiente y no oficial sobre datos del Estado dominicano.`;
   return new Response(aTurtle(x, cabecera), {
