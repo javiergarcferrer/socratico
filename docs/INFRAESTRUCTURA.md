@@ -3027,7 +3027,7 @@ Negociación de contenido: `rewrites()` de `next.config.ts` (§1.4) lleva a `/ap
 
 Lo comprueba el gate completo, paso 6d (§12.6): `scripts/validar-publicacion.mjs --url <next start>` pide `/instituciones/4` y `/provincias/santiago` con los cinco `Accept` RDF, un proceso con espacios en el código en Turtle, `/ontologia`, `/def/core` y `/def/do/2.5.0` con los tres, cada uno con el `Accept` de un navegador, y exige el 303 a su destino con `Vary: Accept` (20 negociaciones, 2026-11-03).
 
-**Catálogo DCAT (`/dcat.ttl`, `app/dcat.ttl/route.ts`, `force-static`).** DCAT 3 en Turtle: un `dcat:Catalog` con título y descripción en es y en, editor (`<SITIO>/#socratico`, `foaf:Organization`), `dct:license`, `dct:rights` (el aviso de herramienta independiente y no oficial), `dct:language`, `dct:spatial` (`wd:Q786`), `rdfs:seeAlso` VoID y `dct:modified` (la fecha más reciente de las tres de abajo). Cada `dcat:Dataset` y cada `dcat:Distribution` llevan `dct:title`, `dct:license` (`LICENCIA`, CC BY 4.0, la de la ontología), `dct:modified` y el aviso; cada distribución, `dcat:downloadURL` y `dcat:accessURL` (la misma), `dcat:mediaType` y `dct:format` (el tipo de IANA, `http://www.iana.org/assignments/media-types/<tipo>`, sin `; charset`). A 2026-11-03, 509 triples:
+**Catálogo DCAT (`/dcat.ttl`, `app/dcat.ttl/route.ts`, `force-static`).** DCAT 3 en Turtle: un `dcat:Catalog` con título y descripción en es y en, editor (`<SITIO>/#socratico`, `foaf:Organization`), `dct:license`, `dct:rights` (el aviso de herramienta independiente y no oficial), `dct:language`, `dct:spatial` (`wd:Q786`), `rdfs:seeAlso` VoID y `dct:modified` (la fecha más reciente de las tres de abajo). Cada `dcat:Dataset` y cada `dcat:Distribution` llevan `dct:title`, `dct:license` (`LICENCIA`, CC BY 4.0, la de la ontología), `dct:modified` y el aviso; cada distribución, `dcat:downloadURL` y `dcat:accessURL` (la misma), `dcat:mediaType` y `dct:format` (el tipo de IANA, `http://www.iana.org/assignments/media-types/<tipo>`, sin `; charset`). A 2026-11-03, 528 triples:
 
 | Conjunto | Distribuciones | Fecha |
 |---|---|---|
@@ -3035,6 +3035,7 @@ Lo comprueba el gate completo, paso 6d (§12.6): `scripts/validar-publicacion.mj
 | `#tabla-<nombre>`, uno por tabla de `public/tablas/meta.json` (21) | `/tablas/<nombre>.parquet` (`application/vnd.apache.parquet`); la descripción lleva fuente, corte y filas; `rdfs:seeAlso` `/tablas/meta.json` | `generado` de las tablas (2026-10-20) |
 | `#ontologia` (con `dcat:version` y `dct:conformsTo` OWL) | `/ontologia.ttl`, `.jsonld`, `.nt` | `PUBLICADA` (2026-11-03) |
 | `#formas` | `/ontologia.shacl.ttl` (`dct:conformsTo` SHACL) | `PUBLICADA` |
+| `#calidad` (si es conforme, en su descripción; `dcat:landingPage` `/ontologia/calidad`) | `/ontologia.calidad.ttl` (`dct:conformsTo` SHACL) | `INFORME.grafo`, el día del grafo validado (2026-10-20) |
 
 Lo enlazan VoID (`rdfs:seeAlso`) y el texto de `/grafo`. El paso 6d del gate lo parsea con N3.js, exige en cada conjunto y distribución lo de arriba y pide con HEAD cada descarga a `next start` (200, y el `Content-Type` del catálogo en las que no son `.gz` ni `.parquet`).
 

@@ -1,6 +1,7 @@
 import { SITIO } from "@/lib/sitio";
 import { enlace } from "@/lib/grafo";
 import { volcadoDelGrafo } from "@/lib/grafo-rdf";
+import { INFORME } from "@/lib/grafo-informe";
 import { TABLAS_GENERADAS, TABLAS_GRAFO } from "@/lib/grafo-tablas";
 import { PUBLICADA, VERSION } from "@/lib/ontologia";
 import { ONTOLOGIA, ONTOLOGIA_DO, PAGINA_ONTOLOGIA, TIPO_MIME, aTurtle, entero, iri, lit, t, tipado, type Triple } from "@/lib/rdf";
@@ -161,6 +162,22 @@ export async function GET() {
     titulo: "Turtle",
     tipo: TIPO_MIME.ttl,
     fecha: PUBLICADA,
+    conformeA: "http://www.w3.org/ns/shacl#",
+  });
+
+  // El informe de la validación SHACL del grafo: conforme o no, contra qué versión y sobre qué volcado.
+  const calidad = conjunto(
+    "calidad",
+    "El informe de la validación SHACL del grafo",
+    `El volcado y una muestra de personas, normas, iniciativas, documentos, sentencias y votaciones, validados contra las formas SHACL de la ontología ${INFORME.ontologia}: ${INFORME.conforme ? "conforme" : "no conforme"}.`,
+    INFORME.grafo,
+    `${PAGINA_ONTOLOGIA}/calidad`,
+  );
+  distribucion(calidad, "calidad-ttl", {
+    url: `${PAGINA_ONTOLOGIA}.calidad.ttl`,
+    titulo: "Turtle, como sh:ValidationReport",
+    tipo: TIPO_MIME.ttl,
+    fecha: INFORME.grafo,
     conformeA: "http://www.w3.org/ns/shacl#",
   });
 
