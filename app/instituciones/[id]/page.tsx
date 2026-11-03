@@ -36,7 +36,7 @@ import { claveInstitucion, mesGeneral, nominaGeneralDeInstitucion } from "@/lib/
 import { DocumentosDeInstitucion } from "@/components/fuentes-nuevas/documentos-de-institucion";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { BarrasHorizontales } from "@/components/graficos";
+import { BarrasHorizontales, LineaTiempo, type CarrilTiempo } from "@/components/graficos";
 import { Button } from "@/components/ui/button";
 import { EsqueletoFilas } from "@/components/esqueleto";
 import { EstadoVacio } from "@/components/estado-vacio";
@@ -275,6 +275,13 @@ export default async function InstitucionPage({ params }: Props) {
       </div>
 
       <HistoriaDeInstitucion uc={i.id} nombre={i.nombre} />
+
+      <SuTiempo
+        nombre={i.nombre}
+        personas={funcionarios ? personasDeInstitucion(funcionarios, i.id) : []}
+        normas={normas.docs}
+        serie={historia?.historia.serie ?? []}
+      />
 
       {nObras > 0 && (
         <div id="obras">
@@ -779,6 +786,74 @@ function FilaNorma({ d }: { d: Norma }) {
         <div className="py-2.5">{cuerpo}</div>
       )}
     </li>
+  );
+}
+
+/**
+ * Lo que le ha pasado en el tiempo, en carriles (`LineaTiempo`): quién la ha
+ * dirigido (cada cargo con fecha), las normas que la nombran y lo contratado
+ * cada año. Solo lo que ya lee la ficha; ninguna lectura nueva.
+ */
+function SuTiempo({
+  nombre,
+  personas,
+  normas,
+  serie,
+}: {
+  nombre: string;
+  personas: ReturnType<typeof personasDeInstitucion>;
+  normas: Norma[];
+  serie: [number, number, number, number][];
+}) {
+  const carriles: CarrilTiempo[] = [
+    {
+      clave: "cargos",
+      nombre: "Cargos",
+      hechos: personas.flatMap(({ persona, cargo }, k) =>
+        cargo.fecha
+          ? [{ clave: `${persona.id}|${k}`, fecha: cargo.fecha, titulo: persona.nombre, detalle: cargo.titulo, href: enlace.funcionario(persona.id) }]
+          : [],
+      ),
+    },
+    {
+      clave: "normas",
+      nombre: "Normas",
+      hechos: normas.flatMap((d) => {
+        if (!d.fechaIso) return [];
+        const ruta = RUTA_POR_TIPO[d.tipo];
+        return [{
+          clave: `${d.tipo}|${d.numero}|${d.fechaIso}`,
+          fecha: d.fechaIso,
+          titulo: `${d.tipo} ${d.numero}`,
+          detalle: desdeMayusculas(d.titulo),
+          href: (ruta && enlace.norma(ruta, d.numero)) || d.url,
+        }];
+      }),
+    },
+    {
+      clave: "contratos",
+      nombre: "Contratos por año",
+      hechos: serie
+        .filter(([, n]) => n > 0)
+        .map(([anio, n, monto]) => ({
+          clave: String(anio),
+          fecha: String(anio),
+          titulo: `${formatInt(n)} ${n === 1 ? "contrato" : "contratos"}`,
+          detalle: formatPesos(monto),
+          href: "#historia",
+        })),
+    },
+  ];
+  if (carriles.filter((c) => c.hechos.length > 0).length < 2) return null;
+  return (
+    <Card as="section" id="tiempo" className="p-5 sm:p-6">
+      <CardTitle>¿Cuándo pasó cada cosa?</CardTitle>
+      <p className="mt-1 text-xs text-ink-soft">
+        Una raya por cargo con fecha (instantánea de funcionarios), por norma que la nombra (Consultoría Jurídica) y
+        por año de contratos (registro de la DGCP desde 2015). Cada carril pinta sus 15 hechos más recientes; las listas completas están en esta misma ficha.
+      </p>
+      <LineaTiempo carriles={carriles} tope={15} etiqueta={`Cargos, normas y contratos de ${nombre} en el tiempo`} />
+    </Card>
   );
 }
 

@@ -13,6 +13,7 @@ import Plegable from "@/components/plegable";
 import { Ruta } from "@/components/ruta";
 import AccionesFicha from "@/components/acciones-ficha";
 import { Termino } from "@/components/termino";
+import { LineaTiempo, type CarrilTiempo } from "@/components/graficos";
 import { formatFecha, hace } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
@@ -27,6 +28,7 @@ import {
   parecidos,
   personaPorId,
   type Cargo,
+  type Persona,
 } from "@/lib/funcionarios";
 
 export const revalidate = 86400;
@@ -263,6 +265,8 @@ export default async function FuncionarioPage({ params }: Props) {
         )}
       </Card>
 
+      <CarreraEnElTiempo persona={persona} decretos={decretos} />
+
       {otros.length > 0 && (
         <Card as="section" className="mt-5">
           <CardHeader>
@@ -305,6 +309,67 @@ export default async function FuncionarioPage({ params }: Props) {
       </p>
       <EnElGrafo nodo={{ tipo: "funcionario", id: persona.id }} className="mt-6" />
     </div>
+  );
+}
+
+/**
+ * Sus cargos y los decretos de esos cargos, en carriles sobre un eje de años
+ * (`LineaTiempo`). Solo con dos hechos fechados o más: uno solo ya lo dice la
+ * cabecera. El voto de cada legislador no está: el SIL publica el resultado
+ * de cada votación del pleno, no quién votó qué.
+ */
+function CarreraEnElTiempo({ persona, decretos }: { persona: Persona; decretos: Map<string, number | null> }) {
+  const vistos = new Set<string>();
+  const carriles: CarrilTiempo[] = [
+    {
+      clave: "cargos",
+      nombre: "Cargos",
+      hechos: persona.cargos.flatMap((c, k) => {
+        if (!c.fecha) return [];
+        const inst = c.institucionId != null ? institucionPorId(c.institucionId) : null;
+        return [{
+          clave: String(k),
+          fecha: c.fecha,
+          titulo: `${ETIQUETA_MOVIMIENTO[c.movimiento]}: ${c.titulo}`,
+          detalle: inst?.nombre ?? c.institucion ?? undefined,
+          href: inst ? hrefInstitucion(inst) : null,
+        }];
+      }),
+    },
+    {
+      clave: "decretos",
+      nombre: "Decretos",
+      hechos: persona.cargos.flatMap((c) => {
+        const d = c.decreto;
+        if (!d?.fecha || vistos.has(d.numero)) return [];
+        vistos.add(d.numero);
+        return [{
+          clave: d.numero,
+          fecha: d.fecha,
+          titulo: `Decreto ${d.numero}`,
+          detalle: c.titulo,
+          href: hrefDecreto({
+            numero: d.numero,
+            ficha: decretos.has(d.numero) && (d.docId == null || decretos.get(d.numero) === d.docId),
+            docId: d.docId,
+          }),
+        }];
+      }),
+    },
+  ];
+  if (carriles.reduce((n, c) => n + c.hechos.length, 0) < 2) return null;
+  return (
+    <Card as="section" className="mt-5 p-5 sm:p-6">
+      <CardTitle>¿Cuándo pasó cada cosa?</CardTitle>
+      <p className="mt-1 text-xs text-ink-soft">
+        Una raya por cargo y por decreto con fecha, en la instantánea de funcionarios. El voto de cada legislador no
+        está: el SIL publica el resultado de cada votación, no quién votó qué.
+      </p>
+      <LineaTiempo
+        carriles={carriles}
+        etiqueta={`Los cargos de ${persona.nombre} y sus decretos, en el tiempo`}
+      />
+    </Card>
   );
 }
 

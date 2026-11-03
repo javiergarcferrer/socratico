@@ -14,3 +14,5 @@ export { MapaProvincias, type ZonaMapa } from "./mapa-provincias";
 export { RedVecinos, type VecinoRed } from "./red-vecinos";
 export { CATEGORICA, SECUENCIAL, SECUENCIAL_RELLENO, DIVERGENTE, SERIE, CONTEXTO, OTROS, ORDEN_TONOS } from "./paleta";
 export { formatearValor, type FormatoValor } from "./formato";
+export { Sankey, type FlujoSankey } from "./sankey";
+export { LineaTiempo, type CarrilTiempo, type HechoTiempo } from "./linea-tiempo";

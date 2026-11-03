@@ -65,7 +65,8 @@ import {
   type NodoLienzo,
   type Semilla,
 } from "./modelo";
-import { Motor } from "./motor";
+import { Motor, leerPaleta } from "./motor";
+import { Exportar, type InstantaneaLienzo } from "./exportar";
 
 /** Lo que el lienzo deja hacer a quien lo monta. */
 export interface LienzoApi {
@@ -85,6 +86,12 @@ export interface LienzoApi {
   aristasConEstilo(fn: ((a: { verbo: string; grafo: string | null; de: string; a: string }) => EstiloArista) | null): void;
   expandir(ruta: string): void;
   enfocar(ruta: string): void;
+  /**
+   * Lo que el lienzo pinta ahora (los nodos y las aristas visibles, en
+   * coordenadas de un dibujo que los abarca a todos, con sus colores), para
+   * exportarlo (`exportar.tsx`); `null` si el lienzo no se dibujó.
+   */
+  instantanea(): InstantaneaLienzo | null;
 }
 
 /** El detalle de los eventos del DOM equivalentes (`lienzo:sembrar`, `lienzo:camino`). */
@@ -479,6 +486,54 @@ export function Lienzo({
     [red, sembrar],
   );
 
+  const instantanea = useCallback((): InstantaneaLienzo | null => {
+    const m = motor.current;
+    const el = raizDom.current;
+    if (!m || !el) return null;
+    const s = m.sigma;
+    const crudos: (InstantaneaLienzo["nodos"][number] & { r: number })[] = [];
+    for (const ruta of m.grafo.nodes()) {
+      const d = s.getNodeDisplayData(ruta);
+      if (!d || d.hidden) continue;
+      const a = m.grafo.getNodeAttributes(ruta);
+      const p = s.graphToViewport({ x: a.x, y: a.y });
+      const r = s.scaleSize(d.size);
+      crudos.push({ ruta, titulo: a.label, tipo: a.tipoEtiqueta, x: p.x, y: p.y, radio: r, r, color: d.color, rotulo: false });
+    }
+    if (!crudos.length) return null;
+    // Todos dentro del dibujo, aunque la cámara deje alguno fuera de la vista; a la derecha, sitio para el rótulo.
+    const margen = 24;
+    const x0 = Math.min(...crudos.map((n) => n.x - n.r)) - margen;
+    const y0 = Math.min(...crudos.map((n) => n.y - n.r)) - margen;
+    const x1 = Math.max(...crudos.map((n) => n.x + n.r)) + margen + 370;
+    const y1 = Math.max(...crudos.map((n) => n.y + n.r)) + margen;
+    const todos = crudos.length <= 80;
+    const nodos = crudos.map(({ r: _r, ...n }) => {
+      const del = red.nodos.get(n.ruta);
+      return { ...n, x: n.x - x0, y: n.y - y0, rotulo: todos || Boolean(del && (del.expandido || !del.padre)) };
+    });
+    const visibles = new Set(nodos.map((n) => n.ruta));
+    const porPar = new Map(red.aristas.map((a) => [`${a.de}|${a.a}`, a]));
+    const aristas: InstantaneaLienzo["aristas"] = [];
+    for (const e of m.grafo.edges()) {
+      const d = s.getEdgeDisplayData(e);
+      const [de, al] = m.grafo.extremities(e);
+      if (!d || d.hidden || !visibles.has(de) || !visibles.has(al)) continue;
+      const x = porPar.get(`${de}|${al}`) ?? porPar.get(`${al}|${de}`);
+      aristas.push({
+        de,
+        a: al,
+        relacion: x ? [x.verbo, x.detalle].filter(Boolean).join(" · ") || "relación" : m.grafo.getEdgeAttribute(e, "label") || "relación",
+        fuente: x ? fuenteDe(x.grafo) : "sin dato",
+        punteada: m.grafo.getEdgeAttribute(e, "estilo") === "punteado",
+        color: d.color,
+      });
+    }
+    return { ancho: x1 - x0, alto: y1 - y0, nodos, aristas, paleta: leerPaleta(el), enlace: window.location.href };
+    // `fuenteDe` lee `fuentes`, que cambia con `red`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [red, fuentes]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -489,8 +544,9 @@ export function Lienzo({
         if (red.nodos.has(ruta)) expandir(ruta);
       },
       enfocar: (ruta) => enfocarNodo(ruta),
+      instantanea,
     }),
-    [sembrar, resaltarCamino, expandir, enfocarNodo, red],
+    [sembrar, resaltarCamino, expandir, enfocarNodo, red, instantanea],
   );
 
   // Los mismos verbos como eventos del DOM, para quien no tenga la referencia.
@@ -840,6 +896,8 @@ export function Lienzo({
           Volver a la lista
         </Button>
       </div>
+
+      {!falla && <Exportar obtener={instantanea} titulo={red.nodos.get(inicio.current)?.titulo ?? null} nodos={red.nodos.size} />}
 
       {/* Lo que dice el dibujo, escrito: el dibujo nunca sustituye a la lista. */}
       <VerComoTabla

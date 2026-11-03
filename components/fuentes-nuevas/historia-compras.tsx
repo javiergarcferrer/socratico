@@ -5,12 +5,13 @@ import {
   nContratos,
   prefijoSinAsignar,
   sumar,
+  type HistoriaProveedor,
 } from "@/lib/historico";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
 import { desdeMayusculas } from "@/lib/congreso";
 import { formatFecha, formatPesos } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
-import { SerieTemporal } from "@/components/graficos";
+import { Sankey, SerieTemporal } from "@/components/graficos";
 import { Cifra, TiraDeCifras } from "@/components/papel";
 import Plegable from "@/components/plegable";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -61,6 +62,17 @@ function Atipicos({ a }: { a: [number, number] | null }) {
       .
     </p>
   );
+}
+
+/**
+ * Lo que queda fuera de los nombrados, agregado: el total menos lo nombrado,
+ * con cuántos son. `null` si no queda nada (o si redondeos lo dejan negativo).
+ */
+function otrosFlujos(total: number, nombrados: number[], cuantos: number, uno: string, varios: string) {
+  // `uno` y `varios` ya traen su artículo: «Otra institución», «Otros N proveedores».
+  const valor = total - nombrados.reduce((s, v) => s + v, 0);
+  if (valor <= 0 || cuantos <= 0) return null;
+  return { nombre: cuantos === 1 ? uno : varios.replace("N", formatInt(cuantos)), valor };
 }
 
 function TablaAnios({ filas }: { filas: { anio: number; contratos: number; monto: number }[] }) {
@@ -131,32 +143,56 @@ export async function HistoriaDeProveedor({ rpe }: { rpe: string }) {
           <TablaAnios filas={h.serie.map(([anio, n, monto]) => ({ anio, contratos: n, monto }))} />
         </>
       )}
-      {h.clientes.length > 0 && (
-        <>
-          <h3 className="rotulo mt-4 text-ink-soft">Sus mayores clientes</h3>
-          <ol className="mt-1 divide-y divide-hairline">
-            {h.clientes.map(([uc, n, monto]) => {
-              const i = institucionPorId(uc);
-              return (
-                <li key={uc} className="relative flex min-h-11 items-baseline justify-between gap-3 py-2 text-sm">
-                  {i ? (
-                    <Link href={hrefInstitucion(i)} className="min-w-0 text-ink estira hover:text-brand-700">
-                      {i.nombre}
-                    </Link>
-                  ) : (
-                    <span className="min-w-0 text-ink">Unidad de compra {uc}</span>
-                  )}
-                  <span className="shrink-0 text-right font-mono tabular-nums">
-                    {formatPesos(monto)}
-                    <span className="block text-xs text-ink-soft">{nContratos(n)}</span>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </>
-      )}
+      {h.clientes.length > 0 && <SusClientes h={h} />}
       {nota(corte)}
+    </Card>
+  );
+}
+
+/** Quién le compra a un proveedor: sus mayores clientes y el resto agregado. */
+function SusClientes({ h, rotulo = true }: { h: HistoriaProveedor; rotulo?: boolean }) {
+  const total = sumar(h.serie, 2);
+  return (
+    <>
+      {rotulo && <h3 className="rotulo mt-4 text-ink-soft">¿Quién le compra?</h3>}
+      <Sankey
+        sentido="entra"
+        nodo="Este proveedor"
+        contraparte="Institución"
+        nombreTabla="instituciones"
+        etiqueta={`De ${formatPesos(total)} contratados, sus ${h.clientes.length} mayores clientes y el resto agregado`}
+        flujos={h.clientes.map(([uc, n, monto]) => {
+          const i = institucionPorId(uc);
+          return {
+            clave: String(uc),
+            nombre: i?.nombre ?? `Unidad de compra ${uc}`,
+            valor: monto,
+            detalle: nContratos(n),
+            href: i ? hrefInstitucion(i) : undefined,
+          };
+        })}
+        otros={otrosFlujos(total, h.clientes.map((c) => c[2]), h.totalClientes - h.clientes.length, "Otra institución", "Otras N instituciones")}
+      />
+    </>
+  );
+}
+
+/**
+ * Para la ficha de una empresa: quién le compra a su registro de proveedor,
+ * sin repetir la historia entera, que está en la ficha del proveedor.
+ */
+export async function QuienLeCompra({ rpe }: { rpe: string }) {
+  const r = await historiaDeProveedor(rpe);
+  if (!r || r.historia.clientes.length === 0) return null;
+  return (
+    <Card as="section" className="p-5 sm:p-6">
+      <CardTitle>¿Qué instituciones le compran?</CardTitle>
+      <p className="mt-1 text-xs text-ink-soft">
+        Como proveedora del Estado (<Link href={enlace.proveedor(rpe)} className="font-medium text-brand-700 hover:underline">RPE {rpe}</Link>),
+        del {formatFecha(r.historia.desde)} al {formatFecha(r.historia.hasta)}.
+      </p>
+      <SusClientes h={r.historia} rotulo={false} />
+      {nota(r.corte)}
     </Card>
   );
 }
@@ -217,20 +253,22 @@ export async function HistoriaDeInstitucion({ uc, nombre }: { uc: number; nombre
       )}
       {h.top.length > 0 && (
         <>
-          <h3 className="rotulo mt-4 text-ink-soft">A quién le ha contratado más</h3>
-          <ol className="mt-1 divide-y divide-hairline">
-            {h.top.map(([rpe, nombreProv, n, monto]) => (
-              <li key={rpe} className="relative flex min-h-11 items-baseline justify-between gap-3 py-2 text-sm">
-                <Link href={enlace.proveedor(rpe)} className="min-w-0 text-ink estira hover:text-brand-700">
-                  {desdeMayusculas(nombreProv) || `RPE ${rpe}`}
-                </Link>
-                <span className="shrink-0 text-right font-mono tabular-nums">
-                  {formatPesos(monto)}
-                  <span className="block text-xs text-ink-soft">{nContratos(n)}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
+          <h3 className="rotulo mt-4 text-ink-soft">¿A quién le ha contratado más?</h3>
+          <Sankey
+            sentido="sale"
+            nodo="Esta institución"
+            contraparte="Proveedor"
+            nombreTabla="proveedores"
+            etiqueta={`De ${formatPesos(total)} contratados, sus ${h.top.length} mayores proveedores y el resto agregado`}
+            flujos={h.top.map(([rpe, nombreProv, n, monto]) => ({
+              clave: rpe,
+              nombre: desdeMayusculas(nombreProv) || `RPE ${rpe}`,
+              valor: monto,
+              detalle: nContratos(n),
+              href: enlace.proveedor(rpe),
+            }))}
+            otros={otrosFlujos(total, h.top.map((t) => t[3]), h.proveedores - h.top.length, "Otro proveedor", "Otros N proveedores")}
+          />
         </>
       )}
       {nota(corte)}

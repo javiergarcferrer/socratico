@@ -19,6 +19,7 @@ import { enlace } from "@/lib/grafo";
 import { medidasDeRnc, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
 import { NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { QuienLeCompra } from "@/components/fuentes-nuevas/historia-compras";
 
 /** La instantánea solo cambia con un despliegue: una ficha se rehace al día. */
 export const revalidate = 86400;
@@ -210,6 +211,7 @@ export default async function EmpresaPage({ params }: Props) {
         ]}
       />
 
+      {rpe && <QuienLeCompra rpe={rpe} />}
 
       {ofac && <NotaOfac entidad={ofac} fecha={meta?.fuentes.ofac.fecha ?? null} />}
 
