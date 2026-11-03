@@ -22,6 +22,7 @@ import { TIPOS_OBJETO, tipoObjeto, type PedidoObjetos } from "@/lib/objetos";
 import { Inspector, type PasoRastro } from "./inspector";
 import { Preguntar } from "./preguntar";
 import { RedDelNodo } from "./red";
+import { ESTADO_LIENZO, SIN_LIENZO } from "@/components/grafo/estado";
 import { Facetas, Resultados } from "./resultados";
 import { Tablero, useAbiertos } from "./tablero";
 import { ClasesDeObjeto, FiltrosDeObjeto, Objetos } from "./objetos";
@@ -108,6 +109,14 @@ export function Banco({
   cortes: Record<string, string | null>;
 }) {
   const [url, setUrl] = useQueryStates(ESTADO_URL, { history: "replace" });
+  // El estado del lienzo (`components/grafo/estado.ts`): fuera de la red, sus claves no viajan en el enlace.
+  const [lienzo, setLienzo] = useQueryStates(ESTADO_LIENZO, { history: "replace" });
+  const conLienzo = Object.values(lienzo).some((v) => v != null);
+  useEffect(() => {
+    if (url.vista !== "red" && conLienzo) void setLienzo(SIN_LIENZO);
+  }, [url.vista, conLienzo, setLienzo]);
+  // Al cerrar el lienzo, el foco vuelve al centro del banco y no se pierde en el cuerpo de la página.
+  const centro = useRef<HTMLElement>(null);
   const [texto, setTexto] = useState(url.q);
   // Las rutas por las que se llegó al nodo abierto, de la primera a la anterior.
   const [rastro, setRastro] = useState<string[]>([]);
@@ -195,7 +204,12 @@ export function Banco({
   const cerrar = () => void setUrl({ nodo: null, vista: null });
   // La red se dibuja solo desde `lg`: por debajo, sus rótulos bajarían de 12 px.
   const enRed = ancho && !!url.nodo && url.vista === "red";
-  const hacia = (ruta: string) => serializar("/", { ...url, nodo: ruta, vista: "red" });
+  /** Un nodo tocado en el lienzo se abre en el inspector sin quitarle el foco al lienzo (el teclado sigue en él). */
+  const inspeccionarDesdeRed = (ruta: string, titulo: string) => {
+    titulos.current.set(ruta, titulo);
+    setEnfocar(false);
+    if (ruta !== url.nodo) void setUrl({ nodo: ruta }, { history: "push" });
+  };
   const hrefNodo = (ruta: string) => serializar("/", { ...url, nodo: ruta });
   const hrefClase = (curie: string) => serializar("/", { ...url, q: null, modo: null, seccion: "ontologia", clase: curie });
 
@@ -362,8 +376,17 @@ export function Banco({
         </aside>
 
         {/* Una sección y no un `main`: el `main` es el de la página (`app/layout.tsx`). */}
-        <section aria-label={ETIQUETA_CENTRO[enCentro]} className="min-w-0 space-y-3 p-3 lg:space-y-4 lg:p-4">
-          {enRed && <RedDelNodo ruta={url.nodo!} hacia={hacia} onCerrar={() => void setUrl({ vista: null }, { history: "push" })} />}
+        <section ref={centro} tabIndex={-1} aria-label={ETIQUETA_CENTRO[enCentro]} className="min-w-0 space-y-3 p-3 outline-none lg:space-y-4 lg:p-4">
+          {enRed && (
+            <RedDelNodo
+              ruta={url.nodo!}
+              onInspeccionar={inspeccionarDesdeRed}
+              onCerrar={() => {
+                void setUrl({ vista: null }, { history: "push" });
+                centro.current?.focus();
+              }}
+            />
+          )}
           {enCentro === "pregunta" ? (
             <Preguntar pregunta={q} onAbrir={abrir} />
           ) : enCentro === "busqueda" ? (
