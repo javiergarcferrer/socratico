@@ -56,6 +56,7 @@ import { PREFIJOS, aNTriples, expandir, type Triple } from "@/lib/rdf";
 import { desdeMayusculas } from "@/lib/congreso";
 import { agujas, contieneTodas, palabrasDeContenido, plano } from "@/lib/raiz";
 import { tituloHerramienta } from "@/lib/mcp-herramientas";
+import { GRAFO_FORMAS as GRAFO_FORMAS_SPARQL, GRAFO_ONTOLOGIA as GRAFO_ONTOLOGIA_SPARQL, VOLCADO_SPARQL } from "@/lib/sparql-meta";
 import { ETAPAS, MODALIDADES, OBJETOS, type ClaveEtapa, type ClaveModalidad } from "@/lib/vocabulario-compras";
 import { llevaCedula, sinCedula } from "@/lib/padron";
 import { NOMBRES_TABLAS, TABLAS_GENERADAS, TABLAS_GRAFO, esquemaCompacto } from "@/lib/grafo-tablas";
@@ -82,7 +83,7 @@ import { conceptoDe, datosDe } from "@/lib/grafo-hechos";
  */
 
 /** Cambia cuando cambia la forma de una herramienta. */
-export const VERSION_MCP = "2.5.0";
+export const VERSION_MCP = "2.6.0";
 
 const AVISO =
   "Socrático.do es una herramienta independiente y no oficial: ordena lo que publica el Estado dominicano, con su fuente y su fecha de corte.";
@@ -96,7 +97,7 @@ Cómo se usa:
 1. search con palabras: un nombre, un RNC de nueve cifras, «Decreto 497-25», un tema. Cada resultado trae un id. Ordena por parecido, no por monto ni fecha; con type se queda en un solo tipo (proceso, proveedor, norma…).
 2. fetch con ese id: el registro, con su fuente, su fecha y, si es un nodo del grafo, sus relaciones.
 3. Compras públicas: procurement filtra y ordena por monto o por fecha todos los procesos de compra de los últimos doce meses (por año, institución, estado, modalidad, objeto y palabras de la carátula) y da su total y su suma; contracting_history da lo contratado desde 2015 por un proveedor, por una institución o por el país, con sus mayores contrapartes. Para «la mayor», «las más recientes», «las abiertas» o «cuánto compra», usa estas, no search.
-4. query corre SQL de solo lectura sobre las tablas del grafo sin personas naturales (instituciones, proveedores, empresas, contrataciones, medidas, financieras, provincias; las obras con sus provincias, sus procesos y sus contratos; las normas, las iniciativas y las citas entre ellas, sin títulos; las votaciones del pleno con las iniciativas sobre las que se votó en cada una, sin la moción) y los procesos de compra: para contar, cruzar y ordenar lo que las demás no ordenan. fetch con group y page recorre todas las relaciones de un nodo por páginas (quién dirige una institución: group cargos; a quién le contrató: group compras; sus procesos y sus obras con sus contratos: group procesos y group obras; qué normas nombra una norma o una iniciativa y quién la nombra: group normas; las sentencias más recientes de un tribunal y las que nombran una ley o otra sentencia: group sentencias; en qué votaciones del pleno se votó una iniciativa: group votaciones); path busca la cadena más corta de relaciones entre dos nodos, también a través de lo que una institución le contrató a una empresa; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo y dice dónde descargarlo.
+4. query corre SQL de solo lectura sobre las tablas del grafo sin personas naturales (instituciones, proveedores, empresas, contrataciones, medidas, financieras, provincias; las obras con sus provincias, sus procesos y sus contratos; las normas, las iniciativas y las citas entre ellas, sin títulos; las votaciones del pleno con las iniciativas sobre las que se votó en cada una, sin la moción) y los procesos de compra: para contar, cruzar y ordenar lo que las demás no ordenan. fetch con group y page recorre todas las relaciones de un nodo por páginas (quién dirige una institución: group cargos; a quién le contrató: group compras; sus procesos y sus obras con sus contratos: group procesos y group obras; qué normas nombra una norma o una iniciativa y quién la nombra: group normas; las sentencias más recientes de un tribunal y las que nombran una ley o otra sentencia: group sentencias; en qué votaciones del pleno se votó una iniciativa: group votaciones); sparql corre SPARQL 1.1 de solo lectura sobre el mismo grafo sin personas naturales entero (las instituciones, las empresas, los proveedores atados a una empresa, los procesos de compra, las contrataciones, las obras, las medidas, los bancos, las provincias y los conjuntos de datos), con cada triple en el grafo con nombre de su fuente y su corte (GRAPH ?g) y la ontología y sus formas SHACL en dos grafos más: para recorrer relaciones de varios saltos, preguntar al modelo o citar de qué fuente sale cada arista; path busca la cadena más corta de relaciones entre dos nodos, también a través de lo que una institución le contrató a una empresa; signed_decrees lista y filtra los decretos que firmó una persona; ontology explica las clases y relaciones del grafo y dice dónde descargarlo.
 
 Reglas al usar estos datos:
 - Cita la fuente y la fecha de corte de cada dato; son instantáneas, no tiempo real.
@@ -2190,6 +2191,87 @@ async function consultarTablas(sql: string): Promise<z.infer<typeof ResultadoSql
   };
 }
 
+/* ----------------------------------------------------------------- sparql */
+
+/**
+ * SPARQL 1.1 de solo lectura sobre el volcado sin personas naturales, con la
+ * ontología y sus formas SHACL en grafos con nombre (`lib/sparql.ts`,
+ * docs/INFRAESTRUCTURA.md §7.12). Como `query`, el motor (Oxigraph, ~0,7 GB
+ * con el grafo cargado) corre en su propia función, `/sparql`: la herramienta
+ * la llama por HTTP en el mismo despliegue, y el GET se cachea en la CDN.
+ * Aquí se recorta a 200 filas o triples: lo que un asistente puede leer.
+ */
+
+const TOPE_FILAS_SPARQL = 200;
+
+const ResultadoSparqlMcp = z.object({
+  tipo: z.enum(["filas", "booleano", "triples"]).describe("filas para SELECT, booleano para ASK, triples para CONSTRUCT y DESCRIBE."),
+  variables: z.array(z.string()),
+  filas: z
+    .array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])))
+    .describe(`Hasta ${TOPE_FILAS_SPARQL} filas en el orden de variables: un IRI entero, un literal por su valor (los números como números), null si la variable no tiene valor.`),
+  booleano: z.boolean().nullable(),
+  triples: z.array(z.string()).describe(`Hasta ${TOPE_FILAS_SPARQL} triples en N-Triples, para CONSTRUCT y DESCRIBE.`),
+  truncada: z.boolean().describe("Hay más de lo devuelto: filtra, agrega o pon un LIMIT."),
+  ms: z.number(),
+  punto: z.string().describe("El punto SPARQL: la misma consulta ahí (GET ?query=) da todas las filas, hasta 10 000, en JSON, XML, CSV o TSV."),
+  volcado: z.object({ url: z.string(), generado: z.string(), cuadruplos: z.number() }).describe("De qué volcado sale lo consultado, y su fecha."),
+  aviso: z.string(),
+});
+
+const NUMERICOS_XSD = new Set(["integer", "decimal", "double", "float", "long", "int", "short", "nonNegativeInteger", "positiveInteger"].map((t) => `http://www.w3.org/2001/XMLSchema#${t}`));
+
+async function consultarGrafo(consulta: string): Promise<z.infer<typeof ResultadoSparqlMcp>> {
+  if (llevaCedula(consulta)) throw new Aviso("El grafo que consulta sparql no tiene personas naturales, y ninguna herramienta de Socrático busca por cédula.");
+  const base = origen.getStore() ?? SITIO;
+  const q = encodeURIComponent(consulta);
+  const accept = "application/sparql-results+json, application/n-triples;q=0.9";
+  const r =
+    q.length <= 6_000
+      ? await fetch(`${base}/sparql?query=${q}`, { headers: { Accept: accept }, signal: AbortSignal.timeout(55_000) })
+      : await fetch(`${base}/sparql`, {
+          method: "POST",
+          headers: { Accept: accept, "Content-Type": "application/sparql-query" },
+          body: consulta,
+          signal: AbortSignal.timeout(55_000),
+        });
+  const texto = await r.text();
+  if (r.status === 503) throw new Aviso(texto.trim() || "El motor está ocupado: vuelve a intentar en unos segundos.");
+  if (r.status === 400 || r.status === 406) throw new Aviso(`La consulta no corrió: ${texto.trim().replace(/[.!]+$/, "")}. Los prefijos de la ontología (soc:, do:, schema:, org:, epo:, prov:…) ya están declarados; la descripción de sparql dice qué hay.`);
+  if (!r.ok) throw new Error(`/sparql respondió ${r.status}`);
+  const truncadaPunto = r.headers.get("socratico-truncada") === "1";
+  const ms = Number(r.headers.get("socratico-ms") ?? 0);
+  const comun = {
+    ms,
+    punto: `${SITIO}/sparql`,
+    volcado: { url: `${SITIO}/data/grafo/grafo.trig.gz`, generado: VOLCADO_SPARQL.generado, cuadruplos: VOLCADO_SPARQL.cuadruplos },
+    aviso: AVISO,
+  };
+  if ((r.headers.get("content-type") ?? "").startsWith("application/n-triples")) {
+    const lineas = texto.split("\n").filter((l) => l.trim());
+    return { tipo: "triples", variables: [], filas: [], booleano: null, triples: lineas.slice(0, TOPE_FILAS_SPARQL), truncada: truncadaPunto || lineas.length > TOPE_FILAS_SPARQL, ...comun };
+  }
+  const json = JSON.parse(texto) as { head?: { vars?: string[] }; boolean?: boolean; results?: { bindings?: Record<string, { type: string; value: string; datatype?: string }>[] } };
+  if (typeof json.boolean === "boolean") return { tipo: "booleano", variables: [], filas: [], booleano: json.boolean, triples: [], truncada: false, ...comun };
+  const variables = json.head?.vars ?? [];
+  const todas = json.results?.bindings ?? [];
+  let filas = todas.slice(0, TOPE_FILAS_SPARQL).map((b) =>
+    variables.map((v) => {
+      const c = b[v];
+      if (!c) return null;
+      if (c.type === "literal" && c.datatype && NUMERICOS_XSD.has(c.datatype) && Number.isFinite(Number(c.value))) return Number(c.value);
+      if (c.type === "literal" && c.datatype === "http://www.w3.org/2001/XMLSchema#boolean") return c.value === "true";
+      return c.type === "bnode" ? `_:${c.value}` : c.value;
+    }),
+  );
+  let truncada = truncadaPunto || todas.length > TOPE_FILAS_SPARQL;
+  while (filas.length > 1 && JSON.stringify(filas).length > 60_000) {
+    filas = filas.slice(0, Math.floor(filas.length / 2));
+    truncada = true;
+  }
+  return { tipo: "filas", variables, filas, booleano: null, triples: [], truncada, ...comun };
+}
+
 /* -------------------------------------------------------------- ontology */
 
 const ESTADO_TERMINO = z
@@ -2237,6 +2319,7 @@ const Ontologia = z.object({
       .describe(
         "El grafo entero sin personas naturales, en N-Triples comprimido (url), para cargarlo en un motor RDF propio (Oxigraph, QLever, Apache Jena); en trig, el mismo en TriG, cada triple en el grafo con nombre de su fuente y su corte, o de la regla que lo deriva.",
       ),
+    sparql: z.string().describe("El punto SPARQL 1.1 de solo lectura sobre el grafo sin personas naturales, con la ontología y sus formas SHACL en grafos con nombre (lo que consulta sparql)."),
     tablas: z
       .object({ url: z.string(), generadas: z.string(), tablas: z.array(z.object({ tabla: z.string(), filas: z.number(), descripcion: z.string() })) })
       .describe("El mismo grafo, más los procesos de compra, en tablas Parquet: lo que consulta query, para abrirlo en DuckDB, pandas o Polars."),
@@ -2278,6 +2361,7 @@ async function ontologia(): Promise<z.infer<typeof Ontologia>> {
       fabric: `${SITIO}/ontologia.fabric.ttl`,
       pagina: `${SITIO}/ontologia`,
       grafo: volcado ? { url: volcado.url, trig: volcado.urlTrig, triples: volcado.triples, generado: volcado.generado, excluye: volcado.excluye } : null,
+      sparql: `${SITIO}/sparql`,
       tablas: {
         url: `${SITIO}/tablas/`,
         generadas: TABLAS_GENERADAS,
@@ -2444,6 +2528,26 @@ Notas: contrataciones son solo los pares mayores (12 proveedores por institució
       annotations: SOLO_LECTURA,
     },
     async ({ sql }) => resultado(await correr("query", () => consultarTablas(sql))),
+  );
+
+  s.registerTool(
+    "sparql",
+    {
+      title: tituloHerramienta("sparql"),
+      description: `SPARQL 1.1 de solo lectura (Oxigraph) sobre el grafo entero sin personas naturales: ${VOLCADO_SPARQL.cuadruplos.toLocaleString("en")} cuádruplos, del volcado del ${VOLCADO_SPARQL.generado}. Hay instituciones (soc:Institucion), empresas del padrón (soc:Empresa, con do:rnc), proveedores atados a una empresa (soc:Proveedor, soc:inscritaComo), procesos de compra (soc:ProcesoDeContratacion, soc:comprador), contrataciones agregadas (soc:Contratacion), obras (soc:ProyectoDeInversion, soc:ejecutadoPor), contratos de obra (soc:Contrato), medidas de la DGCP (soc:MedidaDGCP), entidades financieras, provincias, conjuntos de datos y owl:sameAs a Wikidata. No hay personas, normas, iniciativas, votaciones, sentencias ni documentos: esos se leen uno a uno con fetch. Cada triple está en el grafo con nombre de su fuente y su corte (GRAPH ?g { … }; el grafo por omisión es la unión de todos); la ontología está en el grafo <${GRAFO_ONTOLOGIA_SPARQL}> y sus formas SHACL en <${GRAFO_FORMAS_SPARQL}>, para preguntarle al modelo qué clases y relaciones hay. Los prefijos de la ontología (soc:, do:, schema:, org:, rov:, epo:, prov:, dct:, skos:, owl:, rdfs:, xsd:, sh:, wd:…) ya están declarados. Solo SELECT, ASK, CONSTRUCT o DESCRIBE; sin SERVICE; sin productos cartesianos evidentes (cada parte de la consulta comparte una variable con otra; lo que no es evidente lo corta el plazo); cada consulta se corta a los 10 s y una respuesta de más de 4 MB se rechaza. Devuelve hasta ${TOPE_FILAS_SPARQL} filas o triples; el punto SPARQL da hasta 10 000. Para contar o sumar por tablas, query suele ser más rápido; para recorrer relaciones, citar la fuente de cada arista o preguntarle a la ontología, esta.`,
+      inputSchema: z.strictObject({
+        query: z
+          .string()
+          .min(1)
+          .max(8000)
+          .describe(
+            "La consulta, por ejemplo: SELECT ?nombre (COUNT(?p) AS ?procesos) WHERE { ?p a soc:ProcesoDeContratacion ; soc:comprador ?i . ?i schema:name ?nombre } GROUP BY ?nombre ORDER BY DESC(?procesos) LIMIT 10",
+          ),
+      }),
+      outputSchema: ResultadoSparqlMcp,
+      annotations: SOLO_LECTURA,
+    },
+    async ({ query }) => resultado(await correr("sparql", () => consultarGrafo(query))),
   );
 
   s.registerTool(

@@ -3,6 +3,7 @@ import { enlace } from "@/lib/grafo";
 import { enlacesWikidata, inventario, volcadoDelGrafo } from "@/lib/grafo-rdf";
 import { getFuncionarios } from "@/lib/funcionarios";
 import { VERSION } from "@/lib/ontologia";
+import { DIRECCION_SPARQL } from "@/lib/sparql-meta";
 import { ONTOLOGIA, ONTOLOGIA_DO, PAGINA_ONTOLOGIA, PREFIJOS, TIPO_MIME, aTurtle, entero, fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
 
 // Los censos salen de las instantáneas, que cambian solo con un despliegue.
@@ -86,6 +87,8 @@ export async function GET() {
       t(v, "void:feature", iri("http://www.w3.org/ns/formats/TriG")),
       t(v, "void:triples", entero(volcado.triples)),
       t(v, "dct:modified", fecha(volcado.generado)),
+      // El mismo volcado, consultable: SPARQL 1.1 de solo lectura (§7.12).
+      t(v, "void:sparqlEndpoint", iri(DIRECCION_SPARQL)),
     );
   }
   if (wd.generado) x.push(t(ls, "dct:modified", fecha(wd.generado)));

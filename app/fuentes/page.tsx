@@ -1153,6 +1153,17 @@ export default async function FuentesPage() {
             regenera con{" "}
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-wikidata.py</code>.
           </p>
+          <p className="mt-3">
+            El grafo sin personas naturales se consulta también en SPARQL, en{" "}
+            <Link href="/?seccion=sparql" className="font-medium text-brand-700 hover:underline">
+              /sparql
+            </Link>
+            : no es una fuente nueva sino el mismo volcado que se descarga, con cada triple en el grafo de
+            su fuente y su corte, de solo lectura y sin salir a otros servicios. <strong>Cobertura:</strong>{" "}
+            instituciones, empresas, proveedores atados a una empresa, procesos de compra, contrataciones,
+            obras, medidas, bancos, provincias y conjuntos de datos; no las personas, las normas, el
+            Congreso, las sentencias ni los documentos, que se abren uno a uno en su ficha.
+          </p>
         </Fuente>
 
         <Fuente nombre="Tribunal Constitucional · sentencias" estado="activa" etiqueta="Conectada">

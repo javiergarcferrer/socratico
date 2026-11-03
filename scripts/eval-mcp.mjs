@@ -29,6 +29,7 @@
  * Sale con 1 si un caso falla.
  */
 import { readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -300,7 +301,7 @@ const CASOS = [
       exigir(ini.result?.instructions?.includes("procurement"), "las instrucciones no nombran procurement");
       const { result } = await rpc("tools/list");
       const nombres = result.tools.map((t) => t.name);
-      for (const n of ["retrieve", "search", "fetch", "procurement", "contracting_history", "query", "path", "signed_decrees", "ontology"]) {
+      for (const n of ["retrieve", "search", "fetch", "procurement", "contracting_history", "query", "sparql", "path", "signed_decrees", "ontology"]) {
         exigir(nombres.includes(n), `falta la herramienta ${n}`);
       }
       // Los argumentos van en inglés, como los nombres de las herramientas (y el `query` e `id` que ChatGPT exige).
@@ -1286,9 +1287,157 @@ const CASOS = [
       return "rechazada en las seis";
     },
   },
+
+  /* ------------------------------------------------------------ SPARQL */
+  // Cambio de especificación por decisión del dueño (2026-11-03): se sirve SPARQL de solo
+  // lectura sobre el volcado sin personas naturales. Lo que antes era «ninguna respuesta
+  // nombra sparql» son ahora estos casos, más duros: el motor cuenta lo que cuenta DuckDB
+  // sobre los Parquet, rechaza lo que no es lectura y sigue en pie, y no sirve personas.
+  {
+    pregunta: "SPARQL: el motor sale del volcado vigente y lo anuncian VoID, la descripción del servicio y ontology",
+    async correr() {
+      const metaSparql = JSON.parse(readFileSync(path.join(RAIZ, "datos", "sparql", "meta.json"), "utf8"));
+      const metaVolcado = leer("grafo/meta.json");
+      const huella = createHash("sha256").update(readFileSync(path.join(DATOS, "grafo", "grafo.trig.gz"))).digest("hex");
+      exigir(metaSparql.sha256Origen === huella, "datos/sparql/ salió de otro grafo.trig.gz: node scripts/build-sparql.mjs");
+      const enGrafos = metaSparql.grafos.reduce((s, g) => s + g.cuadruplos, 0);
+      exigir(enGrafos === metaVolcado.trig.cuadruples, `${enGrafos} cuádruplos en grafos con nombre; el volcado dice ${metaVolcado.trig.cuadruples}`);
+      const base = URL_MCP.replace(/\/mcp$/, "");
+      const sd = await (await fetch(`${base}/sparql`, { signal: AbortSignal.timeout(30_000) })).text();
+      exigir(sd.includes("sd:Service") && sd.includes(`sd:endpoint <${SITIO}/sparql>`), "/sparql sin consulta no describe el servicio");
+      exigir(sd.includes(`sd:name <${W3ID}/def/core>`) && sd.includes(`sd:name <${W3ID}/def/formas>`), "la descripción no nombra los grafos de la ontología y las formas");
+      const voidTtl = await (await fetch(`${base}/.well-known/void`, { signal: AbortSignal.timeout(30_000) })).text();
+      exigir(voidTtl.includes(`void:sparqlEndpoint <${SITIO}/sparql>`), "VoID no anuncia void:sparqlEndpoint");
+      const o = await llamar("ontology");
+      exigir(o.datos?.descargas?.sparql === `${SITIO}/sparql`, "ontology no da el punto SPARQL");
+      const total = await llamar("sparql", { query: "SELECT (COUNT(*) AS ?n) WHERE { GRAPH ?g { ?s ?p ?o } FILTER(STRSTARTS(STR(?g), \"" + W3ID + "/fuente/\") || STRSTARTS(STR(?g), \"" + W3ID + "/derivado/\")) }" });
+      exigir(total.datos?.filas?.[0]?.[0] === metaVolcado.trig.cuadruples, `el motor tiene ${JSON.stringify(total.datos?.filas ?? total.error)} cuádruplos del volcado; debía tener ${metaVolcado.trig.cuadruples}`);
+      return `${metaVolcado.trig.cuadruples.toLocaleString("en-US")} cuádruplos en ${metaSparql.grafos.length} grafos, del ${metaSparql.generado}`;
+    },
+  },
+  {
+    pregunta: "SPARQL cuenta lo mismo que SQL sobre los Parquet (dos motores, el mismo volcado)",
+    async correr() {
+      const pares = [
+        ["soc:Institucion", "instituciones"],
+        ["soc:Empresa", "empresas"],
+        ["soc:Contratacion", "contrataciones"],
+        ["do:MedidaDGCP", "medidas"],
+        ["soc:EntidadFinanciera", "financieras"],
+        ["soc:ProyectoDeInversion", "obras"],
+        ["soc:ConjuntoDeDatos", "conjuntos"],
+        ["soc:Contrato", "contratos_obra"],
+        ["soc:Provincia", "provincias"],
+      ];
+      for (const [clase, tabla] of pares) {
+        const a = await llamar("sparql", { query: `SELECT (COUNT(DISTINCT ?s) AS ?n) WHERE { ?s a ${clase} }` });
+        const b = await llamar("query", { sql: `SELECT count(*) FROM ${tabla}` });
+        exigir(!a.error && !b.error, a.error ?? b.error);
+        exigir(a.datos.filas[0][0] === b.datos.filas[0][0], `${clase}: SPARQL ${a.datos.filas[0][0]}, SQL ${b.datos.filas[0][0]} (${tabla})`);
+      }
+      // Obras por provincia: la misma cuenta, provincia por provincia.
+      const p = await llamar("sparql", { query: "SELECT ?slug (COUNT(DISTINCT ?obra) AS ?n) WHERE { ?obra a soc:ProyectoDeInversion ; soc:enProvincia ?prov . BIND(STRBEFORE(STRAFTER(STR(?prov), \"/provincias/\"), \"#\") AS ?slug) } GROUP BY ?slug ORDER BY ?slug" });
+      const q = await llamar("query", { sql: "SELECT provincia_slug, count(DISTINCT obra_snip) FROM obras_provincias GROUP BY 1 ORDER BY 1" });
+      exigir(!p.error && !q.error, p.error ?? q.error);
+      exigir(JSON.stringify(p.datos.filas) === JSON.stringify(q.datos.filas), `obras por provincia: SPARQL ${JSON.stringify(p.datos.filas.slice(0, 3))}…, SQL ${JSON.stringify(q.datos.filas.slice(0, 3))}…`);
+      // Lo contratado por el MINERD desde 2015, en los pares mayores: suma y cuenta.
+      const m = await llamar("sparql", { query: `SELECT (COUNT(?c) AS ?n) (SUM(?monto) AS ?suma) WHERE { ?c a soc:Contratacion ; soc:contratante <${SITIO}/instituciones/${MINERD.id}#id> ; soc:montoContratado ?monto }` });
+      const n = await llamar("query", { sql: `SELECT count(*), sum(monto) FROM contrataciones WHERE institucion_id = ${MINERD.id}` });
+      exigir(!m.error && !n.error, m.error ?? n.error);
+      exigir(m.datos.filas[0][0] === n.datos.filas[0][0] && Math.abs(m.datos.filas[0][1] - n.datos.filas[0][1]) < 1, `MINERD: SPARQL ${JSON.stringify(m.datos.filas[0])}, SQL ${JSON.stringify(n.datos.filas[0])}`);
+      return `${pares.length} clases, ${p.datos.filas.length} provincias y lo contratado por el MINERD (${pesos(n.datos.filas[0][1])}) iguales`;
+    },
+  },
+  {
+    pregunta: "SPARQL: las doce consultas de ejemplo del banco dan su resultado verificado",
+    async correr() {
+      const ejemplos = JSON.parse(readFileSync(path.join(RAIZ, "components", "sparql", "ejemplos.json"), "utf8"));
+      exigir(ejemplos.length === 12, `${ejemplos.length} ejemplos; el banco promete doce`);
+      for (const e of ejemplos) {
+        const { datos, error } = await llamar("sparql", { query: e.consulta });
+        exigir(!error, `${e.id}: ${error}`);
+        if (e.verificado.triples != null) {
+          exigir(datos.tipo === "triples" && datos.triples.length === e.verificado.triples, `${e.id}: ${datos.triples.length} triples; se verificaron ${e.verificado.triples}`);
+          continue;
+        }
+        exigir(datos.filas.length === e.verificado.filas, `${e.id}: ${datos.filas.length} filas; se verificaron ${e.verificado.filas}`);
+        for (const [k, v] of Object.entries(e.verificado.primera)) {
+          const dado = datos.filas[0][datos.variables.indexOf(k)];
+          exigir(String(dado) === v || Number(dado) === Number(v), `${e.id}: ?${k} es ${dado}; se verificó ${v}`);
+        }
+      }
+      return `${ejemplos.length} consultas, cada una con su primera fila`;
+    },
+  },
+  {
+    pregunta: "SPARQL: una actualización, LOAD, SERVICE, un producto cartesiano, una cédula y una respuesta de más de 4 MB se rechazan, y el motor responde después",
+    async correr() {
+      const vetadas = [
+        "INSERT DATA { <urn:a> <urn:b> <urn:c> }",
+        "DELETE WHERE { ?s ?p ?o }",
+        "LOAD <https://example.com/x.ttl>",
+        "DROP ALL",
+        "SELECT * WHERE { SERVICE <https://query.wikidata.org/sparql> { ?s ?p ?o } }",
+        "SELECT * WHERE { ?a a soc:Empresa . OPTIONAL { SERVICE <https://example.com/sparql> { ?a ?p ?o } } }",
+        "SELECT (COUNT(*) AS ?n) WHERE { ?a a soc:Empresa . ?b a soc:ProcesoDeContratacion }",
+        "SELECT * WHERE { ?s do:rnc \"001-1234567-8\" }",
+        // Los puentes que la revisión del 2026-11-03 halló: un BIND, una UNION o dos OPTIONAL no unen partes sueltas.
+        "SELECT (COUNT(*) AS ?n) WHERE { ?a a soc:ProcesoDeContratacion . ?b a soc:Empresa . BIND(COALESCE(?a, ?b) AS ?z) }",
+        "SELECT * WHERE { { ?a a soc:Empresa } UNION { ?b a soc:Institucion } ?a ?p ?c . ?b ?q ?d }",
+        "SELECT * WHERE { ?s a soc:Empresa . OPTIONAL { ?y ?p ?o } OPTIONAL { ?y ?q ?r } }",
+        "SELECT * WHERE { [] a soc:Empresa . [] a soc:Institucion }",
+        "SELECT (COUNT(*) AS ?n) WHERE { ?s a soc:Provincia } GROUP BY (EXISTS { ?a ?b ?c . ?d ?e ?f })",
+        // Una sola fila de más de 4 MB: no cabe en una respuesta, y se dice.
+        "SELECT (GROUP_CONCAT(STR(?s)) AS ?x) WHERE { ?s a soc:ProcesoDeContratacion }",
+      ];
+      for (const query of vetadas) {
+        const { error } = await llamar("sparql", { query });
+        exigir(error, `aceptó ${query}`);
+      }
+      const despues = await llamar("sparql", { query: "SELECT (COUNT(*) AS ?n) WHERE { ?p a soc:Provincia }" });
+      exigir(despues.datos?.filas?.[0]?.[0] === 32, `el motor quedó mal: ${despues.error ?? JSON.stringify(despues.datos)}`);
+      return `rechazadas las ${vetadas.length}; el motor sigue`;
+    },
+  },
+  {
+    pregunta: "SPARQL: una consulta que pasa de 10 s se corta, y el motor responde después",
+    async correr() {
+      const lenta = await llamar("sparql", { query: "SELECT (COUNT(*) AS ?n) WHERE { ?a ?p ?b . ?b ?q ?c . ?c ?r ?d . FILTER(STR(?d) != \"x\") }" });
+      exigir(lenta.error && /10 s/.test(lenta.error), `no se cortó: ${lenta.error ?? JSON.stringify(lenta.datos)}`);
+      const despues = await llamar("sparql", { query: "ASK { ?s a soc:Institucion }" });
+      exigir(despues.datos?.booleano === true, `el motor no volvió: ${despues.error ?? JSON.stringify(despues.datos)}`);
+      return "cortada a los 10 s; el motor volvió";
+    },
+  },
+  {
+    pregunta: "SPARQL: el grafo consultable no tiene personas naturales",
+    async correr() {
+      const filtro = PERSONALES.map((r) => `STRSTARTS(STR(?x), "${SITIO}${r}")`).join(" || ");
+      // Sujetos y objetos por separado: cada recorrido entero cabe holgado en los 10 s.
+      for (const patron of ["?x ?p ?o", "?s ?p ?x"]) {
+        const { datos, error } = await llamar("sparql", { query: `SELECT (COUNT(*) AS ?n) WHERE { ${patron} FILTER(isIRI(?x) && (${filtro})) }` });
+        exigir(!error, error);
+        exigir(datos.filas[0][0] === 0, `${datos.filas[0][0]} triples (${patron}) tocan ${PERSONALES.join(", ")}`);
+      }
+      const clases = await llamar("sparql", { query: "SELECT (COUNT(*) AS ?n) WHERE { ?s a ?c . VALUES ?c { soc:Persona soc:PersonaExpuestaPoliticamente soc:Cargo soc:DeclaracionJurada soc:Norma soc:Decreto soc:Ley soc:Resolucion soc:Sentencia soc:Votacion soc:Iniciativa soc:Documento } }" });
+      exigir(!clases.error && clases.datos.filas[0][0] === 0, `hay nodos de clases personales: ${JSON.stringify(clases.datos?.filas ?? clases.error)}`);
+      // El protocolo: CSV por Accept, y un POST con la consulta en el cuerpo.
+      const base = URL_MCP.replace(/\/mcp$/, "");
+      const csv = await fetch(`${base}/sparql?query=${encodeURIComponent("SELECT ?n WHERE { ?p a soc:Provincia ; schema:name ?n } ORDER BY ?n LIMIT 2")}`, { headers: { Accept: "text/csv" }, signal: AbortSignal.timeout(30_000) });
+      exigir(csv.ok && (csv.headers.get("content-type") ?? "").startsWith("text/csv") && (await csv.text()).startsWith("n\r\n"), `CSV: ${csv.status} ${csv.headers.get("content-type")}`);
+      const post = await fetch(`${base}/sparql`, { method: "POST", headers: { "Content-Type": "application/sparql-query", Accept: "application/sparql-results+json" }, body: "ASK { ?s a soc:Empresa }", signal: AbortSignal.timeout(30_000) });
+      exigir(post.ok && (await post.json()).boolean === true, `POST: ${post.status}`);
+      const upd = await fetch(`${base}/sparql`, { method: "POST", headers: { "Content-Type": "application/sparql-update" }, body: "DROP ALL", signal: AbortSignal.timeout(30_000) });
+      exigir(upd.status === 400, `un POST de actualización respondió ${upd.status}`);
+      return `ninguno bajo ${PERSONALES.length} rutas; CSV, POST y el rechazo de actualizaciones por el protocolo`;
+    },
+  },
 ];
 
 /* ------------------------------------------------ reglas de toda respuesta */
+
+/** Las rutas cuyas fichas nombran personas naturales (docs/INFRAESTRUCTURA.md §7.11): fuera de todo lo masivo. */
+const PERSONALES = ["/funcionarios/", "/normativa/", "/congreso/", "/constitucional/", "/tse/", "/documentos/"];
 
 const CEDULA = /(?<!\d)\d{3}[-‐‑–—]\d{7}[-‐‑–—]\d(?!\d)/;
 
@@ -1298,8 +1447,13 @@ function reglasGenerales() {
     const texto = JSON.stringify(res);
     if (CEDULA.test(texto)) fallos.push(`${nombre}: una respuesta trae algo con forma de cédula`);
     // Una pista que nombra un argumento viejo lleva al modelo a pedir sin filtro (la revisión del 30-09-2026).
-    const vieja = /\b(con|e) (institucion|proveedor|persona|grupo|pagina|texto|anio|tipo|desde|hasta) «|\b(neighbors|sparql)\b/.exec(texto);
+    const vieja = /\b(con|e) (institucion|proveedor|persona|grupo|pagina|texto|anio|tipo|desde|hasta) «|\bneighbors\b/.exec(texto);
     if (vieja) fallos.push(`${nombre}: una respuesta nombra «${vieja[0]}», que ya no es una herramienta ni un argumento`);
+    // SPARQL sirve solo el volcado sin personas naturales: ninguna respuesta suya nombra una ficha de las que las nombran.
+    if (nombre === "sparql") {
+      const personal = PERSONALES.find((r) => texto.includes(`${SITIO}${r}`));
+      if (personal) fallos.push(`sparql: una respuesta trae un IRI bajo ${personal}`);
+    }
     if (res.isError) continue;
     const d = res.structuredContent ?? {};
     if (nombre === "search") {

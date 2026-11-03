@@ -1,0 +1,67 @@
+{
+  "generado": "2026-10-20",
+  "origen": "public/data/grafo/grafo.trig.gz",
+  "sha256Origen": "19d6cc7dbce653f20208f31d5ed678985418c7bf6840d36ef5db08c0cf657624",
+  "cuadruplos": 1915496,
+  "porOmision": 83,
+  "grafos": [
+    {
+      "iri": "https://w3id.org/socratico/fuente/procesos/2026-09-25",
+      "cuadruplos": 855547
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/contratos/2026-09-22",
+      "cuadruplos": 496560
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/padron/2026-09-19",
+      "cuadruplos": 237558
+    },
+    {
+      "iri": "https://w3id.org/socratico/derivado/plataforma/2026-10-20",
+      "cuadruplos": 135245
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/proveedores/2026-09-29",
+      "cuadruplos": 73395
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/obras/2026-09-22",
+      "cuadruplos": 72974
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/medidas/2026-09-22",
+      "cuadruplos": 12698
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/datos/2026-09-24",
+      "cuadruplos": 12670
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/banca/2026-09-29",
+      "cuadruplos": 10572
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/instituciones/2026-09-29",
+      "cuadruplos": 6850
+    },
+    {
+      "iri": "https://w3id.org/socratico/derivado/identidad/2026-10-20",
+      "cuadruplos": 1107
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/provincias",
+      "cuadruplos": 162
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/wikidata/2026-09-30",
+      "cuadruplos": 64
+    },
+    {
+      "iri": "https://w3id.org/socratico/fuente/ofac/2026-09-29",
+      "cuadruplos": 11
+    }
+  ],
+  "bytes": 16162641,
+  "formato": "N-Quads (application/n-quads), comprimido con gzip: los cuádruplos del volcado en TriG, con el PROV-O de cada grafo en el grafo por omisión"
+}

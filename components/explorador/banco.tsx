@@ -27,13 +27,14 @@ import { Tablero, useAbiertos } from "./tablero";
 import { ClasesDeObjeto, FiltrosDeObjeto, Objetos } from "./objetos";
 import { ArbolDeClases, Ontologia } from "./ontologia";
 import { clicSimple } from "./clic";
+import { EjemplosSparql, Sparql } from "@/components/sparql/sparql";
 
 const MODOS = ["buscar", "preguntar"] as const;
 
 /** Lo que recorre «Buscar»: la misma frase que la paleta pone junto al destino (`BUSQUEDAS`). */
 const ALCANCE = BUSQUEDAS.find((b) => b.href === "/")?.alcance;
 
-const SECCIONES_BANCO = ["objetos", "ontologia"] as const;
+const SECCIONES_BANCO = ["objetos", "ontologia", "sparql"] as const;
 type SeccionBanco = "tablero" | (typeof SECCIONES_BANCO)[number];
 
 /** Los filtros de categoría del explorador de objetos en la URL: `{"estado":"Terminado"}`. */
@@ -204,7 +205,7 @@ export function Banco({
   */
   const seccion: SeccionBanco = url.seccion ?? "tablero";
   const enCentro: "pregunta" | "busqueda" | SeccionBanco = preguntar && q.length >= 3 ? "pregunta" : buscando ? "busqueda" : seccion;
-  const sinInspector = !url.nodo && (enCentro === "objetos" || enCentro === "ontologia");
+  const sinInspector = !url.nodo && (enCentro === "objetos" || enCentro === "ontologia" || enCentro === "sparql");
   // La ontología se pide al abrir su sección: no viaja con la portada.
   const ontologia = useQuery({
     queryKey: claves.ontologia,
@@ -322,7 +323,7 @@ export function Banco({
         )}
       >
         {/* El panel izquierdo: las clases de lo hallado y los puntos de partida. */}
-        <aside aria-label={enCentro === "objetos" ? "Clase y filtros" : enCentro === "ontologia" ? "Clases de la ontología" : "Clases y puntos de partida"} className="hidden border-r border-hairline bg-surface lg:block">
+        <aside aria-label={enCentro === "objetos" ? "Clase y filtros" : enCentro === "ontologia" ? "Clases de la ontología" : enCentro === "sparql" ? "Consultas de ejemplo" : "Clases y puntos de partida"} className="hidden border-r border-hairline bg-surface lg:block">
           <div className="sticky top-[var(--alto-cabecera)] max-h-[calc(100dvh-var(--alto-cabecera))] space-y-5 overflow-y-auto px-3 py-4">
             {enCentro === "objetos" ? (
               <>
@@ -334,6 +335,11 @@ export function Banco({
                 </nav>
                 <FiltrosDeObjeto pedido={pedido} onFiltro={onFiltro} idBase="faceta-panel" />
               </>
+            ) : enCentro === "sparql" ? (
+              <div>
+                <p className="rotulo mb-2 px-1 text-ink-soft">Consultas de ejemplo</p>
+                <EjemplosSparql vertical />
+              </div>
             ) : enCentro === "ontologia" ? (
               <div>
                 <p className="rotulo mb-2 px-1 text-ink-soft">Clases de la ontología</p>
@@ -382,6 +388,8 @@ export function Banco({
               onTipo={onTipo}
               onAbrir={abrirDesdeLista}
             />
+          ) : enCentro === "sparql" ? (
+            <Sparql nodo={url.nodo} hrefNodo={hrefNodo} onAbrir={abrirDesdeLista} />
           ) : enCentro === "ontologia" ? (
             ontologia.data ? (
               <Ontologia ontologia={ontologia.data} clase={url.clase} hrefClase={hrefClase} onObjetos={onTipo} />
@@ -447,12 +455,14 @@ const ETIQUETA_CENTRO: Record<"pregunta" | "busqueda" | SeccionBanco, string> = 
   tablero: "Tablero",
   objetos: "Objetos",
   ontologia: "Ontología",
+  sparql: "Consulta SPARQL",
 };
 
 const SECCIONES_BARRA: { id: SeccionBanco; etiqueta: string; nota: string }[] = [
   { id: "tablero", etiqueta: "Tablero", nota: "Lo que hay en el grafo y lo abierto ahora" },
   { id: "objetos", etiqueta: "Objetos", nota: "Cada clase como tabla: filtra, ordena, suma" },
   { id: "ontologia", etiqueta: "Ontología", nota: "Las clases y cómo se ligan" },
+  { id: "sparql", etiqueta: "SPARQL", nota: "El grafo sin personas naturales, en SPARQL" },
 ];
 
 /**

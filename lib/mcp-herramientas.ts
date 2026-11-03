@@ -18,6 +18,7 @@ export type NombreHerramienta =
   | "procurement"
   | "contracting_history"
   | "query"
+  | "sparql"
   | "path"
   | "signed_decrees"
   | "ontology";
@@ -55,6 +56,12 @@ export const HERRAMIENTAS_MCP: readonly { nombre: NombreHerramienta; titulo: str
     nombre: "query",
     titulo: "Consulta SQL",
     llano: "Una consulta SQL de lectura sobre las tablas del grafo sin personas naturales y los procesos de compra, para contar, cruzar y ordenar lo que las demás no ordenan, en DuckDB (abierto).",
+  },
+  {
+    nombre: "sparql",
+    titulo: "Consulta SPARQL",
+    llano:
+      "Una consulta SPARQL de lectura sobre el grafo entero sin personas naturales, con cada triple en el grafo de su fuente y su corte, y la ontología con sus formas SHACL para preguntarle al modelo, en Oxigraph (abierto).",
   },
   {
     nombre: "path",

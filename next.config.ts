@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
   // carga de node_modules tal cual, sin pasar por el empaquetado.
   serverExternalPackages: ["@duckdb/node-api", "@duckdb/node-bindings"],
   outputFileTracingIncludes: {
+    // SPARQL (`lib/sparql.ts`, solo en `/sparql`): el hijo y Oxigraph (WASM) se
+    // cargan por ruta, fuera del empaquetado, con el volcado en N-Quads (~16 MB).
+    "/sparql": [
+      "./datos/sparql/**",
+      "./lib/sparql-hijo.cjs",
+      "./node_modules/oxigraph/package.json",
+      "./node_modules/oxigraph/node.js",
+      "./node_modules/oxigraph/node_bg.wasm",
+    ],
     "/buscar": ["./public/data/busqueda/**"],
     "/api/buscar": ["./public/data/busqueda/**"],
     "/proveedores": ["./public/data/busqueda/**"],

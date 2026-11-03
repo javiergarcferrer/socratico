@@ -31,6 +31,10 @@ export const claves = {
   sql: (q: string) => ["sql", q] as const,
   /** La ontología compacta del recorrido de clases (`/api/explorar/ontologia`). */
   ontologia: ["ontologia"] as const,
+  /** Una consulta SPARQL de solo lectura (`/sparql`), por su texto: el editor del banco. */
+  sparql: (q: string) => ["sparql", q] as const,
+  /** Lo que el editor de SPARQL autocompleta (`/sparql/terminos`). */
+  terminosSparql: ["sparql-terminos"] as const,
 };
 
 /**
@@ -99,4 +103,63 @@ export interface RespuestaSql {
 /** SQL de solo lectura sobre las tablas del grafo: el GET, que la CDN cachea mientras dure el despliegue. */
 export function consultarTablas(q: string, signal?: AbortSignal) {
   return leerJson<RespuestaSql>(`/api/sql?q=${encodeURIComponent(q)}`, signal);
+}
+
+/* ---------------------------------------------------------------- SPARQL */
+
+/** Una celda de SPARQL 1.1 Query Results JSON. */
+export interface CeldaSparql {
+  type: "uri" | "literal" | "bnode";
+  value: string;
+  "xml:lang"?: string;
+  datatype?: string;
+}
+
+/** Lo que el editor pinta: filas (SELECT), un sí o un no (ASK) o triples en N-Triples (CONSTRUCT, DESCRIBE). */
+export type RespuestaSparql =
+  | { tipo: "filas"; variables: string[]; filas: Record<string, CeldaSparql>[]; truncada: boolean; ms: number }
+  | { tipo: "booleano"; valor: boolean; ms: number }
+  | { tipo: "triples"; ntriples: string; truncada: boolean; ms: number };
+
+/** Un no-2xx de `/sparql`: 400 es la consulta (dice qué cambiar), 503 el motor ocupado, 502 el motor caído. */
+export class ErrorSparql extends Error {
+  constructor(
+    message: string,
+    readonly estado: number,
+  ) {
+    super(message);
+  }
+}
+
+/** La dirección GET de una consulta en `/sparql` (la CDN la guarda), con su formato si se pide uno. */
+export const urlSparql = (q: string, formato?: string) => `/sparql?query=${encodeURIComponent(q)}${formato ? `&format=${formato}` : ""}`;
+
+/**
+ * Corre una consulta en `/sparql`: por GET si cabe (la CDN guarda la
+ * respuesta), si no por POST. Un 400 es un error con lo que hay que cambiar.
+ */
+export async function consultarSparql(q: string, signal?: AbortSignal): Promise<RespuestaSparql> {
+  const accept = "application/sparql-results+json, application/n-triples;q=0.9";
+  const url = urlSparql(q);
+  const r =
+    url.length <= 6_000
+      ? await fetch(url, { headers: { Accept: accept }, signal })
+      : await fetch("/sparql", { method: "POST", headers: { Accept: accept, "Content-Type": "application/sparql-query" }, body: q, signal });
+  const texto = await r.text();
+  if (!r.ok) throw new ErrorSparql(texto.trim() || `Error ${r.status}`, r.status);
+  const ms = Number(r.headers.get("socratico-ms") ?? 0);
+  const truncada = r.headers.get("socratico-truncada") === "1";
+  if ((r.headers.get("content-type") ?? "").startsWith("application/n-triples")) return { tipo: "triples", ntriples: texto, truncada, ms };
+  const json = JSON.parse(texto) as { head?: { vars?: string[] }; boolean?: boolean; results?: { bindings?: Record<string, CeldaSparql>[] } };
+  if (typeof json.boolean === "boolean") return { tipo: "booleano", valor: json.boolean, ms };
+  return { tipo: "filas", variables: json.head?.vars ?? [], filas: json.results?.bindings ?? [], truncada, ms };
+}
+
+export interface TerminosSparql {
+  prefijos: Record<string, string>;
+  terminos: { curie: string; etiqueta: string; tipo: "clase" | "propiedad" | "concepto" }[];
+}
+
+export function leerTerminosSparql(signal?: AbortSignal) {
+  return leerJson<TerminosSparql>("/sparql/terminos", signal);
 }

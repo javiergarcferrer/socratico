@@ -1,0 +1,171 @@
+[
+  {
+    "id": "compradores",
+    "pregunta": "¿Qué instituciones publicaron más procesos de compra en los doce meses de la tabla de la DGCP?",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\n\nSELECT ?institucion ?nombre (COUNT(?proceso) AS ?procesos)\nWHERE {\n  ?proceso a soc:ProcesoDeContratacion ;\n           soc:comprador ?institucion .\n  ?institucion schema:name ?nombre .\n}\nGROUP BY ?institucion ?nombre\nORDER BY DESC(?procesos) ?nombre\nLIMIT 10",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 10,
+      "primera": {
+        "institucion": "https://socratico.vercel.app/instituciones/581#id",
+        "nombre": "Instituto Nacional de formación Técnico Profesional",
+        "procesos": "2092"
+      }
+    }
+  },
+  {
+    "id": "medidas",
+    "pregunta": "¿Qué empresas con medidas de la DGCP suman más en sus contrataciones mayores con el Estado? (RD$ contratados, no pagados, desde 2015; solo los pares mayores, así que la suma es un piso)",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\n\n# Las contrataciones del grafo son los pares mayores (12 proveedores por\n# institución, 8 clientes por empresa): la suma es un piso, no el total.\nSELECT ?empresa ?nombre ?medidas ?contratado\nWHERE {\n  { SELECT ?proveedor (COUNT(?medida) AS ?medidas)\n    WHERE { ?proveedor soc:tieneMedida ?medida } GROUP BY ?proveedor }\n  { SELECT ?proveedor (SUM(?monto) AS ?contratado)\n    WHERE { ?c a soc:Contratacion ; soc:contratista ?proveedor ; soc:montoContratado ?monto }\n    GROUP BY ?proveedor }\n  ?empresa soc:inscritaComo ?proveedor ;\n           schema:legalName ?nombre .\n}\nORDER BY DESC(?contratado) ?nombre\nLIMIT 10",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 10,
+      "primera": {
+        "empresa": "https://socratico.vercel.app/empresas/130795312#id",
+        "nombre": "INVERSIONES QTEK SRL",
+        "medidas": "2",
+        "contratado": "6327295395"
+      }
+    }
+  },
+  {
+    "id": "minerd",
+    "pregunta": "¿A qué proveedores le ha contratado más el Ministerio de Educación desde 2015? (RD$ contratados, no pagados; los 12 mayores)",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\nPREFIX skos: <http://www.w3.org/2004/02/skos/core#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?proveedor ?nombre ?contratos ?monto\nWHERE {\n  ?minerd a soc:Institucion ; skos:altLabel \"MINERD\" .\n  ?c a soc:Contratacion ;\n     soc:contratante ?minerd ;\n     soc:contratista ?proveedor ;\n     soc:numeroDeContratos ?contratos ;\n     soc:montoContratado ?monto .\n  ?proveedor rdfs:label ?nombre .\n}\nORDER BY DESC(?monto) ?nombre\nLIMIT 12",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 12,
+      "primera": {
+        "proveedor": "https://socratico.vercel.app/proveedores/767#id",
+        "nombre": "Cecomsa, SRL",
+        "contratos": "32",
+        "monto": "7785404428"
+      }
+    }
+  },
+  {
+    "id": "provincias",
+    "pregunta": "¿Qué provincias tienen más obras públicas registradas en MapaInversiones?",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\n\nSELECT ?provincia ?nombre (COUNT(?obra) AS ?obras)\nWHERE {\n  ?obra a soc:ProyectoDeInversion ;\n        soc:enProvincia ?provincia .\n  ?provincia schema:name ?nombre .\n}\nGROUP BY ?provincia ?nombre\nORDER BY DESC(?obras) ?nombre\nLIMIT 32",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 32,
+      "primera": {
+        "provincia": "https://socratico.vercel.app/provincias/santo-domingo#id",
+        "nombre": "Santo Domingo",
+        "obras": "423"
+      }
+    }
+  },
+  {
+    "id": "obras",
+    "pregunta": "¿Cuáles son las obras de mayor valor estimado, y quién las ejecuta?",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?obra ?nombre ?valor ?avance ?ejecutora\nWHERE {\n  ?obra a soc:ProyectoDeInversion ;\n        rdfs:label ?nombre ;\n        soc:valorEstimado ?valor ;\n        soc:avance ?avance .\n  OPTIONAL { ?obra soc:ejecutadoPor ?i . ?i schema:name ?ejecutora }\n}\nORDER BY DESC(?valor) ?nombre\nLIMIT 10",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 10,
+      "primera": {
+        "obra": "https://socratico.vercel.app/obras/12416#id",
+        "nombre": "Construcción Planta de Generacion Termoelectrica en Punta Catalina, Bani, Prov. Peravia",
+        "valor": "102963546922",
+        "avance": "86.64"
+      }
+    }
+  },
+  {
+    "id": "modalidades",
+    "pregunta": "¿Por qué modalidad se compra más? (las etiquetas salen de la ontología)",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX skos: <http://www.w3.org/2004/02/skos/core#>\n\n# La modalidad de cada proceso es un concepto del vocabulario do:modalidades;\n# su nombre en llano está en el grafo de la ontología. Un proceso sin valor\n# estimado cuenta como proceso y suma cero.\nSELECT ?modalidad ?nombre (COUNT(?proceso) AS ?procesos) (SUM(COALESCE(?valor, 0)) AS ?valorEstimado)\nWHERE {\n  ?proceso a soc:ProcesoDeContratacion ;\n           soc:modalidad ?modalidad .\n  OPTIONAL { ?proceso soc:valorEstimado ?valor }\n  ?modalidad skos:prefLabel ?nombre .\n}\nGROUP BY ?modalidad ?nombre\nORDER BY DESC(?procesos) ?nombre",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 10,
+      "primera": {
+        "modalidad": "https://w3id.org/socratico/def/do#modalidad-umbral",
+        "nombre": "Compra menor al umbral",
+        "procesos": "49005",
+        "valorEstimado": "6653867312.69"
+      }
+    }
+  },
+  {
+    "id": "procedencia",
+    "pregunta": "¿De qué fuente y con qué corte sale cada cosa que el grafo dice del Ministerio de Educación?",
+    "consulta": "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\nPREFIX dct: <http://purl.org/dc/terms/>\n\n# Cada triple está en el grafo con nombre de su fuente y su corte, o de la\n# regla de Socrático.do que lo deriva; el PROV-O de cada grafo dice cuál.\nSELECT ?fuente ?corte ?relacion (COUNT(*) AS ?triples)\nWHERE {\n  ?minerd skos:altLabel \"MINERD\" .\n  GRAPH ?grafo { { ?minerd ?relacion ?o } UNION { ?o ?relacion ?minerd } }\n  OPTIONAL { ?grafo rdfs:label ?fuente ; dct:date ?corte }\n}\nGROUP BY ?fuente ?corte ?relacion\nORDER BY DESC(?triples) ?relacion",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 11,
+      "primera": {
+        "fuente": "Contratos de la DGCP desde 2015",
+        "corte": "2026-09-22",
+        "relacion": "https://w3id.org/socratico/def/core#contratante",
+        "triples": "1300"
+      }
+    }
+  },
+  {
+    "id": "datos-abiertos",
+    "pregunta": "¿Qué instituciones publican más conjuntos de datos abiertos?",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\n\nSELECT ?institucion ?nombre (COUNT(?conjunto) AS ?conjuntos)\nWHERE {\n  ?conjunto a soc:ConjuntoDeDatos ;\n            soc:publicadaPor ?institucion .\n  ?institucion schema:name ?nombre .\n}\nGROUP BY ?institucion ?nombre\nORDER BY DESC(?conjuntos) ?nombre\nLIMIT 10",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 10,
+      "primera": {
+        "institucion": "https://socratico.vercel.app/instituciones/709#id",
+        "nombre": "Fondo Nacional Medio Ambiente y Recursos Naturales",
+        "conjuntos": "12"
+      }
+    }
+  },
+  {
+    "id": "contratistas",
+    "pregunta": "¿Qué empresas tienen más contratado en contratos de obra pública (RD$, según MapaInversiones), y en cuántas obras?",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX schema: <http://schema.org/>\n\n# Un contrato puede servir a varias obras: su monto se suma una vez por contrato.\nSELECT ?empresa ?nombre (COUNT(?contrato) AS ?contratos) (SUM(?monto) AS ?contratado) (SUM(?obras) AS ?enObras)\nWHERE {\n  { SELECT ?contrato ?proveedor ?monto (COUNT(?obra) AS ?obras)\n    WHERE { ?contrato a soc:Contrato ; soc:contratista ?proveedor ; soc:monto ?monto ; soc:paraProyecto ?obra }\n    GROUP BY ?contrato ?proveedor ?monto }\n  ?empresa soc:inscritaComo ?proveedor ;\n           schema:legalName ?nombre .\n}\nGROUP BY ?empresa ?nombre\nORDER BY DESC(?contratado) ?nombre\nLIMIT 10",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 10,
+      "primera": {
+        "empresa": "https://socratico.vercel.app/empresas/102318816#id",
+        "nombre": "INGENIERIA ESTRELLA SA",
+        "contratos": "6",
+        "contratado": "4659610422.13",
+        "enObras": "6"
+      }
+    }
+  },
+  {
+    "id": "clases",
+    "pregunta": "¿Qué clases de la ontología tienen nodos en este grafo, y cuántos?",
+    "consulta": "PREFIX owl: <http://www.w3.org/2002/07/owl#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?clase ?nombre ?nodos\nWHERE {\n  GRAPH <https://w3id.org/socratico/def/core> {\n    ?clase a owl:Class ; rdfs:label ?nombre .\n    FILTER(LANG(?nombre) = \"es\")\n  }\n  { SELECT ?clase (COUNT(?s) AS ?nodos) WHERE { ?s a ?clase } GROUP BY ?clase }\n}\nORDER BY DESC(?nodos) ?nombre",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 11,
+      "primera": {
+        "clase": "https://w3id.org/socratico/def/core#ProcesoDeContratacion",
+        "nombre": "Proceso de contratación",
+        "nodos": "79674"
+      }
+    }
+  },
+  {
+    "id": "forma-empresa",
+    "pregunta": "¿Qué exige la forma SHACL a una empresa para darla por válida?",
+    "consulta": "PREFIX sh: <http://www.w3.org/ns/shacl#>\nPREFIX soc: <https://w3id.org/socratico/def/core#>\n\nSELECT ?propiedad ?minimo ?maximo ?tipo ?clase\nWHERE {\n  GRAPH <https://w3id.org/socratico/def/formas> {\n    ?forma sh:targetClass soc:Empresa ;\n           sh:property ?p .\n    ?p sh:path ?propiedad .\n    OPTIONAL { ?p sh:minCount ?minimo }\n    OPTIONAL { ?p sh:maxCount ?maximo }\n    OPTIONAL { ?p sh:datatype ?tipo }\n    OPTIONAL { ?p sh:class ?clase }\n  }\n}\nORDER BY ?propiedad",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "filas": 4,
+      "primera": {
+        "propiedad": "https://w3id.org/socratico/def/core#estado",
+        "tipo": "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString"
+      }
+    }
+  },
+  {
+    "id": "red-obra",
+    "pregunta": "La red de la obra con más contratos: quién la ejecuta, dónde, sus procesos y sus contratistas, como grafo.",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\nPREFIX schema: <http://schema.org/>\n\nCONSTRUCT {\n  ?obra rdfs:label ?nombre ; soc:ejecutadoPor ?ejecutora ; soc:enProvincia ?provincia .\n  ?ejecutora schema:name ?nombreEjecutora .\n  ?proceso soc:paraProyecto ?obra ; rdfs:label ?titulo .\n  ?contrato soc:paraProyecto ?obra ; soc:contratista ?contratista ; soc:monto ?monto .\n  ?contratista rdfs:label ?nombreContratista .\n}\nWHERE {\n  { SELECT ?obra (COUNT(?c) AS ?n) WHERE { ?c a soc:Contrato ; soc:paraProyecto ?obra } GROUP BY ?obra ORDER BY DESC(?n) ?obra LIMIT 1 }\n  ?obra rdfs:label ?nombre .\n  OPTIONAL { ?obra soc:ejecutadoPor ?ejecutora . ?ejecutora schema:name ?nombreEjecutora }\n  OPTIONAL { ?obra soc:enProvincia ?provincia }\n  OPTIONAL { ?proceso a soc:ProcesoDeContratacion ; soc:paraProyecto ?obra ; rdfs:label ?titulo }\n  OPTIONAL { ?contrato a soc:Contrato ; soc:paraProyecto ?obra ; soc:contratista ?contratista ; soc:monto ?monto .\n             OPTIONAL { ?contratista rdfs:label ?nombreContratista } }\n}",
+    "verificado": {
+      "fecha": "2026-11-03",
+      "triples": 66
+    }
+  }
+]
