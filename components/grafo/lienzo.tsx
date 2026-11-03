@@ -16,9 +16,12 @@
  *  - los dieciséis tipos en cinco familias (`familias.ts`), con la paleta
  *    `CATEGORICA` y el tipo escrito en el rótulo y en la leyenda;
  *  - **el estado en la URL** (`nuqs`): semillas `ls`, expandidos en orden
- *    `lx`, ocultos `lo`, clase `lc`, fijados `lf`, cámara `lv`. Como la red y
- *    su disposición son funciones puras de ese estado (`modelo.ts`), el
- *    enlace reproduce la vista;
+ *    `lx`, ocultos `lo`, clase `lc`, fijados `lf`, cámara `lv`, procedencia
+ *    `lp`, período `lt` y el camino resaltado `lk` (que el banco rehace
+ *    pidiéndolo otra vez). Como la red y su disposición son funciones puras
+ *    de ese estado (`modelo.ts`), el enlace reproduce la vista, salvo lo que
+ *    vive solo en memoria: las aristas que trae un resultado de SPARQL y,
+ *    con más de `SEMILLAS_EN_ENLACE` semillas, las semillas mismas;
  *  - **teclado**: Tab entra al lienzo, las flechas van al nodo más cercano en
  *    esa dirección, Enter expande, Esc cierra; `+`/`-` acercan y alejan, `0`
  *    recentra. Lo que se expandió se anuncia en una región `aria-live`;
@@ -48,7 +51,7 @@ import { cn } from "@/lib/cn";
 import type { FuenteVista, Inspeccion } from "@/lib/explorar-tipos";
 import type { TipoNodoRdf } from "@/lib/grafo";
 import { FAMILIAS, TIPO, TIPOS, esTipo } from "./familias";
-import { ESTADO_LIENZO, SEP, SIN_LIENZO } from "./estado";
+import { ESTADO_LIENZO, SEMILLAS_EN_ENLACE, SEP, SIN_LIENZO } from "./estado";
 import {
   TOPE_POR_EXPANSION,
   aniosDe,
@@ -63,6 +66,7 @@ import {
   type EstiloArista,
   type Expansion,
   type NodoLienzo,
+  type Procedencia,
   type Semilla,
 } from "./modelo";
 import { Motor, leerPaleta } from "./motor";
@@ -81,7 +85,7 @@ export interface LienzoApi {
   /**
    * Decide el trazo de cada arista: `macizo` (de una fuente) o `punteado`
    * (derivada por una regla), por su `grafo` con nombre. `null` vuelve al
-   * macizo para todas.
+   * estilo por omisión: punteada la que deriva una regla, maciza el resto.
    */
   aristasConEstilo(fn: ((a: { verbo: string; grafo: string | null; de: string; a: string }) => EstiloArista) | null): void;
   expandir(ruta: string): void;
@@ -101,8 +105,6 @@ export interface DetalleSembrar {
   reemplazar?: boolean;
 }
 
-/** Cuántas semillas caben en un enlace: más alargarían la dirección sin servir a nadie. */
-export const SEMILLAS_EN_ENLACE = 150;
 /** Cuántas semillas sin nombre se leen del índice para nombrarlas. */
 const NOMBRAR_MAX = 60;
 
@@ -244,9 +246,12 @@ export function Lienzo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listas]);
   /** De dónde sale una arista, en palabras: en el dibujo, junto a su rótulo; en la tabla y en los anuncios, entera. */
-  const fuenteDe = (grafo: string | null) => {
-    const f = grafo ? fuentes.get(grafo) : null;
-    if (!f) return procedenciaDe(grafo, fuentes) === "pendiente" ? "fuente aún no leída" : "el grafo compilado no dice de qué fuente sale";
+  const fuenteDe = (a: { grafo: string | null; sembrada?: boolean }) => {
+    const f = a.grafo ? fuentes.get(a.grafo) : null;
+    if (!f) {
+      const p = procedenciaDe(a, fuentes);
+      return p === "pendiente" ? "fuente aún no leída" : p === "sembrada" ? "de fuente sin decir: la trajo una consulta o un camino" : "el grafo compilado no dice de qué fuente sale";
+    }
     return f.derivado ? `regla de Socrático: ${f.etiqueta}` : f.corte ? `${f.etiqueta}, corte del ${formatFecha(f.corte)}` : f.etiqueta;
   };
 
@@ -273,20 +278,22 @@ export function Lienzo({
     let regla = 0;
     let sinDato = 0;
     let pendiente = 0;
+    let sembrada = 0;
     let sinFecha = 0;
     let fuera = 0;
     let porProcedencia = 0;
     for (const a of red.aristas) {
-      const p = procedenciaDe(a.grafo, fuentes);
+      const p = procedenciaDe(a, fuentes);
       if (p === "regla") regla++;
       else if (p === "sin-dato") sinDato++;
       else if (p === "pendiente") pendiente++;
+      else if (p === "sembrada") sembrada++;
       if (enPeriodo(a.fecha, null) === "sin-fecha") sinFecha++;
       const por = apartadas.get(a.clave);
       if (por === "periodo") fuera++;
       else if (por === "procedencia") porProcedencia++;
     }
-    return { regla, sinDato, pendiente, fuente: red.aristas.length - regla - sinDato - pendiente, sinFecha, fuera, porProcedencia };
+    return { regla, sinDato, pendiente, sembrada, fuente: red.aristas.length - regla - sinDato - pendiente - sembrada, sinFecha, fuera, porProcedencia };
   }, [red, fuentes, apartadas]);
 
   /* ------------------------------------------------------- el motor */
@@ -345,7 +352,7 @@ export function Lienzo({
   useEffect(() => {
     const m = motor.current;
     if (!m) return;
-    m.pintar(red, fijados, (a) => fuenteDe(a.grafo));
+    m.pintar(red, fijados, (a) => fuenteDe(a));
     setNodosDibujados(m.nodos);
     const r = porAnunciar.current;
     if (r && red.nodos.get(r)?.expandido) {
@@ -478,15 +485,19 @@ export function Lienzo({
       if (pasos?.length) {
         const faltan = pasos.filter((p) => !red.nodos.has(p) && !recienSembradas.current.has(p));
         if (faltan.length) {
+          // Cada tramo con la arista que ya se sembró entre esos dos (la de `camino()`, con su verbo y su grafo);
+          // si no hay, el tramo entra sembrado y el lienzo lo dice: nunca «sin fuente», y el filtro no lo aparta.
+          const tramo = (de: string, a: string) =>
+            sembradas.find((x) => (x.de === de && x.a === a) || (x.de === a && x.a === de)) ?? { de, a, verbo: "" };
           sembrar(
             faltan.map((ruta) => ({ ruta })),
-            { aristas: pasos.slice(1).map((a, i) => ({ de: pasos[i], a, verbo: "" })) },
+            { aristas: pasos.slice(1).map((a, i) => tramo(pasos[i], a)) },
           );
         }
       }
       setCamino(pasos?.length ? [...pasos] : null);
     },
-    [red, sembrar],
+    [red, sembrar, sembradas],
   );
 
   const instantanea = useCallback((): InstantaneaLienzo | null => {
@@ -529,7 +540,7 @@ export function Lienzo({
         de,
         a: al,
         relacion: x ? [x.verbo, x.detalle].filter(Boolean).join(" · ") || "relación" : m.grafo.getEdgeAttribute(e, "label") || "relación",
-        fuente: x ? fuenteDe(x.grafo) : "sin dato",
+        fuente: x ? fuenteDe(x) : "sin dato",
         punteada: m.grafo.getEdgeAttribute(e, "estilo") === "punteado",
         color: m.grafo.getEdgeAttribute(e, "color"),
       });
@@ -623,7 +634,7 @@ export function Lienzo({
   const titulo = (ruta: string) => red.nodos.get(ruta)?.titulo ?? ruta;
   function describirArista(a: AristaLienzo): string {
     const rel = [a.verbo, a.detalle].filter(Boolean).join(" · ") || "se liga con";
-    return `${titulo(a.de)}, ${rel}, ${titulo(a.a)}${a.fecha ? `, ${formatFecha(a.fecha)}` : ""}. Sale de: ${fuenteDe(a.grafo)}.`;
+    return `${titulo(a.de)}, ${rel}, ${titulo(a.a)}${a.fecha ? `, ${formatFecha(a.fecha)}` : ""}. Sale de: ${fuenteDe(a)}.`;
   }
   const aristaVista = (aristaSobre ?? aristaFoco) ? (red.aristas.find((a) => a.clave === (aristaSobre ?? aristaFoco)) ?? null) : null;
   const enDibujo = (a: AristaLienzo) => {
@@ -744,7 +755,7 @@ export function Lienzo({
               arista={aristaVista}
               titulo={titulo}
               fuente={aristaVista.grafo ? (fuentes.get(aristaVista.grafo) ?? null) : null}
-              pendiente={procedenciaDe(aristaVista.grafo, fuentes) === "pendiente"}
+              procedencia={procedenciaDe(aristaVista, fuentes)}
               enDibujo={enDibujo(aristaVista)}
             />
           ) : (
@@ -775,6 +786,17 @@ export function Lienzo({
                 : []),
               ...(cuentas.pendiente
                 ? [{ clave: "pendiente", etiqueta: "Maciza, fuente aún no leída", clase: "bg-ink-soft", forma: "linea" as const, cifra: formatInt(cuentas.pendiente) }]
+                : []),
+              ...(cuentas.sembrada
+                ? [
+                    {
+                      clave: "sembrada",
+                      etiqueta: "Maciza, de fuente sin decir: la trajo una consulta o un camino; el filtro de fuente no la quita",
+                      clase: "bg-ink-soft",
+                      forma: "linea" as const,
+                      cifra: formatInt(cuentas.sembrada),
+                    },
+                  ]
                 : []),
             ]}
           />
@@ -875,6 +897,7 @@ export function Lienzo({
           {formatInt(red.nodos.size)} {red.nodos.size === 1 ? "nodo" : "nodos"} y {formatInt(red.aristas.length)}{" "}
           {red.aristas.length === 1 ? "arista" : "aristas"} del grafo compilado
           {apartadas.size > 0 && ` (${formatInt(apartadas.size)} fuera del dibujo: ${[cuentas.fuera ? `${formatInt(cuentas.fuera)} fuera del período` : null, cuentas.porProcedencia ? `${formatInt(cuentas.porProcedencia)} que no publica una fuente` : null].filter(Boolean).join(", ")})`}
+          {soloFuente && cuentas.sembrada + cuentas.pendiente > 0 && ` Con el filtro de fuente quedan ${formatInt(cuentas.sembrada + cuentas.pendiente)} de fuente aún sin decir.`}
           ; cada expansión trae hasta {TOPE_POR_EXPANSION} vecinos repartidos por grupo y el inspector, al lado, los trae todos.
         </span>
         {ocultos.size > 0 && (
@@ -932,7 +955,7 @@ export function Lienzo({
             [a.verbo, a.detalle].filter(Boolean).join(" · ") || "—",
             titulo(a.a),
             a.fecha ? formatFecha(a.fecha) : "sin fecha",
-            fuenteDe(a.grafo),
+            fuenteDe(a),
             enDibujo(a),
           ],
         }))}
@@ -974,13 +997,13 @@ function PanelArista({
   arista,
   titulo,
   fuente,
-  pendiente,
+  procedencia,
   enDibujo,
 }: {
   arista: AristaLienzo;
   titulo: (ruta: string) => string;
   fuente: FuenteVista | null;
-  pendiente: boolean;
+  procedencia: Procedencia;
   enDibujo: string;
 }) {
   const pagina = fuente?.origen && esPagina(fuente.origen) ? fuente.origen : null;
@@ -995,7 +1018,13 @@ function PanelArista({
       </p>
       <p className="text-xs leading-relaxed text-ink-soft">
         {!fuente ? (
-          <>{pendiente ? "Su fuente se dirá cuando se lea uno de sus dos nodos. " : "El grafo compilado no dice de qué fuente sale esta arista. "}</>
+          <>
+            {procedencia === "pendiente"
+              ? "Su fuente se dirá cuando se lea uno de sus dos nodos. "
+              : procedencia === "sembrada"
+                ? "La trajo una consulta SPARQL o un camino sin decir de qué fuente sale; si el índice la tiene, expandir uno de sus dos nodos dice su fuente. "
+                : "El grafo compilado no dice de qué fuente sale esta arista. "}
+          </>
         ) : fuente.derivado ? (
           <>
             Punteada: la deriva una regla de Socrático, <span className="text-ink">{fuente.etiqueta}</span>

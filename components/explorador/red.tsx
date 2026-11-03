@@ -5,6 +5,7 @@ import type { Ref } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { EsqueletoLineas } from "@/components/esqueleto";
 import type { LienzoApi } from "@/components/grafo/lienzo";
+import { SEMILLAS_EN_ENLACE } from "@/components/grafo/estado";
 
 /**
  * WebGL y su disposición solo en el navegador, y en su propio trozo: la
@@ -46,8 +47,9 @@ export function RedDelNodo({
     <Card as="section" aria-labelledby="red-del-nodo" className="px-4 py-4 sm:px-5">
       <CardTitle id="red-del-nodo">La red, de salto en salto</CardTitle>
       <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Cada nodo abre a sus vecinos en el grafo compilado; el enlace de esta página reproduce la vista. La lista completa de cada nodo sigue en el
-        inspector.
+        Cada nodo abre a sus vecinos en el grafo compilado. El enlace de esta página reproduce lo expandido, los filtros y el camino resaltado; las
+        aristas que trae un resultado de SPARQL no viajan en él (se rehacen corriendo la consulta otra vez), ni una vista de más de {SEMILLAS_EN_ENLACE} nodos traídos de fuera. La lista
+        completa de cada nodo sigue en el inspector.
       </p>
       <div className="mt-3">
         <Lienzo raiz={ruta} onInspeccionar={onInspeccionar} onCerrar={onCerrar} ref={api} />

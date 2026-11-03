@@ -15,7 +15,7 @@
         "porOmision": "237"
       }
     ],
-    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# La cuota de cada uno es sobre la suma de los pares mayores de la institución\n# en el grafo, no sobre su total: es un techo de la cuota real.\nSELECT ?proveedor ?nombre ?contratado ?cuota\nWHERE {\n  { SELECT ?institucion (SUM(?monto) AS ?total)\n    WHERE { VALUES ?institucion { {{institucion}} }\n            ?c a soc:Contratacion ; soc:contratante ?institucion ; soc:montoContratado ?monto }\n    GROUP BY ?institucion }\n  { SELECT ?institucion ?proveedor (SUM(?monto) AS ?contratado)\n    WHERE { VALUES ?institucion { {{institucion}} }\n            ?c a soc:Contratacion ; soc:contratante ?institucion ;\n               soc:contratista ?proveedor ; soc:montoContratado ?monto }\n    GROUP BY ?institucion ?proveedor\n    ORDER BY DESC(?contratado) ?proveedor\n    LIMIT 5 }\n  OPTIONAL { ?proveedor rdfs:label ?nombre }\n  BIND(ROUND(1000 * ?contratado / ?total) / 10 AS ?cuota)\n}\nORDER BY DESC(?contratado) ?proveedor",
+    "consulta": "PREFIX soc: <https://w3id.org/socratico/def/core#>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# La cuota de cada uno es sobre la suma de los pares mayores de la institución\n# en el grafo, no sobre su total: es un techo de la cuota real.\nSELECT ?proveedor ?nombre ?contratado ?cuotaTechoPct\nWHERE {\n  { SELECT ?institucion (SUM(?monto) AS ?total)\n    WHERE { VALUES ?institucion { {{institucion}} }\n            ?c a soc:Contratacion ; soc:contratante ?institucion ; soc:montoContratado ?monto }\n    GROUP BY ?institucion }\n  { SELECT ?institucion ?proveedor (SUM(?monto) AS ?contratado)\n    WHERE { VALUES ?institucion { {{institucion}} }\n            ?c a soc:Contratacion ; soc:contratante ?institucion ;\n               soc:contratista ?proveedor ; soc:montoContratado ?monto }\n    GROUP BY ?institucion ?proveedor\n    ORDER BY DESC(?contratado) ?proveedor\n    LIMIT 5 }\n  OPTIONAL { ?proveedor rdfs:label ?nombre }\n  BIND(ROUND(1000 * ?contratado / ?total) / 10 AS ?cuotaTechoPct)\n}\nORDER BY DESC(?contratado) ?proveedor",
     "verificado": {
       "fecha": "2026-11-03",
       "filas": 5,
@@ -23,7 +23,7 @@
         "proveedor": "https://socratico.vercel.app/proveedores/767#id",
         "nombre": "Cecomsa, SRL",
         "contratado": "7785404428",
-        "cuota": "7.8"
+        "cuotaTechoPct": "7.8"
       }
     }
   },

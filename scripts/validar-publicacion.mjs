@@ -11,7 +11,8 @@
  *  2. Negociación: cada ficha de muestra, `/ontologia` y `/def/core` responden
  *     303 al destino de su formato con cada `Accept` RDF, con `Vary: Accept`;
  *     con el de un navegador, la página (y `/def/*`, su 303 a ella, que
- *     también varía).
+ *     también varía). `/sparql` sin consulta: su descripción en Turtle y el
+ *     303 del navegador, ambos con `Vary: Accept`.
  *
  * Uso: node scripts/validar-publicacion.mjs --url http://localhost:3000
  */
@@ -121,6 +122,17 @@ for (const c of casos) {
   const html = def ? h.status === 303 && (h.headers.get("location") ?? "").endsWith("/ontologia") : h.status === 200 && (h.headers.get("content-type") ?? "").startsWith("text/html");
   if (!html) mal(`${c.ruta} con Accept de navegador → ${h.status} ${h.headers.get("location") ?? h.headers.get("content-type")}`);
   if (def && !varia(h)) mal(`${c.ruta} con Accept de navegador: el 303 no declara Vary: Accept`);
+}
+// `/sparql` sin consulta: la descripción del servicio en Turtle, o un 303 a la página con el `Accept` de un navegador.
+// La descripción se guarda un día en la CDN; el 303 no lleva `Cache-Control`, pero varía por si una caché intermedia lo guarda.
+{
+  const t = await fetch(`${BASE}/sparql`, { redirect: "manual", headers: { Accept: "text/turtle", "User-Agent": UA } });
+  if (t.status !== 200 || !(t.headers.get("content-type") ?? "").startsWith("text/turtle")) mal(`/sparql con text/turtle → ${t.status} ${t.headers.get("content-type")}`);
+  if (!varia(t)) mal("/sparql con text/turtle: la descripción del servicio no declara Vary: Accept");
+  const n = await fetch(`${BASE}/sparql`, { redirect: "manual", headers: { Accept: NAVEGADOR, "User-Agent": UA } });
+  if (n.status !== 303) mal(`/sparql con Accept de navegador → ${n.status}`);
+  if (!varia(n)) mal("/sparql con Accept de navegador: el 303 no declara Vary: Accept");
+  negociadas += 2;
 }
 
 if (fallos.length) {

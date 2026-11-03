@@ -44,10 +44,11 @@ async function responder(consulta: string | null, req: Request, params: URLSearc
   if (!consulta) {
     const accept = req.headers.get("accept") ?? "";
     if (metodo === "GET" && accept.includes("text/html")) {
-      return new Response(null, { status: 303, headers: { Location: "/?seccion=sparql" } });
+      return new Response(null, { status: 303, headers: { Location: "/?seccion=sparql", Vary: "Accept" } });
     }
+    // La misma dirección da 303 a un navegador: sin `Vary`, la CDN serviría este Turtle a quien la abre.
     return new Response(descripcionDelServicio(), {
-      headers: { ...CORS, "Content-Type": "text/turtle; charset=utf-8", "Cache-Control": CACHE_GET },
+      headers: { ...CORS, "Content-Type": "text/turtle; charset=utf-8", "Cache-Control": CACHE_GET, Vary: "Accept" },
     });
   }
   try {

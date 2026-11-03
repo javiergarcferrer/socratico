@@ -240,6 +240,7 @@ export function Banco({
   const sparqlAlLienzo = (semillas: SemillaSparql[], aristas: AristaSparql[]) => {
     for (const x of semillas) if (x.titulo) titulos.current.set(x.ruta, x.titulo);
     setPedidoCamino(null);
+    void setLienzo({ lk: null });
     alLienzo(semillas[0].ruta, (api) => {
       // Un camino resaltado antes apagaría todo lo nuevo.
       api.resaltarCamino(null);
@@ -279,21 +280,45 @@ export function Banco({
         aristas.push({ de, a, verbo: p.arista.verbo, grafo: p.arista.grafo });
       });
     }
+    // Un enlace viejo puede pedir un alterno que hoy no existe: se queda con el último que hay.
     const elegido = Math.min(caminoElegido, v.caminos.length - 1);
+    if (elegido !== caminoElegido) setCaminoElegido(elegido);
     alLienzo(v.a.ruta, (api) => {
       api.sembrar([...semillas.values()], { aristas });
       api.resaltarCamino(rutasDelCamino(v, elegido));
+      // El camino viaja en el enlace (`lk`) ya con la red abierta: escrito antes, la limpieza de las claves
+      // del lienzo fuera de la red lo borraría. Quien abra el enlace lo pide otra vez y ve el mismo resalte.
+      void setLienzo({ lk: { de: pedidoCamino.de.ruta, a: pedidoCamino.a.ruta, i: elegido } });
     });
     // Se siembra una vez por pedido; elegir otro camino solo cambia el resalte.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caminoQ.data, vezCamino]);
+  const pedirCamino = (de: PasoRastro, a: PasoRastro, i = 0) => {
+    setCaminoElegido(i);
+    setPedidoCamino({ de, a });
+    setVezCamino((n) => n + 1);
+  };
+  // Un enlace que trae `lk` rehace el camino una vez, al llegar.
+  const caminoDelEnlace = useRef(lienzo.lk);
+  useEffect(() => {
+    const k = caminoDelEnlace.current;
+    // El ancho se sabe tras montar: hasta entonces, el camino del enlace espera.
+    if (!ancho) return;
+    caminoDelEnlace.current = null;
+    if (!k || url.vista !== "red") return;
+    const paso = (ruta: string) => ({ ruta, titulo: titulos.current.get(ruta) ?? ruta });
+    pedirCamino(paso(k.de), paso(k.a), k.i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ancho]);
   const elegirCamino = (i: number) => {
     setCaminoElegido(i);
+    if (pedidoCamino) void setLienzo({ lk: { de: pedidoCamino.de.ruta, a: pedidoCamino.a.ruta, i } });
     if (caminoQ.data) lienzoApi.current?.resaltarCamino(rutasDelCamino(caminoQ.data, i));
   };
   const quitarCamino = () => {
     setPedidoCamino(null);
     setCaminoElegido(0);
+    void setLienzo({ lk: null });
     lienzoApi.current?.resaltarCamino(null);
   };
 
@@ -364,11 +389,7 @@ export function Banco({
       onRed={() => void setUrl({ vista: enRed ? null : "red" }, { history: "push" })}
       onCamino={
         ancho
-          ? (de, a) => {
-              setCaminoElegido(0);
-              setPedidoCamino({ de, a });
-              setVezCamino((n) => n + 1);
-            }
+          ? (de, a) => pedirCamino(de, a)
           : undefined
       }
     />
@@ -486,8 +507,9 @@ export function Banco({
           )}
           {ancho && pedidoCamino && (
             <CaminoEnBanco
-              de={pedidoCamino.de}
-              a={pedidoCamino.a}
+              // Llegado por enlace, el banco aún no sabe sus nombres: los trae la respuesta.
+              de={caminoQ.data ? { ruta: pedidoCamino.de.ruta, titulo: caminoQ.data.de.titulo } : pedidoCamino.de}
+              a={caminoQ.data ? { ruta: pedidoCamino.a.ruta, titulo: caminoQ.data.a.titulo } : pedidoCamino.a}
               visto={caminoQ.data}
               error={caminoQ.error}
               elegido={caminoElegido}

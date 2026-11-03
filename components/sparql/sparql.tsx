@@ -15,7 +15,7 @@ import { EstadoVacio } from "@/components/estado-vacio";
 import { Esqueleto, EsqueletoFilas } from "@/components/esqueleto";
 import { Paginador } from "@/components/paginador";
 import Plegable from "@/components/plegable";
-import { claves, consultarSparql, ErrorSparql, leerTerminosSparql, urlSparql, type CeldaSparql, type RespuestaSparql } from "@/lib/consultas";
+import { claves, consultarSparql, ErrorSparql, pedirSparqlTexto, leerTerminosSparql, urlSparql, type CeldaSparql, type RespuestaSparql } from "@/lib/consultas";
 import { nodoDeRuta } from "@/lib/grafo";
 import { compactar } from "@/lib/rdf";
 import { SITIO } from "@/lib/sitio";
@@ -131,6 +131,8 @@ export function Sparql({
     setEnviada(q);
     setPagina(1);
   };
+  // Mientras se pregunta de qué grafo sale cada arista de un CONSTRUCT, antes de abrirlo en el lienzo.
+  const [abriendo, setAbriendo] = useState(false);
   const esEjemplo = enviada === ejemplo.consulta;
   const tabla = consulta.data ? comoTabla(consulta.data) : null;
   const etiquetas = new Map((terminos.data?.terminos ?? []).map((t) => [t.curie, t.etiqueta]));
@@ -207,8 +209,19 @@ export function Sparql({
           {consulta.data && (
             <div className="flex flex-wrap gap-2">
               {onLienzo && lienzo && lienzo.semillas.length > 0 && (
-                <Button variant="secondary" onClick={() => onLienzo(lienzo.semillas, lienzo.aristas)}>
-                  {lienzo.recortado
+                <Button
+                  variant="secondary"
+                  disabled={abriendo}
+                  onClick={async () => {
+                    setAbriendo(true);
+                    const aristas = lienzo.aristas.length ? await conGrafo(lienzo.aristas) : [];
+                    setAbriendo(false);
+                    onLienzo(lienzo.semillas, aristas);
+                  }}
+                >
+                  {abriendo
+                    ? "Leyendo de qué fuente sale cada arista…"
+                    : lienzo.recortado
                     ? `Abrir los primeros ${formatInt(lienzo.semillas.length)} nodos en el lienzo`
                     : `Abrir ${lienzo.semillas.length === 1 ? "su nodo" : `sus ${formatInt(lienzo.semillas.length)} nodos`} en el lienzo`}
                 </Button>
@@ -352,6 +365,62 @@ export interface AristaSparql {
   de: string;
   a: string;
   verbo: string;
+  /** La clave del grafo con nombre de donde sale (`Inspeccion.fuentes`), si el volcado la dio; sin ella, el lienzo la dice «sembrada». */
+  grafo?: string | null;
+  /** El triple tal cual (sujeto, predicado, objeto), para preguntar de qué grafo sale. */
+  triple?: readonly [string, string, string];
+}
+
+/** La clave de un grafo con nombre por su IRI (`lib/grafo-compilado.ts`, `GrafoConNombre.iri`). */
+const CLAVE_DE_GRAFO = /^https:\/\/w3id\.org\/socratico\/(?:fuente|derivado)\/([^/]+)/;
+/** Un IRI que cabe entre `<>` sin escaparse. */
+const IRI_LIMPIO = /^[^\s<>"{}|^`\\]+$/;
+/**
+ * Cuántos caracteres de triples lleva cada consulta (el punto admite 8 000 en total) y cuántas consultas, a lo
+ * sumo. Van una tras otra: el motor corre una y deja otra en espera, y una tercera a la vez recibe 503.
+ */
+const CARACTERES_POR_CONSULTA = 7_600;
+const CONSULTAS_DE_GRAFO = 6;
+const consultaDeGrafo = (valores: string) => `SELECT ?s ?p ?o ?g WHERE { VALUES (?s ?p ?o) { ${valores} } GRAPH ?g { ?s ?p ?o } }`;
+
+/**
+ * El grafo con nombre de cada arista de un CONSTRUCT o un DESCRIBE: el
+ * resultado es triples sin grafo, así que se pregunta al volcado con
+ * `GRAPH ?g`, por lotes. Lo que pase del tope o no responda queda sin grafo,
+ * y el lienzo lo dice sembrado, no «sin fuente».
+ */
+async function conGrafo(aristas: AristaSparql[]): Promise<AristaSparql[]> {
+  const clave = (t: readonly string[]) => t.join("\u0000");
+  const pendientes = [...new Map(aristas.flatMap((a) => (a.triple && a.triple.every((x) => IRI_LIMPIO.test(x)) ? [[clave(a.triple), a.triple] as const] : []))).values()];
+  // Lotes por largo, no por cuenta: un IRI de proceso lleva su código entero.
+  const lotes: string[][] = [];
+  let largo = 0;
+  for (const [s, p, o] of pendientes) {
+    const fila = `(<${s}> <${p}> <${o}>)`;
+    if (!lotes.length || largo + fila.length + 1 > CARACTERES_POR_CONSULTA) {
+      if (lotes.length === CONSULTAS_DE_GRAFO) break;
+      lotes.push([]);
+      largo = 0;
+    }
+    lotes[lotes.length - 1].push(fila);
+    largo += fila.length + 1;
+  }
+  const grafos = new Map<string, string>();
+  for (const lote of lotes) {
+    try {
+      const { texto } = await pedirSparqlTexto(consultaDeGrafo(lote.join(" ")), "application/sparql-results+json");
+      const filas = (JSON.parse(texto) as { results?: { bindings?: Record<string, CeldaSparql>[] } }).results?.bindings ?? [];
+      for (const f of filas) {
+        const k = CLAVE_DE_GRAFO.exec(f.g?.value ?? "")?.[1];
+        const t = clave([f.s?.value ?? "", f.p?.value ?? "", f.o?.value ?? ""]);
+        // Un triple en dos grafos: manda el de una fuente sobre el de una regla.
+        if (k && (!grafos.has(t) || f.g.value.includes("/fuente/"))) grafos.set(t, k);
+      }
+    } catch {
+      // Sin respuesta tras los reintentos, esas aristas quedan sembradas: el lienzo lo dice.
+    }
+  }
+  return aristas.map((a) => ({ ...a, grafo: a.triple ? (grafos.get(clave(a.triple)) ?? null) : null }));
 }
 
 /** Cuántos nodos de un resultado se llevan al lienzo: más no se leen en un dibujo, y la tabla los tiene todos. */
@@ -384,7 +453,7 @@ function paraLienzo(tabla: Tabla, triples: boolean, etiquetas: Map<string, strin
       if (a) poner(a);
       if (de && a && de !== a) {
         const curie = compactar(f.predicado.value) ?? f.predicado.value;
-        aristas.push({ de, a, verbo: etiquetas.get(curie) ?? curie });
+        aristas.push({ de, a, verbo: etiquetas.get(curie) ?? curie, triple: [f.sujeto.value, f.predicado.value, f.objeto.value] });
       }
       continue;
     }

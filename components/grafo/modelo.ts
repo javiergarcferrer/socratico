@@ -81,6 +81,8 @@ export interface AristaLienzo {
   grafo: string | null;
   fecha: string | null;
   estilo: EstiloArista;
+  /** La trajo alguien de fuera del índice (un resultado de SPARQL, un camino) sin decir su grafo. */
+  sembrada: boolean;
 }
 
 export interface Red {
@@ -149,11 +151,11 @@ export function armarRed({
     });
   });
 
-  const unir = (de: string, a: string, verbo: string, detalle: string | null, grafo: string | null, fecha: string | null) => {
+  const unir = (de: string, a: string, verbo: string, detalle: string | null, grafo: string | null, fecha: string | null, sembrada = false) => {
     if (de === a) return;
     const clave = claveArista(de, a);
     if (aristas.has(clave)) return;
-    aristas.set(clave, { clave, de, a, verbo, detalle, grafo, fecha, estilo: estilo({ verbo, grafo, de, a }) });
+    aristas.set(clave, { clave, de, a, verbo, detalle, grafo, fecha, estilo: estilo({ verbo, grafo, de, a }), sembrada: sembrada && !grafo });
   };
 
   for (const ruta of expandidos) {
@@ -225,7 +227,7 @@ export function armarRed({
   }
 
   for (const s of aristasSembradas) {
-    if (nodos.has(s.de) && nodos.has(s.a)) unir(s.de, s.a, s.verbo, null, s.grafo ?? null, s.fecha ?? null);
+    if (nodos.has(s.de) && nodos.has(s.a)) unir(s.de, s.a, s.verbo, null, s.grafo ?? null, s.fecha ?? null, true);
   }
 
   return { nodos, aristas: [...aristas.values()], pendientes };
@@ -256,12 +258,18 @@ export function contraer(ruta: string, entrada: Parameters<typeof armarRed>[0]):
  * de Socrático que la deriva (`regla`), de nadie que el compilado nombre
  * (`sin-dato`: sin grafo, o el de la plataforma, que no es fuente ni regla)
  * o de un grafo que el lienzo todavía no sabe nombrar (`pendiente`: una
- * arista sembrada con su clave cuyos extremos aún no se leyeron). El lienzo
- * la escribe siempre; ninguna arista se dibuja sin decirlo.
+ * arista sembrada con su clave cuyos extremos aún no se leyeron), o de quien
+ * la sembró sin decir su grafo (`sembrada`: un triple de SPARQL cuyo grafo no
+ * se pudo preguntar, un tramo de camino que llegó sin el suyo). El lienzo la
+ * escribe siempre; ninguna arista se dibuja sin decirlo.
  */
-export type Procedencia = "fuente" | "regla" | "sin-dato" | "pendiente";
+export type Procedencia = "fuente" | "regla" | "sin-dato" | "pendiente" | "sembrada";
 
-export function procedenciaDe(grafo: string | null, fuentes: ReadonlyMap<string, { derivado: boolean }>): Procedencia {
+export function procedenciaDe(
+  { grafo, sembrada = false }: { grafo: string | null; sembrada?: boolean },
+  fuentes: ReadonlyMap<string, { derivado: boolean }>,
+): Procedencia {
+  if (!grafo && sembrada) return "sembrada";
   if (!grafo || grafo === "plataforma") return "sin-dato";
   const f = fuentes.get(grafo);
   return !f ? "pendiente" : f.derivado ? "regla" : "fuente";
@@ -302,8 +310,9 @@ export type Apartada = "periodo" | "procedencia" | null;
 
 /**
  * Qué aristas quedan fuera del dibujo: las de fuera de la ventana de años y,
- * con «solo lo que publica una fuente», las que deriva una regla o no dicen de
- * dónde salen. Pura: el mismo estado de la URL aparta siempre las mismas.
+ * con «solo lo que publica una fuente», las que deriva una regla o el
+ * compilado no dice de dónde salen (lo sembrado se queda: quien lo pidió lo
+ * quiere ver, y la leyenda dice que no se sabe su fuente). Pura: el mismo estado de la URL aparta siempre las mismas.
  */
 export function apartar(
   aristas: readonly AristaLienzo[],
@@ -311,8 +320,8 @@ export function apartar(
 ): Map<string, Exclude<Apartada, null>> {
   const salida = new Map<string, Exclude<Apartada, null>>();
   for (const a of aristas) {
-    // Lo pendiente no se aparta: no se sabe aún si lo publica una fuente.
-    const p = procedenciaDe(a.grafo, fuentes);
+    // Lo pendiente y lo sembrado no se apartan: no se sabe si lo publica una fuente.
+    const p = procedenciaDe(a, fuentes);
     if (soloFuente && (p === "regla" || p === "sin-dato")) salida.set(a.clave, "procedencia");
     else if (enPeriodo(a.fecha, periodo) === "fuera") salida.set(a.clave, "periodo");
   }

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Nunca la cédula.
 
-Ninguna instantánea de `public/data` —que se sirve tal cual— puede guardar la
-cédula de una persona, ni siquiera la que traiga un título oficial. Recorre
+Ninguna instantánea de `public/data` —que se sirve tal cual— ni el volcado de
+`datos/sparql/` —que se consulta por `/sparql`— puede guardar la cédula de una
+persona, ni siquiera la que traiga un título oficial. Recorre
 los JSON, los TSV y los `.gz` con las mismas formas que quita
 `scripts/privacidad.py` al construir. Imprime un hallazgo por archivo; nada
 si está limpio. Lo corre `verificar.sh --completo`.
@@ -16,16 +17,26 @@ raiz = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 sys.path.insert(0, str(raiz / "scripts"))
 from privacidad import cedulas_en  # noqa: E402
 
-for archivo in sorted((raiz / "public" / "data").rglob("*")):
+TROZO = 8 * 1024 * 1024
+
+archivos = sorted((raiz / "public" / "data").rglob("*")) + sorted((raiz / "datos" / "sparql").glob("*.gz"))
+for archivo in archivos:
     if not archivo.is_file() or archivo.suffix not in (".json", ".tsv", ".gz"):
         continue
+    hallados = []
     try:
         if archivo.suffix == ".gz":
-            texto = gzip.open(archivo, "rt", encoding="utf-8", errors="replace").read()
+            # Por trozos de líneas enteras: el volcado de SPARQL pasa de 400 millones de caracteres
+            # descomprimido, y una cédula no cruza un salto de línea en ninguno de estos formatos.
+            with gzip.open(archivo, "rt", encoding="utf-8", errors="replace") as f:
+                resto = ""
+                while bloque := f.read(TROZO):
+                    texto, _, resto = (resto + bloque).rpartition("\n")
+                    hallados += cedulas_en(texto)
+                hallados += cedulas_en(resto)
         else:
-            texto = archivo.read_text(encoding="utf-8", errors="replace")
+            hallados = cedulas_en(archivo.read_text(encoding="utf-8", errors="replace"))
     except OSError:
         continue
-    hallados = cedulas_en(texto)
     if hallados:
         print(f"{archivo.relative_to(raiz)}: {len(hallados)} · …{hallados[0]}…")

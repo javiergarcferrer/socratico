@@ -10,6 +10,9 @@ import { TIPOS } from "./familias";
 /** El separador de las listas de rutas: una ruta de la plataforma no lo lleva. */
 export const SEP = "|";
 
+/** Cuántas semillas caben en un enlace: más alargarían la dirección sin servir a nadie. */
+export const SEMILLAS_EN_ENLACE = 150;
+
 function fijadosValidos(v: unknown): Record<string, [number, number]> | null {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   const salida: Record<string, [number, number]> = {};
@@ -33,6 +36,22 @@ const parseAsPeriodo = createParser<readonly [number, number]>({
   eq: (a, b) => a[0] === b[0] && a[1] === b[1],
 });
 
+/** Un camino resaltado: `de|a|i`, las rutas de sus dos extremos y cuál de sus caminos (0, el más corto; 1–3, los alternos). */
+export interface CaminoEnUrl {
+  de: string;
+  a: string;
+  i: number;
+}
+const parseAsCamino = createParser<CaminoEnUrl>({
+  parse: (v) => {
+    const p = v.split(SEP);
+    if (p.length !== 3 || !p[0].startsWith("/") || !p[1].startsWith("/") || !/^[0-3]$/.test(p[2])) return null;
+    return { de: p[0], a: p[1], i: Number(p[2]) };
+  },
+  serialize: (c) => [c.de, c.a, c.i].join(SEP),
+  eq: (x, y) => x.de === y.de && x.a === y.a && x.i === y.i,
+});
+
 export const ESTADO_LIENZO = {
   /** Las semillas. */
   ls: parseAsArrayOf(parseAsString, SEP),
@@ -50,7 +69,9 @@ export const ESTADO_LIENZO = {
   lp: parseAsStringLiteral(["fuente"] as const),
   /** La ventana de años de las aristas fechadas: `2015-2020`; sin clave, todas. */
   lt: parseAsPeriodo,
+  /** El camino resaltado: se rehace pidiéndolo otra vez a `/api/grafo/camino`. */
+  lk: parseAsCamino,
 };
 
 /** Las claves en blanco: salir de la red las quita de la dirección. */
-export const SIN_LIENZO = { ls: null, lx: null, lo: null, lc: null, lf: null, lv: null, lp: null, lt: null } as const;
+export const SIN_LIENZO = { ls: null, lx: null, lo: null, lc: null, lf: null, lv: null, lp: null, lt: null, lk: null } as const;

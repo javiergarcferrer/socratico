@@ -1395,7 +1395,7 @@ const CASOS = [
             const f = Object.fromEntries(d.variables.map((v, j) => [v, d.filas[i][j]]));
             exigir(f.proveedor === `${SITIO}/proveedores/${rpe}#id`, `fila ${i + 1}: ${f.proveedor}; SQL RPE ${rpe}`);
             exigir(Number(f.contratado) === Number(m), `RPE ${rpe}: ${f.contratado}; SQL ${m}`);
-            exigir(Math.abs(Number(f.cuota) - Math.round((1000 * m) / total) / 10) < 1e-9, `RPE ${rpe}: cuota ${f.cuota}; SQL ${Math.round((1000 * m) / total) / 10}`);
+            exigir(Math.abs(Number(f.cuotaTechoPct) - Math.round((1000 * m) / total) / 10) < 1e-9, `RPE ${rpe}: cuotaTechoPct ${f.cuotaTechoPct}; SQL ${Math.round((1000 * m) / total) / 10}`);
           });
         },
         async clientes({ proveedor }, d) {
