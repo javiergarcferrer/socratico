@@ -27,6 +27,8 @@ export interface VecinoExpansion {
    * (derivado por una regla). Hasta que el índice la traiga, `null`.
    */
   grafo: string | null;
+  /** El día de la relación (`AristaVista.fecha`, `AAAA-MM-DD`): el cargo, el contrato, el decreto, la votación. */
+  fecha: string | null;
 }
 
 /** Lo que se sabe de un nodo expandido: su nombre, su tipo y sus vecinos por grupo, en orden. */
@@ -49,6 +51,7 @@ export interface AristaSembrada {
   a: string;
   verbo: string;
   grafo?: string | null;
+  fecha?: string | null;
 }
 
 export type EstiloArista = "macizo" | "punteado";
@@ -76,6 +79,7 @@ export interface AristaLienzo {
   verbo: string;
   detalle: string | null;
   grafo: string | null;
+  fecha: string | null;
   estilo: EstiloArista;
 }
 
@@ -145,11 +149,11 @@ export function armarRed({
     });
   });
 
-  const unir = (de: string, a: string, verbo: string, detalle: string | null, grafo: string | null) => {
+  const unir = (de: string, a: string, verbo: string, detalle: string | null, grafo: string | null, fecha: string | null) => {
     if (de === a) return;
     const clave = claveArista(de, a);
     if (aristas.has(clave)) return;
-    aristas.set(clave, { clave, de, a, verbo, detalle, grafo, estilo: estilo({ verbo, grafo, de, a }) });
+    aristas.set(clave, { clave, de, a, verbo, detalle, grafo, fecha, estilo: estilo({ verbo, grafo, de, a }) });
   };
 
   for (const ruta of expandidos) {
@@ -192,7 +196,7 @@ export function armarRed({
         sx: nodo.sx + Math.cos(angulo) * distancia,
         sy: nodo.sy + Math.sin(angulo) * distancia,
       });
-      unir(ruta, v.ruta, v.verbo, v.detalle, v.grafo);
+      unir(ruta, v.ruta, v.verbo, v.detalle, v.grafo, v.fecha);
     }
   }
 
@@ -213,7 +217,7 @@ export function armarRed({
       for (const v of g.vecinos) {
         if (v.ruta === ruta || !nodos.has(v.ruta)) continue;
         presentes++;
-        unir(ruta, v.ruta, v.verbo, v.detalle, v.grafo);
+        unir(ruta, v.ruta, v.verbo, v.detalle, v.grafo, v.fecha);
       }
     }
     nodo.vecinos = total;
@@ -221,7 +225,7 @@ export function armarRed({
   }
 
   for (const s of aristasSembradas) {
-    if (nodos.has(s.de) && nodos.has(s.a)) unir(s.de, s.a, s.verbo, null, s.grafo ?? null);
+    if (nodos.has(s.de) && nodos.has(s.a)) unir(s.de, s.a, s.verbo, null, s.grafo ?? null, s.fecha ?? null);
   }
 
   return { nodos, aristas: [...aristas.values()], pendientes };
@@ -243,4 +247,74 @@ export function contraer(ruta: string, entrada: Parameters<typeof armarRed>[0]):
     if (siguen.length === expandidos.length) return siguen;
     expandidos = siguen;
   }
+}
+
+/* --------------------------------------------- procedencia y período */
+
+/**
+ * De dónde sale una arista: de una fuente del Estado (`fuente`), de una regla
+ * de Socrático que la deriva (`regla`), de nadie que el compilado nombre
+ * (`sin-dato`: sin grafo, o el de la plataforma, que no es fuente ni regla)
+ * o de un grafo que el lienzo todavía no sabe nombrar (`pendiente`: una
+ * arista sembrada con su clave cuyos extremos aún no se leyeron). El lienzo
+ * la escribe siempre; ninguna arista se dibuja sin decirlo.
+ */
+export type Procedencia = "fuente" | "regla" | "sin-dato" | "pendiente";
+
+export function procedenciaDe(grafo: string | null, fuentes: ReadonlyMap<string, { derivado: boolean }>): Procedencia {
+  if (!grafo || grafo === "plataforma") return "sin-dato";
+  const f = fuentes.get(grafo);
+  return !f ? "pendiente" : f.derivado ? "regla" : "fuente";
+}
+
+/** Una ventana de años, los dos inclusive. */
+export type Periodo = readonly [desde: number, hasta: number];
+
+/** El año de una fecha `AAAA-MM-DD` (o `AAAA`); `null` si no trae. */
+export function anioDe(fecha: string | null | undefined): number | null {
+  const m = fecha ? /^(\d{4})/.exec(fecha) : null;
+  return m ? Number(m[1]) : null;
+}
+
+/** Los años que cubren las aristas fechadas de la red; `null` si ninguna trae fecha. */
+export function aniosDe(aristas: readonly { fecha: string | null }[]): Periodo | null {
+  let desde = Infinity;
+  let hasta = -Infinity;
+  for (const a of aristas) {
+    const y = anioDe(a.fecha);
+    if (y == null) continue;
+    if (y < desde) desde = y;
+    if (y > hasta) hasta = y;
+  }
+  return Number.isFinite(desde) ? [desde, hasta] : null;
+}
+
+/** Dónde cae una arista respecto de la ventana: sin ventana, todo está dentro; sin fecha, se queda y se dice. */
+export function enPeriodo(fecha: string | null, periodo: Periodo | null): "dentro" | "fuera" | "sin-fecha" {
+  const y = anioDe(fecha);
+  if (y == null) return "sin-fecha";
+  if (!periodo) return "dentro";
+  return y >= periodo[0] && y <= periodo[1] ? "dentro" : "fuera";
+}
+
+/** Por qué una arista no está en el dibujo, o `null` si está. */
+export type Apartada = "periodo" | "procedencia" | null;
+
+/**
+ * Qué aristas quedan fuera del dibujo: las de fuera de la ventana de años y,
+ * con «solo lo que publica una fuente», las que deriva una regla o no dicen de
+ * dónde salen. Pura: el mismo estado de la URL aparta siempre las mismas.
+ */
+export function apartar(
+  aristas: readonly AristaLienzo[],
+  { periodo, soloFuente, fuentes }: { periodo: Periodo | null; soloFuente: boolean; fuentes: ReadonlyMap<string, { derivado: boolean }> },
+): Map<string, Exclude<Apartada, null>> {
+  const salida = new Map<string, Exclude<Apartada, null>>();
+  for (const a of aristas) {
+    // Lo pendiente no se aparta: no se sabe aún si lo publica una fuente.
+    const p = procedenciaDe(a.grafo, fuentes);
+    if (soloFuente && (p === "regla" || p === "sin-dato")) salida.set(a.clave, "procedencia");
+    else if (enPeriodo(a.fecha, periodo) === "fuera") salida.set(a.clave, "periodo");
+  }
+  return salida;
 }

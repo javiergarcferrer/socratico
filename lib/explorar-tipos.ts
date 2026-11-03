@@ -72,6 +72,8 @@ export interface FuenteVista {
   etiqueta: string;
   corte: string | null;
   derivado: boolean;
+  /** La dirección de la fuente del Estado de donde se leyó (la primera de su grafo); `null` en una regla. */
+  origen: string | null;
 }
 
 export interface GrupoVisto {
@@ -214,6 +216,12 @@ export interface ClaseVista {
     instancias: number;
     propiedades: { propiedad: string; con: number; obligatoria: boolean; funcional: boolean }[];
   } | null;
+  /**
+   * Las clases de fuera de las que es un caso (`rdfs:subClassOf`: schema.org,
+   * ORG, ePO, ELI, DCAT, FOAF…) y sus correspondencias con Wikidata
+   * (`skos:closeMatch`/`broadMatch`, el QID como `wd:Q…`, con su nombre).
+   */
+  alineaciones: { curie: string; relacion: "subClassOf" | "closeMatch" | "broadMatch"; nombre: string | null }[];
 }
 
 /** Una propiedad de la ontología: una relación entre clases o un dato de una clase. */
@@ -232,6 +240,8 @@ export interface PropiedadVista {
    * grafo no la usa o el compilado no trae la medida.
    */
   uso: { triples: number; pares: { dominio: string; rango: string; triples: number }[] } | null;
+  /** Las propiedades de fuera de las que es un caso (`rdfs:subPropertyOf`). */
+  alineaciones: string[];
 }
 
 /** La ontología entera, compacta, para el recorrido de clases del banco (`lib/ontologia.ts`). */

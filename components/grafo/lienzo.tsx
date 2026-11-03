@@ -31,10 +31,13 @@
  */
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { useQueries } from "@tanstack/react-query";
+import Link from "next/link";
 import { useQueryStates } from "nuqs";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { IconEncuadrar, IconMinus, IconPlus } from "@/components/icons";
+import { IconEncuadrar, IconExternal, IconMinus, IconPlus } from "@/components/icons";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { Leyenda, VerComoTabla, type EntradaLeyenda } from "@/components/graficos";
 import { CATEGORICA, OTROS } from "@/components/graficos/paleta";
@@ -48,9 +51,14 @@ import { FAMILIAS, TIPO, TIPOS, esTipo } from "./familias";
 import { ESTADO_LIENZO, SEP, SIN_LIENZO } from "./estado";
 import {
   TOPE_POR_EXPANSION,
+  aniosDe,
+  apartar,
   armarRed,
   contraer,
+  enPeriodo,
   estiloPorOmision,
+  procedenciaDe,
+  type AristaLienzo,
   type AristaSembrada,
   type EstiloArista,
   type Expansion,
@@ -117,6 +125,7 @@ function expansionDe(n: Inspeccion): Expansion {
           detalle: a.verbo === "Cargo" ? null : a.detalle,
           // La clave del grafo con nombre de donde sale la arista (`Inspeccion.fuentes`).
           grafo: a.grafo,
+          fecha: a.fecha,
         })),
     })),
   };
@@ -156,6 +165,11 @@ export function Lienzo({
   const [enFoco, setEnFoco] = useState("");
   const [camino, setCamino] = useState<readonly string[] | null>(null);
   const [estilo, setEstilo] = useState<{ fn: Parameters<LienzoApi["aristasConEstilo"]>[0] }>({ fn: null });
+  // La arista enfocada (tecla A desde un nodo, o la tabla) y la que está bajo el puntero: las dos dicen de dónde salen.
+  const [aristaFoco, setAristaFoco] = useState<string | null>(null);
+  const [aristaSobre, setAristaSobre] = useState<string | null>(null);
+  // Mientras se arrastra el deslizador, la ventana vive aquí; al soltar, va a la URL.
+  const [arrastre, setArrastre] = useState<readonly [number, number] | null>(null);
   // Lo sembrado de más para un enlace, y lo que se sabe de cada semilla (nombre, tipo, aristas): en memoria.
   const [semillasGrandes, setSemillasGrandes] = useState<string[] | null>(null);
   const [sembradas, setSembradas] = useState<AristaSembrada[]>([]);
@@ -219,6 +233,12 @@ export function Lienzo({
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listas]);
+  /** De dónde sale una arista, en palabras: en el dibujo, junto a su rótulo; en la tabla y en los anuncios, entera. */
+  const fuenteDe = (grafo: string | null) => {
+    const f = grafo ? fuentes.get(grafo) : null;
+    if (!f) return procedenciaDe(grafo, fuentes) === "pendiente" ? "fuente aún no leída" : "el grafo compilado no dice de qué fuente sale";
+    return f.derivado ? `regla de Socrático: ${f.etiqueta}` : f.corte ? `${f.etiqueta}, corte del ${formatFecha(f.corte)}` : f.etiqueta;
+  };
 
   const entrada = useMemo(
     () => ({
@@ -232,6 +252,32 @@ export function Lienzo({
     [semillas, expandidos, expansiones, sembradas, estilo, fuentes],
   );
   const red = useMemo(() => armarRed(entrada), [entrada]);
+
+  /* ------------------------------------------ procedencia y período */
+
+  const soloFuente = url.lp === "fuente";
+  const anios = useMemo(() => aniosDe(red.aristas), [red]);
+  const periodo = arrastre ?? url.lt;
+  const apartadas = useMemo(() => apartar(red.aristas, { periodo, soloFuente, fuentes }), [red, periodo, soloFuente, fuentes]);
+  const cuentas = useMemo(() => {
+    let regla = 0;
+    let sinDato = 0;
+    let pendiente = 0;
+    let sinFecha = 0;
+    let fuera = 0;
+    let porProcedencia = 0;
+    for (const a of red.aristas) {
+      const p = procedenciaDe(a.grafo, fuentes);
+      if (p === "regla") regla++;
+      else if (p === "sin-dato") sinDato++;
+      else if (p === "pendiente") pendiente++;
+      if (enPeriodo(a.fecha, null) === "sin-fecha") sinFecha++;
+      const por = apartadas.get(a.clave);
+      if (por === "periodo") fuera++;
+      else if (por === "procedencia") porProcedencia++;
+    }
+    return { regla, sinDato, pendiente, fuente: red.aristas.length - regla - sinDato - pendiente, sinFecha, fuera, porProcedencia };
+  }, [red, fuentes, apartadas]);
 
   /* ------------------------------------------------------- el motor */
 
@@ -279,6 +325,8 @@ export function Lienzo({
         setDispuesto(true);
       },
       onSinDisposicion: () => setAviso("La disposición no pudo calcularse en este navegador: los nodos quedan en su posición de partida."),
+      onArista: (clave) => setAristaSobre(clave),
+      onClicArista: (clave) => setAristaFoco(clave),
       reducido,
     });
     return m;
@@ -287,7 +335,7 @@ export function Lienzo({
   useEffect(() => {
     const m = motor.current;
     if (!m) return;
-    m.pintar(red, fijados);
+    m.pintar(red, fijados, (a) => fuenteDe(a.grafo));
     setNodosDibujados(m.nodos);
     const r = porAnunciar.current;
     if (r && red.nodos.get(r)?.expandido) {
@@ -307,9 +355,14 @@ export function Lienzo({
             : `Se abrió ${nodo.titulo}: sus vecinos ya estaban en el lienzo.`,
       );
     }
+    // `fuenteDe` lee `fuentes`, que cambia con la red.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [red, fijados]);
 
-  const vista = useMemo(() => ({ foco, ocultos, solo: url.lc, camino }), [foco, ocultos, url.lc, camino]);
+  const vista = useMemo(
+    () => ({ foco, ocultos, solo: url.lc, camino, apartadas: new Set(apartadas.keys()), arista: aristaFoco }),
+    [foco, ocultos, url.lc, camino, apartadas, aristaFoco],
+  );
   useEffect(() => motor.current?.ver(vista), [vista, red]);
 
   /* --------------------------------------------------------- gestos */
@@ -328,6 +381,7 @@ export function Lienzo({
   const enfocarNodo = useCallback(
     (ruta: string | null) => {
       setFoco(ruta);
+      setAristaFoco(null);
       if (ruta) {
         motor.current?.mostrar(ruta);
         setEnFoco(describir(ruta));
@@ -470,9 +524,26 @@ export function Lienzo({
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       if (foco) activar(foco);
+    } else if ((e.key === "a" || e.key === "A") && foco) {
+      // De arista en arista del nodo enfocado: cada una dice de dónde sale.
+      e.preventDefault();
+      const suyas = m.aristasVisiblesDe(foco);
+      if (!suyas.length) {
+        setEnFoco("Este nodo no tiene aristas a la vista.");
+        return;
+      }
+      const i = aristaFoco ? suyas.indexOf(aristaFoco) : -1;
+      const siguiente = suyas[(i + (e.shiftKey ? -1 : 1) + suyas.length) % suyas.length];
+      setAristaFoco(siguiente);
+      const a = red.aristas.find((x) => x.clave === siguiente);
+      if (a) setEnFoco(`${describirArista(a)} ${suyas.indexOf(siguiente) + 1} de ${suyas.length}.`);
     } else if (e.key === "Escape") {
       e.preventDefault();
-      cerrar();
+      // Esc suelta primero la arista enfocada; con nada enfocado, vuelve a la lista.
+      if (aristaFoco) {
+        setAristaFoco(null);
+        setEnFoco("");
+      } else cerrar();
     } else if (e.key === "+" || e.key === "=") {
       m.zoom(1 / 1.5);
     } else if (e.key === "-") {
@@ -489,10 +560,14 @@ export function Lienzo({
   const pendientes = red.pendientes.filter((r) => !fallidas.includes(r));
   const etiquetaTipo = (n: NodoLienzo) => (n.tipo ? TIPO[n.tipo].etiqueta : "Otro");
   const titulo = (ruta: string) => red.nodos.get(ruta)?.titulo ?? ruta;
-  const fuenteDe = (grafo: string | null) => {
-    const f = grafo ? fuentes.get(grafo) : null;
-    if (!f) return "sin dato";
-    return f.derivado ? `regla de Socrático: ${f.etiqueta}` : f.corte ? `${f.etiqueta}, corte del ${formatFecha(f.corte)}` : f.etiqueta;
+  function describirArista(a: AristaLienzo): string {
+    const rel = [a.verbo, a.detalle].filter(Boolean).join(" · ") || "se liga con";
+    return `${titulo(a.de)}, ${rel}, ${titulo(a.a)}${a.fecha ? `, ${formatFecha(a.fecha)}` : ""}. Sale de: ${fuenteDe(a.grafo)}.`;
+  }
+  const aristaVista = (aristaSobre ?? aristaFoco) ? (red.aristas.find((a) => a.clave === (aristaSobre ?? aristaFoco)) ?? null) : null;
+  const enDibujo = (a: AristaLienzo) => {
+    const por = apartadas.get(a.clave);
+    return por === "periodo" ? "fuera del período" : por === "procedencia" ? "apartada: no la publica una fuente" : "sí";
   };
 
   return (
@@ -600,13 +675,146 @@ export function Lienzo({
         </div>
       )}
 
+      {/* La arista señalada (puntero) o enfocada (tecla A): de dónde sale, con su corte y su fuente. */}
+      {!falla && (
+        <Card data-panel-arista="" className="min-h-11 px-3 py-2 text-sm">
+          {aristaVista ? (
+            <PanelArista
+              arista={aristaVista}
+              titulo={titulo}
+              fuente={aristaVista.grafo ? (fuentes.get(aristaVista.grafo) ?? null) : null}
+              pendiente={procedenciaDe(aristaVista.grafo, fuentes) === "pendiente"}
+              enDibujo={enDibujo(aristaVista)}
+            />
+          ) : (
+            <p className="text-ink-soft">
+              Toca una arista (o enfoca un nodo y pulsa A) para ver de qué fuente sale y con qué corte.
+            </p>
+          )}
+        </Card>
+      )}
+
+      <section aria-labelledby="lienzo-trazos" className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <h3 id="lienzo-trazos" className="rotulo text-ink-soft">
+            De dónde salen las aristas
+          </h3>
+          <Leyenda
+            entradas={[
+              { clave: "fuente", etiqueta: "Maciza: la publica una fuente del Estado", clase: "bg-ink-soft", forma: "linea", cifra: formatInt(cuentas.fuente) },
+              {
+                clave: "regla",
+                etiqueta: "Punteada: la deriva una regla de Socrático",
+                clase: "border-ink-soft",
+                forma: "punteada",
+                cifra: formatInt(cuentas.regla),
+              },
+              ...(cuentas.sinDato
+                ? [{ clave: "sin-dato", etiqueta: "Maciza, sin fuente en el compilado", clase: "bg-ink-soft", forma: "linea" as const, cifra: formatInt(cuentas.sinDato) }]
+                : []),
+              ...(cuentas.pendiente
+                ? [{ clave: "pendiente", etiqueta: "Maciza, fuente aún no leída", clase: "bg-ink-soft", forma: "linea" as const, cifra: formatInt(cuentas.pendiente) }]
+                : []),
+            ]}
+          />
+          <ToggleGroup
+            type="single"
+            value={soloFuente ? "fuente" : "todo"}
+            onValueChange={(v) => {
+              if (!v) return;
+              void setUrl({ lp: v === "fuente" ? "fuente" : null });
+              setAnuncio(
+                v === "fuente"
+                  ? `Solo lo que publica una fuente: se apartan ${formatInt(cuentas.regla + cuentas.sinDato)} aristas.`
+                  : "Con lo que deriva Socrático: se ven todas las aristas.",
+              );
+            }}
+            aria-label="Qué aristas se dibujan según su procedencia"
+            className="flex-wrap"
+          >
+            <ToggleGroupItem value="todo" className="min-h-11 text-xs sm:min-h-9">
+              Con lo que deriva Socrático
+            </ToggleGroupItem>
+            <ToggleGroupItem value="fuente" className="min-h-11 text-xs sm:min-h-9">
+              Solo lo que publica una fuente
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-xs leading-relaxed text-ink-soft">
+            Las fuentes, sus cortes y lo que dejan fuera, en{" "}
+            <Link href="/fuentes" className="text-brand-700 underline">
+              /fuentes
+            </Link>
+            .
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <h3 id="lienzo-periodo" className="rotulo text-ink-soft">
+            Período
+          </h3>
+          {anios && anios[0] < anios[1] ? (
+            <>
+              <p className="text-sm text-ink">
+                <span className="font-mono tabular-nums">{periodo ? `${Math.max(periodo[0], anios[0])}–${Math.min(periodo[1], anios[1])}` : `${anios[0]}–${anios[1]}`}</span>
+                {!periodo && <span className="text-ink-soft"> · todo lo fechado</span>}
+              </p>
+              <Slider
+                min={anios[0]}
+                max={anios[1]}
+                step={1}
+                minStepsBetweenThumbs={0}
+                value={[Math.max(periodo?.[0] ?? anios[0], anios[0]), Math.min(periodo?.[1] ?? anios[1], anios[1])]}
+                etiquetas={["Desde el año", "Hasta el año"]}
+                texto={(v) => String(v)}
+                aria-labelledby="lienzo-periodo"
+                onValueChange={(v) => setArrastre([v[0], v[1]])}
+                onValueCommit={(v) => {
+                  setArrastre(null);
+                  const entero = v[0] <= anios[0] && v[1] >= anios[1];
+                  void setUrl({ lt: entero ? null : [v[0], v[1]] }, { history: "replace" });
+                }}
+              />
+            </>
+          ) : (
+            <p className="text-sm text-ink-soft">
+              {anios ? `Todas las aristas fechadas del lienzo son de ${anios[0]}: no hay período que elegir.` : "Ninguna arista del lienzo trae fecha: no hay período que elegir."}
+            </p>
+          )}
+          <p className="text-xs leading-relaxed text-ink-soft">
+            {cuentas.fuera > 0 && (
+              <>
+                <span className="font-mono tabular-nums text-ink">{formatInt(cuentas.fuera)}</span> {cuentas.fuera === 1 ? "arista fuera" : "aristas fuera"} del
+                período.{" "}
+              </>
+            )}
+            {cuentas.sinFecha > 0
+              ? `${formatInt(cuentas.sinFecha)} ${cuentas.sinFecha === 1 ? "arista no trae fecha y se queda" : "aristas no traen fecha y se quedan"}.`
+              : "Todas las aristas traen fecha."}
+            {(url.lt || cuentas.fuera > 0) && (
+              <>
+                {" "}
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto min-h-11 px-0 text-xs sm:min-h-0"
+                  onClick={() => void setUrl({ lt: null }, { history: "replace" })}
+                >
+                  Ver todo el período
+                </Button>
+              </>
+            )}
+          </p>
+        </div>
+      </section>
+
       <Clases nodos={nodos} solo={url.lc} onSolo={soloClase} />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-soft">
         <span>
           {formatInt(red.nodos.size)} {red.nodos.size === 1 ? "nodo" : "nodos"} y {formatInt(red.aristas.length)}{" "}
-          {red.aristas.length === 1 ? "arista" : "aristas"} del grafo compilado; cada expansión trae hasta {TOPE_POR_EXPANSION} vecinos repartidos por
-          grupo y el inspector, al lado, los trae todos.
+          {red.aristas.length === 1 ? "arista" : "aristas"} del grafo compilado
+          {apartadas.size > 0 && ` (${formatInt(apartadas.size)} fuera del dibujo: ${[cuentas.fuera ? `${formatInt(cuentas.fuera)} fuera del período` : null, cuentas.porProcedencia ? `${formatInt(cuentas.porProcedencia)} que no publica una fuente` : null].filter(Boolean).join(", ")})`}
+          ; cada expansión trae hasta {TOPE_POR_EXPANSION} vecinos repartidos por grupo y el inspector, al lado, los trae todos.
         </span>
         {ocultos.size > 0 && (
           <Button variant="link" size="sm" className="h-auto px-0" onClick={() => void setUrl({ lo: null })}>
@@ -653,10 +861,17 @@ export function Lienzo({
       <VerComoTabla
         className="mx-0 mt-0 sm:mx-0"
         nombre="aristas"
-        columnas={[{ titulo: "De" }, { titulo: "Relación" }, { titulo: "A" }, { titulo: "Fuente" }]}
+        columnas={[{ titulo: "De" }, { titulo: "Relación" }, { titulo: "A" }, { titulo: "Fecha" }, { titulo: "Fuente" }, { titulo: "En el dibujo" }]}
         filas={red.aristas.map((a) => ({
           clave: a.clave,
-          celdas: [titulo(a.de), [a.verbo, a.detalle].filter(Boolean).join(" · ") || "—", titulo(a.a), fuenteDe(a.grafo)],
+          celdas: [
+            titulo(a.de),
+            [a.verbo, a.detalle].filter(Boolean).join(" · ") || "—",
+            titulo(a.a),
+            a.fecha ? formatFecha(a.fecha) : "sin fecha",
+            fuenteDe(a.grafo),
+            enDibujo(a),
+          ],
         }))}
       />
 
@@ -676,6 +891,72 @@ export function Lienzo({
       </p>
       <p aria-live="polite" className="sr-only">
         {enFoco}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Si la dirección de una fuente es una página que se lee, y no la descarga o
+ * la API de donde se leyó (la tabla de contratos en CSV, el padrón en ZIP, el
+ * SIL): esas no se enlazan, que un toque no arranque una descarga de cientos
+ * de MB; su descripción y sus límites están en `/fuentes`.
+ */
+function esPagina(url: string): boolean {
+  return !/\.(csv|zip|json|xlsx?|pdf|gz)(\?|$)|\/api(\/|$|\?)|\/wp-json\/|[?&](type|format)=/i.test(url);
+}
+
+/** La arista señalada: sus dos extremos, la relación, el día y de dónde sale, con su corte y su fuente. */
+function PanelArista({
+  arista,
+  titulo,
+  fuente,
+  pendiente,
+  enDibujo,
+}: {
+  arista: AristaLienzo;
+  titulo: (ruta: string) => string;
+  fuente: FuenteVista | null;
+  pendiente: boolean;
+  enDibujo: string;
+}) {
+  const pagina = fuente?.origen && esPagina(fuente.origen) ? fuente.origen : null;
+  return (
+    <div className="space-y-1">
+      <p className="text-ink">
+        <span className="font-semibold">{titulo(arista.de)}</span>
+        <span className="text-ink-soft"> · {[arista.verbo, arista.detalle].filter(Boolean).join(" · ") || "se liga con"} · </span>
+        <span className="font-semibold">{titulo(arista.a)}</span>
+        {arista.fecha && <span className="font-mono text-xs text-ink-soft"> · {formatFecha(arista.fecha)}</span>}
+        {enDibujo !== "sí" && <span className="text-xs text-ink-soft"> · {enDibujo}</span>}
+      </p>
+      <p className="text-xs leading-relaxed text-ink-soft">
+        {!fuente ? (
+          <>{pendiente ? "Su fuente se dirá cuando se lea uno de sus dos nodos. " : "El grafo compilado no dice de qué fuente sale esta arista. "}</>
+        ) : fuente.derivado ? (
+          <>
+            Punteada: la deriva una regla de Socrático, <span className="text-ink">{fuente.etiqueta}</span>
+            {fuente.corte && <>, sobre los datos del {formatFecha(fuente.corte)}</>}.{" "}
+          </>
+        ) : (
+          <>
+            Sale de <span className="text-ink">{fuente.etiqueta}</span>
+            {fuente.corte && <>, corte del {formatFecha(fuente.corte)}</>}.{" "}
+            {pagina && (
+              <>
+                <a href={pagina} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brand-700 underline">
+                  La página de la fuente
+                  <IconExternal className="h-3.5 w-3.5 shrink-0" />
+                  <span className="sr-only">(se abre en otra pestaña)</span>
+                </a>
+                {" · "}
+              </>
+            )}
+          </>
+        )}
+        <Link href="/fuentes" className="text-brand-700 underline">
+          Qué lee la plataforma y con qué límites
+        </Link>
       </p>
     </div>
   );

@@ -23,6 +23,7 @@ import { EdgeLineProgram, EdgeRectangleProgram, NodeCircleProgram, NodePointProg
 import { animateNodes } from "sigma/utils";
 import type { Settings } from "sigma/settings";
 import type { CameraState, NodeDisplayData, PartialButFor } from "sigma/types";
+import { EdgePunteadaProgram } from "./arista-punteada";
 import { FAMILIAS, TIPO, familiaDe } from "./familias";
 import type { AristaLienzo, NodoLienzo, Red } from "./modelo";
 import type { PedidoDisposicion, RespuestaDisposicion } from "./disposicion.worker";
@@ -47,6 +48,10 @@ interface AtributosArista {
   color: string;
   label: string;
   estilo: AristaLienzo["estilo"];
+  /** La clave del modelo (`claveArista`): con ella hablan la vista y el lienzo. */
+  clave: string;
+  /** De dónde sale, en corto: se escribe junto al rótulo cuando la arista se señala. */
+  fuente: string;
 }
 
 /** Lo que el lienzo ve en un momento: qué se enfoca, qué se esconde, qué camino se resalta. */
@@ -57,6 +62,10 @@ export interface Vista {
   solo: string | null;
   /** Un camino resaltado: los nodos en orden; las aristas entre pasos seguidos. */
   camino: readonly string[] | null;
+  /** Las aristas fuera del dibujo (fuera del período o de la procedencia elegida), por su clave del modelo. */
+  apartadas: ReadonlySet<string>;
+  /** La arista enfocada con el teclado o señalada en la tabla, por su clave del modelo. */
+  arista: string | null;
 }
 
 export interface Paleta {
@@ -190,6 +199,10 @@ export interface OpcionesMotor {
   onDispuesto: (ms: number) => void;
   /** El trabajador de la disposición falló: los nodos quedan en su posición de partida. */
   onSinDisposicion: () => void;
+  /** El puntero entra en una arista (su clave del modelo) o sale de ella (`null`). */
+  onArista: (clave: string | null) => void;
+  /** Una arista tocada: queda enfocada (en una pantalla táctil no hay puntero que pase). */
+  onClicArista: (clave: string) => void;
   reducido: () => boolean;
 }
 
@@ -197,7 +210,9 @@ export class Motor {
   readonly grafo = new Graph<AtributosNodo, AtributosArista>({ type: "undirected", multi: false, allowSelfLoops: false });
   readonly sigma: Sigma<AtributosNodo, AtributosArista>;
   private paleta: Paleta;
-  private vista: Vista = { foco: null, ocultos: new Set(), solo: null, camino: null };
+  private vista: Vista = { foco: null, ocultos: new Set(), solo: null, camino: null, apartadas: new Set(), arista: null };
+  /** La arista bajo el puntero, por su clave del modelo. */
+  private aristaSobre: string | null = null;
   private trabajador: Worker | null = null;
   private pedido = 0;
   private dispuesto = false;
@@ -213,6 +228,22 @@ export class Motor {
   private red: Red | null = null;
   private fijados: Record<string, [number, number]> = {};
   private readonly software = porSoftware();
+  private tactil = false;
+  private dentro = false;
+  /** Si la red permite buscar aristas con el puntero (no, sin GPU y con red grande). */
+  private aristasConPuntero = true;
+  private readonly alEntrar = () => {
+    this.dentro = true;
+    this.puntero();
+  };
+  private readonly alSalir = () => {
+    this.dentro = false;
+    this.puntero();
+  };
+  private puntero() {
+    const si = this.aristasConPuntero && (this.tactil || this.dentro);
+    if (this.sigma.getSetting("enableEdgeEvents") !== si) this.sigma.setSetting("enableEdgeEvents", si);
+  }
   private readonly firma: (t: number) => number;
 
   constructor(
@@ -246,11 +277,13 @@ export class Motor {
       maxCameraRatio: 4,
       stagePadding: 60,
       hideEdgesOnMove: false,
+      // El puntero sobre una arista dice de dónde sale (`onArista`); se enciende con el puntero dentro (ver `puntero`).
+      enableEdgeEvents: false,
       zoomDuration: media,
       inertiaDuration: breve,
       doubleClickZoomingDuration: media,
       nodeProgramClasses: { circle: NodeCircleProgram, point: NodePointProgram },
-      edgeProgramClasses: { rect: EdgeRectangleProgram, line: EdgeLineProgram },
+      edgeProgramClasses: { rect: EdgeRectangleProgram, line: EdgeLineProgram, punteada: EdgePunteadaProgram },
       defaultNodeType: "circle",
       defaultEdgeType: "rect",
       defaultDrawNodeLabel: (ctx, d, s) => this.rotulo(ctx, d as DatosRotulo, s),
@@ -260,6 +293,17 @@ export class Motor {
     };
     this.sigma = new Sigma(this.grafo, contenedor, ajustes);
     this.eventos();
+    /*
+      Buscar aristas bajo el puntero obliga a sigma a dibujarlas otra vez en su
+      capa de selección en cada cuadro; sin GPU eso ocupa el hilo (la expansión
+      por teclado pasaba de 145 a 175 ms de mediana, 2026-11-03). Así que solo
+      se busca con un puntero dentro del lienzo, y siempre en una pantalla
+      táctil, donde el primer toque ya tiene que hallar la arista.
+    */
+    this.tactil = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    contenedor.addEventListener("pointerenter", this.alEntrar);
+    contenedor.addEventListener("pointerleave", this.alSalir);
+    this.puntero();
   }
 
   /* ------------------------------------------------------------ dibujo */
@@ -346,19 +390,23 @@ export class Motor {
     const [s, t] = this.grafo.extremities(e);
     const enCamino = this.aristasCamino.has(e);
     const delFoco = this.vista.foco !== null && (s === this.vista.foco || t === this.vista.foco);
-    const realzada = enCamino || delFoco;
-    const rotulada = enCamino || (delFoco && this.rotularAristas);
+    // La enfocada (teclado, tabla) y la señalada con el puntero se escriben siempre, con su procedencia en el rótulo.
+    const senalada = a.clave === this.vista.arista || a.clave === this.aristaSobre;
+    const realzada = enCamino || delFoco || senalada;
+    const rotulada = enCamino || senalada || (delFoco && this.rotularAristas);
     const salida: Partial<AtributosArista> & { hidden?: boolean; zIndex?: number; forceLabel?: boolean; type?: string } = {
       ...a,
       // El rótulo de la arista solo junto al foco o en un camino: escrito, no adivinado por el color.
-      label: rotulada ? a.label : "",
-      size: realzada ? 2 : a.estilo === "punteado" ? 0.6 : 1,
-      color: realzada ? this.paleta.tintaSuave : this.paleta.rejilla,
-      zIndex: realzada ? 1 : 0,
+      label: senalada ? [a.label, a.fuente].filter(Boolean).join(" · ") : rotulada ? a.label : "",
+      size: senalada ? 3 : realzada ? 2 : 1,
+      color: senalada ? this.paleta.tinta : realzada ? this.paleta.tintaSuave : this.paleta.rejilla,
+      zIndex: senalada ? 2 : realzada ? 1 : 0,
       forceLabel: rotulada,
-      type: this.ligero ? "line" : "rect",
+      // La punteada lo es siempre, también en una red grande: el trazo dice la procedencia, no solo el grosor.
+      type: a.estilo === "punteado" ? "punteada" : this.ligero ? "line" : "rect",
     };
-    if (this.vista.camino && this.vista.camino.length && !enCamino) salida.label = "";
+    if (this.vista.apartadas.has(a.clave)) salida.hidden = true;
+    if (this.vista.camino && this.vista.camino.length && !enCamino && !senalada) salida.label = "";
     return salida;
   }
 
@@ -407,6 +455,20 @@ export class Motor {
       if (this.movido) return;
       this.opciones.onClic(node);
     });
+    s.on("enterEdge", ({ edge }) => {
+      if (this.arrastrado) return;
+      this.aristaSobre = this.grafo.getEdgeAttribute(edge, "clave");
+      this.contenedor.style.cursor = "help";
+      this.opciones.onArista(this.aristaSobre);
+      s.refresh({ skipIndexation: true });
+    });
+    s.on("clickEdge", ({ edge }) => this.opciones.onClicArista(this.grafo.getEdgeAttribute(edge, "clave")));
+    s.on("leaveEdge", () => {
+      this.aristaSobre = null;
+      if (!this.sobre) this.contenedor.style.cursor = "";
+      this.opciones.onArista(null);
+      s.refresh({ skipIndexation: true });
+    });
     s.getCamera().on("updated", (estado) => this.opciones.onCamara(estado));
   }
 
@@ -417,7 +479,7 @@ export class Motor {
    * junto al nodo que lo trajo (donde ese nodo está ahora) y pide la
    * disposición pura. Devuelve cuántos nodos entraron.
    */
-  pintar(red: Red, fijados: Record<string, [number, number]>): number {
+  pintar(red: Red, fijados: Record<string, [number, number]>, fuente: (a: AristaLienzo) => string = () => ""): number {
     this.red = red;
     this.fijados = fijados;
     const g = this.grafo;
@@ -447,6 +509,8 @@ export class Motor {
         color: this.paleta.rejilla,
         label: [a.verbo, a.detalle, a.estilo === "punteado" ? "derivada por una regla" : null].filter(Boolean).join(" · "),
         estilo: a.estilo,
+        clave: a.clave,
+        fuente: fuente(a),
       };
       if (clave) {
         g.mergeEdgeAttributes(clave, atributos);
@@ -456,6 +520,13 @@ export class Motor {
     for (const e of g.edges()) if (!vistas.has(e)) g.dropEdge(e);
     const apartar = this.software && this.ligero;
     if (this.sigma.getSetting("hideEdgesOnMove") !== apartar) this.sigma.setSetting("hideEdgesOnMove", apartar);
+    /*
+      Sin GPU y con una red grande, el puntero no busca aristas: sigma tendría que
+      dibujarlas todas otra vez en su capa de selección en cada cuadro. La
+      procedencia de cada una sigue en la tabla y con la tecla A desde un nodo.
+    */
+    this.aristasConPuntero = !apartar;
+    this.puntero();
     this.recalcularEnfasis();
     this.disponer();
     return nuevos;
@@ -681,12 +752,26 @@ export class Motor {
     return this.grafo.size;
   }
 
+  /** Las aristas de un nodo que se ven ahora, por su clave del modelo, en el orden del grafo. */
+  aristasVisiblesDe(n: string): string[] {
+    if (!this.grafo.hasNode(n)) return [];
+    const salida: string[] = [];
+    this.grafo.forEachEdge(n, (e, a, s, t) => {
+      const otro = s === n ? t : s;
+      if (this.vista.apartadas.has(a.clave) || this.sigma.getNodeDisplayData(otro)?.hidden) return;
+      salida.push(a.clave);
+    });
+    return salida;
+  }
+
   matar() {
     this.parar?.();
     // Una animación de cámara en curso seguiría avisando después de desmontar.
     this.sigma.getCamera().removeAllListeners();
     this.trabajador?.terminate();
     this.trabajador = null;
+    this.contenedor.removeEventListener("pointerenter", this.alEntrar);
+    this.contenedor.removeEventListener("pointerleave", this.alSalir);
     this.sigma.kill();
   }
 }

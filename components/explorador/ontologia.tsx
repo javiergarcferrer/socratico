@@ -1,16 +1,35 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Plegable from "@/components/plegable";
+import { EsqueletoLineas } from "@/components/esqueleto";
 import { RedVecinos, type VecinoRed } from "@/components/graficos";
 import { formatInt } from "@/lib/nomina";
+import { formatFecha } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { tipoDeClase } from "@/lib/objetos";
+import { claves, consultarSparql, consultarTablas } from "@/lib/consultas";
+import { sqlFilas, tipoDeClase } from "@/lib/objetos";
 import type { ClaseVista, OntologiaVista, PropiedadVista } from "@/lib/explorar-tipos";
+import { iriDe, rutaDe } from "./ontologia-sparql";
+
+/** El mapa, la tabla y lo elegido, en su propio trozo: la portada no los carga hasta que se abre la sección. */
+const MapaDeLaOntologia = dynamic(() => import("./mapa-de-la-ontologia").then((m) => m.MapaDeLaOntologia), {
+  ssr: false,
+  loading: () => (
+    <div role="status" aria-busy="true" className="h-[28rem] lg:h-[52rem]">
+      <span className="sr-only">Cargando el mapa de la ontología…</span>
+      <EsqueletoLineas n={4} />
+    </div>
+  ),
+});
 
 /** Un término de la ontología como se lee en llano, si es de aquí; el nombre corto, si es de fuera (`org:Organization`, `xsd:date`). */
 function nombreDe(o: OntologiaVista, curie: string): string {
@@ -114,6 +133,7 @@ export function Ontologia({
   const c = clase ? ontologia.clases.find((x) => x.curie === clase) : null;
   return (
     <div className="space-y-3 lg:space-y-4">
+      <MapaDeLaOntologia ontologia={ontologia} clase={clase} hrefClase={hrefClase} />
       {/* En el teléfono no hay panel izquierdo: el árbol va plegado encima. */}
       <Card as="section" aria-label="Clases" className="overflow-hidden lg:hidden">
         <Plegable etiqueta={`Ver las ${ontologia.clases.length} clases`} etiquetaCerrar="Ocultar las clases">
@@ -133,7 +153,6 @@ function Resumen({ ontologia, hrefClase }: { ontologia: OntologiaVista; hrefClas
   const pobladas = ontologia.clases.filter((c) => c.nodos != null).sort((a, b) => (b.nodos ?? 0) - (a.nodos ?? 0));
   return (
     <Card as="section" aria-labelledby="onto-resumen" className="px-4 py-4">
-      <p className="rotulo text-ink-soft">Ontología {ontologia.version}</p>
       <CardTitle id="onto-resumen" className="mt-0.5">
         ¿De qué está hecho el grafo?
       </CardTitle>
@@ -219,6 +238,7 @@ function FichaDeClase({
           )}
         </div>
         <p className="mt-1 max-w-prose text-sm leading-relaxed text-ink">{c.comentario.replace(/`/g, "")}</p>
+        {c.enUso && <SembrarLienzo key={c.curie} c={c} />}
         <p className="mt-2 text-xs text-ink-soft">
           {c.nodos != null
             ? `${formatInt(c.nodos)} nodos en el grafo compilado.`
@@ -241,6 +261,8 @@ function FichaDeClase({
           </p>
         )}
       </Card>
+
+      {c.completitud && <Completitud ontologia={ontologia} c={c} />}
 
       {vecinos.length > 0 && (
         <Card as="section" aria-labelledby="onto-red" className="hidden px-4 py-4 lg:block">
@@ -374,5 +396,151 @@ function TablaRelaciones({
         </Table>
       )}
     </Card>
+  );
+}
+
+/* ================================================================ la ficha */
+
+/**
+ * La completitud de una clase: la fila de la matriz de `/ontologia/calidad`
+ * reducida a ella, cuántas de sus instancias llevan cada propiedad de su
+ * forma SHACL, con las violaciones de cardinalidad medidas.
+ */
+function Completitud({ ontologia, c }: { ontologia: OntologiaVista; c: ClaseVista }) {
+  const k = c.completitud!;
+  const violaciones = ontologia.violaciones.filter((v) => v.clase === c.curie);
+  const nombre = (curie: string) => ontologia.propiedades.find((p) => p.curie === curie)?.etiqueta ?? curie;
+  return (
+    <Card as="section" aria-labelledby="onto-completitud">
+      <div className="px-4 pb-2 pt-3">
+        <CardTitle id="onto-completitud">¿Qué tan llena está?</CardTitle>
+        <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+          De sus {formatInt(k.instancias)} instancias en el grafo compilado
+          {ontologia.medido && <> del {formatFecha(ontologia.medido)}</>}, cuántas llevan cada propiedad que sus reglas de forma (SHACL) le piden revisar. La matriz de todas las clases,
+          en{" "}
+          <Link href="/ontologia/calidad" className="text-brand-700 underline">
+            /ontologia/calidad
+          </Link>
+          .
+        </p>
+      </div>
+      <Table className="tabla-densa">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Propiedad</TableHead>
+            <TableHead className="text-right">La llevan</TableHead>
+            <TableHead className="hidden w-40 sm:table-cell">
+              <span className="sr-only">Proporción</span>
+            </TableHead>
+            <TableHead className="hidden sm:table-cell">Regla</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {k.propiedades.map((p) => {
+            const pct = k.instancias ? (100 * p.con) / k.instancias : 0;
+            return (
+              <TableRow key={p.propiedad}>
+                <TableCell className="py-1.5 text-[13px]">
+                  {nombre(p.propiedad)} <span className="block font-mono text-xs text-ink-soft">{p.propiedad}</span>
+                </TableCell>
+                <TableCell className="whitespace-nowrap py-1.5 text-right font-mono text-xs tabular-nums">
+                  {formatInt(p.con)} <span className="text-ink-soft">({pct < 1 && pct > 0 ? "<1" : Math.round(pct)} %)</span>
+                </TableCell>
+                <TableCell className="hidden py-1.5 sm:table-cell">
+                  <Progress value={pct} aria-label={`${nombre(p.propiedad)}: ${Math.round(pct)} % de las instancias`} indicadorClassName="bg-brand-500" />
+                </TableCell>
+                <TableCell className="hidden py-1.5 text-xs text-ink-soft sm:table-cell">
+                  {[p.obligatoria ? "obligatoria" : null, p.funcional ? "un valor a lo sumo" : null].filter(Boolean).join(", ") || "opcional"}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+      {violaciones.length > 0 && (
+        <ul className="space-y-0.5 px-4 pb-3 pt-2 text-xs text-ink-soft">
+          {violaciones.map((v) => (
+            <li key={`${v.propiedad} ${v.restriccion}`}>
+              A <span className="font-mono tabular-nums text-ink">{formatInt(v.nodos)}</span> {v.nodos === 1 ? "instancia" : "instancias"}{" "}
+              {v.restriccion === "sh:minCount" ? "les falta" : "les sobra un valor en"} {nombre(v.propiedad)} <span className="font-mono">({v.restriccion})</span>.
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+/** Cuántas instancias se siembran en el lienzo desde una clase. */
+const SEMBRAR = 12;
+
+/**
+ * «Sembrar el lienzo con instancias»: las primeras de la clase en el
+ * explorador de objetos (su orden por omisión) o, si la clase no tiene tabla,
+ * las primeras que devuelve SPARQL; el lienzo se abre con ellas como
+ * semillas (`ls`). Lo masivo va sobre el volcado sin personas naturales: de
+ * una clase que ese volcado no trae (las personas y lo que las nombra) se
+ * pregunta antes (`ASK`) y, en vez del botón, se dice por qué. El lienzo solo
+ * se dibuja en pantalla ancha: por debajo de `lg` el botón no se ofrece.
+ */
+function SembrarLienzo({ c }: { c: ClaseVista }) {
+  const router = useRouter();
+  const [estado, setEstado] = useState<"quieto" | "leyendo" | "falla">("quieto");
+  // Si la sección se cierra o cambia de clase mientras se lee, la respuesta no navega.
+  const vivo = useRef(true);
+  useEffect(() => () => void (vivo.current = false), []);
+  const tipo = tipoDeClase(c.curie);
+  const iri = iriDe(c.curie);
+  const hay = useQuery({
+    queryKey: claves.sparql(`ASK { ?s a ${iri} }`),
+    queryFn: ({ signal }) => consultarSparql(`ASK { ?s a ${iri} }`, signal),
+    enabled: !tipo && !!iri,
+    staleTime: Infinity,
+  });
+  if (!tipo && !iri) return null;
+  const sinVolcado = !tipo && hay.data?.tipo === "booleano" && !hay.data.valor;
+  const sembrar = async () => {
+    setEstado("leyendo");
+    try {
+      let rutas: string[] = [];
+      if (tipo) {
+        const r = await consultarTablas(sqlFilas({ tipo, texto: "", filtros: {}, orden: tipo.orden.col, dir: tipo.orden.dir, pagina: 1 }));
+        rutas = r.filas.map((f) => tipo.ruta(Object.fromEntries(r.columnas.map((k, i) => [k, f[i]])))).filter((x): x is string => !!x);
+      } else {
+        const r = await consultarSparql(`SELECT DISTINCT ?s WHERE { ?s a ${iri} } LIMIT ${SEMBRAR * 2}`);
+        rutas = r.tipo === "filas" ? r.filas.map((f) => rutaDe(f.s)).filter((x): x is string => !!x) : [];
+      }
+      if (!vivo.current) return;
+      rutas = [...new Set(rutas)].slice(0, SEMBRAR);
+      if (!rutas.length) return setEstado("falla");
+      router.push(`/?${new URLSearchParams({ nodo: rutas[0], vista: "red", ls: rutas.join("|") })}`);
+    } catch {
+      if (vivo.current) setEstado("falla");
+    }
+  };
+  return (
+    <div className="mt-3 space-y-1">
+      <p className="text-xs text-ink-soft lg:hidden">El lienzo con sus instancias se dibuja en una pantalla ancha (computadora o tableta horizontal).</p>
+      <div className="hidden space-y-1 lg:block">
+        {sinVolcado ? (
+          <p className="text-xs leading-relaxed text-ink-soft">
+            Las instancias se siembran en bloque desde el grafo sin personas naturales, y ese no trae esta clase: sus nodos se abren uno a uno en el banco.
+          </p>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={() => void sembrar()} disabled={estado === "leyendo" || (!tipo && hay.isPending)}>
+              {estado === "leyendo" ? "Leyendo sus instancias…" : `Sembrar el lienzo con ${SEMBRAR} de sus instancias`}
+            </Button>
+            <p className="text-xs text-ink-soft">
+              {estado === "falla"
+                ? "No se pudieron leer sus instancias; el explorador de objetos y SPARQL siguen en pie."
+                : tipo
+                  ? `Las primeras del explorador de objetos, por ${tipo.columnas.find((x) => x.col === tipo.orden.col)?.etiqueta.toLowerCase() ?? tipo.orden.col}.`
+                  : "Las primeras que devuelve la consulta SPARQL de su clase."}
+            </p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

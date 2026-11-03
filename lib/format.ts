@@ -41,16 +41,33 @@ export function formatMonto(monto: number, divisa: string): string {
  * dependía de la zona del servidor. Solo los valores con `Z`/offset real son
  * instantes y se convierten a `America/Santo_Domingo`.
  */
+/**
+ * Los cuatro formateadores de `formatFecha`, creados una vez: armar un
+ * `Intl.DateTimeFormat` cuesta décimas de milisegundo, y una tabla de cientos
+ * de aristas con su fecha y su corte lo pagaba en cada fila (el lienzo, 30 ms
+ * por expansión; 2026-11-03).
+ */
+const FORMATOS_FECHA = new Map<string, Intl.DateTimeFormat>();
+function formatoFecha(conHora: boolean, utc: boolean): Intl.DateTimeFormat {
+  const clave = `${conHora}${utc}`;
+  let f = FORMATOS_FECHA.get(clave);
+  if (!f) {
+    f = new Intl.DateTimeFormat("es-DO", {
+      dateStyle: "medium",
+      ...(conHora ? { timeStyle: "short" } : {}),
+      timeZone: utc ? "UTC" : "America/Santo_Domingo",
+    });
+    FORMATOS_FECHA.set(clave, f);
+  }
+  return f;
+}
+
 export function formatFecha(iso: string | undefined, conHora = false): string {
   if (!iso) return SIN_DATO;
   const naive = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?$/.test(iso);
   const d = new Date(naive && iso.includes("T") ? `${iso}Z` : iso);
   if (isNaN(d.getTime())) return SIN_DATO;
-  return new Intl.DateTimeFormat("es-DO", {
-    dateStyle: "medium",
-    ...(conHora ? { timeStyle: "short" } : {}),
-    timeZone: naive ? "UTC" : "America/Santo_Domingo",
-  }).format(d);
+  return formatoFecha(conHora, naive).format(d);
 }
 
 /** La hora dominicana de un instante, como «5:22 p. m.»: la de una lectura en vivo. */

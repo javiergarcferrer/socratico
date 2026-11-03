@@ -89,7 +89,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
     if (!usados.has(g.clave) || g.clave === "plataforma") continue;
     // Una regla, sin el «(regla)» de su etiqueta; una fuente de cargos, sin «Cargos:»: el inspector ya dice qué es.
     const etiqueta = g.derivado ? g.etiqueta.replace(/\s*\(regla[^)]*\)$/, "") : etiquetaUnica(g, meta!.grafos).replace(/^Cargos:\s*/, "");
-    fuentes[g.clave] = { etiqueta, corte: g.corte, derivado: !!g.derivado };
+    fuentes[g.clave] = { etiqueta, corte: g.corte, derivado: !!g.derivado, origen: g.derivado ? null : (g.fuentes[0] ?? null) };
   }
 
   return {
@@ -169,6 +169,10 @@ export function ontologiaDelGrafo(pulso: Pulso | null, medida: { generado: strin
       enUso: c.estado === "en-uso",
       nodos: nodos.get(curie(c)) ?? null,
       completitud: completitud.has(curie(c)) ? { instancias: completitud.get(curie(c))!.instancias, propiedades: completitud.get(curie(c))!.propiedades } : null,
+      alineaciones: [
+        ...c.subClaseDe.map((x) => ({ curie: x, relacion: "subClassOf" as const, nombre: null })),
+        ...(c.wikidata ?? []).map((w) => ({ curie: `wd:${w.qid}`, relacion: w.relacion, nombre: w.nombre })),
+      ],
     })),
     propiedades: PROPIEDADES.map((p) => ({
       curie: curie(p),
@@ -179,6 +183,7 @@ export function ontologiaDelGrafo(pulso: Pulso | null, medida: { generado: strin
       rango: p.rango,
       enUso: p.estado === "en-uso",
       uso: uso.has(curie(p)) ? { triples: uso.get(curie(p))!.triples, pares: uso.get(curie(p))!.pares } : null,
+      alineaciones: p.subPropiedadDe ?? [],
     })),
   };
 }

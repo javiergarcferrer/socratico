@@ -20,7 +20,8 @@ export interface EntradaLeyenda {
   etiqueta: ReactNode;
   /** Clase de fondo de la muestra (`bg-grafico-1`, `TONOS.cumplido.dot`). */
   clase: string;
-  forma?: "barra" | "linea" | "punto";
+  /** `punteada`: un trazo cortado (una arista derivada, una relación sin uso); su `clase` es un color de borde (`border-ink-soft`). */
+  forma?: "barra" | "linea" | "punteada" | "punto";
   cifra?: ReactNode;
   href?: string;
 }
@@ -45,7 +46,7 @@ export function Leyenda({
               aria-hidden
               className={cn(
                 "shrink-0",
-                e.forma === "linea" ? "h-0.5 w-4 rounded-sm" : e.forma === "punto" ? "h-2 w-2 rounded-full" : "h-2.5 w-2.5 rounded-sm",
+                e.forma === "linea" ? "h-0.5 w-4 rounded-sm" : e.forma === "punteada" ? "h-0 w-5 border-t-2 border-dashed" : e.forma === "punto" ? "h-2 w-2 rounded-full" : "h-2.5 w-2.5 rounded-sm",
                 e.clase,
               )}
             />
