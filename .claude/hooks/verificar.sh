@@ -215,6 +215,16 @@ if [ "$construido" = 1 ]; then
     # the report lines: show its last lines instead.
     { printf '%s\n' "$shacl" | grep -E 'VIOLA|SIN DECLARAR|DE LA V1|INFORME|conforme|volcado' || printf '%s\n' "$shacl" | tail -3; } | head -12 | sed 's/^/       /'
   fi
+  # 6d. What the platform publishes for machines (docs/INFRAESTRUCTURA.md §7.3):
+  #     the DCAT catalog parses with N3.js and every distribution carries its
+  #     download URL, format, licence, dates and the unofficial notice, every
+  #     download answers 200, and every RDF Accept gets its 303 with Vary: Accept.
+  if [ "$listo" = 1 ] && publ="$(timeout 120 node scripts/validar-publicacion.mjs --url "http://localhost:$puerto" 2>&1)"; then
+    ok "$(printf '%s\n' "$publ" | tail -1)"
+  else
+    mal "publication: scripts/validar-publicacion.mjs (DCAT, negotiation, Vary)"
+    { printf '%s\n' "$publ" | grep -E 'FALLO' || printf '%s\n' "$publ" | tail -3; } | head -12 | sed 's/^/       /'
+  fi
   kill "$srv" 2>/dev/null; wait "$srv" 2>/dev/null; trap - EXIT
 fi
 

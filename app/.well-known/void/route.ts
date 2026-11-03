@@ -18,7 +18,8 @@ export const dynamic = "force-static";
 export async function GET() {
   const [clases, wd, f, volcado] = await Promise.all([inventario(), enlacesWikidata(), getFuncionarios(), volcadoDelGrafo()]);
   const ds = `${SITIO}/.well-known/void#grafo`;
-  const editor: Termino = { tipo: "blanco", valor: "editor" };
+  // El mismo editor que la ontología y el catálogo DCAT: un IRI, no un nodo en blanco.
+  const editor: Termino = iri(`${SITIO}/#socratico`);
   const ls = `${SITIO}/.well-known/void#wikidata`;
   const x: Triple[] = [
     t(ds, "rdf:type", iri("void:Dataset")),
@@ -48,6 +49,8 @@ export async function GET() {
     t(ds, "dct:conformsTo", iri(ONTOLOGIA_DO)),
     t(ds, "rdfs:seeAlso", iri(`${PAGINA_ONTOLOGIA}.ttl`)),
     t(ds, "rdfs:seeAlso", iri(`${PAGINA_ONTOLOGIA}.shacl.ttl`)),
+    // Las descargas, cada una con su formato, su licencia y sus fechas: el catálogo DCAT.
+    t(ds, "rdfs:seeAlso", iri(`${SITIO}/dcat.ttl`)),
     t(ds, "void:subset", iri(ls)),
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.funcionario("luis-rodolfo-abinader-corona")}#id`)),
     t(ds, "void:exampleResource", iri(`${SITIO}${enlace.institucion(4)}#id`)),

@@ -1,4 +1,5 @@
 import { MATERIAS } from "@/lib/materias-decreto";
+import { SITIO } from "@/lib/sitio";
 import { ETIQUETA_MOVIMIENTO, FAMILIAS_PEP } from "@/lib/cargos";
 import { SECTORES } from "@/lib/instituciones";
 import { TIPOS_MEDIDA } from "@/lib/medidas";
@@ -59,7 +60,7 @@ import {
  */
 
 export const VERSION = "2.5.0";
-export const PUBLICADA = "2026-10-20";
+export const PUBLICADA = "2026-11-03";
 /** La versión anterior de los dos módulos (`owl:priorVersion`). */
 export const ANTERIOR = "2.4.0";
 
@@ -1868,6 +1869,10 @@ const ESTADO_VS: Record<Estado, string> = { "en-uso": "stable", definido: "testi
 /** Un rango que es un tipo de dato: los de XML Schema, un texto con idioma (`rdf:langString`) o cualquier literal. */
 const esDato = (x: string) => x.startsWith("xsd:") || x === "rdf:langString" || x === "rdfs:Literal";
 
+/** Cuándo se publicaron los dos IRIs en w3id (la 2.0); la v1 vivía en `ESPACIO_V1`. */
+const EMITIDA = "2026-10-01";
+/** Quien hace y publica la ontología: el mismo IRI que el editor de VoID y del catálogo DCAT. */
+const EDITOR = `${SITIO}/#socratico`;
 /** Las cabeceras de las dos ontologías: el núcleo y el módulo dominicano, que lo importa. */
 function cabeceras(): Triple[] {
   const fecha = { tipo: "literal" as const, valor: PUBLICADA, datatype: PREFIJOS.xsd + "date" };
@@ -1882,8 +1887,17 @@ function cabeceras(): Triple[] {
     t(o, "rdfs:seeAlso", iri(`${PAGINA_ONTOLOGIA}.ttl`)),
     t(o, "dct:license", iri("https://creativecommons.org/licenses/by/4.0/")),
     t(o, "owl:priorVersion", iri(`${o}/${ANTERIOR}`)),
+    // Lo que Linked Open Vocabularies pide de un vocabulario: quién lo hace y lo publica, desde cuándo, y su etiqueta.
+    t(o, "dct:issued", { tipo: "literal" as const, valor: EMITIDA, datatype: PREFIJOS.xsd + "date" }),
+    t(o, "dct:creator", iri(EDITOR)),
+    t(o, "dct:publisher", iri(EDITOR)),
+    t(o, "dct:rights", lit("Socrático.do es una herramienta independiente y no oficial sobre datos del Estado dominicano.", "es")),
+    t(o, "dct:rights", lit("Socrático.do is an independent, unofficial tool built on data published by the Dominican State.", "en")),
   ];
   return [
+    t(EDITOR, "rdf:type", iri("foaf:Organization")),
+    t(EDITOR, "foaf:name", lit("Socrático.do")),
+    t(EDITOR, "foaf:homepage", iri(`${SITIO}/`)),
     ...comun(ONTOLOGIA, "soc"),
     t(ONTOLOGIA, "dct:title", lit("Ontología de Socrático.do — núcleo", "es")),
     t(ONTOLOGIA, "dct:title", lit("Socrático.do ontology — core", "en")),
@@ -1895,6 +1909,16 @@ function cabeceras(): Triple[] {
         "es",
       ),
     ),
+    t(
+      ONTOLOGIA,
+      "dct:description",
+      lit(
+        "The country-neutral core of the Socrático.do graph, an independent, unofficial tool built on data published by the State: people holding public office, organizations and their hierarchy, posts and memberships with their interval, events, legal acts, public procurement, documents and mentions, places, identifiers and the provenance of each fact.",
+        "en",
+      ),
+    ),
+    t(ONTOLOGIA, "rdfs:label", lit("Ontología de Socrático.do — núcleo", "es")),
+    t(ONTOLOGIA, "rdfs:label", lit("Socrático.do ontology — core", "en")),
     t(ONTOLOGIA, "owl:priorVersion", iri(ESPACIO_V1.slice(0, -1))),
     ...comun(ONTOLOGIA_DO, "do"),
     t(ONTOLOGIA_DO, "dct:title", lit("Ontología de Socrático.do — República Dominicana", "es")),
@@ -1907,6 +1931,16 @@ function cabeceras(): Triple[] {
         "es",
       ),
     ),
+    t(
+      ONTOLOGIA_DO,
+      "dct:description",
+      lit(
+        "What exists only in the Dominican Republic, on top of the core: the State's identifiers (RNC, RPE, SNIP), its classifications (DIGEPRES, MAP personnel actions, subject matters of the Legal Counsel's Office, DGCP measures) and the politically exposed person rule of Law 311-14.",
+        "en",
+      ),
+    ),
+    t(ONTOLOGIA_DO, "rdfs:label", lit("Ontología de Socrático.do — República Dominicana", "es")),
+    t(ONTOLOGIA_DO, "rdfs:label", lit("Socrático.do ontology — Dominican Republic module", "en")),
     // Usa el núcleo; no lo importa (`owl:imports`): los dos van en el mismo
     // documento, y un editor OWL lo cargaría dos veces.
     t(ONTOLOGIA_DO, "dct:requires", iri(ONTOLOGIA)),

@@ -18,6 +18,49 @@ import type { NextConfig } from "next";
     depender de que adivine la ruta. `corpus.json` (47 MB) no viaja: es de lo
     que se construye el índice, y el servidor no lo lee.
 */
+
+/**
+ * Las fichas que son nodos del grafo: su dirección nombra la cosa, y quien la
+ * pide en RDF por `Accept` recibe un 303 a su descripción (`rewrites()`).
+ */
+const FICHAS = [
+  "/funcionarios/:slug",
+  "/instituciones/:id",
+  "/banca/:slug",
+  "/empresas/:rnc",
+  "/normativa/decreto/:numero",
+  "/normativa/ley/:numero",
+  "/normativa/resolucion/:numero",
+  "/provincias/:slug",
+  "/proveedores/:rpe(\\d+)",
+  "/procesos/:codigo",
+  "/obras/:snip(\\d+)",
+  "/congreso/:id(\\d+)",
+  "/datos/:slug",
+  // La dirección del archivo, con sus barras, en un solo parámetro: uno repetido
+  // (`:ruta+`) no cabe en la consulta del destino y la redirección falla.
+  "/documentos/:ruta(.+)",
+  // Una sentencia, no el listado: el número del TC o la ficha del visor del TSE.
+  "/constitucional/:numero(TC-\\d+-\\d+)",
+  "/tse/:ficha([A-Za-z0-9+=_-]+)",
+  "/congreso/votaciones/:id(\\d+)",
+];
+
+/** Los formatos RDF que se piden por `Accept`; uno que incluye `text/html` no casa: un navegador nunca entra. */
+const formatos = [
+  { formato: "ttl", acepta: "(?!.*text/html).*(?:text/turtle|application/x-turtle).*" },
+  { formato: "jsonld", acepta: "(?!.*text/html).*application/ld\\+json.*" },
+  { formato: "nt", acepta: "(?!.*text/html).*application/n-triples.*" },
+];
+// Una ficha se pide también con el grafo de cada triple: TriG y N-Quads (la ontología no los tiene).
+const conGrafos = [
+  { formato: "trig", acepta: "(?!.*text/html).*application/trig.*" },
+  { formato: "nq", acepta: "(?!.*text/html).*application/n-quads.*" },
+];
+
+/** Una regla que casa con quien pide ese formato. */
+const pide = (acepta: string) => [{ type: "header" as const, key: "accept", value: acepta }];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // DuckDB (`lib/grafo-sql.ts`, solo en `/api/sql`) es un binario nativo: se
@@ -202,78 +245,13 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 30, static: 300 },
   },
   /*
-    Negociación de contenido del grafo semántico: la dirección de una ficha
-    nombra una cosa (`…/funcionarios/x#id`), y quien la pide en RDF —con
-    `Accept: text/turtle`, `application/ld+json` o `application/n-triples` y
-    sin `text/html`— recibe un 303 a su descripción (`/api/grafo`), como
-    manda «Cool URIs for the Semantic Web» (W3C). Un navegador siempre pide
-    HTML y nunca entra aquí. Es una regla del enrutador: no despierta ninguna
-    función ni cambia la caché de la página. `/ontologia` hace lo mismo hacia
-    su Turtle, su JSON-LD o sus N-Triples.
+    Redirecciones que no dependen de `Accept`. La negociación de contenido
+    del grafo (quien pide una ficha, `/ontologia` o `/def/core` en RDF recibe
+    un 303 a su descripción, como manda «Cool URIs for the Semantic Web»,
+    W3C) está en `rewrites()`, abajo.
   */
   async redirects() {
-    const formatos = [
-      { formato: "ttl", acepta: "(?!.*text/html).*(?:text/turtle|application/x-turtle).*" },
-      { formato: "jsonld", acepta: "(?!.*text/html).*application/ld\\+json.*" },
-      { formato: "nt", acepta: "(?!.*text/html).*application/n-triples.*" },
-    ];
-    // Una ficha se pide también con el grafo de cada triple: TriG y N-Quads (la ontología no los tiene).
-    const conGrafos = [
-      { formato: "trig", acepta: "(?!.*text/html).*application/trig.*" },
-      { formato: "nq", acepta: "(?!.*text/html).*application/n-quads.*" },
-    ];
-    const fichas = [
-      "/funcionarios/:slug",
-      "/instituciones/:id",
-      "/banca/:slug",
-      "/empresas/:rnc",
-      "/normativa/decreto/:numero",
-      "/normativa/ley/:numero",
-      "/normativa/resolucion/:numero",
-      "/provincias/:slug",
-      "/proveedores/:rpe(\\d+)",
-      "/procesos/:codigo",
-      "/obras/:snip(\\d+)",
-      "/congreso/:id(\\d+)",
-      "/datos/:slug",
-      // La dirección del archivo, con sus barras, en un solo parámetro: uno repetido
-      // (`:ruta+`) no cabe en la consulta del destino y la redirección falla.
-      "/documentos/:ruta(.+)",
-      // Una sentencia, no el listado: el número del TC o la ficha del visor del TSE.
-      "/constitucional/:numero(TC-\\d+-\\d+)",
-      "/tse/:ficha([A-Za-z0-9+=_-]+)",
-      "/congreso/votaciones/:id(\\d+)",
-    ];
     return [
-      ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>
-        fichas.map((ficha) => ({
-          source: ficha,
-          has: [{ type: "header" as const, key: "accept", value: acepta }],
-          // El destino nombra los parámetros sin su patrón: `/proveedores/:rpe`.
-          destination: `/api/grafo?nodo=${ficha.replace(/\([^)]*\)/g, "")}&formato=${formato}`,
-          statusCode: 303 as const,
-        })),
-      ),
-      ...formatos.map(({ formato, acepta }) => ({
-        source: "/ontologia",
-        has: [{ type: "header" as const, key: "accept", value: acepta }],
-        destination: `/ontologia.${formato}`,
-        statusCode: 303 as const,
-      })),
-      /*
-        Los IRIs persistentes del vocabulario (`lib/rdf.ts`, W3ID): w3id.org
-        manda `https://w3id.org/socratico/<ruta>` a `<este sitio>/<ruta>`, y
-        aquí se resuelve. El núcleo y el módulo dominicano (con su versión o
-        sin ella) son el mismo documento y se sirven por `Accept`; las formas
-        SHACL y el perfil de Fabric IQ, siempre en Turtle.
-      */
-      ...formatos.map(({ formato, acepta }) => ({
-        source: "/def/:modulo(core|do)/:version?",
-        has: [{ type: "header" as const, key: "accept", value: acepta }],
-        destination: `/ontologia.${formato}`,
-        statusCode: 303 as const,
-      })),
-      { source: "/def/:modulo(core|do)/:version?", destination: "/ontologia", statusCode: 303 as const },
       { source: "/def/formas", destination: "/ontologia.shacl.ttl", statusCode: 303 as const },
       // Los grafos con nombre (`…/fuente/padron/2026-09-19`, `…/derivado/pep/…`): lo que se
       // dice de cada uno viaja en el TriG; quien sigue el IRI llega a la página de las fuentes.
@@ -282,6 +260,47 @@ const nextConfig: NextConfig = {
       // El banco de trabajo vivía en `/explorar`; hoy es la portada. La consulta viaja con la redirección.
       { source: "/explorar", destination: "/", permanent: true },
     ];
+  },
+  /*
+    La negociación misma: quien pide RDF por `Accept` llega a
+    `app/api/negociar/[formato]/[[...nodo]]/route.ts`, que responde el 303 con `Vary: Accept`. No
+    es un `redirect()`: Next 15 no pone en un 303 de `redirects()` las
+    cabeceras de `headers()` (`resolve-routes.js` devuelve el 303 sin ellas),
+    y en Vercel la cabecera de una regla cede ante la de la función; el 303
+    sin `Vary` dejaría a una caché darle a un navegador el destino del Turtle.
+    Va antes de las páginas (`beforeFiles`): con el `Accept` de un
+    navegador, la ficha se pinta como siempre, sin despertar más función que
+    la suya.
+  */
+  async rewrites() {
+    return {
+      beforeFiles: [
+        ...[...formatos, ...conGrafos].flatMap(({ formato, acepta }) =>
+          FICHAS.map((ficha) => ({
+            source: ficha,
+            has: pide(acepta),
+            // El destino nombra los parámetros sin su patrón: `/proveedores/:rpe`.
+            destination: `/api/negociar/${formato}${ficha.replace(/\([^)]*\)/g, "")}`,
+          })),
+        ),
+        ...formatos.map(({ formato, acepta }) => ({ source: "/ontologia", has: pide(acepta), destination: `/api/negociar/${formato}` })),
+        /*
+          Los IRIs persistentes del vocabulario (`lib/rdf.ts`, W3ID): w3id.org
+          manda `https://w3id.org/socratico/<ruta>` a `<este sitio>/<ruta>`, y
+          aquí se resuelve. El núcleo y el módulo dominicano (con su versión o
+          sin ella) son el mismo documento y se sirven por `Accept`; sin un
+          formato RDF, a la página. Las dos respuestas varían por `Accept`:
+          las dos pasan por el manejador. Las formas SHACL y el perfil de
+          Fabric IQ, siempre en Turtle (`redirects()`).
+        */
+        ...formatos.map(({ formato, acepta }) => ({
+          source: "/def/:modulo(core|do)/:version?",
+          has: pide(acepta),
+          destination: `/api/negociar/${formato}`,
+        })),
+        { source: "/def/:modulo(core|do)/:version?", destination: "/api/negociar/pagina" },
+      ],
+    };
   },
   async headers() {
     return [

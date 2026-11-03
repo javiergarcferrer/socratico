@@ -100,7 +100,7 @@ python3 scripts/build-<nombre>.py  # tras busqueda: node scripts/build-indice-bu
 ```
 
 No hay suite de pruebas ni ESLint: `next build` es el gate real, envuelto por `./.claude/hooks/verificar.sh --completo` (typecheck, identidad, controles sin
-efecto, statelessness, secretos, harness, build, la evaluación del MCP, el grafo compilado contra sus constructores y contra su ontología en SHACL, el buscador contra el grafo). El lockfile fija **Next 15**;
+efecto, statelessness, secretos, harness, build, la evaluación del MCP, el grafo compilado contra sus constructores y contra su ontología en SHACL, el buscador contra el grafo, la publicación: DCAT y negociación con `Vary`). El lockfile fija **Next 15**;
 se compila contra él (`npm ci`) — Turbopack en 16 tolera cosas que webpack en 15
 rechaza, como un import `node:` llegando a un bundle de cliente.
 

@@ -240,6 +240,10 @@ async function Portada({ consulta }: { consulta: string }) {
           <a href="/.well-known/void" className="text-brand-700 underline">
             VoID
           </a>
+          , y lo que se descarga, con su formato, su licencia y su fecha, en un{" "}
+          <a href="/dcat.ttl" className="text-brand-700 underline">
+            catálogo DCAT
+          </a>
           . Cada descripción se compila de las mismas instantáneas que pintan las fichas, se comprueba nodo a nodo y
           se lee de archivos: no hay un almacén de triples ni un servidor que mantener.
         </p>
