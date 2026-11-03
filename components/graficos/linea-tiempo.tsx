@@ -22,8 +22,9 @@ import { VerComoTabla } from "./ver-como-tabla";
  *    deforma: su trazo no escala); los rótulos son HTML y no bajan de 12 px;
  *  - cada raya lleva a su ficha con el puntero, fuera del tabulador: el
  *    dibujo va fuera del árbol de accesibilidad y la tabla equivalente
- *    (`VerComoTabla`, debajo) es la lista completa, de la más reciente a la
- *    más vieja, con su enlace;
+ *    (`VerComoTabla`, debajo) escribe lo pintado, de lo más reciente a lo
+ *    más viejo, con su enlace (la lista entera de cada carril es la de la
+ *    ficha que la monta);
  *  - un carril con más de `tope` hechos pinta los más recientes y lo dice en
  *    su rótulo; nada se anima al cargar.
  */
@@ -94,9 +95,8 @@ export function LineaTiempo({
   const anios = ultimoAnio - primerAnio + 1;
   const paso = Math.max(1, Math.ceil(anios / 6));
   const marcas: number[] = [];
-  for (let a = primerAnio; a <= ultimoAnio + 1; a += paso) marcas.push(a);
-  // El cierre del eje, si no queda pegado a la última marca.
-  if (ultimoAnio + 1 - marcas.at(-1)! >= paso / 2 + 0.5) marcas.push(ultimoAnio + 1);
+  // Cada marca es el 1 de enero de su año; ninguna pasa del último año con hechos.
+  for (let a = primerAnio; a <= ultimoAnio; a += paso) marcas.push(a);
 
   return (
     <figure className={cn("mt-3", className)}>
@@ -143,7 +143,7 @@ export function LineaTiempo({
             <span
               key={a}
               className={cn(
-                "absolute top-1 -translate-x-1/2 font-mono text-xs tabular-nums text-ink-soft first:translate-x-0 last:-translate-x-full",
+                "absolute top-1 -translate-x-1/2 font-mono text-xs tabular-nums text-ink-soft first:translate-x-0",
                 // En el teléfono, una marca sí y otra no (la primera y la última siempre): no se enciman.
                 k % 2 === 1 && k !== marcas.length - 1 && "max-sm:hidden",
               )}

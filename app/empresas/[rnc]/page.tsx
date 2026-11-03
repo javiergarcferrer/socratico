@@ -211,9 +211,9 @@ export default async function EmpresaPage({ params }: Props) {
         ]}
       />
 
-      {rpe && <QuienLeCompra rpe={rpe} />}
-
       {ofac && <NotaOfac entidad={ofac} fecha={meta?.fuentes.ofac.fecha ?? null} />}
+
+      {rpe && <QuienLeCompra rpe={rpe} otrosRpe={otrosRpe.length} />}
 
       <Card as="section" className="p-5 sm:p-6">
         <CardTitle>¿Y el registro mercantil?</CardTitle>

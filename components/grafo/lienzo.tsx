@@ -113,6 +113,9 @@ function leerCamara(v: string | null): { x: number; y: number; ratio: number } |
 
 const redondear = (n: number) => Math.round(n * 1000) / 1000;
 
+/** La cámara en reposo de sigma: lo que `instantanea()` usa para que el dibujo no dependa del zoom. */
+const REPOSO = { x: 0.5, y: 0.5, ratio: 1, angle: 0 };
+
 /** El índice de vecinos del inspector, como lo lee el modelo. */
 function expansionDe(n: Inspeccion): Expansion {
   return {
@@ -496,9 +499,11 @@ export function Lienzo({
       const d = s.getNodeDisplayData(ruta);
       if (!d || d.hidden) continue;
       const a = m.grafo.getNodeAttributes(ruta);
-      const p = s.graphToViewport({ x: a.x, y: a.y });
-      const r = s.scaleSize(d.size);
-      crudos.push({ ruta, titulo: a.label, tipo: a.tipoEtiqueta, x: p.x, y: p.y, radio: r, r, color: d.color, rotulo: false });
+      // Con la cámara en reposo (todo el grafo encuadrado), no la del momento: el dibujo no depende del zoom.
+      const p = s.graphToViewport({ x: a.x, y: a.y }, { cameraState: REPOSO });
+      const r = s.scaleSize(d.size, 1);
+      // El color de su familia, no el que le deja el foco (que apaga lo demás).
+      crudos.push({ ruta, titulo: a.label, tipo: a.tipoEtiqueta, x: p.x, y: p.y, radio: r, r, color: a.color, rotulo: false });
     }
     if (!crudos.length) return null;
     // Todos dentro del dibujo, aunque la cámara deje alguno fuera de la vista; a la derecha, sitio para el rótulo.
@@ -526,7 +531,7 @@ export function Lienzo({
         relacion: x ? [x.verbo, x.detalle].filter(Boolean).join(" · ") || "relación" : m.grafo.getEdgeAttribute(e, "label") || "relación",
         fuente: x ? fuenteDe(x.grafo) : "sin dato",
         punteada: m.grafo.getEdgeAttribute(e, "estilo") === "punteado",
-        color: d.color,
+        color: m.grafo.getEdgeAttribute(e, "color"),
       });
     }
     return { ancho: x1 - x0, alto: y1 - y0, nodos, aristas, paleta: leerPaleta(el), enlace: window.location.href };

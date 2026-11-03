@@ -18,6 +18,11 @@
  *  - **GraphML**, los nodos y las aristas del dibujo con su clase, su relación
  *    y su fuente, para Gephi, yEd o Cytoscape.
  *
+ * Una vista con alguna ruta personal (§7.11) no se exporta en ningún formato
+ * si pasa de `TOPE_NODO_A_NODO` nodos: las personas salen de a una, no en
+ * masa. Un proveedor persona física tiene ruta de proveedor y el navegador no
+ * lo distingue: el dibujo lo lleva como en pantalla, y su RDF sale de a uno.
+ *
  * Cada archivo lleva el aviso de herramienta independiente y no oficial, la
  * fecha del grafo compilado (`/data/grafo/meta.json`: el volcado sale del
  * compilado y lleva su fecha) y el enlace que reproduce la vista. Nada se
@@ -27,7 +32,7 @@ import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Guardar from "@/components/espacios/guardar";
 import { Button } from "@/components/ui/button";
-import { urlSparql } from "@/lib/consultas";
+import { pedirSparqlTexto, rdfDeNodo } from "@/lib/consultas";
 import { formatFecha } from "@/lib/format";
 import { formatInt } from "@/lib/nomina";
 import { SITIO } from "@/lib/sitio";
@@ -205,7 +210,7 @@ function aGraphml(v: InstantaneaLienzo, aviso: string[]): string {
     `  <key id="relacion" for="edge" attr.name="label" attr.type="string"/>`,
     `  <key id="fuente" for="edge" attr.name="fuente" attr.type="string"/>`,
     `  <key id="derivada" for="edge" attr.name="derivada" attr.type="boolean"/>`,
-    `  <graph id="lienzo" edgedefault="undirected">`,
+    `  <graph id="lienzo" edgedefault="directed">`,
     `    <desc>${escaparXml(aviso.join(" "))}</desc>`,
   ];
   for (const n of v.nodos) {
@@ -248,21 +253,6 @@ type FormatoRdf = "ttl" | "jsonld" | "trig";
 /** Lo que `/sparql` y `/api/grafo` sirven en cada formato. */
 const ACEPTA: Record<FormatoRdf, string> = { ttl: "text/turtle", jsonld: "application/ld+json", trig: "application/trig" };
 
-/** Una consulta a `/sparql` con su formato; un 503 (ocupado) se reintenta dos veces a los 5 s. */
-async function pedirSparql(q: string, accept: string): Promise<{ texto: string; truncada: boolean }> {
-  for (let intento = 0; ; intento++) {
-    const url = urlSparql(q);
-    const r =
-      url.length <= 6_000
-        ? await fetch(url, { headers: { Accept: accept } })
-        : await fetch("/sparql", { method: "POST", headers: { Accept: accept, "Content-Type": "application/sparql-query" }, body: q });
-    const texto = await r.text();
-    if (r.ok) return { texto, truncada: r.headers.get("socratico-truncada") === "1" };
-    if (r.status !== 503 || intento === 2) throw new Error(texto.trim() || `SPARQL respondió ${r.status}`);
-    await new Promise((ok) => window.setTimeout(ok, 5_000));
-  }
-}
-
 /** Las rutas en tandas de `VALUES` que caben en una consulta (relativas a la base de `/sparql`, `${SITIO}/`). */
 function tandas(rutas: string[]): string[] {
   const salida: string[] = [];
@@ -303,13 +293,13 @@ async function porSparql(rutas: string[], formato: FormatoRdf): Promise<Partes> 
   const partes: Partes = { documentos: [], sujetos: new Set(), truncada: false };
   for (const valores of tandas(rutas)) {
     // Qué nodos tiene el volcado: lo que no, se pide de a uno.
-    const presentes = await pedirSparql(`SELECT DISTINCT ?s WHERE { VALUES ?s { ${valores} } ?s ?p ?o }`, "application/sparql-results+json");
+    const presentes = await pedirSparqlTexto(`SELECT DISTINCT ?s WHERE { VALUES ?s { ${valores} } ?s ?p ?o }`, "application/sparql-results+json");
     for (const f of (JSON.parse(presentes.texto) as { results?: { bindings?: { s?: { value: string } }[] } }).results?.bindings ?? []) {
       if (f.s) partes.sujetos.add(f.s.value);
     }
     if (formato === "trig") {
       // CONSTRUCT no lleva grafos: el grafo con nombre de cada triple sale de un SELECT y se escribe en bloques.
-      const r = await pedirSparql(`SELECT ?g ?s ?p ?o WHERE { VALUES ?s { ${valores} } GRAPH ?g { ?s ?p ?o } }`, "application/sparql-results+json");
+      const r = await pedirSparqlTexto(`SELECT ?g ?s ?p ?o WHERE { VALUES ?s { ${valores} } GRAPH ?g { ?s ?p ?o } }`, "application/sparql-results+json");
       partes.truncada ||= r.truncada;
       const porGrafo = new Map<string, string[]>();
       type Celda = { type: string; value: string; "xml:lang"?: string; datatype?: string };
@@ -321,7 +311,7 @@ async function porSparql(rutas: string[], formato: FormatoRdf): Promise<Partes> 
       }
       for (const [g, lineas] of porGrafo) partes.documentos.push(`<${g}> {\n${lineas.join("\n")}\n}\n`);
     } else {
-      const r = await pedirSparql(`CONSTRUCT { ?s ?p ?o } WHERE { VALUES ?s { ${valores} } ?s ?p ?o }`, ACEPTA[formato]);
+      const r = await pedirSparqlTexto(`CONSTRUCT { ?s ?p ?o } WHERE { VALUES ?s { ${valores} } ?s ?p ?o }`, ACEPTA[formato]);
       partes.truncada ||= r.truncada;
       partes.documentos.push(r.texto);
     }
@@ -335,14 +325,7 @@ async function nodoANodo(rutas: string[], formato: FormatoRdf): Promise<{ docume
   let fallidos = 0;
   for (let i = 0; i < rutas.length; i += 4) {
     const lote = await Promise.all(
-      rutas.slice(i, i + 4).map(async (ruta) => {
-        try {
-          const r = await fetch(`/api/grafo?formato=${formato}&nodo=${encodeURIComponent(sinAncla(ruta))}`);
-          return r.ok ? await r.text() : null;
-        } catch {
-          return null;
-        }
-      }),
+      rutas.slice(i, i + 4).map((ruta) => rdfDeNodo(sinAncla(ruta), formato)),
     );
     for (const d of lote) {
       if (d) documentos.push(d);
@@ -430,6 +413,15 @@ export function Exportar({ obtener, titulo, nodos }: { obtener: () => Instantane
     setOcupado(true);
     setEstado("Preparando el archivo…");
     try {
+      // Lo masivo nunca toca personas (§7.11): una vista con personas se exporta, en cualquier formato, hasta el tope de a uno.
+      const rutas = [...new Set(v.nodos.map((n) => sinAncla(n.ruta)))];
+      const personales = rutas.filter(esPersonal);
+      if (personales.length && rutas.length > TOPE_NODO_A_NODO) {
+        setEstado(
+          `La vista tiene ${formatInt(personales.length)} ${personales.length === 1 ? "nodo que es o nombra a una persona" : "nodos que son o nombran a personas"}: con personas, se exporta hasta ${TOPE_NODO_A_NODO} nodos, y aquí hay ${formatInt(rutas.length)}. Oculta o filtra por clase y vuelve a intentar.`,
+        );
+        return;
+      }
       const compilado = await fechaCompilado();
       const aviso = lineasAviso(compilado, v.enlace);
       const dia = new Date().toISOString().slice(0, 10);
@@ -448,17 +440,9 @@ export function Exportar({ obtener, titulo, nodos }: { obtener: () => Instantane
       }
 
       // RDF: el volcado sin personas por SPARQL; lo demás, de a un nodo y con tope.
-      const rutas = [...new Set(v.nodos.map((n) => sinAncla(n.ruta)))];
-      const personales = rutas.filter(esPersonal);
       const publicas = personales.length ? [] : rutas;
       if (publicas.length > TOPE_SPARQL) {
         setEstado(`La vista tiene ${formatInt(publicas.length)} nodos; el RDF se exporta hasta ${formatInt(TOPE_SPARQL)}. Oculta o filtra por clase y vuelve a intentar.`);
-        return;
-      }
-      if (personales.length && rutas.length > TOPE_NODO_A_NODO) {
-        setEstado(
-          `La vista tiene ${formatInt(personales.length)} ${personales.length === 1 ? "nodo que es o nombra a una persona" : "nodos que son o nombran a personas"}: con personas, el RDF se pide de a un nodo, hasta ${TOPE_NODO_A_NODO}, y aquí hay ${formatInt(rutas.length)}. Oculta o filtra por clase y vuelve a intentar.`,
-        );
         return;
       }
       const f = formato as FormatoRdf;
@@ -492,7 +476,8 @@ export function Exportar({ obtener, titulo, nodos }: { obtener: () => Instantane
       const leidos = rutas.length - fallidos - omitidos;
       setEstado(`Se descargó lo que el grafo dice de ${formatInt(leidos)} ${leidos === 1 ? "nodo" : "nodos"}${notas.length ? `; ${notas.join("; ")}` : ""}.`);
     } catch (e) {
-      setEstado(`No se pudo exportar: ${e instanceof Error ? e.message : String(e)}`);
+      const red = e instanceof TypeError; // `fetch` sin red: el mensaje del navegador viene en inglés.
+      setEstado(red ? "No se pudo exportar: la conexión se cortó. Vuelve a intentar." : `No se pudo exportar: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setOcupado(false);
     }
@@ -520,9 +505,9 @@ export function Exportar({ obtener, titulo, nodos }: { obtener: () => Instantane
       </div>
       <p className="text-xs leading-relaxed text-ink-soft">
         PNG y SVG, el dibujo; GraphML, sus nodos y aristas. Turtle, JSON-LD y TriG, lo que el grafo dice de cada nodo visible: del volcado sin personas
-        naturales por SPARQL (hasta {formatInt(TOPE_SPARQL)} nodos) o, si la vista tiene personas, de a un nodo, hasta {TOPE_NODO_A_NODO}. Cada archivo
-        lleva el aviso de herramienta no oficial, la fecha del grafo compilado y el enlace de esta vista. Guardar en tu espacio guarda solo ese
-        enlace, no los datos.
+        naturales por SPARQL (hasta {formatInt(TOPE_SPARQL)} nodos) o, si la vista tiene personas, de a un nodo. Con personas, ningún formato pasa de{" "}
+        {TOPE_NODO_A_NODO} nodos. Cada archivo lleva el aviso de herramienta no oficial, la fecha del grafo compilado y el enlace de esta vista.
+        Guardar en tu espacio guarda solo ese enlace, no los datos.
       </p>
       <p aria-live="polite" className="text-xs text-ink-soft">
         {estado}

@@ -315,8 +315,10 @@ export default async function FuncionarioPage({ params }: Props) {
 /**
  * Sus cargos y los decretos de esos cargos, en carriles sobre un eje de años
  * (`LineaTiempo`). Solo con dos hechos fechados o más: uno solo ya lo dice la
- * cabecera. El voto de cada legislador no está: el SIL publica el resultado
- * de cada votación del pleno, no quién votó qué.
+ * cabecera. Sus votos en el pleno no van aquí: la instantánea de votaciones
+ * guarda el resultado de cada una, y cómo votó cada diputado está en la ficha
+ * de la votación (`/congreso/votaciones/[id]`), que lo lee del SIL; la nota
+ * solo sale a quien tiene ficha de legislador.
  */
 function CarreraEnElTiempo({ persona, decretos }: { persona: Persona; decretos: Map<string, number | null> }) {
   const vistos = new Set<string>();
@@ -362,8 +364,9 @@ function CarreraEnElTiempo({ persona, decretos }: { persona: Persona; decretos: 
     <Card as="section" className="mt-5 p-5 sm:p-6">
       <CardTitle>¿Cuándo pasó cada cosa?</CardTitle>
       <p className="mt-1 text-xs text-ink-soft">
-        Una raya por cargo y por decreto con fecha, en la instantánea de funcionarios. El voto de cada legislador no
-        está: el SIL publica el resultado de cada votación, no quién votó qué.
+        Una raya por cargo y por decreto con fecha, en la instantánea de funcionarios.
+        {persona.legislador != null &&
+          " Sus votos en el pleno no están en esta línea: la instantánea guarda el resultado de cada votación, y cómo votó cada diputado está en la ficha de la votación."}
       </p>
       <LineaTiempo
         carriles={carriles}

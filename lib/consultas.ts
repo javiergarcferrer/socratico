@@ -161,6 +161,35 @@ export async function consultarSparql(q: string, signal?: AbortSignal): Promise<
   return { tipo: "filas", variables: json.head?.vars ?? [], filas: json.results?.bindings ?? [], truncada, ms };
 }
 
+/**
+ * Una consulta a `/sparql` en el formato que se pide (`Accept`), como texto:
+ * lo que el exportador del lienzo concatena. GET si cabe, si no POST; un 503
+ * (ocupado) se reintenta dos veces a los 5 s.
+ */
+export async function pedirSparqlTexto(q: string, accept: string, signal?: AbortSignal): Promise<{ texto: string; truncada: boolean }> {
+  for (let intento = 0; ; intento++) {
+    const url = urlSparql(q);
+    const r =
+      url.length <= 6_000
+        ? await fetch(url, { headers: { Accept: accept }, signal })
+        : await fetch("/sparql", { method: "POST", headers: { Accept: accept, "Content-Type": "application/sparql-query" }, body: q, signal });
+    const texto = await r.text();
+    if (r.ok) return { texto, truncada: r.headers.get("socratico-truncada") === "1" };
+    if (r.status !== 503 || intento === 2) throw new ErrorSparql(texto.trim() || `Error ${r.status}`, r.status);
+    await new Promise((ok) => setTimeout(ok, 5_000));
+  }
+}
+
+/** La descripción RDF de un nodo (`/api/grafo`) en el formato pedido, o `null` si no se pudo leer. */
+export async function rdfDeNodo(ruta: string, formato: "ttl" | "jsonld" | "trig" | "nt" | "nq", signal?: AbortSignal): Promise<string | null> {
+  try {
+    const r = await fetch(`/api/grafo?formato=${formato}&nodo=${encodeURIComponent(ruta)}`, { signal });
+    return r.ok ? await r.text() : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface TerminosSparql {
   prefijos: Record<string, string>;
   terminos: { curie: string; etiqueta: string; tipo: "clase" | "propiedad" | "concepto" }[];
