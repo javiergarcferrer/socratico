@@ -36,7 +36,7 @@ export interface InformeShacl {
   fueraDeMuestra: number;
   formas: FormaValidada[];
   sinDeclarar: string[];
-  resultados: { donde: string; n: number; ejemplos: string[] }[];
+  resultados: { donde: string; n: number; ejemplos: string[]; foco: string | null; componente: string }[];
 }
 
 export const INFORME: InformeShacl = informe as InformeShacl;
@@ -89,7 +89,10 @@ export function triplesInforme(x: InformeShacl = INFORME): Triple[] {
       { s: b, p: expandir("rdf:type"), o: iri("sh:ValidationResult") },
       { s: b, p: expandir("sh:resultSeverity"), o: iri("sh:Violation") },
       { s: b, p: expandir("sh:resultMessage"), o: lit(`${v.donde}: ${v.n} casos`, "es") },
+      { s: b, p: expandir("sh:sourceConstraintComponent"), o: iri(v.componente) },
     );
+    // El primer nodo del grupo: SHACL pide un foco en cada resultado.
+    if (v.foco) salida.push({ s: b, p: expandir("sh:focusNode"), o: iri(v.foco) });
   });
   return salida;
 }

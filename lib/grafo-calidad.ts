@@ -43,7 +43,7 @@ export interface CompletitudClase {
   clase: string;
   /** Sujetos con esta clase o una que es un caso de ella (como cuenta SHACL con `rdfs:subClassOf`). */
   instancias: number;
-  /** Las propiedades de su forma y de las formas de las clases de las que es un caso, en el orden de la ontología. */
+  /** Las propiedades de su forma (las de su dominio; las de sus clases madre van en la fila de cada madre), en el orden de la ontología. */
   propiedades: CompletitudPropiedad[];
 }
 

@@ -152,7 +152,7 @@ if [ "$modo" = "--completo" ]; then
   if grafo="$(node --max-old-space-size=4096 scripts/build-grafo.mjs --comprobar 2>&1)"; then
     ok "compiled graph: $(printf '%s\n' "$grafo" | tail -1)"
   else
-    mal "compiled graph out of date — node scripts/build-grafo.mjs"; printf '%s\n' "$grafo" | tail -10 | sed 's/^/       /'
+    mal "compiled graph out of date — node --max-old-space-size=4096 scripts/build-grafo.mjs"; printf '%s\n' "$grafo" | tail -10 | sed 's/^/       /'
   fi
 fi
 

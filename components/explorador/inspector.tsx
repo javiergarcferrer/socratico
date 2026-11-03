@@ -422,7 +422,7 @@ function Forma({ f }: { f: NonNullable<Inspeccion["forma"]> }) {
     <div className="mt-3 border-t border-hairline pt-3 text-xs leading-relaxed text-ink-soft">
       <h4 className="text-sm font-bold text-ink">Su forma</h4>
       <p className="mt-0.5">
-        {f.cumple ? "Cumple" : "No cumple"} la forma SHACL de{" "}
+        {f.cumple ? "Cumple" : "No cumple"} la forma SHACL —tipo de cada dato, cuántos y lo obligatorio— de{" "}
         <a href={`/ontologia#${f.clase.split(":")[1]}`} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-10">
           {f.etiqueta}
         </a>{" "}
@@ -437,7 +437,7 @@ function Forma({ f }: { f: NonNullable<Inspeccion["forma"]> }) {
       )}
       {f.faltan.length > 0 && (
         <p className="mt-1">
-          Lo que su forma admite y el grafo no le registra: {f.faltan.map((x) => x.etiqueta.toLocaleLowerCase("es")).join(", ")}.
+          Lo que su forma admite y el grafo no le registra: {f.faltan.map((x) => enMinuscula(x.etiqueta)).join(", ")}.
         </p>
       )}
     </div>
@@ -467,6 +467,11 @@ function FuenteDeArista({ f, enFila = false, className = "" }: { f: FuenteVista;
       {!f.derivado && (f.corte ? <>, corte del <span className="font-mono tabular-nums">{formatFecha(f.corte)}</span></> : ", sin corte")}
     </p>
   );
+}
+
+/** La primera letra en minúscula, salvo en una sigla («RNC», «PEP hoy»). */
+function enMinuscula(s: string): string {
+  return /^\p{Lu}\p{Lu}/u.test(s) ? s : s.charAt(0).toLocaleLowerCase("es") + s.slice(1);
 }
 
 function recortar(s: string, n: number): string {

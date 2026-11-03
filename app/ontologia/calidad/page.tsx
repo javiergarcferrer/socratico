@@ -58,9 +58,9 @@ export default async function CalidadDelGrafo() {
           <Link href="/ontologia" className="text-brand-700 underline">
             la ontología
           </Link>{" "}
-          tiene una forma SHACL: qué datos y relaciones admite, de qué tipo, cuántos y cuáles son obligatorios. El
-          repositorio no publica un grafo que no las cumpla: antes de cada despliegue se valida, y este informe es el de esa
-          validación, con la huella de lo validado.
+          tiene una forma SHACL: qué datos y relaciones admite, de qué tipo, cuántos y cuáles son obligatorios. Antes de cada
+          despliegue se validan contra ellas el volcado entero y una muestra de lo demás, y no se despliega si no cumplen; este
+          informe es el de esa validación, con la huella de lo validado.
         </p>
         <p className="mt-3 text-sm text-ink-soft">
           El informe en{" "}
@@ -88,9 +88,9 @@ export default async function CalidadDelGrafo() {
           nota={`De ${formatInt(INFORME.nodos)} nodos: el volcado entero y una muestra`}
         />
         <Cifra
-          etiqueta="Cardinalidad en el grafo entero"
+          etiqueta="Obligatorios ausentes o únicos repetidos"
           valor={calidad ? formatInt(violacionesCompilado) : "—"}
-          nota={calidad && meta ? `Violaciones en ${formatInt(calidad.instancias)} instancias, compilado el ${formatFecha(meta.generado)}` : "El compilado no trae la medida"}
+          nota={calidad && meta ? `En las ${formatInt(calidad.instancias)} instancias del grafo entero, compilado el ${formatFecha(meta.generado)}` : "El compilado no trae la medida"}
         />
       </TiraDeCifras>
 
@@ -117,7 +117,7 @@ export default async function CalidadDelGrafo() {
             </TableHeader>
             <TableBody>
               {validadas.map((f) => (
-                <TableRow key={f.forma} className="border-b border-hairline last:border-0">
+                <TableRow key={f.forma}>
                   <TableCell>
                     <a href={ancla(f.clase)} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-10">
                       {ETIQUETA_CLASE.get(f.clase) ?? f.clase}
@@ -178,7 +178,7 @@ export default async function CalidadDelGrafo() {
                     </TableHeader>
                     <TableBody>
                       {c.propiedades.map((p) => (
-                        <TableRow key={p.propiedad} className="border-t border-hairline">
+                        <TableRow key={p.propiedad}>
                           <TableCell>
                             <a href={ancla(p.propiedad)} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-10">
                               {ETIQUETA_PROP.get(p.propiedad) ?? p.propiedad}

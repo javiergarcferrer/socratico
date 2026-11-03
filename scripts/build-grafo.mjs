@@ -36,6 +36,7 @@
  * (`lib/ontologia-esquemas.ts`). Si algo difiere, sale con 1.
  *
  * Uso:
+ * Con el Medidor de la calidad el pico de memoria pasa de 1.9 GB: `node --max-old-space-size=4096`.
  *     node scripts/build-grafo.mjs              # compila y comprueba (tras las demás instantáneas)
  *     node scripts/build-grafo.mjs --comprobar  # solo comprueba lo escrito (el gate)
  *     node scripts/build-grafo.mjs --medir      # comprueba y reescribe solo `calidad` de meta.json
@@ -511,7 +512,7 @@ async function comprobar(todas) {
   if (JSON.stringify(compras) !== JSON.stringify(await T.publicadoPorInstitucion(I.INSTITUCIONES))) anotar("compras", "lo publicado por institución cambió");
   await comprobarNombresYFirmas(meta, anotar);
   if (JSON.stringify(wikidata) !== JSON.stringify(meta.wikidata)) anotar("wikidata", "los enlaces a Wikidata cambiaron");
-  // La calidad, medida otra vez sobre lo que leen los módulos del servidor (son los mismos nodos: `diferencia` ya lo dijo).
+  // La calidad, medida otra vez sobre las descripciones de los constructores, que `diferencia` ya comparó con las del servidor.
   const calidad = medidor.resultado();
   console.log(resumirCalidad(calidad));
   if (MEDIR) {
@@ -519,7 +520,7 @@ async function comprobar(todas) {
       writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify({ ...meta, calidad })}\n`);
       console.log("meta.json: calidad reescrita");
     }
-  } else if (JSON.stringify(calidad) !== JSON.stringify(meta.calidad)) anotar("calidad", "el uso de propiedades, la completitud o las violaciones cambiaron — node scripts/build-grafo.mjs --medir");
+  } else if (JSON.stringify(calidad) !== JSON.stringify(meta.calidad)) anotar("calidad", "el uso de propiedades, la completitud o las violaciones cambiaron — node --max-old-space-size=4096 scripts/build-grafo.mjs --medir");
   return { malos: malos.length, nodos, fichas, triples: meta.triples };
 }
 

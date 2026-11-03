@@ -37,7 +37,8 @@
  * validación: si difiere, sale con 1 (`--escribir` lo reescribe).
  *
  * Uso:
- *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200] [--sentencias 200] [--votaciones 200] [--escribir]
+ * Con el montón por omisión (2.2 GB en el contenedor de las sesiones) se queda sin memoria: `node --max-old-space-size=6144`.
+ *     node --max-old-space-size=6144 scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200] [--sentencias 200] [--votaciones 200] [--escribir]
  * Sale con 1 si hay una violación, un término sin declarar o el informe publicado no es el de esta validación.
  */
 import { createHash } from "node:crypto";
@@ -123,7 +124,8 @@ await enLotes(muestra.slice(0, N_PERSONAS), 8, async (p) => {
     if (m) decretos.add(m[1]);
   }
 });
-await enLotes([...decretos].slice(0, N_PERSONAS), 8, async (n) => {
+// Ordenados antes de recortar: llegan en el orden en que responde el servidor.
+await enLotes([...decretos].sort().slice(0, N_PERSONAS), 8, async (n) => {
   qPersonas.push(...quads(await pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(`/normativa/decreto/${n}`)}`), "N-Triples"));
 });
 // Una muestra de iniciativas, las promulgadas primero (las que llevan a una
@@ -144,7 +146,7 @@ await enLotes(muestraIniciativas.slice(0, N_INICIATIVAS), 8, async (f) => {
     if (m) normas.add(`/normativa/${m[1]}/${m[2]}`);
   }
 });
-await enLotes([...normas].slice(0, N_INICIATIVAS), 8, async (ruta) => {
+await enLotes([...normas].sort().slice(0, N_INICIATIVAS), 8, async (ruta) => {
   qPersonas.push(...quads(await pedir(`/api/grafo?formato=nt&nodo=${encodeURIComponent(ruta)}`), "N-Triples"));
 });
 // Una muestra de documentos repartida por la biblioteca, en el orden del
@@ -214,7 +216,7 @@ for (const r of informe.results) {
     continue;
   }
   const k = `${r.sourceShape?.value ?? "?"} · ${r.path?.value ?? "(nodo)"} · ${componente.split("#").pop()}`;
-  const g = grupos.get(k) ?? { n: 0, ejemplos: [] };
+  const g = grupos.get(k) ?? { n: 0, ejemplos: [], foco: r.focusNode?.value ?? null, componente };
   g.n++;
   if (g.ejemplos.length < 3) g.ejemplos.push(`${r.focusNode?.value}${r.value ? ` → ${r.value.value}` : ""}`);
   grupos.set(k, g);
@@ -309,7 +311,7 @@ const calculado = {
     .map(([forma, clase]) => ({ forma: forma.split("#").pop(), clase: corto(clase), focos: focos.get(clase)?.size ?? 0, violaciones: violacionesPorForma.get(forma) ?? 0 }))
     .sort((a, b) => (a.forma < b.forma ? -1 : 1)),
   sinDeclarar: [...sinDeclarar.keys()].sort(),
-  resultados: [...grupos].sort((a, b) => b[1].n - a[1].n).map(([k, g]) => ({ donde: k, n: g.n, ejemplos: g.ejemplos })),
+  resultados: [...grupos].sort((a, b) => b[1].n - a[1].n).map(([k, g]) => ({ donde: k, n: g.n, ejemplos: g.ejemplos, foco: g.foco, componente: g.componente })),
 };
 const texto = `${JSON.stringify(calculado, null, 1)}\n`;
 let publicado = null;
@@ -324,7 +326,7 @@ if (ESCRIBIR && !mismoInforme) {
 } else if (!mismoInforme) {
   console.log(
     `EL INFORME PUBLICADO NO ES EL DE ESTA VALIDACIÓN: datos/grafo/informe-shacl.json dice huella ${publicado ? (JSON.parse(publicado).huella ?? "?").slice(0, 12) : "(no está)"}…, ` +
-      `esta validación ${huella.slice(0, 12)}… — node scripts/validar-grafo.mjs --url <next start> --escribir`,
+      `esta validación ${huella.slice(0, 12)}… — node --max-old-space-size=6144 scripts/validar-grafo.mjs --url <next start> --escribir`,
   );
 }
 console.log(

@@ -111,6 +111,13 @@ export interface FormaDelNodo {
 const RDF_TYPE = expandir("rdf:type");
 const CLASE_POR_CURIE = new Map(CLASES.map((c) => [curie(c), c]));
 
+/** Lo que falla de una propiedad, en llano (los mensajes de zod vienen en inglés): se lee del valor, no del mensaje. */
+function enLlano(valor: unknown, funcional: boolean): string {
+  if (valor === undefined) return "hace falta";
+  if (funcional && Array.isArray(valor)) return "lleva más de un valor y admite uno solo";
+  return "su valor no es del tipo que admite";
+}
+
 /** Un valor de RDF como lo lee el esquema zod de una clase: un número, un sí o un no, o un texto. */
 function valorDeEsquema(o: Triple["o"]): unknown {
   if (o.tipo !== "literal") return o.valor;
@@ -149,7 +156,7 @@ export function formaDe(triples: Triple[], sujeto: string): FormaDelNodo | null 
   const fallos: string[] = [];
   for (const c of todas) {
     const r = esquemaClase(c).safeParse(obj);
-    if (!r.success) for (const i of r.error.issues) fallos.push(`${ETIQUETA_PROPIEDAD.get(String(i.path[0])) ?? i.path.join(".")}: ${i.message}`);
+    if (!r.success) for (const i of r.error.issues) fallos.push(`${ETIQUETA_PROPIEDAD.get(String(i.path[0])) ?? i.path.join(".")}: ${enLlano(obj[String(i.path[0])], funcional.has(String(i.path[0])))}`);
   }
   const linajes = new Set(todas.flatMap((c) => linaje(c)));
   const faltan = PROPIEDADES.filter(
