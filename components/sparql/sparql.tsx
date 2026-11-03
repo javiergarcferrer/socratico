@@ -32,8 +32,9 @@ import EJEMPLOS from "./ejemplos.json";
  * responde `/sparql` (docs/INFRAESTRUCTURA.md §7.12). Cada IRI que es un nodo
  * de la plataforma abre su ficha en el inspector, como en Objetos.
  *
- * «Abrir en el lienzo» es un gancho: el banco pasa `onLienzo` cuando hay un
- * lienzo que reciba los nodos del resultado; sin él, el botón no se pinta.
+ * «Abrir en el lienzo» siembra en el lienzo del banco (`components/grafo/`)
+ * los nodos del resultado: el banco pasa `onLienzo` desde `lg`, donde se
+ * dibuja; sin él, el botón no se pinta.
  */
 
 export interface EjemploSparql {
@@ -83,12 +84,15 @@ export function Sparql({
   hrefNodo,
   onAbrir,
   onLienzo,
+  topeLienzo = 150,
 }: {
   nodo: string | null;
   hrefNodo: (ruta: string) => string;
   onAbrir: (p: PasoRastro) => void;
   /** El gancho del lienzo: recibe las rutas de los nodos del resultado. */
   onLienzo?: (rutas: string[]) => void;
+  /** Cuántos nodos recibe el lienzo de una vez. */
+  topeLienzo?: number;
 }) {
   const [id] = useEjemploSparql();
   const ejemplo = LISTA.find((e) => e.id === id) ?? LISTA[0];
@@ -189,7 +193,9 @@ export function Sparql({
             <div className="flex flex-wrap gap-2">
               {onLienzo && rutas.length > 0 && (
                 <Button variant="secondary" onClick={() => onLienzo(rutas)}>
-                  Abrir en el lienzo
+                  {rutas.length > topeLienzo
+                    ? `Abrir en el lienzo los primeros ${formatInt(topeLienzo)} de ${formatInt(rutas.length)} nodos`
+                    : `Abrir los ${formatInt(rutas.length)} nodos en el lienzo`}
                 </Button>
               )}
               {consulta.data.tipo === "triples" ? (

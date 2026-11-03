@@ -23,6 +23,9 @@ import { Inspector, type PasoRastro } from "./inspector";
 import { Preguntar } from "./preguntar";
 import { RedDelNodo } from "./red";
 import { ESTADO_LIENZO, SIN_LIENZO } from "@/components/grafo/estado";
+
+/** Las semillas que caben en el enlace del lienzo (`SEMILLAS_EN_ENLACE` de `components/grafo/lienzo.tsx`, que no se importa aquí: arrastraría sigma). */
+const SEMILLAS_LIENZO = 150;
 import { Facetas, Resultados } from "./resultados";
 import { Tablero, useAbiertos } from "./tablero";
 import { ClasesDeObjeto, FiltrosDeObjeto, Objetos } from "./objetos";
@@ -412,7 +415,22 @@ export function Banco({
               onAbrir={abrirDesdeLista}
             />
           ) : enCentro === "sparql" ? (
-            <Sparql nodo={url.nodo} hrefNodo={hrefNodo} onAbrir={abrirDesdeLista} />
+            <Sparql
+              nodo={url.nodo}
+              hrefNodo={hrefNodo}
+              onAbrir={abrirDesdeLista}
+              // El lienzo se dibuja solo desde `lg`; sus semillas viajan en la URL (`ls`), y caben 150 (`SEMILLAS_EN_ENLACE`).
+              topeLienzo={SEMILLAS_LIENZO}
+              onLienzo={
+                ancho
+                  ? (rutas) => {
+                      const semillas = rutas.slice(0, SEMILLAS_LIENZO);
+                      void setLienzo({ ...SIN_LIENZO, ls: semillas, lx: [] });
+                      void setUrl({ nodo: semillas[0], vista: "red" }, { history: "push" });
+                    }
+                  : undefined
+              }
+            />
           ) : enCentro === "ontologia" ? (
             ontologia.data ? (
               <Ontologia ontologia={ontologia.data} clase={url.clase} hrefClase={hrefClase} onObjetos={onTipo} />
