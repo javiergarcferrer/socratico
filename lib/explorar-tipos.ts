@@ -104,6 +104,15 @@ export interface Inspeccion {
   vecinos: number;
   triples: number;
   procedencia: ProcedenciaVista[];
+  /** El nodo contra la forma SHACL de su clase (`formaDe`, `lib/grafo-hechos.ts`); `null` si no tiene una clase de la ontología. */
+  forma: {
+    clase: string;
+    etiqueta: string;
+    iri: string;
+    cumple: boolean;
+    fallos: string[];
+    faltan: { propiedad: string; etiqueta: string }[];
+  } | null;
   /** Cada grafo con nombre que nombra una arista de `grupos`, por su clave. */
   fuentes: Record<string, FuenteVista>;
   /** Lo que se guarda en una investigación (`components/espacios/guardar.tsx`), si el tipo se guarda. */
@@ -196,6 +205,15 @@ export interface ClaseVista {
   enUso: boolean;
   /** Los nodos del grafo compilado de esta clase, si es una clase con nodos propios. */
   nodos: number | null;
+  /**
+   * Su forma SHACL medida sobre el grafo compilado: instancias (con las de
+   * sus casos) y, por propiedad de su forma, cuántas la tienen. `null` si el
+   * grafo no tiene instancias suyas.
+   */
+  completitud: {
+    instancias: number;
+    propiedades: { propiedad: string; con: number; obligatoria: boolean; funcional: boolean }[];
+  } | null;
 }
 
 /** Una propiedad de la ontología: una relación entre clases o un dato de una clase. */
@@ -207,11 +225,22 @@ export interface PropiedadVista {
   dominio: string[];
   rango: string[];
   enUso: boolean;
+  /**
+   * Cuántos triples distintos del grafo compilado la usan y entre qué clases
+   * (dominio → rango observados; un literal, su tipo de dato; un objeto sin
+   * tipo, `skos:Concept` si es de la ontología o «(sin tipo)»). `null` si el
+   * grafo no la usa o el compilado no trae la medida.
+   */
+  uso: { triples: number; pares: { dominio: string; rango: string; triples: number }[] } | null;
 }
 
 /** La ontología entera, compacta, para el recorrido de clases del banco (`lib/ontologia.ts`). */
 export interface OntologiaVista {
   version: string;
+  /** El día en que se compiló el grafo que se midió; `null` si el compilado no trae la medida. */
+  medido: string | null;
+  /** Violaciones de cardinalidad de las formas en el grafo compilado (`sh:minCount`, `sh:maxCount`), sin ejemplos. */
+  violaciones: { clase: string; propiedad: string; restriccion: string; nodos: number }[];
   clases: ClaseVista[];
   propiedades: PropiedadVista[];
 }

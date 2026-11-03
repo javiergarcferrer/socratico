@@ -28,11 +28,20 @@
  * Y ningún IRI del espacio de la versión 1 (`ESPACIO_V1` de `lib/rdf.ts`):
  * el grafo emite solo los de ahora.
  *
+ * El informe (`datos/grafo/informe-shacl.json`, publicado como
+ * `sh:ValidationReport` en `/ontologia.calidad.ttl` y visto en
+ * `/ontologia/calidad`): si es conforme, cuántos nodos validó cada forma y
+ * con cuántas violaciones, cuántos triples y de qué muestra, y la huella
+ * (sha256) de lo validado —las formas, la ontología, el volcado y la muestra,
+ * en orden—. El informe publicado tiene que ser el que sale de esta
+ * validación: si difiere, sale con 1 (`--escribir` lo reescribe).
+ *
  * Uso:
- *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200] [--sentencias 200] [--votaciones 200]
- * Sale con 1 si hay una violación o un término sin declarar.
+ *     node scripts/validar-grafo.mjs --url http://localhost:3000 [--personas 300] [--iniciativas 200] [--documentos 200] [--sentencias 200] [--votaciones 200] [--escribir]
+ * Sale con 1 si hay una violación, un término sin declarar o el informe publicado no es el de esta validación.
  */
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
@@ -59,6 +68,10 @@ const V1 = /ESPACIO_V1 = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rd
 const SOLO_EN_MUESTRA = /\/(funcionarios|normativa|congreso|documentos|constitucional|tse)\//;
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 const CLASE_SH = "http://www.w3.org/ns/shacl#ClassConstraintComponent";
+const SH = "http://www.w3.org/ns/shacl#";
+const SUBCLASE = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+const ESCRIBIR = process.argv.includes("--escribir");
+const INFORME = path.join(RAIZ, "datos", "grafo", "informe-shacl.json");
 
 const pedir = async (ruta, intento = 0) => {
   let r;
@@ -222,9 +235,101 @@ for (const [k, g] of [...grupos].sort((a, b) => b[1].n - a[1].n)) {
   for (const e of g.ejemplos) console.log(`      ${e}`);
 }
 const conforme = grupos.size === 0 && sinDeclarar.size === 0 && deV1.size === 0;
+
+// El informe. Cada forma con los nodos que validó: los de su clase o de una
+// que es un caso de ella (SHACL lee las subclases de la ontología), y sus
+// violaciones (las de sus formas de propiedad). Lo validado, por su huella:
+// los triples de la muestra se ordenan (llegan en el orden en que responde
+// el servidor).
+const madres = new Map();
+for (const q of qOntologia) {
+  if (q.predicate.value !== SUBCLASE || q.object.termType !== "NamedNode") continue;
+  madres.set(q.subject.value, [...(madres.get(q.subject.value) ?? []), q.object.value]);
+}
+const ancestros = (c, vistos = new Set()) => {
+  if (vistos.has(c)) return vistos;
+  vistos.add(c);
+  for (const m of madres.get(c) ?? []) ancestros(m, vistos);
+  return vistos;
+};
+const focos = new Map();
+const tiposDe = new Map();
+for (const q of [...volcado, ...qPersonas]) {
+  if (q.predicate.value !== RDF_TYPE) continue;
+  tiposDe.set(q.subject.value, [...(tiposDe.get(q.subject.value) ?? []), q.object.value]);
+}
+for (const [sujeto, tipos] of tiposDe) {
+  const de = new Set(tipos.flatMap((t) => [...ancestros(t)]));
+  for (const c of de) focos.set(c, (focos.get(c) ?? new Set()).add(sujeto));
+}
+const formaDePropiedad = new Map();
+const objetivo = new Map();
+for (const q of qFormas) {
+  if (q.predicate.value === `${SH}property`) formaDePropiedad.set(q.object.value, q.subject.value);
+  if (q.predicate.value === `${SH}targetClass`) objetivo.set(q.subject.value, q.object.value);
+}
+const violacionesPorForma = new Map();
+for (const r of informe.results) {
+  const componente = r.sourceConstraintComponent?.value ?? "";
+  if (componente === CLASE_SH && r.value && !conTipo.has(r.value.value) && SOLO_EN_MUESTRA.test(r.value.value)) continue;
+  const forma = formaDePropiedad.get(r.sourceShape?.value) ?? r.sourceShape?.value ?? "?";
+  violacionesPorForma.set(forma, (violacionesPorForma.get(forma) ?? 0) + 1);
+}
+const corto = (v) => (v.startsWith(SOC) ? `soc:${v.slice(SOC.length)}` : v.startsWith(DO) ? `do:${v.slice(DO.length)}` : v);
+const termino = (t) => (t.termType === "Literal" ? `"${t.value}"@${t.language}^^${t.datatype?.value ?? ""}` : `<${t.value}>`);
+const lineasMuestra = [...new Set(qPersonas.map((q) => `${termino(q.subject)} ${termino(q.predicate)} ${termino(q.object)}`))].sort();
+const huella = createHash("sha256")
+  .update(formas)
+  .update(ontologia)
+  .update(readFileSync(path.join(RAIZ, "public", "data", "grafo", "grafo.nt.gz")))
+  .update(lineasMuestra.join("\n"))
+  .digest("hex");
+const metaGrafo = JSON.parse(readFileSync(path.join(RAIZ, "datos", "grafo", "meta.json"), "utf8"));
+const metaVolcado = JSON.parse(readFileSync(path.join(RAIZ, "public", "data", "grafo", "meta.json"), "utf8"));
+const version = /owl:versionInfo\s+"([^"]+)"/.exec(ontologia)?.[1] ?? null;
+const calculado = {
+  conforme,
+  ontologia: version,
+  grafo: metaGrafo.generado,
+  volcado: metaVolcado.generado ?? null,
+  huella,
+  triples: volcado.length + qPersonas.length,
+  nodos,
+  muestra: {
+    personas: muestra.length,
+    decretos: Math.min(decretos.size, N_PERSONAS),
+    iniciativas: Math.min(muestraIniciativas.length, N_INICIATIVAS),
+    normas: Math.min(normas.size, N_INICIATIVAS),
+    documentos: muestraDocumentos.length,
+    sentencias: Math.min(muestraSentencias.length, N_SENTENCIAS),
+    votaciones: muestraVotaciones.length,
+  },
+  fueraDeMuestra,
+  formas: [...objetivo]
+    .map(([forma, clase]) => ({ forma: forma.split("#").pop(), clase: corto(clase), focos: focos.get(clase)?.size ?? 0, violaciones: violacionesPorForma.get(forma) ?? 0 }))
+    .sort((a, b) => (a.forma < b.forma ? -1 : 1)),
+  sinDeclarar: [...sinDeclarar.keys()].sort(),
+  resultados: [...grupos].sort((a, b) => b[1].n - a[1].n).map(([k, g]) => ({ donde: k, n: g.n, ejemplos: g.ejemplos })),
+};
+const texto = `${JSON.stringify(calculado, null, 1)}\n`;
+let publicado = null;
+try {
+  publicado = readFileSync(INFORME, "utf8");
+} catch {}
+let mismoInforme = publicado === texto;
+if (ESCRIBIR && !mismoInforme) {
+  writeFileSync(INFORME, texto);
+  console.log(`informe reescrito: datos/grafo/informe-shacl.json (huella ${huella.slice(0, 12)}…)`);
+  mismoInforme = true;
+} else if (!mismoInforme) {
+  console.log(
+    `EL INFORME PUBLICADO NO ES EL DE ESTA VALIDACIÓN: datos/grafo/informe-shacl.json dice huella ${publicado ? (JSON.parse(publicado).huella ?? "?").slice(0, 12) : "(no está)"}…, ` +
+      `esta validación ${huella.slice(0, 12)}… — node scripts/validar-grafo.mjs --url <next start> --escribir`,
+  );
+}
 console.log(
   `${conforme ? "conforme" : "no conforme"}: ` +
     `${[...grupos.values()].reduce((s, g) => s + g.n, 0).toLocaleString("en-US")} violaciones, ${sinDeclarar.size} términos sin declarar, ` +
     `${deV1.size} IRIs de la v1, ${fueraDeMuestra.toLocaleString("en-US")} enlaces a personas, normas, iniciativas, documentos o sentencias fuera de la muestra`,
 );
-process.exit(conforme ? 0 : 1);
+process.exit(conforme && mismoInforme ? 0 : 1);

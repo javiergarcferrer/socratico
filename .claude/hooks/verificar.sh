@@ -144,9 +144,12 @@ fi
 #     (docs/INFRAESTRUCTURA.md §7.4): `describir()` reads datos/grafo/, compiled by build-grafo.mjs, so a
 #     stale one is not an error at runtime — it silently serves the previous
 #     graph. Re-describes every node with the builders and compares it, triple
-#     by triple, with what the server's own reader gets (~2 min): completo only.
+#     by triple, with what the server's own reader gets (~3 min): completo only.
+#     It also re-measures the graph's quality (property use, completeness,
+#     cardinality: lib/grafo-calidad.ts) and fails if meta.json says otherwise.
+#     The union graph's distinct triples peak near 2 GB: give the heap room.
 if [ "$modo" = "--completo" ]; then
-  if grafo="$(node scripts/build-grafo.mjs --comprobar 2>&1)"; then
+  if grafo="$(node --max-old-space-size=4096 scripts/build-grafo.mjs --comprobar 2>&1)"; then
     ok "compiled graph: $(printf '%s\n' "$grafo" | tail -1)"
   else
     mal "compiled graph out of date — node scripts/build-grafo.mjs"; printf '%s\n' "$grafo" | tail -10 | sed 's/^/       /'
@@ -201,14 +204,16 @@ if [ "$construido" = 1 ]; then
   # 6c. The graph conforms to its ontology (docs/INFRAESTRUCTURA.md §7.2): the dump
   #     plus a sample of people and decrees against the SHACL shapes generated
   #     from lib/ontologia.ts, and every soc:/do: term the graph uses declared.
-  #     Same server, ~1 min.
-  if [ "$listo" = 1 ] && shacl="$(timeout 300 node scripts/validar-grafo.mjs --url "http://localhost:$puerto" --personas 300 2>&1)"; then
+  #     The published report (datos/grafo/informe-shacl.json, served as
+  #     /ontologia.calidad.ttl) must be the one this validation produces: same
+  #     hash of what was validated. Same server, ~1 min.
+  if [ "$listo" = 1 ] && shacl="$(timeout 300 node --max-old-space-size=6144 scripts/validar-grafo.mjs --url "http://localhost:$puerto" --personas 300 2>&1)"; then
     ok "graph: $(printf '%s\n' "$shacl" | tail -1)"
   else
     mal "graph: scripts/validar-grafo.mjs (SHACL against lib/ontologia.ts)"
     # A crash (a 500 from the server, a timeout, out of memory) matches none of
     # the report lines: show its last lines instead.
-    { printf '%s\n' "$shacl" | grep -E 'VIOLA|SIN DECLARAR|DE LA V1|conforme|volcado' || printf '%s\n' "$shacl" | tail -3; } | head -12 | sed 's/^/       /'
+    { printf '%s\n' "$shacl" | grep -E 'VIOLA|SIN DECLARAR|DE LA V1|INFORME|conforme|volcado' || printf '%s\n' "$shacl" | tail -3; } | head -12 | sed 's/^/       /'
   fi
   kill "$srv" 2>/dev/null; wait "$srv" 2>/dev/null; trap - EXIT
 fi

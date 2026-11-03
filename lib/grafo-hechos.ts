@@ -1,6 +1,7 @@
 import { AVISO_DECRETO, type AvisoDecreto } from "@/lib/decretos-base";
 import { desdeMayusculas } from "@/lib/congreso";
-import { PROPIEDADES, concepto, curie, esquemas } from "@/lib/ontologia";
+import { CLASES, FORMAS, PROPIEDADES, concepto, curie, esquemas } from "@/lib/ontologia";
+import { esquemaClase, linaje } from "@/lib/ontologia-esquemas";
 import { PREFIJOS, compactar, expandir, type Triple } from "@/lib/rdf";
 
 /**
@@ -89,4 +90,78 @@ export function datosDe(triples: Triple[], sujeto: string): { dato: string; valo
     salida.push({ dato, valor });
   }
   return salida;
+}
+
+/** Lo que dice la forma SHACL de la clase de un nodo sobre él (docs/INFRAESTRUCTURA.md §7.6). */
+export interface FormaDelNodo {
+  /** La clase más precisa del nodo: `soc:Institucion`. */
+  clase: string;
+  /** El nombre de la clase de la forma: «Institución del Estado». */
+  etiqueta: string;
+  /** El IRI de la forma (`…/def/formas#Institucion`). */
+  iri: string;
+  /** Cumple las formas de todas sus clases (tipo, cardinalidad y obligatorias, las mismas de `/ontologia.shacl.ttl`). */
+  cumple: boolean;
+  /** Lo que no cumple, en llano: «Fecha: hace falta». Vacío si cumple. */
+  fallos: string[];
+  /** Las propiedades opcionales de su forma (y de las de sus clases madre) que el nodo no tiene, en el orden de la ontología. */
+  faltan: { propiedad: string; etiqueta: string }[];
+}
+
+const RDF_TYPE = expandir("rdf:type");
+const CLASE_POR_CURIE = new Map(CLASES.map((c) => [curie(c), c]));
+
+/** Un valor de RDF como lo lee el esquema zod de una clase: un número, un sí o un no, o un texto. */
+function valorDeEsquema(o: Triple["o"]): unknown {
+  if (o.tipo !== "literal") return o.valor;
+  const dt = o.datatype ? compactar(o.datatype) : null;
+  if (dt === "xsd:integer" || dt === "xsd:decimal") return Number(o.valor);
+  if (dt === "xsd:boolean") return o.valor === "true";
+  return o.valor;
+}
+
+/**
+ * El nodo contra la forma de su clase: el mismo esquema zod que el
+ * compilador pasa a cada nodo (`esquemaClase`, de la misma definición que el
+ * SHACL), y lo opcional que no dice. `null` si el nodo no tiene una clase de
+ * la ontología.
+ */
+export function formaDe(triples: Triple[], sujeto: string): FormaDelNodo | null {
+  const tipos = new Set<string>();
+  const props: Record<string, unknown[]> = {};
+  for (const x of triples) {
+    if (x.s.tipo !== "iri" || x.s.valor !== sujeto) continue;
+    if (x.p === RDF_TYPE) {
+      const c = x.o.tipo === "iri" ? compactar(x.o.valor) : null;
+      if (c && CLASE_POR_CURIE.has(c)) tipos.add(c);
+      continue;
+    }
+    const c = compactar(x.p);
+    if (!c || !/^(soc|do):/.test(c)) continue;
+    const v = valorDeEsquema(x.o);
+    if (!(props[c] ??= []).includes(v)) props[c].push(v);
+  }
+  const todas = [...tipos];
+  const precisa = todas.filter((c) => !todas.some((u) => u !== c && linaje(u).includes(c))).sort()[0];
+  if (!precisa) return null;
+  const funcional = new Set(PROPIEDADES.filter((p) => p.funcional).map((p) => curie(p)));
+  const obj = Object.fromEntries(Object.entries(props).map(([k, vs]) => [k, funcional.has(k) && vs.length === 1 ? vs[0] : vs]));
+  const fallos: string[] = [];
+  for (const c of todas) {
+    const r = esquemaClase(c).safeParse(obj);
+    if (!r.success) for (const i of r.error.issues) fallos.push(`${ETIQUETA_PROPIEDAD.get(String(i.path[0])) ?? i.path.join(".")}: ${i.message}`);
+  }
+  const linajes = new Set(todas.flatMap((c) => linaje(c)));
+  const faltan = PROPIEDADES.filter(
+    (p) => p.dominio.some((d) => linajes.has(d)) && !p.obligatoriaEn?.some((o) => linajes.has(o)) && !(curie(p) in props),
+  ).map((p) => ({ propiedad: curie(p), etiqueta: ETIQUETA_PROPIEDAD.get(curie(p))! }));
+  const clase = CLASE_POR_CURIE.get(precisa)!;
+  return {
+    clase: precisa,
+    etiqueta: clase.etiqueta,
+    iri: FORMAS + clase.id,
+    cumple: fallos.length === 0,
+    fallos: [...new Set(fallos)],
+    faltan,
+  };
 }

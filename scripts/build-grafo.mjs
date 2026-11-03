@@ -38,6 +38,12 @@
  * Uso:
  *     node scripts/build-grafo.mjs              # compila y comprueba (tras las demás instantáneas)
  *     node scripts/build-grafo.mjs --comprobar  # solo comprueba lo escrito (el gate)
+ *     node scripts/build-grafo.mjs --medir      # comprueba y reescribe solo `calidad` de meta.json
+ *
+ * La calidad (`lib/grafo-calidad.ts`): el uso de cada propiedad `soc:`/`do:`
+ * entre clases, la completitud de cada clase y las violaciones de
+ * cardinalidad de sus formas SHACL, medidas sobre el grafo unido. Se miden al
+ * compilar y otra vez al comprobar; si difieren, no es conforme.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
@@ -56,7 +62,8 @@ const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 process.chdir(RAIZ);
 const SALIDA = path.join(RAIZ, "datos", "grafo");
 const DATOS = path.join(RAIZ, "public", "data");
-const COMPROBAR = process.argv.includes("--comprobar");
+const MEDIR = process.argv.includes("--medir");
+const COMPROBAR = process.argv.includes("--comprobar") || MEDIR;
 const W3ID = /W3ID = "([^"]+)"/.exec(readFileSync(path.join(RAIZ, "lib", "rdf.ts"), "utf8"))[1];
 const lib = (m) => import(pathToFileURL(path.join(RAIZ, "lib", `${m}.ts`)).href);
 
@@ -80,6 +87,12 @@ const T = await lib("tablas-compras");
 const ESQ = await lib("ontologia-esquemas");
 const O = await lib("ontologia");
 const RZ = await lib("raiz");
+const CAL = await lib("grafo-calidad");
+
+/** Lo que dice la calidad medida, en una línea. */
+const resumirCalidad = (c) =>
+  `calidad: ${c.triples.toLocaleString("en-US")} triples soc:/do: distintos de ${c.instancias.toLocaleString("en-US")} instancias, ` +
+  `${c.uso.length} propiedades en uso, ${c.violaciones.reduce((s, v) => s + v.nodos, 0).toLocaleString("en-US")} violaciones de cardinalidad en ${c.violaciones.length} pares clase-propiedad`;
 
 const t0 = performance.now();
 const segundos = () => `${Math.round((performance.now() - t0) / 1000)} s`;
@@ -351,6 +364,7 @@ async function compilar(todas) {
   const escritos = [];
   let empresasSolas = 0;
   let triplesTotal = 0;
+  const medidor = new CAL.Medidor();
   for (const tipo of N.TIPOS_COMPILADOS) {
     const nodos = [];
     const lds = [];
@@ -360,6 +374,7 @@ async function compilar(todas) {
       const n = { tipo, id: clave };
       const d = await C.describirEnVivo(n);
       if (!d) continue;
+      medidor.sumar(d);
       for (const f of contraLaOntologia(d)) fuera.push(f);
       const ld = LD.aSchemaOrg((await C.describirEnVivo(n, true)).triples, N.iriDe(n));
       let conRegistro = true;
@@ -420,7 +435,9 @@ async function compilar(todas) {
     huella: huella.digest("hex"),
     inventario: await C.inventarioEnVivo(),
     wikidata: await C.enlacesWikidataEnVivo(),
+    calidad: medidor.resultado(),
   };
+  console.log(resumirCalidad(meta.calidad));
   writeFileSync(path.join(SALIDA, "ld", "meta.json"), `${JSON.stringify({ formato: N.FORMATO_GRAFO, limites: limitesLd })}\n`);
   // El índice de nombres y los decretos de cada firma: lo que buscan `buscarNodos` y `signed_decrees` sin abrir las instantáneas.
   writeFileSync(path.join(SALIDA, "nombres.json.br"), await brotli(JSON.stringify(await indiceDeNombres())));
@@ -451,6 +468,7 @@ async function comprobar(todas) {
   if (meta.formato !== N.FORMATO_GRAFO || metaLd.formato !== N.FORMATO_GRAFO) anotar("meta", `formato ${meta.formato}, se esperaba ${N.FORMATO_GRAFO}`);
   let nodos = 0;
   let fichas = 0;
+  const medidor = new CAL.Medidor();
   for (const tipo of N.TIPOS_COMPILADOS) {
     // La descripción entera, por el mismo `describir()` que llama el servidor.
     let conRegistro = 0;
@@ -460,6 +478,7 @@ async function comprobar(todas) {
       const vivo = await C.describirEnVivo(n);
       if (!vivo) continue;
       nodos++;
+      medidor.sumar(vivo);
       const por = diferencia(await R.describir(n), vivo);
       if (por) anotar(`${tipo}:${clave}`, por);
       for (const f of contraLaOntologia(vivo)) anotar(`${tipo}:${clave} (ontología)`, f);
@@ -492,6 +511,15 @@ async function comprobar(todas) {
   if (JSON.stringify(compras) !== JSON.stringify(await T.publicadoPorInstitucion(I.INSTITUCIONES))) anotar("compras", "lo publicado por institución cambió");
   await comprobarNombresYFirmas(meta, anotar);
   if (JSON.stringify(wikidata) !== JSON.stringify(meta.wikidata)) anotar("wikidata", "los enlaces a Wikidata cambiaron");
+  // La calidad, medida otra vez sobre lo que leen los módulos del servidor (son los mismos nodos: `diferencia` ya lo dijo).
+  const calidad = medidor.resultado();
+  console.log(resumirCalidad(calidad));
+  if (MEDIR) {
+    if (!malos.length) {
+      writeFileSync(path.join(SALIDA, "meta.json"), `${JSON.stringify({ ...meta, calidad })}\n`);
+      console.log("meta.json: calidad reescrita");
+    }
+  } else if (JSON.stringify(calidad) !== JSON.stringify(meta.calidad)) anotar("calidad", "el uso de propiedades, la completitud o las violaciones cambiaron — node scripts/build-grafo.mjs --medir");
   return { malos: malos.length, nodos, fichas, triples: meta.triples };
 }
 

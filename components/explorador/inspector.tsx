@@ -287,6 +287,7 @@ function Cuerpo({
                   </li>
                 ))}
               </ul>
+              {n.forma && <Forma f={n.forma} />}
               <p className="mt-3 text-xs text-ink-soft">
                 En RDF:{" "}
                 <a href={enlace.rdf(n.ruta, "ttl")} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-0">
@@ -408,6 +409,38 @@ function FilaArista({ a, fuente, onAbrir }: { a: AristaVista; fuente: FuenteVist
       )}
       {fuente && <FuenteDeArista f={fuente} enFila />}
     </li>
+  );
+}
+
+/**
+ * El nodo contra la forma SHACL de su clase (`/ontologia.shacl.ttl`): si la
+ * cumple y, si no, qué falla; y lo que su forma admite y el grafo no le
+ * registra, que no es una falta del nodo sino de lo que las fuentes dicen.
+ */
+function Forma({ f }: { f: NonNullable<Inspeccion["forma"]> }) {
+  return (
+    <div className="mt-3 border-t border-hairline pt-3 text-xs leading-relaxed text-ink-soft">
+      <h4 className="text-sm font-bold text-ink">Su forma</h4>
+      <p className="mt-0.5">
+        {f.cumple ? "Cumple" : "No cumple"} la forma SHACL de{" "}
+        <a href={`/ontologia#${f.clase.split(":")[1]}`} className="inline-flex min-h-11 items-center text-brand-700 underline sm:min-h-10">
+          {f.etiqueta}
+        </a>{" "}
+        (<code className="font-mono">{f.clase}</code>).
+      </p>
+      {f.fallos.length > 0 && (
+        <ul className="mt-1 list-disc pl-4 text-ink">
+          {f.fallos.map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ul>
+      )}
+      {f.faltan.length > 0 && (
+        <p className="mt-1">
+          Lo que su forma admite y el grafo no le registra: {f.faltan.map((x) => x.etiqueta.toLocaleLowerCase("es")).join(", ")}.
+        </p>
+      )}
+    </div>
   );
 }
 

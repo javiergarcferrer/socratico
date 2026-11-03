@@ -1,7 +1,8 @@
 import { nodoDeRuta, rutaDeNodo, type TipoNodoRdf } from "@/lib/grafo";
 import { CLASE_DE_TIPO, GRUPOS, claveNodo, describir, iriDe, relacionesDesdeTriples } from "@/lib/grafo-rdf";
 import { metaGrafo, type GrafoConNombre } from "@/lib/grafo-compilado";
-import { datosDe } from "@/lib/grafo-hechos";
+import type { CalidadGrafo } from "@/lib/grafo-calidad";
+import { datosDe, formaDe } from "@/lib/grafo-hechos";
 import type { TipoEntrada } from "@/lib/espacios";
 import { CLASES, PROPIEDADES, VERSION, curie } from "@/lib/ontologia";
 import { ARISTAS_POR_GRUPO, type FuenteVista, type Inspeccion, type OntologiaVista, type ProcedenciaVista, type Pulso } from "@/lib/explorar-tipos";
@@ -103,6 +104,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
     vecinos: otros.size,
     triples: d.triples.length,
     procedencia,
+    forma: formaDe(d.triples, sujeto),
     fuentes,
     guardable: GUARDABLE[nodo.tipo],
   };
@@ -160,11 +162,16 @@ const CURIE_DE_TIPO: Record<TipoNodoRdf, string> = {
  * propiedad con su dominio y su rango. Las clases de fuera (`org:`, `prov:`)
  * no se recorren: solo las de `soc:` y `do:`.
  */
-export function ontologiaDelGrafo(pulso: Pulso | null): OntologiaVista {
+export function ontologiaDelGrafo(pulso: Pulso | null, medida: { generado: string; calidad?: CalidadGrafo } | null = null): OntologiaVista {
   const nodos = new Map<string, number>();
   for (const c of pulso?.porClase ?? []) nodos.set(c.curie, c.nodos);
+  const calidad = medida?.calidad ?? null;
+  const uso = new Map(calidad?.uso.map((u) => [u.propiedad, u]) ?? []);
+  const completitud = new Map(calidad?.completitud.map((c) => [c.clase, c]) ?? []);
   return {
     version: VERSION,
+    medido: calidad ? medida!.generado : null,
+    violaciones: calidad?.violaciones.map(({ clase, propiedad, restriccion, nodos }) => ({ clase, propiedad, restriccion, nodos })) ?? [],
     clases: CLASES.map((c) => ({
       curie: curie(c),
       etiqueta: c.etiqueta,
@@ -172,6 +179,7 @@ export function ontologiaDelGrafo(pulso: Pulso | null): OntologiaVista {
       padre: c.padre ? (c.padre.includes(":") ? c.padre : `soc:${c.padre}`) : null,
       enUso: c.estado === "en-uso",
       nodos: nodos.get(curie(c)) ?? null,
+      completitud: completitud.has(curie(c)) ? { instancias: completitud.get(curie(c))!.instancias, propiedades: completitud.get(curie(c))!.propiedades } : null,
     })),
     propiedades: PROPIEDADES.map((p) => ({
       curie: curie(p),
@@ -181,6 +189,7 @@ export function ontologiaDelGrafo(pulso: Pulso | null): OntologiaVista {
       dominio: p.dominio,
       rango: p.rango,
       enUso: p.estado === "en-uso",
+      uso: uso.has(curie(p)) ? { triples: uso.get(curie(p))!.triples, pares: uso.get(curie(p))!.pares } : null,
     })),
   };
 }

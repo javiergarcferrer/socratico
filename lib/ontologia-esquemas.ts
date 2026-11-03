@@ -391,7 +391,7 @@ const POR_CURIE_P = new Map(PROPIEDADES.map((p) => [curie(p), p]));
 const POR_CURIE_C = new Map(CLASES.map((c) => [curie(c), c]));
 
 /** La clase y las de las que es un caso, de abajo arriba (por `padre`). */
-function linaje(clase: string): string[] {
+export function linaje(clase: string): string[] {
   const salida: string[] = [];
   for (let c: Clase | undefined = POR_CURIE_C.get(clase); c; c = c.padre ? POR_CURIE_C.get(c.padre) : undefined) salida.push(curie(c));
   return salida;

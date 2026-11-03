@@ -1,0 +1,245 @@
+{
+ "conforme": true,
+ "ontologia": "2.5.0",
+ "grafo": "2026-10-20",
+ "volcado": "2026-10-20",
+ "huella": "abdcacc4df1eafdedd55b3617262ab156a122c5128cc5ddbdd0572fd75321660",
+ "triples": 1910822,
+ "nodos": 212239,
+ "muestra": {
+  "personas": 300,
+  "decretos": 106,
+  "iniciativas": 200,
+  "normas": 87,
+  "documentos": 200,
+  "sentencias": 200,
+  "votaciones": 200
+ },
+ "fueraDeMuestra": 0,
+ "formas": [
+  {
+   "forma": "Adjudicacion",
+   "clase": "soc:Adjudicacion",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Cargo",
+   "clase": "soc:Cargo",
+   "focos": 735,
+   "violaciones": 0
+  },
+  {
+   "forma": "ConjuntoDeDatos",
+   "clase": "soc:ConjuntoDeDatos",
+   "focos": 1065,
+   "violaciones": 0
+  },
+  {
+   "forma": "Contratacion",
+   "clase": "soc:Contratacion",
+   "focos": 71466,
+   "violaciones": 0
+  },
+  {
+   "forma": "Contrato",
+   "clase": "soc:Contrato",
+   "focos": 925,
+   "violaciones": 0
+  },
+  {
+   "forma": "DeclaracionJurada",
+   "clase": "soc:DeclaracionJurada",
+   "focos": 6,
+   "violaciones": 0
+  },
+  {
+   "forma": "Decreto",
+   "clase": "soc:Decreto",
+   "focos": 192,
+   "violaciones": 0
+  },
+  {
+   "forma": "Documento",
+   "clase": "soc:Documento",
+   "focos": 463,
+   "violaciones": 0
+  },
+  {
+   "forma": "Empresa",
+   "clase": "soc:Empresa",
+   "focos": 23673,
+   "violaciones": 0
+  },
+  {
+   "forma": "EntidadFinanciera",
+   "clase": "soc:EntidadFinanciera",
+   "focos": 1300,
+   "violaciones": 0
+  },
+  {
+   "forma": "Evento",
+   "clase": "soc:Evento",
+   "focos": 789,
+   "violaciones": 0
+  },
+  {
+   "forma": "Identificador",
+   "clase": "soc:Identificador",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Iniciativa",
+   "clase": "soc:Iniciativa",
+   "focos": 462,
+   "violaciones": 0
+  },
+  {
+   "forma": "Instantanea",
+   "clase": "soc:Instantanea",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Institucion",
+   "clase": "soc:Institucion",
+   "focos": 894,
+   "violaciones": 0
+  },
+  {
+   "forma": "Ley",
+   "clase": "soc:Ley",
+   "focos": 110,
+   "violaciones": 0
+  },
+  {
+   "forma": "Lugar",
+   "clase": "soc:Lugar",
+   "focos": 32,
+   "violaciones": 0
+  },
+  {
+   "forma": "MedidaDGCP",
+   "clase": "do:MedidaDGCP",
+   "focos": 1732,
+   "violaciones": 0
+  },
+  {
+   "forma": "Membresia",
+   "clase": "soc:Membresia",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Mencion",
+   "clase": "soc:Mencion",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Municipio",
+   "clase": "soc:Municipio",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Norma",
+   "clase": "soc:Norma",
+   "focos": 332,
+   "violaciones": 0
+  },
+  {
+   "forma": "Ocupacion",
+   "clase": "soc:Ocupacion",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Organizacion",
+   "clase": "soc:Organizacion",
+   "focos": 25867,
+   "violaciones": 0
+  },
+  {
+   "forma": "PartidaPresupuestaria",
+   "clase": "soc:PartidaPresupuestaria",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Partido",
+   "clase": "soc:Partido",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Persona",
+   "clase": "soc:Persona",
+   "focos": 622,
+   "violaciones": 0
+  },
+  {
+   "forma": "PersonaExpuestaPoliticamente",
+   "clase": "soc:PersonaExpuestaPoliticamente",
+   "focos": 54,
+   "violaciones": 0
+  },
+  {
+   "forma": "ProcesoDeContratacion",
+   "clase": "soc:ProcesoDeContratacion",
+   "focos": 79674,
+   "violaciones": 0
+  },
+  {
+   "forma": "Proveedor",
+   "clase": "soc:Proveedor",
+   "focos": 24465,
+   "violaciones": 0
+  },
+  {
+   "forma": "Provincia",
+   "clase": "soc:Provincia",
+   "focos": 32,
+   "violaciones": 0
+  },
+  {
+   "forma": "ProyectoDeInversion",
+   "clase": "soc:ProyectoDeInversion",
+   "focos": 3609,
+   "violaciones": 0
+  },
+  {
+   "forma": "Puesto",
+   "clase": "soc:Puesto",
+   "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "Resolucion",
+   "clase": "soc:Resolucion",
+   "focos": 30,
+   "violaciones": 0
+  },
+  {
+   "forma": "Sancion",
+   "clase": "soc:Sancion",
+   "focos": 1732,
+   "violaciones": 0
+  },
+  {
+   "forma": "Sentencia",
+   "clase": "soc:Sentencia",
+   "focos": 238,
+   "violaciones": 0
+  },
+  {
+   "forma": "Votacion",
+   "clase": "soc:Votacion",
+   "focos": 789,
+   "violaciones": 0
+  }
+ ],
+ "sinDeclarar": [],
+ "resultados": []
+}

@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { brotliDecompressSync } from "node:zlib";
 import type { NodoRdf, TipoNodoRdf } from "@/lib/grafo";
+import type { CalidadGrafo } from "@/lib/grafo-calidad";
 import { SITIO } from "@/lib/sitio";
 import type { ComprasPublicadas } from "@/lib/tablas-compras";
 import { PREFIJOS, fecha, iri, lit, t, type Termino, type Triple } from "@/lib/rdf";
@@ -82,6 +83,8 @@ export interface MetaGrafo {
   huella: string;
   inventario: ClaseContada[];
   wikidata: { total: number; generado: string | null; porTipo: Record<string, number> };
+  /** El uso de cada propiedad, la completitud de cada clase y las violaciones de cardinalidad (`lib/grafo-calidad.ts`). */
+  calidad?: CalidadGrafo;
 }
 
 let metaMemo: Promise<MetaGrafo | null> | null = null;
