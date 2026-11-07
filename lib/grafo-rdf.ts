@@ -408,13 +408,24 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
   };
 
   const salida: Relacion[] = [];
-  const vistas = new Set<string>();
-  /** `por`: el triple que nombra el otro extremo; de él sale el grafo de la arista. */
+  const vistas = new Map<string, Relacion>();
+  /**
+   * `por`: el triple que nombra el otro extremo; de él sale el grafo de la
+   * arista. Si el título y el texto íntegro dicen la misma arista, queda una,
+   * con el grafo del texto: es la que muestran los bloques del texto íntegro.
+   */
   const agregar = (r: Omit<Relacion, "detalle" | "movimiento" | "fecha" | "monto" | "grafo"> & Partial<Relacion>, por: Triple | null) => {
     const completa: Relacion = { detalle: null, movimiento: null, fecha: null, monto: null, ...r, grafo: (por && grafoDe.get(por)) ?? null };
     const k = [completa.grupo, completa.verbo, completa.href, completa.nombre, completa.detalle, completa.fecha].join("|");
-    if (vistas.has(k)) return;
-    vistas.add(k);
+    const antes = vistas.get(k);
+    if (antes) {
+      if (completa.grafo === "texto" && antes.grafo !== "texto") {
+        antes.grafo = "texto";
+        if (antes.neutro.endsWith(", según el título")) antes.neutro = antes.neutro.replace(/, según el título$/, ", según el título y su texto");
+      }
+      return;
+    }
+    vistas.set(k, completa);
     salida.push(completa);
   };
 

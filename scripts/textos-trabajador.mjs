@@ -7,7 +7,8 @@
  * pasar su plazo y levanta otro.
  *
  * Mensaje: `{ id, tipo: "pdf" | "docx" | "xlsx", datos: ArrayBuffer }`.
- * Respuesta: `{ id, paginas: string[], recortado: boolean }` o `{ id, error }`.
+ * Respuesta: `{ id, paginas: string[], total: number, recortado: boolean }`
+ * (`total`: las páginas del archivo, aunque se lean menos) o `{ id, error }`.
  */
 import { parentPort } from "node:worker_threads";
 import { decodeXML } from "entities";
@@ -43,7 +44,7 @@ async function pdf(datos) {
   } finally {
     await tarea.destroy();
   }
-  return { paginas, recortado: doc.numPages > paginas.length };
+  return { paginas, total: doc.numPages, recortado: doc.numPages > paginas.length };
 }
 
 const textoXml = (xml) =>
@@ -58,14 +59,17 @@ function docx(datos) {
   const z = unzipSync(new Uint8Array(datos), { filter: (f) => f.name === "word/document.xml" });
   const xml = z["word/document.xml"];
   if (!xml) throw new Error("docx sin word/document.xml");
-  return { paginas: [textoXml(strFromU8(xml)).slice(0, TOPE_CARACTERES)], recortado: false };
+  return { paginas: [textoXml(strFromU8(xml)).slice(0, TOPE_CARACTERES)], total: 1, recortado: false };
 }
 
 /**
  * Cada hoja, un renglón por fila con sus celdas separadas por « | ». Una
- * columna cuya cabecera es «RNC» repite su valor como «RNC: …» al final de la
- * fila: es la forma que `mencionesDe` (`lib/texto-extraccion.ts`) reconoce,
- * que nunca toma un número de nueve cifras suelto.
+ * columna cuya cabecera es «RNC» (y no nombra la cédula: «RNC/Cédula» mezcla
+ * personas) repite su valor como «RNC: …» al final de la fila: es la forma que
+ * `mencionesDe` (`lib/texto-extraccion.ts`) reconoce, que nunca toma un número
+ * de nueve cifras suelto. Solo una celda de **texto** o un valor con guiones:
+ * Excel guarda como número una cédula tecleada sin sus ceros a la izquierda
+ * (la 001-1234567-8 queda en 112345678, nueve cifras).
  */
 function xlsx(datos) {
   const z = unzipSync(new Uint8Array(datos), {
@@ -97,12 +101,15 @@ function xlsx(datos) {
         if (tipo === "s") valor = compartidas[Number(/<v>([\s\S]*?)<\/v>/.exec(dentro)?.[1])] ?? "";
         else if (tipo === "inlineStr") valor = decodeXML([...dentro.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((m) => m[1]).join(""));
         else valor = decodeXML(/<v>([\s\S]*?)<\/v>/.exec(dentro)?.[1] ?? "");
-        celdas.push([columna, valor.trim()]);
+        celdas.push([columna, valor.trim(), tipo === "s" || tipo === "inlineStr" || tipo === "str"]);
       }
       const cabecera = celdas.find(([, v]) => /^R\.?\s?N\.?\s?C\.?(?:\s|$|\/)/i.test(v) && v.length < 40);
-      if (cabecera) columnaRnc = cabecera[0];
+      if (cabecera) columnaRnc = /c[ée]d/i.test(cabecera[1]) ? null : cabecera[0];
       const extra = columnaRnc
-        ? celdas.filter(([col, v]) => col === columnaRnc && /^\d[\d-]{7,12}\d$/.test(v)).map(([, v]) => ` RNC: ${v}`).join("")
+        ? celdas
+            .filter(([col, v, texto]) => col === columnaRnc && (texto ? /^\d[\d-]{7,12}\d$/.test(v) : /^\d{1,3}-\d{2,5}-\d{1,5}-?\d?$/.test(v)))
+            .map(([, v]) => ` RNC: ${v}`)
+            .join("")
         : "";
       filas.push(celdas.map(([, v]) => v).filter(Boolean).join(" | ") + extra);
     }
@@ -110,7 +117,7 @@ function xlsx(datos) {
     paginas.push(texto);
     largo += texto.length;
   }
-  return { paginas, recortado: paginas.length < hojas.length };
+  return { paginas, total: hojas.length, recortado: paginas.length < hojas.length };
 }
 
 parentPort.on("message", async ({ id, tipo, datos }) => {

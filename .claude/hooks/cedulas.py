@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Nunca la cédula.
 
-Ninguna instantánea de `public/data` —que se sirve tal cual— ni el volcado de
-`datos/sparql/` —que se consulta por `/sparql`— puede guardar la cédula de una
+Ninguna instantánea de `public/data` —que se sirve tal cual—, ni el volcado de
+`datos/sparql/` —que se consulta por `/sparql`—, ni lo leído en el texto íntegro
+(`datos/textos/`, en el repositorio público) puede guardar la cédula de una
 persona, ni siquiera la que traiga un título oficial. Recorre
 los JSON, los TSV y los `.gz` con las mismas formas que quita
 `scripts/privacidad.py` al construir. Imprime un hallazgo por archivo; nada
@@ -19,7 +20,12 @@ from privacidad import cedulas_en  # noqa: E402
 
 TROZO = 8 * 1024 * 1024
 
-archivos = sorted((raiz / "public" / "data").rglob("*")) + sorted((raiz / "datos" / "sparql").glob("*.gz"))
+archivos = (
+    sorted((raiz / "public" / "data").rglob("*"))
+    + sorted((raiz / "datos" / "sparql").glob("*.gz"))
+    # Lo leído en el texto íntegro (§5.12): fuera de public/, pero viaja en el repositorio público.
+    + sorted((raiz / "datos" / "textos").glob("*.json"))
+)
 for archivo in archivos:
     if not archivo.is_file() or archivo.suffix not in (".json", ".tsv", ".gz"):
         continue

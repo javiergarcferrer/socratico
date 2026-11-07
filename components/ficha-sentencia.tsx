@@ -211,13 +211,13 @@ export function FichaSentencia({ x }: { x: Leida }) {
           {nombra.length > 0 && (
             <div className="mt-4">
               <p className="text-sm font-bold text-ink">Las que nombra</p>
-              <Aristas lista={nombra} visibles={6} cuantas="sentencias" />
+              <Aristas lista={nombra} visibles={6} />
             </div>
           )}
           {laNombran.length > 0 && (
             <div className="mt-4">
               <p className="text-sm font-bold text-ink">Las que la nombran</p>
-              <Aristas lista={laNombran} visibles={6} cuantas="sentencias" />
+              <Aristas lista={laNombran} visibles={6} />
             </div>
           )}
         </Card>

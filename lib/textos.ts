@@ -1,25 +1,26 @@
-import { open, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { CambioDeLey, NormaDelDispositivo } from "@/lib/texto-extraccion";
 import type { Sentido } from "@/lib/vocabulario-textos";
 
 /**
  * Lo que `scripts/build-textos.mjs` leyó en el texto íntegro de las
- * sentencias, las leyes y los documentos (`public/data/textos/`,
- * docs/INFRAESTRUCTURA.md §5.12). La leen el compilador del grafo
- * (`lib/grafo-constructores.ts`) y nada más: las fichas y el servidor MCP
- * leen el grafo compilado. Si una instantánea falta, el grafo se compila sin
- * ella, como antes de que existiera.
+ * sentencias, las leyes y los documentos (`datos/textos/`, fuera de
+ * `public/`: ninguna página la sirve; docs/INFRAESTRUCTURA.md §5.12). Las
+ * filas las lee el compilador del grafo (`lib/grafo-constructores.ts`) y
+ * nada más: las fichas y el servidor MCP leen el grafo compilado. `/fuentes`
+ * lee solo el resumen (`resumen.json`). Si una instantánea falta, el grafo se
+ * compila sin ella, como antes de que existiera.
  *
  * Módulo de servidor (`node:fs`), memoizado por instancia.
  */
 
 /** El estado de una fila: `ok` es un texto leído; los demás dicen por qué no. */
-export type EstadoTexto = "ok" | "sin-texto" | "sin-archivo" | "no-existe" | "grande" | "formato" | "robots" | "bloqueado" | "error";
+export type EstadoTexto = "ok" | "sin-texto" | "sin-archivo" | "no-existe" | "grande" | "formato" | "ajeno" | "robots" | "bloqueado" | "error";
 
 export interface FilaTexto {
   e: EstadoTexto;
-  /** Páginas (en una hoja de cálculo, hojas). */
+  /** Páginas del archivo (en una hoja de cálculo, hojas), aunque se lean menos. */
   p?: number;
   /** Caracteres del texto leído. */
   c?: number;
@@ -71,7 +72,7 @@ export interface Textos<F extends FilaTexto> {
   filas: Record<string, F>;
 }
 
-const DIR = join(process.cwd(), "public", "data", "textos");
+const DIR = join(process.cwd(), "datos", "textos");
 const memo = new Map<string, Promise<Textos<FilaTexto> | null>>();
 
 function leer<F extends FilaTexto>(archivo: string): Promise<Textos<F> | null> {
@@ -98,25 +99,18 @@ export const textosDeDocumentos = () => leer<FilaDocumento>("documentos.json");
 export type ResumenTextos = Pick<Textos<FilaTexto>, "generado" | "hosts" | "cuenta" | "total" | "totales">;
 
 /**
- * La cabecera de las tres instantáneas, sin leer sus filas: `build-textos.mjs`
- * la escribe sola en el primer renglón. La lee `/fuentes`, que declara la
- * cobertura de cada corpus y los hosts que no respondieron.
+ * Las cabeceras de las tres instantáneas, de `resumen.json` (lo escribe
+ * `build-textos.mjs` junto a ellas): la lectura, cuántas hay en cada estado,
+ * el total de cada corpus y qué respondió cada host. La lee `/fuentes`, que
+ * declara la cobertura y los hosts que no respondieron; el archivo viaja en su
+ * función (`outputFileTracingIncludes`), las filas no.
  */
 export async function resumenesDeTextos(): Promise<Record<"sentencias" | "leyes" | "documentos", ResumenTextos | null>> {
-  const uno = async (archivo: string): Promise<ResumenTextos | null> => {
-    let f: Awaited<ReturnType<typeof open>> | null = null;
-    try {
-      f = await open(join(DIR, archivo), "r");
-      const { buffer, bytesRead } = await f.read(Buffer.alloc(256 * 1024), 0, 256 * 1024, 0);
-      const linea = buffer.subarray(0, bytesRead).toString("utf8").split("\n")[0];
-      return JSON.parse(`${linea}}}`) as ResumenTextos;
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw e;
-    } finally {
-      await f?.close();
-    }
-  };
-  const [sentencias, leyes, documentos] = await Promise.all([uno("sentencias.json"), uno("leyes.json"), uno("documentos.json")]);
-  return { sentencias, leyes, documentos };
+  try {
+    const r = JSON.parse(await readFile(join(DIR, "resumen.json"), "utf8")) as Partial<Record<"sentencias" | "leyes" | "documentos", ResumenTextos>>;
+    return { sentencias: r.sentencias ?? null, leyes: r.leyes ?? null, documentos: r.documentos ?? null };
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return { sentencias: null, leyes: null, documentos: null };
+    throw e;
+  }
 }

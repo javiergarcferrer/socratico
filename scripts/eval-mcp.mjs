@@ -274,10 +274,11 @@ const sentenciaConLey = sentencias.tc
 // «TC/0273/24»: su ficha aquí y la del Tribunal.
 const fichaTc = (n) => `/constitucional/TC-${n.slice(3, 7)}-${n.slice(8, 10)}`;
 const fichaEnTc = (n) => sentencias.ficha_tc.replace("{}", `${n.slice(3, 7)}${n.slice(8, 10)}`);
-// El texto íntegro (§5.12), de las instantáneas de public/data/textos si las hay: la sentencia del TC más
+// El texto íntegro (§5.12), de las instantáneas de datos/textos si las hay: la sentencia del TC más
 // reciente con dispositivo y sentido (y una que declara no conforme una ley con ficha), el precedente que
 // más sentencias nombran en su texto, y un documento cuyo texto nombra un proceso de la tabla.
-const deTextos = (r) => (existsSync(path.join(DATOS, "textos", r)) ? leer(`textos/${r}`) : null);
+const DIR_TEXTOS = path.join(RAIZ, "datos", "textos");
+const deTextos = (r) => (existsSync(path.join(DIR_TEXTOS, r)) ? JSON.parse(readFileSync(path.join(DIR_TEXTOS, r), "utf8")) : null);
 const textosSentencias = deTextos("sentencias.json");
 const textosDocumentos = deTextos("documentos.json");
 const claveTc = (n) => `TC-${n.slice(3, 7)}-${n.slice(8, 10)}`;
@@ -794,7 +795,7 @@ const CASOS = [
   {
     pregunta: "El texto íntegro de una sentencia del TC: fetch trae su sentido y su dispositivo y, si declara no conforme una ley, la ley lo dice",
     async correr() {
-      if (!textosSentencias) return "sin public/data/textos/sentencias.json: no aplica (§5.12)";
+      if (!textosSentencias) return "sin datos/textos/sentencias.json: no aplica (§5.12)";
       exigir(conDispositivo.length, "no hay oráculo: ninguna sentencia del TC con dispositivo y sentido en la instantánea de textos");
       const [k, f] = conDispositivo[0];
       const { datos, error } = await llamar("fetch", { id: `/constitucional/${k}` });
@@ -815,7 +816,7 @@ const CASOS = [
   {
     pregunta: "El precedente del TC que más sentencias nombran en su texto: fetch dice cuántos textos la citan",
     async correr() {
-      if (!textosSentencias) return "sin public/data/textos/sentencias.json: no aplica (§5.12)";
+      if (!textosSentencias) return "sin datos/textos/sentencias.json: no aplica (§5.12)";
       exigir(masCitada, "no hay oráculo: ningún texto de sentencia nombra otra sentencia del TC");
       const [k, quienes] = masCitada;
       const { datos, error } = await llamar("fetch", { id: `/constitucional/${k}` });
@@ -827,7 +828,7 @@ const CASOS = [
   {
     pregunta: "Un documento cuyo texto nombra un proceso de compra: fetch del documento lo nombra, y el proceso trae el documento",
     async correr() {
-      if (!textosDocumentos) return "sin public/data/textos/documentos.json: no aplica (§5.12)";
+      if (!textosDocumentos) return "sin datos/textos/documentos.json: no aplica (§5.12)";
       if (!documentoConProceso) return "ningún documento leído nombra un proceso de la tabla de doce meses";
       const [codigo, [clave]] = documentoConProceso;
       const ficha = fichaDocumento(clave);

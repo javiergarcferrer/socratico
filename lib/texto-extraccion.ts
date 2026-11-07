@@ -27,7 +27,7 @@ import type { Sentido } from "@/lib/vocabulario-textos";
 export type { Sentido };
 
 /** Sube cuando cambia una regla de este módulo: las filas de otra versión se vuelven a leer. */
-export const VERSION_TEXTOS = 2;
+export const VERSION_TEXTOS = 3;
 
 /* ------------------------------------------------------------- limpieza */
 
@@ -106,19 +106,21 @@ export interface Dispositivo {
 export const TOPE_DISPOSITIVO = 3000;
 
 /*
-  «DECIDE:» en mayúsculas, a veces con las letras espaciadas por el PDF
-  («D E C I D E :»). En el cuerpo, «decide» va en minúsculas: la mayúscula
-  marca el dispositivo. «FALLA:» y «RESUELVE:» solo si no hay ningún
-  «DECIDE:» y el tribunal se nombra justo antes («…este Tribunal, FALLA:»):
-  la sentencia cita fallos de otros tribunales y resoluciones de la JCE con
-  la misma forma.
+  La marca del fallo: «DECIDE», «FALLA» o «RESUELVE», en cualquier caja, a
+  veces con las letras espaciadas por el PDF («D E C I D E :»), seguida de su
+  primer ordinal a pocos caracteres («DECIDE: PRIMERO:»). Se toma la
+  **última**: una sentencia cita fallos de otros tribunales y resoluciones de
+  la JCE con la misma forma, y las conclusiones de las partes con los mismos
+  ordinales («PRIMERO: ACOGER…») van antes del fallo. Sin ninguna marca, el
+  último «PRIMERO» al que sigue la firma.
 */
-const MARCA_DISPOSITIVO = /\bD\s?E\s?C\s?I\s?D\s?E\s*:/g;
-const MARCA_SUPLETORIA = /\b(?:F\s?A\s?L\s?L\s?A|R\s?E\s?S\s?U\s?E\s?L\s?V\s?E)\s*:/g;
+const MARCA_DISPOSITIVO =
+  /\b(?:D\s?E\s?C\s?I\s?D\s?E|F\s?A\s?L\s?L\s?A|R\s?E\s?S\s?U\s?E\s?L\s?V\s?E)\b\s*:?\s*(?=(?:\S+\s+){0,3}?PRIMERO\s*[:.\-–—])/gi;
+const PRIMER_ORDINAL = /(?:^|\n|[.;:]\s)\s*PRIMERO\s*[:.\-–—]/g;
 
-/** Lo que cierra el dispositivo: la firma, los votos o la certificación de la secretaría. */
+/** Lo que cierra el dispositivo: la firma (también «Aprobada:» tras el último ordinal), los votos o la certificación de la secretaría. */
 const FIN_DISPOSITIVO =
-  /\n\s*(?:Firmad[ao]s?\s*:|Firman?\s*:|La presente (?:sentencia|decisi[oó]n) (?:es|ha sido) dada|VOTO\s+(?:DISIDENTE|SALVADO|PARTICULAR|CONCURRENTE)|Así ha sido|Esta (?:decisi[oó]n|sentencia),? firmada|Nosotros, (?:los )?jueces|Certifico)/i;
+  /(?:\n|\.\s+)\s*(?:Firmad[ao]s?\s*(?:por|:)|Firman?\s*:|Aprobad[ao]s?\s*:|La presente (?:sentencia|decisi[oó]n) (?:es|ha sido) dada|VOTO\s+(?:DISIDENTE|SALVADO|PARTICULAR|CONCURRENTE)|Así ha sido|Esta (?:decisi[oó]n|sentencia),? (?:es )?(?:dada y )?firmada|Nosotros, (?:los )?jueces|Certifico)/i;
 
 const NOMBRE_ORDINAL =
   "PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|S[ÉE]PTIMO|OCTAVO|NOVENO|D[ÉE]CIMO(?:\\s+(?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO))?|UND[ÉE]CIMO|DUOD[ÉE]CIMO";
@@ -180,15 +182,16 @@ function verbosDe(texto: string): { principal: string | null; verbos: string[] }
  * le sigue ningún ordinal.
  */
 export function dispositivoDe(texto: string): Dispositivo | null {
-  let marca: RegExpMatchArray | null = null;
-  for (const m of texto.matchAll(MARCA_DISPOSITIVO)) marca = m;
-  if (!marca) {
-    for (const m of texto.matchAll(MARCA_SUPLETORIA)) {
-      if (/\bTribunal\b/i.test(texto.slice(Math.max(0, (m.index ?? 0) - 160), m.index))) marca = m;
+  let desde = -1;
+  for (const m of texto.matchAll(MARCA_DISPOSITIVO)) desde = (m.index ?? 0) + m[0].length;
+  if (desde < 0) {
+    // Sin marca: el último «PRIMERO» que la firma sigue a menos de 8,000 caracteres.
+    for (const m of texto.matchAll(PRIMER_ORDINAL)) {
+      const ini = m.index ?? 0;
+      if (FIN_DISPOSITIVO.test(texto.slice(ini, ini + 8000))) desde = ini;
     }
   }
-  if (!marca) return null;
-  const desde = (marca.index ?? 0) + marca[0].length;
+  if (desde < 0) return null;
   const resto = texto.slice(desde, desde + 20_000);
   const fin = resto.search(FIN_DISPOSITIVO);
   const cuerpo = (fin >= 0 ? resto.slice(0, fin) : resto.slice(0, 8000)).trim();
@@ -228,22 +231,37 @@ const NO_CONFORME = /\bno\s+conformes?\s+con\s+la\s+Constituci[oó]n|\binconstit
 const CONFORME = /(?<!\bno\s)\bconformes?\s+con\s+la\s+Constituci[oó]n/i;
 const INADMISIBLE = /\binadmisibles?\b|\bINADMITIR\b/i;
 
-/** Si un ordinal declara (no rechaza) lo que dice el patrón: «ACOGER… y, en consecuencia, DECLARAR no conforme…» declara. */
-const declara = (o: Ordinal, re: RegExp) => o.verbos.includes("DECLARAR") && o.principal !== "RECHAZAR" && re.test(o.texto);
+/**
+ * Si un ordinal declara lo que dice el patrón. «ACOGER… y, en consecuencia,
+ * DECLARAR no conforme…» declara no conforme; uno que RECHAZA no declara a
+ * una norma no conforme, pero sí conforme: «RECHAZAR, en cuanto al fondo, la
+ * acción… y, en consecuencia, DECLARAR conforme con la Constitución…» es la
+ * fórmula con que el TC sostiene la norma atacada.
+ */
+const declara = (o: Ordinal, re: RegExp) => o.verbos.includes("DECLARAR") && (re === CONFORME || o.principal !== "RECHAZAR") && re.test(o.texto);
+
+/** Un ordinal que no decide el fondo: lo incidental («ACOGER el pedimento incidental», «ACOGE uno de los medios de inadmisión»), lo de forma, un desistimiento. */
+const INCIDENTAL = /\bincidental|\bmedios? de inadmisi[oó]n|\bexcepci[oó]n\b|\bdesistimiento|\ben cuanto a la forma\b/i;
+const DE_FONDO = /\ben cuanto al fondo\b|\bfondo\b/i;
 
 /**
- * El sentido sale del verbo **principal** de cada ordinal: en «LEVANTA ACTA
- * del desistimiento…; en consecuencia, ACOGE dicho desistimiento» manda
- * LEVANTAR (un desistimiento), no ACOGER. Lo que se declara sobre una norma,
- * en cambio, cuenta en cualquier punto del ordinal que no rechaza.
+ * El sentido sale del verbo **principal** de cada ordinal, en este orden: lo
+ * que se declara sobre una norma (en cualquier punto del ordinal); el verbo
+ * del ordinal que dice «en cuanto al fondo»; la inadmisibilidad que un
+ * ordinal declara; el primer ACOGER o RECHAZAR que no es incidental ni de
+ * forma. En «LEVANTA ACTA del desistimiento…; en consecuencia, ACOGE dicho
+ * desistimiento» manda LEVANTAR: otro. En «ACOGE uno de los medios de
+ * inadmisión… y en consecuencia DECLARA INADMISIBLE…», inadmisible.
  */
 export function sentidoDe(d: Dispositivo): Sentido {
   const os = d.ordinales;
   if (os.some((o) => declara(o, NO_CONFORME))) return "no-conforme";
   if (os.some((o) => declara(o, CONFORME))) return "conforme";
-  if (os.some((o) => o.principal === "ACOGER")) return "acoge";
-  if (os.some((o) => o.principal === "RECHAZAR")) return "rechaza";
-  if (os.some((o) => o.principal === "INADMITIR" || (o.principal === "DECLARAR" && INADMISIBLE.test(o.texto)))) return "inadmisible";
+  const fondo = os.find((o) => DE_FONDO.test(o.texto) && (o.principal === "ACOGER" || o.principal === "RECHAZAR"));
+  if (fondo) return fondo.principal === "ACOGER" ? "acoge" : "rechaza";
+  if (os.some((o) => INADMISIBLE.test(o.texto) && (o.verbos.includes("DECLARAR") || o.verbos.includes("INADMITIR")) && o.principal !== "RECHAZAR")) return "inadmisible";
+  const decide = os.find((o) => (o.principal === "ACOGER" || o.principal === "RECHAZAR") && !INCIDENTAL.test(o.texto));
+  if (decide) return decide.principal === "ACOGER" ? "acoge" : "rechaza";
   return "otro";
 }
 
@@ -262,16 +280,48 @@ export type NormaDelDispositivo = [string, string, Efecto, string];
  */
 export function normasDelDispositivo(d: Dispositivo): NormaDelDispositivo[] {
   const salida = new Map<string, NormaDelDispositivo>();
+  const poner = (tipo: string, numero: string, efecto: Efecto, ordinal: string) => {
+    const k = `${tipo}|${numero}`;
+    const antes = salida.get(k);
+    if (!antes || (antes[2] === "cita" && efecto !== "cita")) salida.set(k, [tipo, numero, efecto, ordinal]);
+  };
   for (const o of d.ordinales) {
     const efecto: Efecto = declara(o, NO_CONFORME) ? "no-conforme" : declara(o, CONFORME) ? "conforme" : "cita";
+    const declaradas = efecto === "cita" ? new Set<string>() : normasDeclaradas(o.texto, efecto === "no-conforme" ? NO_CONFORME : CONFORME);
     for (const r of referenciasNormativas(o.texto)) {
       if (!r.numero) continue;
-      const k = `${r.tipo}|${r.numero}`;
-      const antes = salida.get(k);
-      if (!antes || (antes[2] === "cita" && efecto !== "cita")) salida.set(k, [r.tipo, r.numero, efecto, o.ordinal]);
+      poner(r.tipo, r.numero, declaradas.has(`${r.tipo}|${r.numero}`) ? efecto : "cita", o.ordinal);
     }
   }
   return [...salida.values()];
+}
+
+/** Una norma con número en un texto, con su posición: el tipo (como `referenciasNormativas`) y el número sin espacios. */
+const CITA_NORMA = /\b(Leyes|Ley|Decretos?|Reglamentos?|Resoluci[oó]n(?:es)?)\b[\s,]*(?:org[aá]nica\s+)?(?:n[uú]m(?:ero|s?\.)?|no\.?|n[°º])?\s*(\d{1,4}\s*-\s*\d{2,4})/gi;
+const TIPO_DE_PALABRA = (p: string) => (/^ley/i.test(p) ? "Ley" : /^decreto/i.test(p) ? "Decreto" : /^reglamento/i.test(p) ? "Reglamento" : "Resolución");
+/** Lo que precede a una norma que el ordinal no declara: la que modificó a la declarada, o la que da la base de lo que se dispone. */
+const NO_DECLARADA = /(?:modificad[oa]s?|reformad[oa]s?|sustituid[oa]s?|derogad[oa]s?|que\s+modific[oó]?a?)\s+(?:por|a)?\s*(?:el|la|los|las)?\s*$|(?:de\s+conformidad\s+con|conforme\s+(?:a|con)|en\s+virtud\s+de|seg[uú]n|previst[oa]s?\s+en|establecid[oa]s?\s+en|dispuest[oa]s?\s+en)\b[^;]{0,120}$/i;
+
+/**
+ * Las normas que un ordinal declara: las que nombra **después** de la frase
+ * que declara («DECLARAR no conforme con la Constitución el artículo 4 de la
+ * Ley núm. X») y no son la que la modificó ni la base de lo dispuesto: en
+ * «…del Decreto núm. 6-19…, modificado por el Decreto núm. 330-26» se declara
+ * el 6-19, no el 330-26; en «…de conformidad con el artículo 7.6 de la Ley
+ * núm. 137-11», la 137-11 solo se cita.
+ */
+function normasDeclaradas(texto: string, frase: RegExp): Set<string> {
+  const salida = new Set<string>();
+  const m = frase.exec(texto);
+  if (!m) return salida;
+  const desde = (m.index ?? 0) + m[0].length;
+  const tramo = texto.slice(desde);
+  for (const c of tramo.matchAll(CITA_NORMA)) {
+    const antes = tramo.slice(Math.max(0, (c.index ?? 0) - 160), c.index);
+    if (NO_DECLARADA.test(antes)) continue;
+    salida.add(`${TIPO_DE_PALABRA(c[1])}|${c[2].replace(/\s+/g, "")}`);
+  }
+  return salida;
 }
 
 /**

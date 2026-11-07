@@ -7,16 +7,16 @@ import Plegable from "@/components/plegable";
  * Una lista de aristas del grafo en una ficha: cada una a su nodo, con su
  * fecha y lo que la precisa, como las lee `relacionesDesdeTriples`. Va dentro
  * de una `Card` (se extiende a sus bordes). Con más de `visibles`, el resto
- * queda a un toque, con su cuenta en el botón (`Plegable`).
+ * queda a un toque, con su cuenta en el botón (`Plegable`): «Ver 12 más».
  */
-export function Aristas({ lista, visibles = 8, cuantas }: { lista: Relacion[]; visibles?: number; cuantas?: string }) {
+export function Aristas({ lista, visibles = 8 }: { lista: Relacion[]; visibles?: number }) {
   const primeras = lista.slice(0, visibles);
   const resto = lista.slice(visibles);
   return (
     <div className="-mx-5 mt-3 border-t border-hairline sm:-mx-6">
       <Filas lista={primeras} />
       {resto.length > 0 && (
-        <Plegable etiqueta={`Ver ${resto.length === 1 ? "la otra" : `las otras ${resto.length.toLocaleString("es-DO")}`}${cuantas ? ` ${cuantas}` : ""}`}>
+        <Plegable etiqueta={`Ver ${resto.length.toLocaleString("es-DO")} más`}>
           <Filas lista={resto} />
         </Plegable>
       )}

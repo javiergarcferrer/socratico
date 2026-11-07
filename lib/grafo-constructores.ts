@@ -453,7 +453,7 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
 /**
  * El grafo de lo que se lee en el texto íntegro (`scripts/build-textos.mjs`,
  * `lib/texto-extraccion.ts`): una regla, como `citas`, sobre los archivos de
- * los tres corpus. Sin ninguna instantánea de `public/data/textos/`, no hay
+ * los tres corpus. Sin ninguna instantánea de `datos/textos/`, no hay
  * grafo: el compilado queda como antes de leer textos. Su corte es el de la
  * instantánea más reciente.
  */
@@ -1511,7 +1511,7 @@ function indiceNormas(): Promise<IndiceNormas> {
     }
 
     /*
-      Lo que dice el texto íntegro (`public/data/textos/`, grafo «texto»): lo
+      Lo que dice el texto íntegro (`datos/textos/`, grafo «texto»): lo
       que cada artículo de una ley deroga, modifica o cita (una ley no cambia
       una norma posterior a ella), lo que el dispositivo de una sentencia
       declara conforme o no con la Constitución —lo que solo cita un ordinal,
@@ -1676,7 +1676,8 @@ function triplesCita(a: Arista, x: Afirmaciones): void {
 /**
  * Las citas que hace un nodo y las que le llegan, y la iniciativa de la que
  * nació o la norma en que se convirtió. De las que le llegan de un texto
- * íntegro describe las `TOPE_CITAS_TEXTO` más recientes, cuenta todas
+ * íntegro describe todas las que declaran, derogan o modifican y, de las que
+ * solo la citan, las `TOPE_CITAS_TEXTO` más recientes; cuenta todas
  * (`soc:vecesCitada`) y devuelve la nota que lo dice.
  */
 async function normasAlrededor(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): Promise<string | undefined> {
@@ -1687,15 +1688,17 @@ async function normasAlrededor(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): P
   }
   const llegan = ix.entran.get(k) ?? [];
   const deTexto = llegan.filter((a) => a.texto);
-  for (const a of [...llegan.filter((a) => !a.texto), ...deTexto.slice(0, TOPE_CITAS_TEXTO)]) {
+  // El tope es solo para las que citan: lo que una sentencia declara sobre la norma o lo que una ley le deroga o modifica se describe siempre.
+  const soloCitan = deTexto.filter((a) => a.cita === "cita");
+  for (const a of [...llegan.filter((a) => !a.texto || a.cita !== "cita"), ...soloCitan.slice(0, TOPE_CITAS_TEXTO)]) {
     triplesCita(a, x);
     await vecinaNormativa(a.de, x, ix);
   }
   let nota: string | undefined;
   if (deTexto.length) {
     x.de("texto", t(iriDe(n), "soc:vecesCitada", entero(deTexto.length)));
-    if (deTexto.length > TOPE_CITAS_TEXTO) {
-      nota = `La nombra el texto de ${deTexto.length.toLocaleString("es-DO")} sentencias, leyes y documentos; se describen los ${TOPE_CITAS_TEXTO} más recientes.`;
+    if (soloCitan.length > TOPE_CITAS_TEXTO) {
+      nota = `La nombra el texto de ${deTexto.length.toLocaleString("es-DO")} sentencias, leyes y documentos; de los que solo la citan se describen los ${TOPE_CITAS_TEXTO} más recientes.`;
     }
   }
   const norma = n.tipo === "iniciativa" ? ix.promulgada.get(n.id) : undefined;
@@ -2056,7 +2059,7 @@ let mencionesMemo: Promise<IndiceMenciones> | null = null;
 const TOPE_MENCIONES = 20;
 
 /**
- * Lo que nombra el texto de cada documento (`public/data/textos/documentos.json`):
+ * Lo que nombra el texto de cada documento (`datos/textos/documentos.json`):
  * un código de proceso que es nodo, un SNIP de una obra del grafo, el RNC de
  * una empresa inscrita como proveedora (la que el grafo ya describe). Un RNC
  * que no es de una proveedora no se ata: el padrón tiene medio millón de
@@ -2234,8 +2237,9 @@ async function describirSentencia(k: string, ligero = false): Promise<Descripcio
   x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.sentencia(k)}`)));
   // Lo que se leyó en su texto íntegro (scripts/build-textos.mjs): el archivo, sus páginas, lo que decidió.
   const leido = (await textosDeSentencias())?.filas[k];
-  if (leido?.u) x.de("texto", t(s, "schema:encoding", iri(leido.u)));
   if (leido?.e === "ok") {
+    // El PDF solo si es el que se leyó: el de una fila sin leer puede no existir o no ser la sentencia.
+    if (leido.u) x.de("texto", t(s, "schema:encoding", iri(leido.u)));
     if (leido.p) x.de("texto", t(s, "soc:paginas", entero(leido.p)));
     if (leido.s) x.de("texto", t(s, "soc:sentido", iri(`soc:sentido-${leido.s}`)));
     if (leido.d) x.de("texto", t(s, "soc:dispositivo", lit(sinCedula(leido.d), "es")));

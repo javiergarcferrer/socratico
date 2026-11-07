@@ -1177,8 +1177,8 @@ export default async function FuentesPage() {
             </Link>{" "}
             se leen de ahí con caché de horas para el año en curso y de días para los
             cerrados. La sentencia en sí es un PDF que se abre desde su ficha en el
-            sitio del Tribunal: no se copia; la lectura semanal del texto íntegro (abajo) lo
-            baja para sacar su dispositivo y lo descarta.
+            sitio del Tribunal: no se publica aquí; la lectura semanal del texto íntegro (abajo)
+            lo baja para sacar su dispositivo.
           </p>
           <p className="mt-3">
             Para el buscador de toda la plataforma, el listado de cada año desde
@@ -1648,6 +1648,7 @@ function TextoIntegro({ textos }: { textos: Record<"sentencias" | "leyes" | "doc
     { clave: "leyes", nombre: "leyes con ficha" },
     { clave: "documentos", nombre: "documentos de las bibliotecas institucionales" },
   ] as const;
+  // Lo que la cabecera cuenta en cada estado; lo que falta hasta el total de su lista no se ha pedido todavía.
   const leidas = corpus.filter((c) => textos[c.clave]);
   const bloqueados = [
     ...new Set(leidas.flatMap((c) => Object.entries(textos[c.clave]!.hosts).filter(([, h]) => h.bloqueado).map(([host, h]) => `${host} (${h.bloqueado})`))),
@@ -1658,6 +1659,7 @@ function TextoIntegro({ textos }: { textos: Record<"sentencias" | "leyes" | "doc
     "no-existe": "archivos que ya no están",
     grande: "archivos de más de 40 MB",
     formato: "formatos que no se leen (XLS, DOC)",
+    ajeno: "cuyo archivo no es el de la sentencia",
     robots: "vetados por su robots.txt",
     bloqueado: "de un host que bloqueó la lectura",
     error: "que no respondieron (se reintentan)",
@@ -1665,13 +1667,13 @@ function TextoIntegro({ textos }: { textos: Record<"sentencias" | "leyes" | "doc
   return (
     <Fuente
       nombre="Texto íntegro · sentencias, leyes y documentos"
-      estado={leidas.length === 0 ? "caida" : "activa"}
-      etiqueta={leidas.length === 0 ? "Sin leer todavía" : bloqueados.length ? "Instantánea, con límites" : "Instantánea local"}
+      estado={leidas.length === 0 ? "descartada" : "activa"}
+      etiqueta={leidas.length === 0 ? "Primera lectura pendiente" : bloqueados.length ? "Instantánea, con límites" : "Instantánea local"}
     >
       <p>
         Además de su título, se lee el texto entero de cada sentencia del Tribunal Constitucional y del Tribunal Superior Electoral
         (el PDF que enlaza su ficha en el tribunal), de cada ley con ficha (su PDF en la Consultoría Jurídica) y de cada documento
-        PDF, Word o Excel de las bibliotecas institucionales. No se guarda el texto: se guarda lo que se lee en él con reglas fijas
+        PDF, Word o Excel de las bibliotecas institucionales. El texto no se publica: se publica lo que se lee en él con reglas fijas
         sobre la redacción oficial —el dispositivo de cada sentencia y el sentido de su fallo, las normas que declara conformes o no
         con la Constitución y las sentencias que cita; lo que cada artículo de una ley deroga o modifica; las normas, los procesos
         de compra, las obras y las empresas proveedoras que nombra cada documento— y eso entra al grafo. Un escaneo sin capa de
@@ -1682,10 +1684,14 @@ function TextoIntegro({ textos }: { textos: Record<"sentencias" | "leyes" | "doc
           {leidas.map((c) => {
             const r = textos[c.clave]!;
             const otros = Object.entries(r.cuenta).filter(([e, n]) => e !== "ok" && n);
+            const vistas = Object.values(r.cuenta).reduce((a, n) => a + (n ?? 0), 0);
+            const sinPedir = Math.max(0, r.total - vistas);
             return (
               <li key={c.clave}>
-                <strong>{formatInt(r.cuenta.ok ?? 0)}</strong> de {formatInt(r.total)} {c.nombre}, leídas el {formatFecha(r.generado)}
-                {otros.length > 0 && <>; sin leer: {otros.map(([e, n]) => `${formatInt(n ?? 0)} ${ESTADO_EN_LLANO[e] ?? e}`).join(", ")}</>}.
+                <strong>{formatInt(r.cuenta.ok ?? 0)}</strong> de {formatInt(r.total)} {c.nombre} con su texto leído (lectura del{" "}
+                {formatFecha(r.generado)})
+                {otros.length > 0 && <>; sin leer: {otros.map(([e, n]) => `${formatInt(n ?? 0)} ${ESTADO_EN_LLANO[e] ?? e}`).join(", ")}</>}
+                {sinPedir > 0 && <>; {formatInt(sinPedir)} sin pedir todavía</>}.
               </li>
             );
           })}

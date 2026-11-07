@@ -9,9 +9,10 @@
  * lo que cada artículo de una ley le hace a otras normas, las normas,
  * procesos, obras y RNC que nombra un documento—, nunca el texto mismo:
  *
- *     public/data/textos/sentencias.json   (clave de la sentencia)
- *     public/data/textos/leyes.json        (número de la ley)
- *     public/data/textos/documentos.json   (clave del documento)
+ *     datos/textos/sentencias.json   (clave de la sentencia)
+ *     datos/textos/leyes.json        (número de la ley)
+ *     datos/textos/documentos.json   (clave del documento)
+ *     datos/textos/resumen.json      (las tres cabeceras, para `/fuentes`)
  *
  * Cada fila dice su estado (`ok`, `sin-texto` si es un escaneo sin capa de
  * texto, `sin-archivo` si la ficha no enlaza ninguno, `no-existe`, `grande`,
@@ -54,6 +55,7 @@ const { leyesConFicha } = await lib("normativa");
 const { todosLosDocumentos } = await lib("biblioteca");
 const { claveDocumento } = await lib("grafo");
 const { sinCedula } = await lib("padron");
+const { empresaPorRnc } = await lib("empresas");
 
 /* ---------------------------------------------------------- argumentos */
 
@@ -89,9 +91,10 @@ const PLAZO_MS = 90_000;
 const TOPE_BYTES = 40 * 1024 * 1024;
 /** Lo que tarda pdf.js con un documento antes de darlo por colgado. */
 const PLAZO_EXTRAER_MS = 180_000;
-const SALIDA = path.join(RAIZ, "public", "data", "textos");
+/** Fuera de `public/`: ninguna página la sirve; la lee el compilador del grafo, y `/fuentes` su resumen. */
+const SALIDA = path.join(RAIZ, "datos", "textos");
 const ARCHIVO = { sentencias: "sentencias.json", leyes: "leyes.json", documentos: "documentos.json" };
-const FINALES = new Set(["ok", "sin-texto", "sin-archivo", "no-existe", "grande", "formato"]);
+const FINALES = new Set(["ok", "sin-texto", "sin-archivo", "no-existe", "grande", "formato", "ajeno"]);
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const huella = (b) => createHash("sha256").update(b).digest("hex").slice(0, 16);
@@ -113,7 +116,10 @@ async function turno(h) {
   await antes;
   const espera = e.siguiente - Date.now();
   if (espera > 0) await dormir(espera);
+  let suelto = false;
   return () => {
+    if (suelto) return;
+    suelto = true;
     e.siguiente = Date.now() + (PAUSA_HOST[h] ?? PAUSA_MS);
     soltar();
   };
@@ -138,7 +144,8 @@ const DESAFIO_HTML = /cf-chl|challenge-platform|Attention Required|Just a moment
  * Una petición GET con el contrato de la plataforma. `{ estado: "ok", bytes,
  * tipo, url }` o `{ estado, nota }`; no lanza.
  */
-async function pedir(url, { html = false, sinRobots = false } = {}) {
+async function pedir(url, opciones = {}, saltos = 0) {
+  const { html = false, sinRobots = false } = opciones;
   const u = new URL(url);
   const e = host(u.host);
   if (e.bloqueado) return { estado: "bloqueado", nota: e.bloqueado };
@@ -149,11 +156,19 @@ async function pedir(url, { html = false, sinRobots = false } = {}) {
       e.pedidos++;
       const r = await fetch(url, {
         headers: { "User-Agent": UA, Accept: html ? "text/html,application/xhtml+xml" : "application/pdf,application/octet-stream,*/*;q=0.5" },
-        redirect: "follow",
+        // Una redirección se sigue a mano: el host de destino pasa por su robots, su cola y su bloqueo.
+        redirect: "manual",
         signal: AbortSignal.timeout(PLAZO_MS),
       });
       const st = r.status;
       e.estados[st] = (e.estados[st] ?? 0) + 1;
+      if ([301, 302, 303, 307, 308].includes(st)) {
+        await r.body?.cancel();
+        const destino = r.headers.get("location");
+        if (!destino || saltos >= 3) return { estado: "error", nota: `redirección ${st} sin destino o en cadena` };
+        soltar();
+        return pedir(new URL(destino, url).href, opciones, saltos + 1);
+      }
       if (r.headers.get("cf-mitigated") || [401, 403, 429, 451, 470].includes(st)) {
         await r.body?.cancel();
         e.bloqueado ??= `HTTP ${st}${r.headers.get("cf-mitigated") ? ` (cf-mitigated: ${r.headers.get("cf-mitigated")})` : ""}`;
@@ -219,8 +234,9 @@ function reglasDeRobots(texto) {
       if (actual && valor) actual.reglas.push([campo === "allow", valor]);
     }
   }
-  const nuestro = grupos.find((g) => g.agentes.some((a) => a !== "*" && "socratico-inteligencia".includes(a)));
-  return (nuestro ?? grupos.find((g) => g.agentes.includes("*")))?.reglas ?? [];
+  // RFC 9309 §2.2.1: los grupos que nombran a este agente se unen; si no hay ninguno, se unen los de «*».
+  const nuestros = grupos.filter((g) => g.agentes.some((a) => a !== "*" && "socratico-inteligencia".includes(a)));
+  return (nuestros.length ? nuestros : grupos.filter((g) => g.agentes.includes("*"))).flatMap((g) => g.reglas);
 }
 
 const casa = (patron, ruta) => {
@@ -258,7 +274,10 @@ class Trabajadores {
     for (let i = 0; i < n; i++) this.libres.push(this.nuevo());
   }
   nuevo() {
-    return new Worker(new URL("./textos-trabajador.mjs", import.meta.url));
+    // Un archivo que revienta la memoria o lanza fuera de un mensaje mata su hilo, no el script.
+    const w = new Worker(new URL("./textos-trabajador.mjs", import.meta.url), { resourceLimits: { maxOldGenerationSizeMb: 1536 } });
+    w.on("error", () => {});
+    return w;
   }
   async tomar() {
     if (this.libres.length) return this.libres.pop();
@@ -274,20 +293,28 @@ class Trabajadores {
     const id = ++this.siguiente;
     const datos = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     return new Promise((resolver) => {
-      const plazo = setTimeout(() => {
-        w.off("message", oir);
-        w.terminate();
-        this.soltar(this.nuevo());
-        resolver({ error: "pdf.js pasó su plazo" });
-      }, PLAZO_EXTRAER_MS);
-      const oir = (m) => {
-        if (m.id !== id) return;
+      let hecho = false;
+      const acabar = (resultado, sano) => {
+        if (hecho) return;
+        hecho = true;
         clearTimeout(plazo);
         w.off("message", oir);
-        this.soltar(w);
-        resolver(m);
+        w.off("error", cayo);
+        w.off("exit", salio);
+        if (sano) this.soltar(w);
+        else {
+          w.terminate();
+          this.soltar(this.nuevo());
+        }
+        resolver(resultado);
       };
+      const plazo = setTimeout(() => acabar({ error: "el lector pasó su plazo" }, false), PLAZO_EXTRAER_MS);
+      const oir = (m) => m.id === id && acabar(m, true);
+      const cayo = (err) => acabar({ error: `el lector cayó: ${String(err?.message ?? err).slice(0, 100)}` }, false);
+      const salio = (codigo) => acabar({ error: `el lector salió (${codigo})` }, false);
       w.on("message", oir);
+      w.on("error", cayo);
+      w.on("exit", salio);
       w.postMessage({ id, tipo, datos }, [datos]);
     });
   }
@@ -299,9 +326,11 @@ class Trabajadores {
 /* -------------------------------------------------------------- caché */
 
 const rutaCache = (corpus, clave) => path.join(CACHE, corpus, `${createHash("sha1").update(clave).digest("hex")}.json.br`);
-function guardarCache(corpus, clave, paginas) {
+/** El texto que se guarda en la caché, ya sin cédulas: la caché de Actions la puede restaurar quien corra un flujo del repositorio. */
+function guardarCache(corpus, clave, guardado) {
   mkdirSync(path.join(CACHE, corpus), { recursive: true });
-  writeFileSync(rutaCache(corpus, clave), brotliCompressSync(Buffer.from(JSON.stringify(paginas)), { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }));
+  const limpio = { ...guardado, paginas: guardado.paginas.map((p) => sinCedula(p)) };
+  writeFileSync(rutaCache(corpus, clave), brotliCompressSync(Buffer.from(JSON.stringify(limpio)), { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }));
 }
 function leerCache(corpus, clave) {
   const r = rutaCache(corpus, clave);
@@ -313,11 +342,25 @@ function leerCache(corpus, clave) {
 /** Los caracteres de un PDF que se lee: menos es un escaneo sin capa de texto. Un DOCX o un XLSX, solo si está vacío. */
 const MINIMO_TEXTO = 300;
 
-function hechos(corpus, clave, paginas, tipo = "pdf") {
+/**
+ * El número de una sentencia como se escribe en su texto, para comprobar que
+ * el archivo es el suyo: «TC/0904/26», «TC/904/26», «TSE/0307/2024»,
+ * «TSE-0307-2024». `null` si el listado no trae un número así.
+ */
+function numeroEnTexto(numero) {
+  const m = /^(TC|TSE)[/-]?0*(\d{1,4})[/-](?:20)?(\d{2})\.?$/i.exec((numero ?? "").trim());
+  return m ? new RegExp(`\\b${m[1]}\\s?[/-]\\s?0*${m[2]}\\s?[/-]\\s?(?:20)?${m[3]}\\b`, "i") : null;
+}
+
+async function hechos(el, paginas, tipo = "pdf", total = paginas.length) {
+  const { corpus, clave } = el;
   const { texto, inicios } = T.unirPaginas(paginas);
-  const base = { p: paginas.length, c: texto.length };
+  const base = { p: total, c: texto.length };
   if (texto.replace(/\s+/g, "").length < (tipo === "pdf" ? MINIMO_TEXTO : 1)) return { e: "sin-texto", ...base };
   if (corpus === "tc" || corpus === "tse") {
+    // El archivo que enlaza la ficha tiene que ser el de la sentencia: un PDF del menú del sitio no lo es.
+    const suyo = numeroEnTexto(el.numero);
+    if (suyo && !suyo.test(texto)) return { e: "ajeno", ...base, nota: `el archivo no nombra la sentencia ${el.numero}` };
     const fila = { e: "ok", ...base };
     const d = T.dispositivoDe(texto);
     if (d) {
@@ -331,7 +374,11 @@ function hechos(corpus, clave, paginas, tipo = "pdf") {
   }
   if (corpus === "leyes") return { e: "ok", ...base, n: T.cambiosDeLey(texto).slice(0, 400) };
   const m = T.mencionesDe(texto);
-  return { e: "ok", ...base, n: m.normas, x: m.procesos, o: m.snip, r: m.rnc };
+  // Solo el RNC de una empresa del padrón inscrita como proveedora: un número de nueve cifras que no lo es
+  // (una cédula sin sus ceros, un número de cuenta) no se escribe.
+  const rnc = [];
+  for (const r of m.rnc) if ((await empresaPorRnc(r))?.rpe?.length) rnc.push(r);
+  return { e: "ok", ...base, n: m.normas, x: m.procesos, o: m.snip, r: rnc };
 }
 
 /* -------------------------------------------------------- los corpus */
@@ -341,7 +388,7 @@ async function elementos(corpus) {
   if (corpus === "tc" || corpus === "tse") {
     const s = await getSentencias();
     if (!s) throw new Error("falta public/data/sentencias.json");
-    return s.lista.filter((x) => x.tribunal === corpus).map((x) => ({ corpus, clave: x.clave, ficha: x.ficha, host: new URL(x.ficha).host }));
+    return s.lista.filter((x) => x.tribunal === corpus).map((x) => ({ corpus, clave: x.clave, numero: x.numero, ficha: x.ficha, host: new URL(x.ficha).host }));
   }
   if (corpus === "leyes") {
     const l = await leyesConFicha();
@@ -400,9 +447,9 @@ async function procesar(el, trabajadores, extractos) {
   if (!tipo) return { e: "formato", nota: (r.tipo || "sin tipo").slice(0, 60), u: el.ficha ? url : undefined };
   const x = await trabajadores.extraer(tipo, r.bytes);
   if (x.error) return { e: "error", nota: x.error, h: huella(r.bytes), u: el.ficha ? url : undefined };
-  const paginas = x.paginas.map((p) => p);
-  guardarCache(el.corpus, el.clave, { tipo, paginas });
-  const fila = { ...hechos(el.corpus, el.clave, paginas, tipo), h: huella(r.bytes) };
+  const paginas = x.paginas;
+  guardarCache(el.corpus, el.clave, { tipo, paginas, total: x.total });
+  const fila = { ...(await hechos(el, paginas, tipo, x.total ?? paginas.length)), h: huella(r.bytes) };
   if (x.recortado) fila.recortado = true;
   if (el.ficha) fila.u = url;
   if (extractos) extractos.push({ el, fila, paginas });
@@ -422,6 +469,19 @@ const hostsDe = (nombre) => {
 function leerInstantanea(nombre) {
   const r = path.join(SALIDA, ARCHIVO[nombre]);
   return existsSync(r) ? JSON.parse(readFileSync(r, "utf8")) : null;
+}
+
+/** Las cabeceras de las tres instantáneas en un archivo chico: lo que `/fuentes` lee en cada petición, sin cargar las filas. */
+function escribirResumen() {
+  const resumen = {};
+  for (const nombre of Object.keys(ARCHIVO)) {
+    const r = path.join(SALIDA, ARCHIVO[nombre]);
+    if (!existsSync(r)) continue;
+    const cabeza = readFileSync(r, "utf8").split("\n", 1)[0];
+    resumen[nombre] = JSON.parse(`${cabeza}}}`);
+    delete resumen[nombre].filas;
+  }
+  writeFileSync(path.join(SALIDA, "resumen.json"), `${JSON.stringify(resumen)}\n`);
 }
 
 /** Una fila por renglón y en orden de clave: el mismo contenido da los mismos bytes, y un cambio se lee en el diff. */
@@ -503,7 +563,8 @@ for (const c of CORPUS) {
     if (previa && FINALES.has(previa.e) && deOtraVersion) {
       const guardado = leerCache(c, el.clave);
       if (guardado) {
-        inst.filas[el.clave] = { ...previa, ...hechos(c, el.clave, guardado.paginas, guardado.tipo) };
+        const { s: _s, d: _d, dp: _dp, n: _n, t: _t, x: _x, o: _o, r: _r, nota: _nota, ...comun } = previa;
+        inst.filas[el.clave] = { ...comun, ...(await hechos(el, guardado.paginas, guardado.tipo, guardado.total ?? previa.p)) };
         inst.cambiada = true;
         releidas++;
         continue;
@@ -529,8 +590,27 @@ const cuentaCorrida = {};
 let hechas = 0;
 let ultimoAviso = Date.now();
 let ultimoGuardado = Date.now();
+/**
+ * Un mismo archivo en dos sentencias no es el texto de ninguna: un PDF que el
+ * sitio pone en todas sus fichas. Esas filas pasan a `ajeno`, sin lo leído.
+ */
+function sinArchivosRepetidos(inst) {
+  const porHuella = new Map();
+  for (const [k, f] of Object.entries(inst.filas)) if (f.e === "ok" && f.h) porHuella.set(f.h, [...(porHuella.get(f.h) ?? []), k]);
+  for (const claves of porHuella.values()) {
+    if (claves.length < 2) continue;
+    for (const k of claves) {
+      const { p, c, h, u } = inst.filas[k];
+      inst.filas[k] = { e: "ajeno", p, c, h, u, nota: `el mismo archivo que ${claves.length - 1} sentencias más` };
+      inst.cambiada = true;
+    }
+  }
+}
+
 const guardar = () => {
   if (MUESTRA) return;
+  const sentencias = porArchivo.get("sentencias");
+  if (sentencias) sinArchivosRepetidos(sentencias);
   for (const [nombre, inst] of porArchivo) {
     // Sin una fila nueva, la instantánea queda como estaba: una corrida que no encontró nada no deja un cambio.
     if (!inst.cambiada) continue;
@@ -546,6 +626,7 @@ const guardar = () => {
     for (const f of Object.values(inst.filas)) inst.cuenta[f.e] = (inst.cuenta[f.e] ?? 0) + 1;
     const { previa: _p, cambiada: _c, ...sin } = inst;
     escribirInstantanea(nombre, sin);
+    escribirResumen();
   }
   ultimoGuardado = Date.now();
 };
@@ -571,8 +652,9 @@ async function hilo() {
     if (!MUESTRA) {
       for (const k of Object.keys(fila)) if (fila[k] === undefined) delete fila[k];
       const inst = porArchivo.get(ARCHIVO_DE(el.corpus));
+      // Una fila que vuelve igual (un host que sigue bloqueado, un 504 que se repite) no cambia la instantánea.
+      if (JSON.stringify(inst.filas[el.clave]) !== JSON.stringify(fila)) inst.cambiada = true;
       inst.filas[el.clave] = fila;
-      inst.cambiada = true;
     }
     if (Date.now() - ultimoAviso > 120_000) {
       ultimoAviso = Date.now();

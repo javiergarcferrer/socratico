@@ -3,9 +3,10 @@
 #
 # Tres trabajos con red y uno sin ella:
 #  · fuentes: scripts/refrescar-fuentes.sh (los build-*.py en su orden);
-#  · textos: scripts/build-textos.mjs, con tope de tiempo y su caché: una
-#    corrida que no termina deja lo leído y la siguiente sigue;
 #  · muestra: build-textos.mjs --muestra, que solo imprime extractos;
+#  · textos: scripts/build-textos.mjs, con tope de tiempo y su caché: una
+#    corrida que no termina deja lo leído y la siguiente sigue. Va después de
+#    fuentes y de la muestra, que leen los mismos sitios: un lector por host;
 #  · compilar: junta lo que trajeron, rehace todo lo derivado
 #    (scripts/compilar-derivados.sh) y corre el gate completo
 #    (.claude/hooks/verificar.sh --completo) sobre el árbol que se empuja. Solo
@@ -96,17 +97,23 @@ jobs:
         with: { node-version: "22", cache: npm }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install --quiet xlrd openpyxl pypdf pdfminer.six brotli numpy tokenizers
+      - run: pip install --quiet xlrd==2.0.1 openpyxl==3.1.5 pypdf==6.17.0 pdfminer.six==20260107 brotli==1.1.0 numpy==2.5.3 tokenizers==0.23.3
       - run: npm ci --no-audit --no-fund
       - run: ./scripts/refrescar-fuentes.sh
       - name: Empaquetar lo que cambió
-        run: tar -cf fuentes.tar public/data scripts/fuentes-nomina .cache/refrescar/resumen.txt
+        # Solo los archivos de public/data que los scripts escribieron o borraron: así compilar no pisa lo
+        # que otra sesión empujó mientras tanto. Nunca las fuentes crudas de nómina (nombres): quedan aquí.
+        run: |
+          git ls-files -m -o --exclude-standard -- public/data > cambiados.txt
+          git ls-files -d -- public/data > borrados.txt
+          wc -l cambiados.txt borrados.txt
+          tar -cf fuentes.tar -T cambiados.txt borrados.txt .cache/refrescar/resumen.txt
       - uses: actions/upload-artifact@v4
         with: { name: fuentes, path: fuentes.tar, retention-days: 3 }
 
   textos:
-    needs: plan
-    if: needs.plan.outputs.textos == '1'
+    needs: [plan, fuentes, muestra]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.textos == '1'
     runs-on: ubuntu-latest
     timeout-minutes: 340
     concurrency: { group: "textos-${{ github.ref }}", cancel-in-progress: false }
@@ -115,11 +122,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: npm }
       - run: npm ci --no-audit --no-fund
+      # «v3»: la caché de antes guardaba el texto con cédulas; desde aquí se guarda sin ellas.
       - uses: actions/cache/restore@v4
         with:
           path: .cache/textos
-          key: textos-${{ github.run_id }}
-          restore-keys: textos-
+          key: textos-v3-${{ github.run_id }}
+          restore-keys: textos-v3-
       - run: |
           set -o pipefail
           mkdir -p .cache
@@ -128,15 +136,20 @@ jobs:
         if: always()
         with:
           path: .cache/textos
-          key: textos-${{ github.run_id }}
+          key: textos-v3-${{ github.run_id }}
+      # También si la lectura falló: la instantánea se guarda cada 5 minutos y lo leído hasta ahí vale.
       - name: Empaquetar lo leído
-        run: tar -cf textos.tar public/data/textos .cache/textos-corrida.txt
+        if: always()
+        run: |
+          touch .cache/textos-corrida.txt
+          if [ -d datos/textos ]; then tar -cf textos.tar datos/textos .cache/textos-corrida.txt; fi
       - uses: actions/upload-artifact@v4
-        with: { name: textos, path: textos.tar, retention-days: 3 }
+        if: always()
+        with: { name: textos, path: textos.tar, retention-days: 3, if-no-files-found: ignore }
 
   compilar:
     needs: [plan, fuentes, textos]
-    if: always() && (needs.fuentes.result == 'success' || needs.textos.result == 'success')
+    if: always() && (needs.fuentes.result == 'success' || needs.textos.result == 'success' || needs.textos.result == 'failure')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     concurrency: { group: "compilar-${{ github.ref }}", cancel-in-progress: false }
@@ -144,37 +157,39 @@ jobs:
       contents: write
     steps:
       # La punta de la rama al empezar, no el commit que pidió la corrida: lo derivado se compila con el código de ahora.
+      # Sin el token en .git/config: los paquetes, el build y el gate corren sin poder empujar; el push lo pone a mano.
       - uses: actions/checkout@v4
-        with: { ref: "${{ github.ref_name }}", fetch-depth: 30 }
+        with: { ref: "${{ github.ref_name }}", fetch-depth: 30, persist-credentials: false }
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: npm }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install --quiet numpy tokenizers
+      - run: pip install --quiet numpy==2.5.3 tokenizers==0.23.3
       - run: npm ci --no-audit --no-fund
       - uses: actions/download-artifact@v4
         with: { path: llegado }
       - name: Poner lo leído sobre el árbol
         run: |
-          # Las instantáneas de fuentes enteras (un script puede borrar o partir archivos), y el texto encima.
+          # Lo que los scripts cambiaron, encima de la punta de la rama; lo que borraron, borrado. Nada más.
           if [ -f llegado/fuentes/fuentes.tar ]; then
             mkdir -p llegado/f && tar -xf llegado/fuentes/fuentes.tar -C llegado/f
-            rsync -a --delete llegado/f/public/data/ public/data/
-            rsync -a llegado/f/scripts/fuentes-nomina/ scripts/fuentes-nomina/
+            if [ -d llegado/f/public/data ]; then cp -a llegado/f/public/data/. public/data/; fi
+            if [ -s llegado/f/borrados.txt ]; then xargs -r -d '\n' rm -f -- < llegado/f/borrados.txt; fi
           fi
           if [ -f llegado/textos/textos.tar ]; then
             mkdir -p llegado/t && tar -xf llegado/textos/textos.tar -C llegado/t
-            rsync -a --delete llegado/t/public/data/textos/ public/data/textos/
+            mkdir -p datos/textos && cp -a llegado/t/datos/textos/. datos/textos/
           fi
       - name: Rehacer lo derivado
         run: ./scripts/compilar-derivados.sh
       - name: Commit, gate y push
         env:
           RAMA: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A public datos scripts/fuentes-nomina
+          git add -A public datos
           if git diff --cached --quiet; then echo "Nada cambió."; exit 0; fi
           {
             echo "Refrescar las instantáneas del $(TZ=America/Santo_Domingo date +%F)"
@@ -187,8 +202,9 @@ jobs:
           git commit -q -F /tmp/mensaje.txt
           rm -rf llegado
           ./.claude/hooks/verificar.sh --completo
+          remoto="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           for intento in 1 2; do
-            if git push origin "HEAD:$RAMA"; then exit 0; fi
+            if git push "$remoto" "HEAD:$RAMA"; then exit 0; fi
             # Otra sesión empujó mientras tanto: el gate va otra vez sobre el árbol rebasado.
             git fetch origin "$RAMA" && git rebase "origin/$RAMA" && ./.claude/hooks/verificar.sh --completo || exit 1
           done

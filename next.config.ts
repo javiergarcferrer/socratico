@@ -181,6 +181,7 @@ const nextConfig: NextConfig = {
     "/provincias": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     // Las fichas de proceso, de proveedor, de obra y de iniciativa son nodos del grafo: incrustan su schema.org.
     // Los documentos cuyo texto nombra el proceso, la obra o la empresa (`DocumentosQueLoNombran`, §5.12).
+    "/fuentes": ["./datos/textos/resumen.json"],
     "/procesos": ["./datos/grafo/ld/**"],
     "/procesos/[codigo]": ["./datos/grafo/meta.json", "./datos/grafo/nodos/proceso/**"],
     "/proveedores/": ["./datos/grafo/ld/**"],
@@ -211,7 +212,13 @@ const nextConfig: NextConfig = {
   // Las claves casan como subcadena: «/proveedores» también es
   // «/proveedores/[rpe]» y «/api/proveedores», que no usan el índice.
   outputFileTracingExcludes: {
-    "*": ["./public/data/{congreso,sentencias,votaciones}.json", "./public/data/busqueda/corpus.json.gz", "./public/data/grafo/grafo.{nt,trig}.gz"],
+    // Las filas del texto íntegro (§5.12) las lee solo el compilador; `/fuentes` lee `resumen.json`.
+    "*": [
+      "./public/data/{congreso,sentencias,votaciones}.json",
+      "./public/data/busqueda/corpus.json.gz",
+      "./public/data/grafo/grafo.{nt,trig}.gz",
+      "./datos/textos/{sentencias,leyes,documentos}.json",
+    ],
     // Vercel corre sobre glibc: la versión musl de DuckDB (~74 MB) sobra.
     "/api/sql": ["./node_modules/@duckdb/node-bindings-linux-x64-musl/**"],
     // Las fichas del grafo leen instantáneas por nombre variable y el trazado

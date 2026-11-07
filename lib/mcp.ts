@@ -104,9 +104,9 @@ Cómo se usa:
 Reglas al usar estos datos:
 - Cita la fuente y la fecha de corte de cada dato; son instantáneas, no tiempo real.
 - El valor de un proceso de compra es el estimado al publicarlo, no lo adjudicado ni lo pagado. Quién ganó un proceso solo está en el grafo si el proceso es de una obra (sus contratos, de MapaInversiones); si no, la ficha del proceso (su url) lo lee en vivo de la DGCP.
-- Qué norma deroga, modifica o cita otra se lee con reglas fijas de su título o, en una ley, de cada artículo de su texto íntegro (el grafo con nombre de la relación lo dice: «citas», el título; «texto», el texto): lo que un proyecto de ley deroga o modifica lo propone, no lo cambia; una ley no cambia una norma posterior a ella; y que una ley modifique otra no dice si la reforma sigue vigente. El texto oficial manda (el PDF de la norma).
+- Qué norma deroga, modifica o cita otra se lee con reglas fijas de su título o, en una ley, de cada artículo de su texto íntegro (fetch marca «según su texto íntegro» la que sale del texto; query la da en citas.segun): lo que un proyecto de ley deroga o modifica lo propone, no lo cambia; una ley no cambia una norma posterior a ella; y que una ley modifique otra no dice si la reforma sigue vigente. El texto oficial manda (el PDF de la norma).
 - Una votación del pleno trae su recuento (a favor, en contra, abstenciones, presentes), no el voto de cada diputado: ese lo da la ficha de la votación (su url), en vivo.
-- Lo que decidió una sentencia está en su dispositivo («Dispositivo» en sus datos), copiado de su texto íntegro: cítalo tal cual. Su «Sentido del fallo» (acoge, rechaza, inadmisible, declara una norma no conforme con la Constitución…) se lee de los verbos del dispositivo con reglas fijas, y las normas que declara conformes o no con la Constitución salen del ordinal que lo declara. Que una sentencia solo nombre una ley (en lo que el listado dice de ella) no dice qué decidió sobre ella. Una sentencia sin dispositivo es una cuyo texto no se pudo leer (un escaneo, un archivo que no está): lo dice su ficha en el tribunal. De qué trata una sentencia nombra a las partes, casi siempre particulares: no son personas con cargo público.
+- Lo que decidió una sentencia está en su dispositivo («Dispositivo» en sus datos), copiado de su texto íntegro: cítalo tal cual. Su «Sentido del fallo» (acoge, rechaza, inadmisible, declara una norma no conforme con la Constitución…) se lee de los verbos del dispositivo con reglas fijas, y las normas que declara conformes o no con la Constitución salen del ordinal que lo declara. Que una sentencia solo nombre una ley (en lo que el listado dice de ella) no dice qué decidió sobre ella. Una sentencia sin dispositivo es una cuyo texto todavía no se leyó, o se leyó sin un dispositivo reconocible: su texto está en su ficha en el tribunal. De qué trata una sentencia nombra a las partes, casi siempre particulares: no son personas con cargo público.
 - Que el texto de un documento nombre un proceso (por su código), una obra (por su SNIP) o una empresa (por su RNC, junto a su sigla o en la columna «RNC» de una planilla) dice que lo nombra, no qué dice de él ni que haya irregularidad: ábrelo antes de concluir.
 - «Persona expuesta políticamente» (PEP) es una categoría legal (Ley 155-17, art. 2, num. 19): quien ocupa, u ocupó en los últimos tres años, un cargo obligado a declarar patrimonio. No es una acusación.
 - Una persona se identifica por su nombre normalizado, nunca por su cédula. Dos grafías son dos nodos, y dos personas con el mismo nombre pueden ser distintas: no afirmes que dos registros son la misma persona si la respuesta no lo dice.
@@ -472,7 +472,7 @@ type Documento = z.infer<typeof Documento>;
 const POR_PAGINA_RELACIONES = 50;
 
 function lineaRelacion(r: Relacion): string {
-  const partes = [r.monto != null ? `RD$ ${ENTERO.format(r.monto)}` : null, r.detalle, r.movimiento, r.fecha?.slice(0, 10)].filter(Boolean);
+  const partes = [r.monto != null ? `RD$ ${ENTERO.format(r.monto)}` : null, r.detalle, r.movimiento, r.fecha?.slice(0, 10), r.grafo === "texto" ? "según su texto íntegro" : null].filter(Boolean);
   const d = destinoDe(r);
   const destino = d.id ? ` → ${d.id}` : d.pista ? ` → ${d.pista}` : d.url ? ` → ${d.url} (fuera de Socrático)` : "";
   return `- ${r.verbo}: ${r.nombre}${partes.length ? ` (${partes.join(" · ")})` : ""}${destino}`;
@@ -499,7 +499,7 @@ async function leerNodo(n: NodoRdf): Promise<Documento | null> {
   const sujeto = iriDe(n);
   const ruta = rutaDeNodo(n);
   const url = absoluta(ruta);
-  const relaciones = relacionesDesdeTriples(d.triples, sujeto);
+  const relaciones = relacionesDesdeTriples(d.triples, sujeto, d.grafos);
   const datos = datosDe(d.triples, sujeto);
   const medidas = medidasDe(d.triples);
   const origen = await procedencia(n.tipo);
@@ -700,7 +700,7 @@ async function vecinos(id: string, grupo: GrupoRelacion | undefined, pagina: num
   const d = await describir(n);
   if (!d) throw new Aviso(`No encontramos «${recortar(id, 120)}» en las instantáneas del grafo.`);
   const ruta = rutaDeNodo(n);
-  const todas = relacionesDesdeTriples(d.triples, iriDe(n)).filter((r) => !grupo || r.grupo === grupo);
+  const todas = relacionesDesdeTriples(d.triples, iriDe(n), d.grafos).filter((r) => !grupo || r.grupo === grupo);
   const paginas = Math.max(1, Math.ceil(todas.length / POR_PAGINA_RELACIONES));
   const actual = Math.min(Math.max(1, pagina), paginas);
   const origen = await procedencia(n.tipo);
@@ -1847,7 +1847,7 @@ async function contextoDeNodo(n: NodoRdf, por: string): Promise<z.infer<typeof E
   if (!d) return null;
   const sujeto = iriDe(n);
   const ruta = rutaDeNodo(n);
-  const relaciones = relacionesDesdeTriples(d.triples, sujeto);
+  const relaciones = relacionesDesdeTriples(d.triples, sujeto, d.grafos);
   const lineas: string[] = [];
   for (const g of GRUPOS) {
     const del = relaciones.filter((r) => r.grupo === g.id);
