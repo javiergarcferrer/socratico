@@ -65,6 +65,7 @@ export type ClaveGrafo =
   | "resoluciones"
   | "congreso"
   | "citas"
+  | "texto"
   | "documentos"
   | "datos"
   | "sentencias"

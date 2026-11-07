@@ -96,7 +96,7 @@ npx tsc --noEmit # solo typecheck
 
 # Instantáneas en public/data/: fiscal (SIGEF, ~5 min), nomina, deuda, normativa y decretos
 # (semanal), instituciones (tras normativa), leyes, procesos, sentencias, congreso, votaciones, historico-rnc (tras historico y empresas), textos (.mjs), grafo (.mjs, tras todas; a `datos/grafo/`), busqueda (tras grafo), grafo-volcado, grafo-tablas y sparql (.mjs, al final, tras grafo). Una por script:
-python3 scripts/build-<nombre>.py  # tras busqueda: node scripts/build-indice-busqueda.mjs
+python3 scripts/build-<nombre>.py  # tras busqueda: node scripts/build-indice-busqueda.mjs · sin red: «[refrescar: …]» en el commit (§6)
 ```
 
 No hay suite de pruebas ni ESLint: `next build` es el gate real, envuelto por `./.claude/hooks/verificar.sh --completo` (typecheck, identidad, controles sin

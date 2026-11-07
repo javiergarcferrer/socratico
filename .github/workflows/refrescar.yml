@@ -46,6 +46,7 @@ jobs:
       fuentes: ${{ steps.p.outputs.fuentes }}
       textos: ${{ steps.p.outputs.textos }}
       muestra: ${{ steps.p.outputs.muestra }}
+      claves: ${{ steps.p.outputs.claves }}
     steps:
       - id: p
         env:
@@ -64,6 +65,9 @@ jobs:
           for p in fuentes textos muestra; do
             if printf ',%s,' "$pasos" | grep -q ",$p,"; then echo "$p=1"; else echo "$p=0"; fi >> "$GITHUB_OUTPUT"
           done
+          # «[claves: TC-0904-26,TSE-…]»: las que la muestra lee además de las repartidas.
+          claves="$(printf '%s' "$MENSAJE" | grep -oE '\[claves: *[A-Za-z0-9=+/_,-]+\]' | head -1 | sed -E 's/^\[claves: *//; s/\]$//')"
+          echo "claves=$claves" >> "$GITHUB_OUTPUT"
           echo "pasos: ${pasos:-ninguno}"
 
   muestra:
@@ -76,7 +80,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22", cache: npm }
       - run: npm ci --no-audit --no-fund
-      - run: node --no-warnings scripts/build-textos.mjs --muestra 6 --minutos 45
+      - env:
+          CLAVES: ${{ needs.plan.outputs.claves }}
+        run: node --no-warnings scripts/build-textos.mjs --muestra 4 --minutos 45 ${CLAVES:+--claves "$CLAVES"}
 
   fuentes:
     needs: plan

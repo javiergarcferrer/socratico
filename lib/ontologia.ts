@@ -6,6 +6,7 @@ import { TIPOS_MEDIDA } from "@/lib/medidas";
 import { ETAPAS, ETAPA_DE_LA_DGCP, MODALIDADES, MODALIDAD_DE_LA_DGCP, OBJETOS, SECTORES_INVERSION } from "@/lib/vocabulario-compras";
 import { CONDICIONES_LEGISLATIVAS, TEMAS_LEGISLATIVOS, TIPOS_INICIATIVA } from "@/lib/vocabulario-congreso";
 import { GRUPOS_DE_DATOS } from "@/lib/vocabulario-datos";
+import { DEFINICION_SENTIDO, ETIQUETA_SENTIDO, SENTIDOS } from "@/lib/vocabulario-textos";
 import {
   ESPACIO_V1,
   ONTOLOGIA,
@@ -59,10 +60,10 @@ import {
  * en followthemoney.tech el 01-10-2026; los de ePO, en su documentación.
  */
 
-export const VERSION = "2.5.0";
-export const PUBLICADA = "2026-11-03";
+export const VERSION = "2.6.0";
+export const PUBLICADA = "2026-11-08";
 /** La versión anterior de los dos módulos (`owl:priorVersion`). */
-export const ANTERIOR = "2.4.0";
+export const ANTERIOR = "2.5.0";
 
 /** El núcleo, neutral de país, o el módulo de la República Dominicana. */
 export type Modulo = "soc" | "do";
@@ -369,7 +370,7 @@ export const CLASES: Clase[] = [
     etiqueta: "Documento",
     etiquetaEn: "Document",
     comentario:
-      "Un archivo que una institución publica en su portal —un informe, una resolución, una hoja de cálculo, un acta—, con su título, su formato y su fecha de subida; una declaración jurada o una sentencia son casos suyos. El grafo guarda su dirección, nunca su contenido.",
+      "Un archivo que una institución publica en su portal —un informe, una resolución, una hoja de cálculo, un acta—, con su título, su formato y su fecha de subida; una declaración jurada o una sentencia son casos suyos. El grafo guarda su dirección, nunca su contenido; de su texto íntegro guarda lo que se lee en él con reglas fijas (lo que nombra: `soc:cita`, `soc:menciona`; cuántas páginas: `soc:paginas`).",
     subClaseDe: ["foaf:Document", "schema:DigitalDocument"],
     ftm: "Document",
     estado: "en-uso",
@@ -403,7 +404,7 @@ export const CLASES: Clase[] = [
     etiqueta: "Sentencia",
     etiquetaEn: "Court ruling",
     comentario:
-      "Una sentencia de una alta corte (el Tribunal Constitucional, el Tribunal Superior Electoral), como la registra el listado público del tribunal: su número, su fecha, sus expedientes y de qué trata. El grafo guarda su ficha en el sitio del tribunal, nunca su texto.",
+      "Una sentencia de una alta corte (el Tribunal Constitucional, el Tribunal Superior Electoral), como la registra el listado público del tribunal: su número, su fecha, sus expedientes y de qué trata. El grafo guarda su ficha en el sitio del tribunal y, de su texto íntegro, lo que decidió: su dispositivo (`soc:dispositivo`), el sentido que se lee de sus verbos (`soc:sentido`), las normas que declara conformes o no con la Constitución y las sentencias que cita.",
     padre: "soc:Documento",
     subClaseDe: [],
     wikidata: [{ qid: "Q3769186", relacion: "closeMatch", nombre: "sentencia" }],
@@ -903,7 +904,7 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "cita",
     etiquetaEn: "cites",
     comentario:
-      "Una norma que nombra su título, leída con reglas fijas sobre la redacción oficial («…de la Ley núm. 87-01»). Si el verbo que la antecede dice qué le hace y quien la nombra puede hacerlo —una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos—, se afirma la propiedad más precisa (`soc:deroga`, `soc:modifica`); si no, esta. Un documento de la biblioteca de una institución solo cita: no es una norma. Una sentencia también solo cita: lo que decide sobre una norma está en su texto, no en lo que dice de ella el listado; nombra además otras sentencias («relativo a la Sentencia TC/0425/24»). Solo se ata a una ley o a un decreto que tiene ficha, o a una sentencia que el grafo tiene.",
+      "Una norma que nombra su título o su texto íntegro, leída con reglas fijas sobre la redacción oficial («…de la Ley núm. 87-01»); el grafo con nombre dice de cuál de los dos sale (`citas`, el título; `texto`, el texto, artículo por artículo). Si el verbo que la antecede dice qué le hace y quien la nombra puede hacerlo —una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos—, se afirma la propiedad más precisa (`soc:deroga`, `soc:modifica`); si no, esta. Un documento de la biblioteca de una institución solo cita: no es una norma. Una sentencia también solo cita, salvo lo que su dispositivo declara (`soc:declaraNoConforme`, `soc:declaraConforme`); nombra además otras sentencias del Tribunal Constitucional, en lo que dice de ella el listado («relativo a la Sentencia TC/0425/24») y en su texto (sus precedentes). Solo se ata a una ley o a un decreto que tiene ficha, o a una sentencia que el grafo tiene.",
     dominio: ["soc:Norma", "soc:Iniciativa", "soc:Documento"],
     rango: ["soc:Norma", "soc:Sentencia"],
     subPropiedadDe: ["dct:references"],
@@ -914,7 +915,7 @@ export const PROPIEDADES: Propiedad[] = [
     tipo: "objeto",
     etiqueta: "deroga",
     etiquetaEn: "repeals",
-    comentario: "La norma que deroga, según su título; en un proyecto de ley, la que propone derogar.",
+    comentario: "La norma que deroga, según su título o el artículo de su texto que lo dice («Se deroga la Ley núm. 449-06»; todo lo que nombra un artículo de derogaciones); en un proyecto de ley, la que propone derogar. Una ley no deroga una norma posterior a ella: eso queda como cita.",
     dominio: ["soc:Norma", "soc:Iniciativa"],
     rango: ["soc:Norma"],
     subPropiedadDe: ["soc:cita"],
@@ -926,10 +927,96 @@ export const PROPIEDADES: Propiedad[] = [
     etiqueta: "modifica",
     etiquetaEn: "amends",
     comentario:
-      "La norma que cambia según su título —la modifica, la reforma, le sustituye o le adiciona un texto—; en un proyecto de ley, la que propone cambiar.",
+      "La norma que cambia según su título o el artículo de su texto que lo dice —la modifica, la reforma, le sustituye o le adiciona un texto—; en un proyecto de ley, la que propone cambiar. Una ley no cambia una norma posterior a ella: eso queda como cita.",
     dominio: ["soc:Norma", "soc:Iniciativa"],
     rango: ["soc:Norma"],
     subPropiedadDe: ["soc:cita"],
+    estado: "en-uso",
+  },
+
+  /* ---------------------------------------------- lo que dice el texto íntegro */
+  {
+    id: "declaraNoConforme",
+    tipo: "objeto",
+    etiqueta: "declara no conforme con la Constitución",
+    etiquetaEn: "declares unconstitutional",
+    comentario:
+      "La ley o el decreto que un ordinal del dispositivo de la sentencia declara no conforme con la Constitución (o inconstitucional), en todo o en parte: el dispositivo (`soc:dispositivo`) dice qué artículos. Leído de su texto íntegro con reglas fijas: un ordinal que declara, no uno que rechaza.",
+    dominio: ["soc:Sentencia"],
+    rango: ["soc:Norma"],
+    subPropiedadDe: ["soc:cita"],
+    estado: "en-uso",
+  },
+  {
+    id: "declaraConforme",
+    tipo: "objeto",
+    etiqueta: "declara conforme con la Constitución",
+    etiquetaEn: "declares constitutional",
+    comentario:
+      "La ley, el decreto o el tratado que un ordinal del dispositivo de la sentencia declara conforme con la Constitución. Leído de su texto íntegro con reglas fijas.",
+    dominio: ["soc:Sentencia"],
+    rango: ["soc:Norma"],
+    subPropiedadDe: ["soc:cita"],
+    estado: "en-uso",
+  },
+  {
+    id: "sentido",
+    tipo: "objeto",
+    etiqueta: "sentido del fallo",
+    etiquetaEn: "ruling outcome",
+    comentario:
+      "Lo que decidió la sentencia, leído de los verbos de su dispositivo («DECIDE: PRIMERO: ADMITIR… SEGUNDO: RECHAZAR…») con reglas fijas (`soc:sentidos`): declara una norma no conforme con la Constitución, la declara conforme, acoge, rechaza, inadmisible u otro. Es la lectura de la fórmula del propio tribunal; el dispositivo va al lado.",
+    dominio: ["soc:Sentencia"],
+    rango: ["skos:Concept"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "dispositivo",
+    tipo: "dato",
+    etiqueta: "dispositivo",
+    etiquetaEn: "operative part",
+    comentario:
+      "El dispositivo de la sentencia —lo que el tribunal decide, ordinal por ordinal— tal como lo escribe, desde su primer ordinal hasta la firma, sacado de su texto íntegro, sin cédulas y recortado a 3,000 caracteres.",
+    dominio: ["soc:Sentencia"],
+    rango: ["rdf:langString"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "menciona",
+    tipo: "objeto",
+    etiqueta: "menciona",
+    etiquetaEn: "mentions",
+    comentario:
+      "Lo que nombra el texto íntegro de un documento por un identificador que no admite homónimos: el código de un proceso de compra de la DGCP, el RNC de una empresa inscrita como proveedora del Estado, el número SNIP de una obra. Un RNC se lee solo junto a su sigla o en la columna «RNC» de una planilla; un nombre propio no basta (eso es una `soc:Mencion`).",
+    dominio: ["soc:Documento"],
+    rango: ["soc:ProcesoDeContratacion", "soc:Empresa", "soc:ProyectoDeInversion"],
+    subPropiedadDe: ["dct:references"],
+    estado: "en-uso",
+  },
+  {
+    id: "vecesCitada",
+    tipo: "dato",
+    etiqueta: "textos que la citan",
+    etiquetaEn: "times cited in full texts",
+    comentario:
+      "Cuántos textos íntegros leídos (sentencias, leyes y documentos) la nombran. La descripción de una norma o una sentencia muy citada trae solo las citas más recientes de su texto; esta cuenta las trae todas.",
+    dominio: ["soc:Norma", "soc:Sentencia"],
+    rango: ["xsd:integer"],
+    funcional: true,
+    estado: "en-uso",
+  },
+  {
+    id: "paginas",
+    tipo: "dato",
+    etiqueta: "páginas",
+    etiquetaEn: "number of pages",
+    comentario: "Cuántas páginas tiene el archivo cuyo texto íntegro se leyó (una hoja de cálculo: cuántas hojas). Que la tenga dice que su texto se leyó.",
+    dominio: ["soc:Documento", "soc:Norma"],
+    rango: ["xsd:integer"],
+    subPropiedadDe: ["schema:numberOfPages"],
+    funcional: true,
     estado: "en-uso",
   },
 
@@ -1724,6 +1811,12 @@ function literalesDgcp(tabla: Readonly<Record<string, string>>, clave: string): 
 /** Los esquemas de conceptos, de las mismas tablas que usa la interfaz. */
 export function esquemas(): Esquema[] {
   return [
+    {
+      id: "sentidos",
+      etiqueta: "Sentidos de un fallo",
+      comentario: "Lo que decide una sentencia, leído con reglas fijas de los verbos de su dispositivo (`lib/texto-extraccion.ts`).",
+      conceptos: SENTIDOS.map((id) => ({ id: `sentido-${id}`, etiqueta: ETIQUETA_SENTIDO[id], definicion: DEFINICION_SENTIDO[id] })),
+    },
     {
       id: "tiposDeEvento",
       etiqueta: "Tipos de evento",

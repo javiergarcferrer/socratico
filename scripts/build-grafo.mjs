@@ -312,7 +312,7 @@ const brotli = (texto) =>
 
 /** Las aristas de un nodo hacia otros nodos, como las lee `camino()`: `[destino, vía, nombre]`. */
 const vecinosDe = (d, n) =>
-  R.relacionesDesdeTriples(d.triples, N.iriDe(n)).flatMap((r) => (r.nodo ? [[R.claveNodo(r.nodo), r.neutro, r.nombre]] : []));
+  R.relacionesDesdeTriples(d.triples, N.iriDe(n), d.grafos).flatMap((r) => (r.nodo ? [[R.claveNodo(r.nodo), r.neutro, r.nombre]] : []));
 
 /** Un fragmento del índice de vecinos, en filas comprimidas (`FragmentoVecinos`). */
 function codificarVecinos(cubeta, tipo) {

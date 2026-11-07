@@ -28,7 +28,7 @@
  *     node scripts/eval-mcp.mjs --url https://socratico.vercel.app/mcp
  * Sale con 1 si un caso falla.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import path from "node:path";
@@ -274,6 +274,34 @@ const sentenciaConLey = sentencias.tc
 // «TC/0273/24»: su ficha aquí y la del Tribunal.
 const fichaTc = (n) => `/constitucional/TC-${n.slice(3, 7)}-${n.slice(8, 10)}`;
 const fichaEnTc = (n) => sentencias.ficha_tc.replace("{}", `${n.slice(3, 7)}${n.slice(8, 10)}`);
+// El texto íntegro (§5.12), de las instantáneas de public/data/textos si las hay: la sentencia del TC más
+// reciente con dispositivo y sentido (y una que declara no conforme una ley con ficha), el precedente que
+// más sentencias nombran en su texto, y un documento cuyo texto nombra un proceso de la tabla.
+const deTextos = (r) => (existsSync(path.join(DATOS, "textos", r)) ? leer(`textos/${r}`) : null);
+const textosSentencias = deTextos("sentencias.json");
+const textosDocumentos = deTextos("documentos.json");
+const claveTc = (n) => `TC-${n.slice(3, 7)}-${n.slice(8, 10)}`;
+const fechaTc = new Map(sentencias.tc.map((x) => [claveTc(x.n), x.f ?? ""]));
+const clavesTse = new Set(sentencias.tse.map((x) => `TSE-${/contenciosas\/([A-Za-z0-9+=_-]{8,64})$/.exec(x.u)?.[1]}`));
+const conDispositivo = Object.entries(textosSentencias?.filas ?? {})
+  .filter(([k, f]) => fechaTc.has(k) && f.e === "ok" && f.s && f.d)
+  .sort(([a], [b]) => fechaTc.get(b).localeCompare(fechaTc.get(a)) || b.localeCompare(a));
+const declaraLey = conDispositivo
+  .map(([k, f]) => ({ k, f, ley: (f.n ?? []).find(([t, n, e]) => t === "Ley" && e === "no-conforme" && esLeyNodo(canonLey(n))) }))
+  .find((x) => x.ley);
+const citadaPor = new Map();
+for (const [k, f] of Object.entries(textosSentencias?.filas ?? {})) {
+  if (f.e !== "ok" || !(fechaTc.has(k) || clavesTse.has(k))) continue;
+  for (const [c] of f.t ?? []) if (c !== k && fechaTc.has(c)) citadaPor.set(c, (citadaPor.get(c) ?? new Set()).add(k));
+}
+const masCitada = [...citadaPor].sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))[0];
+const nombranProceso = new Map();
+for (const [k, f] of Object.entries(textosDocumentos?.filas ?? {})) {
+  if (f.e !== "ok") continue;
+  for (const c of f.x ?? []) if (codigosTabla.has(c)) nombranProceso.set(c, [...(nombranProceso.get(c) ?? []), k]);
+}
+// El código que menos documentos nombran (a lo sumo 20, los que describe el proceso), el primero por código.
+const documentoConProceso = [...nombranProceso].filter(([, ds]) => ds.length <= 20).sort((a, b) => a[1].length - b[1].length || a[0].localeCompare(b[0]))[0];
 // La votación del pleno más reciente sobre una sola iniciativa, y esa iniciativa es nodo.
 const votacionesPleno = leer("votaciones.json").votaciones;
 const iniciativasNodo = new Set(congreso.filas.map((f) => f[0]));
@@ -761,6 +789,55 @@ const CASOS = [
       exigir(datos.encontrado, datos.explicacion);
       exigir(datos.saltos === 1, `${datos.saltos} saltos; de qué trata la nombra`);
       return `${x.n} (${x.f}) → Ley ${ley}`;
+    },
+  },
+  {
+    pregunta: "El texto íntegro de una sentencia del TC: fetch trae su sentido y su dispositivo y, si declara no conforme una ley, la ley lo dice",
+    async correr() {
+      if (!textosSentencias) return "sin public/data/textos/sentencias.json: no aplica (§5.12)";
+      exigir(conDispositivo.length, "no hay oráculo: ninguna sentencia del TC con dispositivo y sentido en la instantánea de textos");
+      const [k, f] = conDispositivo[0];
+      const { datos, error } = await llamar("fetch", { id: `/constitucional/${k}` });
+      exigir(!error, error);
+      exigir(datos.text.includes("- Sentido del fallo: "), `no dice el sentido del fallo de ${k}`);
+      exigir(datos.text.includes(`- Dispositivo: ${f.d.slice(0, 80)}`), `no trae el dispositivo de ${k}`);
+      if (!declaraLey) return `${k} (${f.s}); ninguna sentencia leída declara no conforme una ley con ficha`;
+      const ley = canonLey(declaraLey.ley[1]);
+      const s = await llamar("fetch", { id: `/constitucional/${declaraLey.k}`, group: "normas" });
+      exigir(!s.error, s.error);
+      exigir(s.datos.text.includes("Declara no conforme con la Constitución: Ley") && s.datos.text.includes(`→ /normativa/ley/${ley}`), `${declaraLey.k} no declara no conforme la Ley ${ley}`);
+      const l = await llamar("fetch", { id: `/normativa/ley/${ley}`, group: "sentencias" });
+      exigir(!l.error, l.error);
+      exigir(l.datos.text.includes(`→ /constitucional/${declaraLey.k}`), `la Ley ${ley} no trae la sentencia ${declaraLey.k} que la declara no conforme`);
+      return `${k} (${f.s}); ${declaraLey.k} declara no conforme la Ley ${ley}`;
+    },
+  },
+  {
+    pregunta: "El precedente del TC que más sentencias nombran en su texto: fetch dice cuántos textos la citan",
+    async correr() {
+      if (!textosSentencias) return "sin public/data/textos/sentencias.json: no aplica (§5.12)";
+      exigir(masCitada, "no hay oráculo: ningún texto de sentencia nombra otra sentencia del TC");
+      const [k, quienes] = masCitada;
+      const { datos, error } = await llamar("fetch", { id: `/constitucional/${k}` });
+      exigir(!error, error);
+      exigir(datos.text.includes(`- Textos que la citan: ${quienes.size.toLocaleString("es-DO")}`), `no dice que ${quienes.size} textos citan ${k}`);
+      return `${k}: ${quienes.size} sentencias la nombran`;
+    },
+  },
+  {
+    pregunta: "Un documento cuyo texto nombra un proceso de compra: fetch del documento lo nombra, y el proceso trae el documento",
+    async correr() {
+      if (!textosDocumentos) return "sin public/data/textos/documentos.json: no aplica (§5.12)";
+      if (!documentoConProceso) return "ningún documento leído nombra un proceso de la tabla de doce meses";
+      const [codigo, [clave]] = documentoConProceso;
+      const ficha = fichaDocumento(clave);
+      const d = await llamar("fetch", { id: ficha });
+      exigir(!d.error, `${d.error} (${ficha})`);
+      exigir(d.datos.text.includes("Lo nombra su texto") && d.datos.text.includes(`→ /procesos/${codigo}`), `el documento no nombra el proceso ${codigo}`);
+      const p = await llamar("fetch", { id: `/procesos/${codigo}`, group: "publicaciones" });
+      exigir(!p.error, p.error);
+      exigir(p.datos.text.includes(`→ ${ficha}`), `el proceso ${codigo} no trae el documento ${ficha}`);
+      return `${codigo} ← ${clave.slice(0, 60)}`;
     },
   },
   {

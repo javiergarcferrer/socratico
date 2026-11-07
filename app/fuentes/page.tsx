@@ -16,6 +16,7 @@ import { FUENTES_DEL_CRUCE, INSTITUCIONES } from "@/lib/instituciones";
 import { FUENTE_MAPA } from "@/lib/mapa";
 import { enlace } from "@/lib/grafo";
 import { IconArrowLeft } from "@/components/icons";
+import { resumenesDeTextos, type ResumenTextos } from "@/lib/textos";
 import {
   ResumenBiblioteca,
   ResumenCatalogo,
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function FuentesPage() {
-  const [censo, periodos, censoSenado, nomina, deuda, fiscal, proveedores, normativa] =
+  const [censo, periodos, censoSenado, nomina, deuda, fiscal, proveedores, normativa, textos] =
     await Promise.all([
       getCountIniciativas(),
       getPeriodos(),
@@ -53,6 +54,7 @@ export default async function FuentesPage() {
       getResumenFiscal(),
       contarProveedoresRegistrados(),
       consultarNormativa("3", new Date().getFullYear()),
+      resumenesDeTextos(),
     ]);
   const normativaInstantanea =
     normativa.origen !== null && normativa.origen !== "vivo" ? normativa.origen : null;
@@ -1175,7 +1177,8 @@ export default async function FuentesPage() {
             </Link>{" "}
             se leen de ahí con caché de horas para el año en curso y de días para los
             cerrados. La sentencia en sí es un PDF que se abre desde su ficha en el
-            sitio del Tribunal: no se descarga ni se copia.
+            sitio del Tribunal: no se copia; la lectura semanal del texto íntegro (abajo) lo
+            baja para sacar su dispositivo y lo descarta.
           </p>
           <p className="mt-3">
             Para el buscador de toda la plataforma, el listado de cada año desde
@@ -1185,8 +1188,7 @@ export default async function FuentesPage() {
             De esa instantánea sale también cada sentencia como nodo del grafo, con
             ficha propia: el tribunal que la dicta, sus expedientes, las leyes y los
             decretos con ficha que nombra lo que el listado dice de ella y las sentencias del
-            Tribunal que nombra por su número. Que la nombre no dice qué decidió
-            sobre ella: eso está en su texto. Como lo que dice el listado nombra a las partes,
+            Tribunal que nombra por su número. Lo que decidió sale de su texto íntegro, abajo. Como lo que dice el listado nombra a las partes,
             casi siempre particulares, las sentencias no entran al grafo descargable
             ni a las tablas SQL.
           </p>
@@ -1212,6 +1214,8 @@ export default async function FuentesPage() {
             número que se repite no se cita, porque no dice cuál de las dos es.
           </p>
         </Fuente>
+
+        <TextoIntegro textos={textos} />
 
         <Fuente nombre="Poder Judicial · estadísticas de los tribunales ordinarios" estado="activa" etiqueta="Instantánea local">
           <p>
@@ -1632,6 +1636,76 @@ export default async function FuentesPage() {
  * exactamente `Badge forma="sello"`—, que es cómo se abre la segunda tabla de
  * colores que `lib/estados.ts` documenta como la forma de romper un sistema.
  */
+/**
+ * El texto íntegro de las sentencias, las leyes y los documentos
+ * (`scripts/build-textos.mjs`, docs/INFRAESTRUCTURA.md §5.12): cuántos se
+ * leyeron de cada corpus, por qué no los demás y qué host no respondió, de
+ * la cabecera de cada instantánea.
+ */
+function TextoIntegro({ textos }: { textos: Record<"sentencias" | "leyes" | "documentos", ResumenTextos | null> }) {
+  const corpus = [
+    { clave: "sentencias", nombre: "sentencias del TC y del TSE" },
+    { clave: "leyes", nombre: "leyes con ficha" },
+    { clave: "documentos", nombre: "documentos de las bibliotecas institucionales" },
+  ] as const;
+  const leidas = corpus.filter((c) => textos[c.clave]);
+  const bloqueados = [
+    ...new Set(leidas.flatMap((c) => Object.entries(textos[c.clave]!.hosts).filter(([, h]) => h.bloqueado).map(([host, h]) => `${host} (${h.bloqueado})`))),
+  ];
+  const ESTADO_EN_LLANO: Record<string, string> = {
+    "sin-texto": "escaneos sin capa de texto",
+    "sin-archivo": "fichas sin archivo",
+    "no-existe": "archivos que ya no están",
+    grande: "archivos de más de 40 MB",
+    formato: "formatos que no se leen (XLS, DOC)",
+    robots: "vetados por su robots.txt",
+    bloqueado: "de un host que bloqueó la lectura",
+    error: "que no respondieron (se reintentan)",
+  };
+  return (
+    <Fuente
+      nombre="Texto íntegro · sentencias, leyes y documentos"
+      estado={leidas.length === 0 ? "caida" : "activa"}
+      etiqueta={leidas.length === 0 ? "Sin leer todavía" : bloqueados.length ? "Instantánea, con límites" : "Instantánea local"}
+    >
+      <p>
+        Además de su título, se lee el texto entero de cada sentencia del Tribunal Constitucional y del Tribunal Superior Electoral
+        (el PDF que enlaza su ficha en el tribunal), de cada ley con ficha (su PDF en la Consultoría Jurídica) y de cada documento
+        PDF, Word o Excel de las bibliotecas institucionales. No se guarda el texto: se guarda lo que se lee en él con reglas fijas
+        sobre la redacción oficial —el dispositivo de cada sentencia y el sentido de su fallo, las normas que declara conformes o no
+        con la Constitución y las sentencias que cita; lo que cada artículo de una ley deroga o modifica; las normas, los procesos
+        de compra, las obras y las empresas proveedoras que nombra cada documento— y eso entra al grafo. Un escaneo sin capa de
+        texto no se lee: no hay reconocimiento óptico.
+      </p>
+      {leidas.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {leidas.map((c) => {
+            const r = textos[c.clave]!;
+            const otros = Object.entries(r.cuenta).filter(([e, n]) => e !== "ok" && n);
+            return (
+              <li key={c.clave}>
+                <strong>{formatInt(r.cuenta.ok ?? 0)}</strong> de {formatInt(r.total)} {c.nombre}, leídas el {formatFecha(r.generado)}
+                {otros.length > 0 && <>; sin leer: {otros.map(([e, n]) => `${formatInt(n ?? 0)} ${ESTADO_EN_LLANO[e] ?? e}`).join(", ")}</>}.
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {bloqueados.length > 0 && (
+        <p className="mt-3">
+          No respondieron a la lectura y no se insistió: {bloqueados.join("; ")}. Se vuelven a pedir en la lectura siguiente, sin
+          rodear el bloqueo.
+        </p>
+      )}
+      <p className="mt-3">
+        La lectura corre cada semana fuera de la plataforma, con las mismas reglas que las demás instantáneas: su{" "}
+        <code className="rounded bg-canvas px-1 py-0.5 font-mono">robots.txt</code> primero, un pedido a la vez por sitio y un
+        segundo entre uno y otro, y el nombre de la plataforma en cada pedido. Lo ya leído no se vuelve a pedir.
+      </p>
+    </Fuente>
+  );
+}
+
 const ESTADOS = {
   activa: { variant: "valido", ring: "ring-valido-500/20" },
   bloqueada: { variant: "sello", ring: "ring-sello-600/20" },

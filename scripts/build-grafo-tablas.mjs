@@ -385,8 +385,16 @@ tabla(
       const mias = d.triples.filter((t) => t.s.valor === s);
       const de = (p) => mias.find((t) => t.p === p)?.o.valor ?? null;
       const id = G.rutaDeNodo(n);
-      // Lo que nombra su título; lo que la nombra lo dice quien la nombra.
-      for (const t of mias) if (RELACION[t.p]) citas.push({ de: id, a: rutaDe(t.o.valor), relacion: RELACION[t.p] });
+      // Lo que nombra su título o su texto (el grafo con nombre de cada triple); lo que la nombra lo dice quien la nombra.
+      const vistas = new Set();
+      d.triples.forEach((t, i) => {
+        if (t.s.valor !== s || !RELACION[t.p]) return;
+        const fila = { de: id, a: rutaDe(t.o.valor), relacion: RELACION[t.p], segun: d.grafos[i] === "texto" ? "texto" : "titulo" };
+        const k = `${fila.a}|${fila.relacion}|${fila.segun}`;
+        if (vistas.has(k)) return;
+        vistas.add(k);
+        citas.push(fila);
+      });
       if (tipo === "iniciativa") {
         const promulgada = de(`${SOC}promulgadaComo`);
         iniciativas.push({

@@ -19,6 +19,7 @@ import { enlace } from "@/lib/grafo";
 import { medidasDeRnc, metaSanciones, ofacDeRnc } from "@/lib/sanciones";
 import { NotaOfac } from "@/components/fuentes-nuevas/medidas-proveedor";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { DocumentosQueLoNombran } from "@/components/texto-integro";
 import { QuienLeCompra } from "@/components/fuentes-nuevas/historia-compras";
 
 /** La instantánea solo cambia con un despliegue: una ficha se rehace al día. */
@@ -252,6 +253,7 @@ export default async function EmpresaPage({ params }: Props) {
         </Link>
         .
       </p>
+      <DocumentosQueLoNombran nodo={{ tipo: "empresa", id: e.rnc }} className="mt-4 p-5 sm:p-6" />
       <EnElGrafo nodo={{ tipo: "empresa", id: e.rnc }} empresa={e} className="mt-2" />
     </div>
   );

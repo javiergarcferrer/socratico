@@ -31,6 +31,7 @@ import {
   type Documento as DocumentoBiblioteca,
 } from "@/lib/biblioteca";
 import { getSentencias, sentenciaPorClave, type Sentencia, type Tribunal } from "@/lib/sentencias";
+import { textosDeDocumentos, textosDeLeyes, textosDeSentencias, type FilaTexto, type Textos } from "@/lib/textos";
 import { getVotaciones, votacionPorId, type VotacionPleno } from "@/lib/votaciones";
 import { declaracionesDe, declaracionesDeInstitucion, getDeclaraciones } from "@/lib/declaraciones";
 import { entidadDeInstitucion, entidadPorRnc, entidadPorSlug, getFinancieras, institucionDe } from "@/lib/financieras";
@@ -203,6 +204,7 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
   if (!sentencias) throw new Error("falta una instantánea: sentencias.json");
   const votaciones = await getVotaciones();
   if (!votaciones) throw new Error("falta una instantánea: votaciones.json");
+  const textos = await Promise.all([textosDeSentencias(), textosDeLeyes(), textosDeDocumentos()]);
   const cargo = (origen: OrigenCargo, url: string | null): DefinicionGrafo => ({
     clave: `cargos-${origen}`,
     etiqueta: `Cargos: ${ETIQUETA_ORIGEN[origen]}`,
@@ -436,6 +438,7 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       corte: dia(congreso.generado),
       derivado: { de: ["leyes", "decretos", "resoluciones", "congreso", "documentos", "sentencias"] },
     },
+    ...grafoTexto(textos),
     {
       clave: "plataforma",
       etiqueta: "Socrático.do",
@@ -443,6 +446,29 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       fuentes: [],
       corte: null,
       derivado: { de: [] },
+    },
+  ];
+}
+
+/**
+ * El grafo de lo que se lee en el texto íntegro (`scripts/build-textos.mjs`,
+ * `lib/texto-extraccion.ts`): una regla, como `citas`, sobre los archivos de
+ * los tres corpus. Sin ninguna instantánea de `public/data/textos/`, no hay
+ * grafo: el compilado queda como antes de leer textos. Su corte es el de la
+ * instantánea más reciente.
+ */
+function grafoTexto(textos: (Textos<FilaTexto> | null)[]): DefinicionGrafo[] {
+  const leidas = textos.filter((x): x is Textos<FilaTexto> => x != null);
+  if (!leidas.length) return [];
+  return [
+    {
+      clave: "texto",
+      etiqueta: "Lo que dice el texto íntegro (regla)",
+      descripcion:
+        "Lo que se lee con reglas fijas en el texto íntegro de las sentencias del Tribunal Constitucional y del Tribunal Superior Electoral (su dispositivo, el sentido de su fallo, las normas que declara conformes o no con la Constitución y las sentencias del TC que cita), de las leyes con ficha (qué ley o decreto deroga, modifica o cita cada artículo; una ley no cambia una norma posterior a ella) y de los documentos de las bibliotecas institucionales (las normas, los procesos de compra, las obras y las empresas proveedoras que nombran por su número, su código, su SNIP o su RNC), y cuántas páginas tiene cada archivo leído. Solo se ata a un nodo del grafo.",
+      fuentes: [],
+      corte: leidas.map((x) => x.generado).sort().at(-1) ?? null,
+      derivado: { de: ["sentencias", "leyes", "documentos"] },
     },
   ];
 }
@@ -782,6 +808,10 @@ async function describirEmpresa(rnc: string, ligero = false): Promise<Descripcio
     if (suyos.length > TOPE_COMPRAS) {
       nota = `Se describen sus ${TOPE_COMPRAS} contratos de obra de mayor monto de los ${suyos.length.toLocaleString("es-DO")} que lista MapaInversiones.`;
     }
+  }
+  if (!ligero) {
+    const enDocumentos = await documentosQueLoNombran({ tipo: "empresa", id: e.rnc }, x);
+    if (enDocumentos) nota = nota ? `${nota} ${enDocumentos}` : enDocumentos;
   }
   const ofac = await ofacDeRnc(e.rnc);
   if (ofac) x.de("ofac", t(s, "rdfs:seeAlso", iri(hrefFichaOfac(ofac.ent))));
@@ -1244,7 +1274,8 @@ async function describirProceso(codigo: string, ligero = false): Promise<Descrip
     vecinaObra(obra, x);
   }
   if (!ligero) for (const k of contratos) await triplesContrato(k, x, p, o);
-  return { triples: x.triples, grafos: x.grafos, titulo: etiquetaProceso(codigo, titulo) };
+  const nota = ligero ? undefined : await documentosQueLoNombran({ tipo: "proceso", id: codigo }, x);
+  return { triples: x.triples, grafos: x.grafos, titulo: etiquetaProceso(codigo, titulo), nota };
 }
 
 /* ------------------------------------------------------------------ obra */
@@ -1290,7 +1321,8 @@ async function describirObra(snip: string, ligero = false): Promise<Descripcion 
     }
     for (const k of o.contratosDeObra.get(snip) ?? []) await triplesContrato(k, x, p, o, snip);
   }
-  return { triples: x.triples, grafos: x.grafos, titulo: desdeMayusculas(nombre) };
+  const nota = ligero ? undefined : await documentosQueLoNombran({ tipo: "obra", id: snip }, x);
+  return { triples: x.triples, grafos: x.grafos, titulo: desdeMayusculas(nombre), nota };
 }
 
 /* ------------------------------------------------- normas e iniciativas */
@@ -1308,8 +1340,10 @@ interface Iniciativa {
   tituloModificado: string | null;
 }
 
-/** Lo que el título de una norma o de una iniciativa le hace a una norma con nodo. */
-type Cita = "deroga" | "modifica" | "cita";
+/** Lo que el título o el texto de una norma, una iniciativa, un documento o una sentencia le hace a una norma (o a una sentencia) con nodo. */
+type Cita = "deroga" | "modifica" | "cita" | "no-conforme" | "conforme";
+/** La más fuerte manda cuando el texto dice dos cosas de la misma norma: declarar sobre citar, derogar sobre modificar. */
+const FUERZA_CITA: Record<Cita, number> = { "no-conforme": 5, conforme: 4, deroga: 3, modifica: 2, cita: 1 };
 
 /** Sustituir, adicionar o reformar es modificar: las relaciones de `lib/legislacion.ts` en las tres de la ontología. */
 const CITA_DE_RELACION: Record<RelacionNorma, Cita> = {
@@ -1321,20 +1355,30 @@ const CITA_DE_RELACION: Record<RelacionNorma, Cita> = {
   cita: "cita",
 };
 
-/** La propiedad de cada cita y, cuando la dice una norma, la de ELI (una iniciativa no es todavía un recurso legal). */
-const PROPIEDAD_CITA: Record<Cita, { soc: string; eli: string }> = {
+/** La propiedad de cada cita y, cuando la dice una norma, la de ELI (una iniciativa no es todavía un recurso legal; una sentencia no cambia una norma en ELI). */
+const PROPIEDAD_CITA: Record<Cita, { soc: string; eli: string | null }> = {
   deroga: { soc: "soc:deroga", eli: "eli:repeals" },
   modifica: { soc: "soc:modifica", eli: "eli:amends" },
   cita: { soc: "soc:cita", eli: "eli:cites" },
+  "no-conforme": { soc: "soc:declaraNoConforme", eli: null },
+  conforme: { soc: "soc:declaraConforme", eli: null },
 };
 
-/** Una cita: quién la hace, a qué norma, qué le hace, y la fecha de quien la hace (para ordenar las que llegan). */
+/**
+ * Una cita: quién la hace, a qué norma, qué le hace, la fecha de quien la
+ * hace (para ordenar las que llegan) y si la dice su texto íntegro (grafo
+ * `texto`) o su título o su listado (grafo `citas`).
+ */
 interface Arista {
   de: NodoRdf;
   a: NodoRdf;
   cita: Cita;
   fecha: string | null;
+  texto?: true;
 }
+
+/** Cuántas citas de un texto íntegro describe, como mucho, quien las recibe: una ley o un precedente muy citados reciben miles. */
+const TOPE_CITAS_TEXTO = 40;
 
 interface IndiceNormas {
   leyes: Map<string, Documento>;
@@ -1465,6 +1509,67 @@ function indiceNormas(): Promise<IndiceNormas> {
         entran.set(clave(a), [...(entran.get(clave(a)) ?? []), arista]);
       }
     }
+
+    /*
+      Lo que dice el texto íntegro (`public/data/textos/`, grafo «texto»): lo
+      que cada artículo de una ley deroga, modifica o cita (una ley no cambia
+      una norma posterior a ella), lo que el dispositivo de una sentencia
+      declara conforme o no con la Constitución —lo que solo cita un ordinal,
+      casi siempre la Ley 137-11 por las costas, no se ata—, los precedentes
+      del TC que nombra su texto y las normas que nombra un documento. Una
+      cita por par: la más fuerte.
+    */
+    const [tSent, tLey, tDoc] = await Promise.all([textosDeSentencias(), textosDeLeyes(), textosDeDocumentos()]);
+    const delTexto = new Map<string, Arista>();
+    const enTexto = (de: NodoRdf, a: NodoRdf, cita: Cita, fecha: string | null) => {
+      if (clave(de) === clave(a)) return;
+      const k = `${clave(de)}>${clave(a)}`;
+      const antes = delTexto.get(k);
+      if (!antes || FUERZA_CITA[cita] > FUERZA_CITA[antes.cita]) delTexto.set(k, { de, a, cita, fecha, texto: true });
+    };
+    const fechaDeNorma = async (n: NodoRdf): Promise<string | null> =>
+      n.tipo === "ley" ? (leyes.normas.get(n.id)?.fechaIso ?? null) : n.tipo === "decreto" ? ((await decretoPorNumero(n.id))?.fecha ?? null) : null;
+    for (const [k, f] of Object.entries(tLey?.filas ?? {})) {
+      const ley = leyes.normas.get(k);
+      if (f.e !== "ok" || !ley) continue;
+      const de: NodoRdf = { tipo: "ley", id: k };
+      for (const [tipo, numero, relacion] of f.n ?? []) {
+        const a = await aNodo(tipo, numero);
+        if (!a) continue;
+        let cita = CITA_DE_RELACION[relacion];
+        if (cita !== "cita") {
+          const fa = await fechaDeNorma(a);
+          if (!puedeCambiar(de, a, false) || !ley.fechaIso || !fa || fa > ley.fechaIso) cita = "cita";
+        }
+        enTexto(de, a, cita, ley.fechaIso);
+      }
+    }
+    const fechaSentencia = new Map(sentencias.lista.map((x) => [x.clave, x.fecha]));
+    for (const [k, f] of Object.entries(tSent?.filas ?? {})) {
+      if (f.e !== "ok" || !fechaSentencia.has(k)) continue;
+      const de: NodoRdf = { tipo: "sentencia", id: k };
+      const fecha = fechaSentencia.get(k) ?? null;
+      for (const [tipo, numero, efecto] of f.n ?? []) {
+        if (efecto === "cita") continue;
+        const a = await aNodo(tipo, numero);
+        if (a) enTexto(de, a, efecto, fecha);
+      }
+      for (const [citada] of f.t ?? []) if (tcs.has(citada)) enTexto(de, { tipo: "sentencia", id: citada }, "cita", fecha);
+    }
+    const fechaDocumento = new Map((await todosLosDocumentos()).map((d) => [claveDocumento(d.url), d.fecha]));
+    for (const [k, f] of Object.entries(tDoc?.filas ?? {})) {
+      if (f.e !== "ok" || !fechaDocumento.has(k)) continue;
+      const de: NodoRdf = { tipo: "documento", id: k };
+      for (const [tipo, numero] of f.n ?? []) {
+        const a = await aNodo(tipo, numero);
+        if (a) enTexto(de, a, "cita", fechaDocumento.get(k) ?? null);
+      }
+    }
+    for (const arista of [...delTexto.values()].sort((x, y) => porTexto(clave(x.de), clave(y.de)) || porTexto(clave(x.a), clave(y.a)))) {
+      salen.set(clave(arista.de), [...(salen.get(clave(arista.de)) ?? []), arista]);
+      entran.set(clave(arista.a), [...(entran.get(clave(arista.a)) ?? []), arista]);
+    }
+
     for (const lista of entran.values()) lista.sort((x, y) => porTexto(y.fecha ?? "", x.fecha ?? "") || porTexto(clave(x.de), clave(y.de)));
 
     // La promulgación que registra el SIL: «Ley núm. 43-26», «Res. núm. 48-26»; «N/A» no es ninguna.
@@ -1562,21 +1667,36 @@ function conceptoSil(i: Iniciativa, campo: "tipo" | "condicion" | "grupo"): stri
 /** Una cita como triples, en el grafo de la regla que la lee: la propiedad de aquí y, si la dice una norma, la de ELI. */
 function triplesCita(a: Arista, x: Afirmaciones): void {
   const p = PROPIEDAD_CITA[a.cita];
-  x.de("citas", t(iriDe(a.de), p.soc, iri(iriDe(a.a))));
+  const g: ClaveGrafo = a.texto ? "texto" : "citas";
+  x.de(g, t(iriDe(a.de), p.soc, iri(iriDe(a.a))));
   // Ni una iniciativa (todavía no es un recurso legal) ni un documento o una sentencia (no son normas) dicen ELI.
-  if (a.de.tipo !== "iniciativa" && a.de.tipo !== "documento" && a.de.tipo !== "sentencia") x.de("citas", t(iriDe(a.de), p.eli, iri(iriDe(a.a))));
+  if (p.eli && a.de.tipo !== "iniciativa" && a.de.tipo !== "documento" && a.de.tipo !== "sentencia") x.de(g, t(iriDe(a.de), p.eli, iri(iriDe(a.a))));
 }
 
-/** Las citas que hace un nodo y las que le llegan, y la iniciativa de la que nació o la norma en que se convirtió. */
-async function normasAlrededor(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): Promise<void> {
+/**
+ * Las citas que hace un nodo y las que le llegan, y la iniciativa de la que
+ * nació o la norma en que se convirtió. De las que le llegan de un texto
+ * íntegro describe las `TOPE_CITAS_TEXTO` más recientes, cuenta todas
+ * (`soc:vecesCitada`) y devuelve la nota que lo dice.
+ */
+async function normasAlrededor(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): Promise<string | undefined> {
   const k = clave(n);
   for (const a of ix.salen.get(k) ?? []) {
     triplesCita(a, x);
     await vecinaNormativa(a.a, x, ix);
   }
-  for (const a of ix.entran.get(k) ?? []) {
+  const llegan = ix.entran.get(k) ?? [];
+  const deTexto = llegan.filter((a) => a.texto);
+  for (const a of [...llegan.filter((a) => !a.texto), ...deTexto.slice(0, TOPE_CITAS_TEXTO)]) {
     triplesCita(a, x);
     await vecinaNormativa(a.de, x, ix);
+  }
+  let nota: string | undefined;
+  if (deTexto.length) {
+    x.de("texto", t(iriDe(n), "soc:vecesCitada", entero(deTexto.length)));
+    if (deTexto.length > TOPE_CITAS_TEXTO) {
+      nota = `La nombra el texto de ${deTexto.length.toLocaleString("es-DO")} sentencias, leyes y documentos; se describen los ${TOPE_CITAS_TEXTO} más recientes.`;
+    }
   }
   const norma = n.tipo === "iniciativa" ? ix.promulgada.get(n.id) : undefined;
   if (norma) {
@@ -1588,6 +1708,7 @@ async function normasAlrededor(n: NodoRdf, x: Afirmaciones, ix: IndiceNormas): P
     x.de("congreso", t(iriDe(ini), "soc:promulgadaComo", iri(iriDe(n))));
     await vecinaNormativa(ini, x, ix);
   }
+  return nota;
 }
 
 /* ------------------------------------------------------- ley, resolución */
@@ -1621,8 +1742,11 @@ async function describirNorma(n: NodoRdf & { tipo: "ley" | "resolucion" }, liger
     x.de(g, t(s, "schema:encoding", iri(pdf)), t(s, "eli:is_realized_by", iri(pdf)));
   }
   x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${rutaDeNodo(n)}`)));
-  if (!ligero) await normasAlrededor(n, x, ix);
-  return { triples: x.triples, grafos: x.grafos, titulo: nombre };
+  // Cuántas páginas tiene su texto, si se leyó (scripts/build-textos.mjs): lo que dice cada artículo va en sus citas.
+  const leido = n.tipo === "ley" ? (await textosDeLeyes())?.filas[n.id] : undefined;
+  if (leido?.e === "ok" && leido.p) x.de("texto", t(s, "soc:paginas", entero(leido.p)));
+  const nota = ligero ? undefined : await normasAlrededor(n, x, ix);
+  return { triples: x.triples, grafos: x.grafos, titulo: nombre, nota };
 }
 
 /* ------------------------------------------------------------ iniciativa */
@@ -1652,15 +1776,16 @@ async function describirIniciativa(id: string, ligero = false): Promise<Descripc
   );
   if (i.tituloModificado) x.de("congreso", t(s, "dct:alternative", lit(i.tituloModificado, "es")));
   x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.iniciativa(id)}`)));
+  let nota: string | undefined;
   if (!ligero) {
-    await normasAlrededor(n, x, ix);
+    nota = await normasAlrededor(n, x, ix);
     // Las votaciones del pleno que la decidieron.
     for (const v of (await indiceVotaciones()).porIniciativa.get(Number(id)) ?? []) {
       x.de("votaciones", t(VOTACION(v.id), "soc:sobre", iri(s)));
       vecinaVotacion(v, x);
     }
   }
-  return { triples: x.triples, grafos: x.grafos, titulo: i.titulo };
+  return { triples: x.triples, grafos: x.grafos, titulo: i.titulo, nota };
 }
 
 /* --------------------------------------------------------------- decreto */
@@ -1728,8 +1853,8 @@ async function describirDecreto(numero: string, ligero = false): Promise<Descrip
     }
   }
   // Las leyes y los decretos que su título deroga, modifica o cita, y quién lo nombra a él.
-  if (!ligero) await normasAlrededor({ tipo: "decreto", id: d.numero }, x, await indiceNormas());
-  return { triples: x.triples, grafos: x.grafos, titulo: nombreDecreto(d.numero) };
+  const nota = ligero ? undefined : await normasAlrededor({ tipo: "decreto", id: d.numero }, x, await indiceNormas());
+  return { triples: x.triples, grafos: x.grafos, titulo: nombreDecreto(d.numero), nota };
 }
 
 /* ------------------------------------------------------------- provincia */
@@ -1901,9 +2026,99 @@ async function describirDocumento(clave: string, ligero = false): Promise<Descri
     x.de("documentos", t(s, "soc:publicadaPor", iri(DE(inst.id))));
     x.de("instituciones", t(DE(inst.id), "rdfs:label", lit(inst.nombre, "es")));
   }
-  // Las leyes y los decretos con ficha que nombra su título.
-  if (!ligero) await normasAlrededor(n, x, await indiceNormas());
-  return { triples: x.triples, grafos: x.grafos, titulo };
+  const leido = (await textosDeDocumentos())?.filas[clave];
+  if (leido?.e === "ok" && leido.p) x.de("texto", t(s, "soc:paginas", entero(leido.p)));
+  let nota: string | undefined;
+  if (!ligero) {
+    // Las leyes y los decretos con ficha que nombra su título o su texto.
+    nota = await normasAlrededor(n, x, await indiceNormas());
+    // Los procesos, las obras y las empresas proveedoras que nombra su texto, por su código, su SNIP o su RNC.
+    const m = await indiceMenciones();
+    for (const destino of m.salen.get(clave) ?? []) {
+      x.de("texto", t(s, "soc:menciona", iri(iriDe(destino))));
+      await vecinoMencionado(destino, x);
+    }
+  }
+  return { triples: x.triples, grafos: x.grafos, titulo, nota };
+}
+
+/* ------------------------------------------- lo que nombra el texto de un documento */
+
+interface IndiceMenciones {
+  /** Por documento: lo que su texto nombra que es nodo (procesos, obras, empresas), en ese orden. */
+  salen: Map<string, NodoRdf[]>;
+  /** Por nodo («proceso:…»): los documentos que lo nombran, del subido más recientemente al más viejo. */
+  entran: Map<string, string[]>;
+}
+
+let mencionesMemo: Promise<IndiceMenciones> | null = null;
+/** Cuántos documentos que lo nombran describe, como mucho, el proceso, la obra o la empresa. */
+const TOPE_MENCIONES = 20;
+
+/**
+ * Lo que nombra el texto de cada documento (`public/data/textos/documentos.json`):
+ * un código de proceso que es nodo, un SNIP de una obra del grafo, el RNC de
+ * una empresa inscrita como proveedora (la que el grafo ya describe). Un RNC
+ * que no es de una proveedora no se ata: el padrón tiene medio millón de
+ * empresas y una planilla nombra cualquiera.
+ */
+function indiceMenciones(): Promise<IndiceMenciones> {
+  mencionesMemo ??= (async () => {
+    const [td, p, o, docs] = await Promise.all([textosDeDocumentos(), indiceProcesos(), indiceObras(), todosLosDocumentos()]);
+    const fecha = new Map(docs.map((d) => [claveDocumento(d.url), d.fecha]));
+    const esProceso = (c: string) => p.porCodigo.has(c) || o.obrasDeProceso.has(c) || o.procesoDeObras.has(c) || o.contratosDeProceso.has(c);
+    const salen = new Map<string, NodoRdf[]>();
+    const entran = new Map<string, string[]>();
+    for (const k of Object.keys(td?.filas ?? {}).sort(porTexto)) {
+      const f = td!.filas[k];
+      if (f.e !== "ok" || !fecha.has(k)) continue;
+      const nodos: NodoRdf[] = [];
+      for (const c of f.x ?? []) if (esProceso(c)) nodos.push({ tipo: "proceso", id: c });
+      for (const snip of f.o ?? []) if (o.porSnip.has(snip)) nodos.push({ tipo: "obra", id: snip });
+      for (const rnc of f.r ?? []) {
+        const e = await empresaPorRnc(rnc);
+        if (e?.rpe.length) nodos.push({ tipo: "empresa", id: e.rnc });
+      }
+      const unicos = nodos.filter((n, i) => nodos.findIndex((m) => clave(m) === clave(n)) === i);
+      if (!unicos.length) continue;
+      salen.set(k, unicos);
+      for (const n of unicos) entran.set(clave(n), [...(entran.get(clave(n)) ?? []), k]);
+    }
+    for (const lista of entran.values()) lista.sort((a, b) => porTexto(fecha.get(b) ?? "", fecha.get(a) ?? "") || porTexto(a, b));
+    return { salen, entran };
+  })();
+  return mencionesMemo;
+}
+
+/** Lo que nombra un documento, como vecino: lo mismo que dice su propia descripción de su tipo, su nombre y sus datos obligatorios. */
+async function vecinoMencionado(n: NodoRdf, x: Afirmaciones): Promise<void> {
+  if (n.tipo === "proceso") {
+    const [p, o] = await Promise.all([indiceProcesos(), indiceObras()]);
+    vecinoProceso(n.id, x, p, o);
+  } else if (n.tipo === "obra") {
+    const obra = (await indiceObras()).porSnip.get(n.id);
+    if (obra) vecinaObra(obra, x);
+  } else if (n.tipo === "empresa") {
+    const e = await empresaPorRnc(n.id);
+    if (e) x.de("padron", t(iriDe(n), "rdf:type", iri("soc:Empresa")), t(iriDe(n), "rdfs:label", lit(e.razonSocial)), t(iriDe(n), "do:rnc", lit(e.rnc)));
+  }
+}
+
+/**
+ * Los documentos cuyo texto nombra a un proceso, una obra o una empresa: los
+ * `TOPE_MENCIONES` subidos más recientemente, con la nota que dice cuántos son.
+ */
+async function documentosQueLoNombran(n: NodoRdf, x: Afirmaciones): Promise<string | undefined> {
+  const lista = (await indiceMenciones()).entran.get(clave(n)) ?? [];
+  for (const k of lista.slice(0, TOPE_MENCIONES)) {
+    const d = await documentoPorClave(k);
+    if (!d) continue;
+    x.de("texto", t(DOCUMENTO(d), "soc:menciona", iri(iriDe(n))));
+    vecinoDocumento(d, x);
+  }
+  return lista.length > TOPE_MENCIONES
+    ? `Lo nombra el texto de ${lista.length.toLocaleString("es-DO")} documentos de las bibliotecas institucionales; se describen los ${TOPE_MENCIONES} subidos más recientemente.`
+    : undefined;
 }
 
 async function describirConjunto(slug: string): Promise<Descripcion | null> {
@@ -2017,9 +2232,17 @@ async function describirSentencia(k: string, ligero = false): Promise<Descripcio
   for (const e of d.expedientes) x.de("sentencias", t(s, "do:expediente", lit(e)));
   x.de("instituciones", t(DE(tribunal.id), "rdfs:label", lit(tribunal.nombre, "es")));
   x.de("plataforma", t(s, "foaf:page", iri(`${SITIO}${enlace.sentencia(k)}`)));
+  // Lo que se leyó en su texto íntegro (scripts/build-textos.mjs): el archivo, sus páginas, lo que decidió.
+  const leido = (await textosDeSentencias())?.filas[k];
+  if (leido?.u) x.de("texto", t(s, "schema:encoding", iri(leido.u)));
+  if (leido?.e === "ok") {
+    if (leido.p) x.de("texto", t(s, "soc:paginas", entero(leido.p)));
+    if (leido.s) x.de("texto", t(s, "soc:sentido", iri(`soc:sentido-${leido.s}`)));
+    if (leido.d) x.de("texto", t(s, "soc:dispositivo", lit(sinCedula(leido.d), "es")));
+  }
   // Las leyes, los decretos y las sentencias que nombra, y las que la nombran.
-  if (!ligero) await normasAlrededor(n, x, await indiceNormas());
-  return { triples: x.triples, grafos: x.grafos, titulo: nombre };
+  const nota = ligero ? undefined : await normasAlrededor(n, x, await indiceNormas());
+  return { triples: x.triples, grafos: x.grafos, titulo: nombre, nota };
 }
 
 /* ------------------------------------------------------------ votaciones */

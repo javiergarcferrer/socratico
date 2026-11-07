@@ -84,6 +84,8 @@ const nextConfig: NextConfig = {
     // ficha de proveedor y /fuentes leen únicamente su meta.json, por ruta
     // literal, y no arrastran el resto.
     "/empresas": ["./public/data/empresas/**", "./datos/grafo/ld/**"],
+    // La ficha de una empresa (los corchetes: ni el listado ni otra ruta): los documentos cuyo texto nombra su RNC (§5.12).
+    "/empresas/[rnc]": ["./datos/grafo/meta.json", "./datos/grafo/nodos/empresa/**"],
     // El registro de decretos (~13 MB en un archivo por año, `lib/decretos.ts`)
     // se abre por un nombre que se arma en la consulta. Hoy el trazado lo
     // incluye solo; se declara para no depender de que lo siga adivinando en
@@ -93,6 +95,8 @@ const nextConfig: NextConfig = {
     // (`lib/grafo-ld.ts`): lleva `datos/grafo/ld/` y nada más del grafo.
     "/funcionarios": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/normativa": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    // La ficha de una norma: lo que dice su texto íntegro y quién la nombra en el suyo (`CitasDelTexto`, §5.12).
+    "/normativa/[tipo]/[numero]": ["./datos/grafo/meta.json", "./datos/grafo/nodos/{ley,decreto,resolucion}/**"],
     // El grafo semántico lee cada nodo del grafo compilado (`datos/grafo/`,
     // `lib/grafo-compilado.ts`), no las instantáneas de las que sale; busca
     // personas y bancos en su índice de nombres, y un camino recorre su índice
@@ -176,15 +180,19 @@ const nextConfig: NextConfig = {
     "/banca": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     "/provincias": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     // Las fichas de proceso, de proveedor, de obra y de iniciativa son nodos del grafo: incrustan su schema.org.
+    // Los documentos cuyo texto nombra el proceso, la obra o la empresa (`DocumentosQueLoNombran`, §5.12).
     "/procesos": ["./datos/grafo/ld/**"],
+    "/procesos/[codigo]": ["./datos/grafo/meta.json", "./datos/grafo/nodos/proceso/**"],
     "/proveedores/": ["./datos/grafo/ld/**"],
     "/obras": ["./datos/grafo/ld/**"],
+    "/obras/[snip]": ["./datos/grafo/meta.json", "./datos/grafo/nodos/obra/**"],
     // La ficha de una iniciativa: los corchetes casan con la ruta tal cual, no con las otras de
     // /congreso; como subcadena casan también con /api/feed/congreso/[id], que la excluye abajo.
     "/congreso/[id]": ["./datos/grafo/ld/**"],
     // Las de un conjunto de datos y de un documento, con corchetes: no los listados /datos y /documentos.
     "/datos/[slug]": ["./datos/grafo/ld/**"],
-    "/documentos/[...ruta]": ["./datos/grafo/ld/**"],
+    // Corchetes escapados: en una clave de picomatch, «[...ruta]» es una clase de un carácter y no casa con la ruta.
+    "/documentos/\\[...ruta\\]": ["./datos/grafo/ld/**", "./datos/grafo/meta.json", "./datos/grafo/nodos/documento/**"],
     // La de una sentencia lee su nodo del compilado (`sentencias.json` no viaja en ninguna
     // función), y los listados preguntan si una fila tiene ficha. Como subcadena, «/tse»
     // y «/constitucional» casan también con las fichas: llevan el schema.org de la suya.
@@ -226,6 +234,20 @@ const nextConfig: NextConfig = {
     // `describir`) y su schema.org: el trazado, por leer el compilado con una ruta variable,
     // les metía el compilado entero y el padrón de empresas (`describir` lo usa para una
     // empresa sin registro), ~70 MB.
+    // Las fichas que leen su nodo para lo que dice el texto íntegro (§5.12): `describir` importa el lector
+    // del compilado y el del padrón, y el trazado les metería el grafo entero (nodos, vecinos, firmas,
+    // nombres: ~60 MB) y el padrón (16 MB). Cada una lleva solo los nodos de su tipo; el padrón, solo la
+    // de una empresa, que lo lee.
+    "/normativa/[tipo]/[numero]": [
+      "./datos/grafo/nodos/!(ley|decreto|resolucion)/**",
+      "./datos/grafo/{vecinos,firmados}/**",
+      "./datos/grafo/nombres.json.br",
+      "./public/data/empresas/**",
+    ],
+    "/procesos/[codigo]": ["./datos/grafo/nodos/!(proceso)/**", "./datos/grafo/{vecinos,firmados}/**", "./datos/grafo/nombres.json.br", "./public/data/empresas/**"],
+    "/obras/[snip]": ["./datos/grafo/nodos/!(obra)/**", "./datos/grafo/{vecinos,firmados}/**", "./datos/grafo/nombres.json.br", "./public/data/empresas/**"],
+    "/documentos/\\[...ruta\\]": ["./datos/grafo/nodos/!(documento)/**", "./datos/grafo/{vecinos,firmados}/**", "./datos/grafo/nombres.json.br", "./public/data/empresas/**"],
+    "/empresas/[rnc]": ["./datos/grafo/nodos/!(empresa)/**", "./datos/grafo/{vecinos,firmados}/**", "./datos/grafo/nombres.json.br"],
     "/constitucional": [
       "./datos/grafo/{nodos,ld}/!(sentencia)/**",
       "./datos/grafo/{vecinos,firmados}/**",

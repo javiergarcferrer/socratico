@@ -281,6 +281,11 @@ const V = {
   cita: expandir("soc:cita"),
   deroga: expandir("soc:deroga"),
   modifica: expandir("soc:modifica"),
+  declaraNoConforme: expandir("soc:declaraNoConforme"),
+  declaraConforme: expandir("soc:declaraConforme"),
+  menciona: expandir("soc:menciona"),
+  empresa: expandir("soc:Empresa"),
+  procesoDeContratacion: expandir("soc:ProcesoDeContratacion"),
   promulgadaComo: expandir("soc:promulgadaComo"),
   documento: expandir("soc:Documento"),
   declaracionJurada: expandir("soc:DeclaracionJurada"),
@@ -383,9 +388,14 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
   };
   // Una cita la hace una norma, que la dice, o una iniciativa, que la propone.
   const CITA: Record<string, { verbo: string; neutro: string; propuesta: string }> = {
-    [V.deroga]: { verbo: "deroga", neutro: "Derogación, según el título", propuesta: "derogar" },
-    [V.modifica]: { verbo: "modifica", neutro: "Modificación, según el título", propuesta: "modificar" },
-    [V.cita]: { verbo: "cita", neutro: "Cita en el título", propuesta: "" },
+    [V.deroga]: { verbo: "deroga", neutro: "Derogación", propuesta: "derogar" },
+    [V.modifica]: { verbo: "modifica", neutro: "Modificación", propuesta: "modificar" },
+    [V.cita]: { verbo: "cita", neutro: "Cita", propuesta: "" },
+  };
+  /** De dónde sale una cita, si quien llama pasó los grafos: del título (o del listado) o del texto íntegro. */
+  const segun = (x: Triple, neutro: string) => {
+    const g = grafoDe.get(x);
+    return g === "texto" ? `${neutro}, según su texto` : g === "citas" ? `${neutro}, según el título` : neutro;
   };
   const delSujetoEsProyecto = esDe(sujeto, V.iniciativa);
   // Cómo se nombra al nodo en la cita que le llega: «lo» un decreto, «la» una ley o una resolución.
@@ -491,6 +501,9 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
         if (esDocumento(sujeto)) {
           const sitio = /^https?:\/\/([^/]+)/.exec(o)?.[1] ?? o;
           agregar({ grupo: "publicaciones", verbo: "El archivo", neutro: "Su archivo", nodo: null, href: o, externo: true, nombre: `El archivo en ${sitio}` }, x);
+        } else if (esSentencia(sujeto)) {
+          // El PDF que enlaza su ficha en el tribunal (scripts/build-textos.mjs).
+          agregar({ grupo: "sentencias", verbo: "Su texto", neutro: "Su texto", nodo: null, href: o, externo: true, nombre: "El PDF del tribunal" }, x);
         } else {
           agregar({ grupo: "registros", verbo: "Su texto", neutro: "Su texto", nodo: null, href: o, externo: true, nombre: "El PDF en la Consultoría Jurídica" }, x);
         }
@@ -538,8 +551,29 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
         }
         const c = CITA[x.p];
         const verbo = delSujetoEsProyecto && c.propuesta ? `Propone ${c.propuesta}` : mayuscula(c.verbo);
-        const neutro = esSentencia(sujeto) ? "Una sentencia que nombra la norma" : c.neutro;
+        const neutro = esSentencia(sujeto) ? "Una sentencia que nombra la norma" : segun(x, c.neutro);
         agregar({ grupo: "normas", verbo, neutro, ...hacia(o), nombre: nombre(o), ...normaVecina(o) }, x);
+        break;
+      }
+      case V.declaraNoConforme:
+      case V.declaraConforme: {
+        // Lo que el dispositivo de la sentencia declara sobre una norma, leído de su texto.
+        const no = x.p === V.declaraNoConforme;
+        agregar({
+          grupo: "normas",
+          verbo: no ? "Declara no conforme con la Constitución" : "Declara conforme con la Constitución",
+          neutro: no ? "Una sentencia que declara la norma no conforme con la Constitución" : "Una sentencia que declara la norma conforme con la Constitución",
+          ...hacia(o),
+          nombre: nombre(o),
+          ...normaVecina(o),
+        }, x);
+        break;
+      }
+      case V.menciona: {
+        // Lo que nombra el texto de un documento: un proceso, una obra, una empresa proveedora.
+        const grupo: GrupoRelacion = esDe(o, V.procesoDeContratacion) ? "procesos" : esDe(o, V.proyecto) ? "obras" : "entidades";
+        const extra = esDe(o, V.procesoDeContratacion) ? procesoVecino(o) : esDe(o, V.proyecto) ? obraVecina(o) : {};
+        agregar({ grupo, verbo: "Lo nombra su texto", neutro: "Un documento que lo nombra en su texto", ...hacia(o), nombre: nombre(o), ...extra }, x);
         break;
       }
       case V.dictadaPor:
@@ -615,6 +649,18 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
       agregar({ grupo: "votaciones", verbo: "Votada en el pleno", neutro: "Una votación sobre la iniciativa", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) }, x);
     } else if (x.p === V.dictadaPor) {
       agregar({ grupo: "sentencias", verbo: "Dictó", neutro: "El tribunal que la dicta", ...hacia(s), nombre: nombre(s), ...sentenciaVecina(s) }, x);
+    } else if (x.p === V.declaraNoConforme || x.p === V.declaraConforme) {
+      const no = x.p === V.declaraNoConforme;
+      agregar({
+        grupo: "sentencias",
+        verbo: no ? `Una sentencia ${pronombre} declara no conforme con la Constitución` : `Una sentencia ${pronombre} declara conforme con la Constitución`,
+        neutro: no ? "Una sentencia que declara la norma no conforme con la Constitución" : "Una sentencia que declara la norma conforme con la Constitución",
+        ...hacia(s),
+        nombre: nombre(s),
+        ...sentenciaVecina(s),
+      }, x);
+    } else if (x.p === V.menciona) {
+      agregar({ grupo: "publicaciones", verbo: "Un documento lo nombra en su texto", neutro: "Un documento que lo nombra en su texto", ...hacia(s), nombre: nombre(s), ...documentoVecino(s) }, x);
     } else if ((x.p === V.deroga || x.p === V.modifica || x.p === V.cita) && esSentencia(s)) {
       // Una sentencia solo cita: «Una sentencia la cita».
       agregar({
@@ -629,7 +675,7 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
       const c = CITA[x.p];
       // «La deroga», «Lo modifica»; de una iniciativa, «Un proyecto propone derogarla», «Un proyecto lo cita»; de un documento, «Un documento la cita».
       if (esDocumento(s)) {
-        agregar({ grupo: "normas", verbo: `Un documento ${pronombre} ${c.verbo}`, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...documentoVecino(s) }, x);
+        agregar({ grupo: "normas", verbo: `Un documento ${pronombre} ${c.verbo}`, neutro: segun(x, c.neutro), ...hacia(s), nombre: nombre(s), ...documentoVecino(s) }, x);
         continue;
       }
       const verbo = esDe(s, V.iniciativa)
@@ -637,7 +683,7 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
           ? `Un proyecto propone ${c.propuesta}${pronombre}`
           : `Un proyecto ${pronombre} ${c.verbo}`
         : `${mayuscula(pronombre)} ${c.verbo}`;
-      agregar({ grupo: "normas", verbo, neutro: c.neutro, ...hacia(s), nombre: nombre(s), ...normaVecina(s) }, x);
+      agregar({ grupo: "normas", verbo, neutro: segun(x, c.neutro), ...hacia(s), nombre: nombre(s), ...normaVecina(s) }, x);
     } else if (x.p === V.promulgadaComo) {
       agregar({ grupo: "normas", verbo: "Nació del proyecto", neutro: "La norma en que se convirtió la iniciativa", ...hacia(s), nombre: nombre(s), ...normaVecina(s) }, x);
     }

@@ -1,9 +1,9 @@
 {
  "conforme": true,
- "ontologia": "2.5.0",
- "grafo": "2026-10-20",
- "volcado": "2026-10-20",
- "huella": "b86bd3400663305a83a70ecd5c93dd2ecfc6b5169f6b0f81aa8ad3559edc6138",
+ "ontologia": "2.6.0",
+ "grafo": "2026-11-07",
+ "volcado": "2026-11-07",
+ "huella": "2a88de330d9a197a56f38ab67c7d9d55e9cc79edb2b11f65476f744caabcfb70",
  "triples": 1910822,
  "nodos": 212239,
  "muestra": {

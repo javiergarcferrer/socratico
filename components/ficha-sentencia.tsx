@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { describir, iriDe, relacionesDesdeTriples, type Relacion } from "@/lib/grafo-rdf";
+import { DEFINICION_SENTIDO, ETIQUETA_SENTIDO, SENTIDOS, type Sentido } from "@/lib/vocabulario-textos";
+import { Aristas } from "@/components/aristas";
 import { metaGrafo } from "@/lib/grafo-compilado";
 import { enlace, type NodoRdf } from "@/lib/grafo";
 import { expandir, type Triple } from "@/lib/rdf";
 import { formatFecha } from "@/lib/format";
-import Antiguedad from "@/components/antiguedad";
 import { Ruta } from "@/components/ruta";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +19,11 @@ import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 /**
  * La ficha de una sentencia del Tribunal Constitucional o del Tribunal
  * Superior Electoral: qué tribunal la dicta, cuándo, qué expedientes
- * resuelve, de qué trata, qué normas y qué sentencias nombra, cuáles la
- * nombran y dónde está su texto —en el sitio del tribunal: la plataforma no lo
- * copia—. Es un nodo del grafo y se lee del compilado, no de la instantánea
+ * resuelve, de qué trata, qué decidió —su dispositivo y el sentido que se lee
+ * de él, de su texto íntegro (`scripts/build-textos.mjs`)—, qué normas
+ * declara conformes o no con la Constitución, qué normas y qué sentencias
+ * nombra, cuáles la nombran y dónde está su texto —en el sitio del tribunal:
+ * la plataforma no lo copia—. Es un nodo del grafo y se lee del compilado, no de la instantánea
  * (`sentencias.json` no viaja en ninguna función; docs/INFRAESTRUCTURA.md §7).
  * La usan `/constitucional/[numero]` y `/tse/[ficha]`.
  */
@@ -39,8 +42,16 @@ interface Leida {
   expedientes: string[];
   /** Su ficha en el sitio del tribunal. */
   ficha: string | null;
+  /** Lo que se leyó en su texto íntegro, si se leyó: el PDF, sus páginas, su dispositivo y su sentido. */
+  pdf: string | null;
+  paginas: number | null;
+  dispositivo: string | null;
+  sentido: Sentido | null;
+  /** Cuántas sentencias la nombran en su texto. */
+  citadaEn: number;
   relaciones: Relacion[];
   corte: string | null;
+  corteTexto: string | null;
 }
 
 const P = {
@@ -49,7 +60,13 @@ const P = {
   descripcion: expandir("dct:description"),
   expediente: expandir("do:expediente"),
   fuente: expandir("dct:source"),
+  archivo: expandir("schema:encoding"),
+  paginas: expandir("soc:paginas"),
+  dispositivo: expandir("soc:dispositivo"),
+  sentido: expandir("soc:sentido"),
+  vecesCitada: expandir("soc:vecesCitada"),
 };
+const SENTIDO_DE_IRI = new Map(SENTIDOS.map((x) => [expandir(`soc:sentido-${x}`), x]));
 
 function literales(triples: Triple[], sujeto: string, p: string): string[] {
   return triples.filter((x) => x.s.valor === sujeto && x.p === p).map((x) => x.o.valor);
@@ -71,8 +88,14 @@ export async function cargarSentencia(n: NodoRdf | null): Promise<Leida | null> 
     relativo: literales(d.triples, s, P.descripcion)[0] ?? null,
     expedientes: literales(d.triples, s, P.expediente),
     ficha: literales(d.triples, s, P.fuente)[0] ?? null,
-    relaciones: relacionesDesdeTriples(d.triples, s),
+    pdf: literales(d.triples, s, P.archivo)[0] ?? null,
+    paginas: Number(literales(d.triples, s, P.paginas)[0] ?? 0) || null,
+    dispositivo: literales(d.triples, s, P.dispositivo)[0] ?? null,
+    sentido: SENTIDO_DE_IRI.get(literales(d.triples, s, P.sentido)[0] ?? "") ?? null,
+    citadaEn: Number(literales(d.triples, s, P.vecesCitada)[0] ?? 0),
+    relaciones: relacionesDesdeTriples(d.triples, s, d.grafos),
     corte: meta?.grafos.find((g) => g.clave === "sentencias")?.corte ?? null,
+    corteTexto: meta?.grafos.find((g) => g.clave === "texto")?.corte ?? null,
   };
 }
 
@@ -88,43 +111,18 @@ export function metadatosSentencia(x: Leida | null): Metadata {
   return {
     title: titulo(x),
     alternates: { canonical: enlace.sentencia(x.nodo.id), types: alternasRdf(x.nodo) },
-    description: `Sentencia ${x.numero} del ${tribunal}${x.fecha ? `, del ${formatFecha(x.fecha)}` : ""}: de qué trata, qué normas y sentencias nombra y dónde está su texto.`,
+    description: `Sentencia ${x.numero} del ${tribunal}${x.fecha ? `, del ${formatFecha(x.fecha)}` : ""}: de qué trata${x.sentido ? ", qué decidió" : ""}, qué normas y sentencias nombra y dónde está su texto.`,
   };
-}
-
-/** Una lista de aristas de la ficha: cada una a su nodo, con su fecha y lo que la precisa. */
-function Aristas({ lista }: { lista: Relacion[] }) {
-  return (
-    <ul className="-mx-5 mt-3 divide-y divide-hairline border-t border-hairline text-sm sm:-mx-6">
-      {lista.map((r) => (
-        <li key={`${r.verbo}|${r.href}`} className="relative px-5 py-3 transition-colors hover:bg-brand-50/40 sm:px-6">
-          <span className="rotulo text-ink-soft">{r.verbo}</span>
-          {r.href ? (
-            <Link href={r.href} className="estira mt-0.5 block font-medium text-ink hover:text-brand-700">
-              {r.nombre}
-            </Link>
-          ) : (
-            <span className="mt-0.5 block font-medium text-ink">{r.nombre}</span>
-          )}
-          {(r.detalle || r.fecha) && (
-            <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft [overflow-wrap:anywhere]">
-              {r.fecha && <Antiguedad iso={r.fecha} prefijo={(r.movimiento ?? "fechada").toLowerCase()} />}
-              {r.fecha && r.detalle ? " · " : null}
-              {r.detalle}
-            </span>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 export function FichaSentencia({ x }: { x: Leida }) {
   const listado = LISTADO[x.tribunal];
   const tribunal = x.relaciones.find((r) => r.verbo === "La dicta");
-  const normas = x.relaciones.filter((r) => r.grupo === "normas");
+  const declara = x.relaciones.filter((r) => r.verbo.startsWith("Declara"));
+  const normas = x.relaciones.filter((r) => r.grupo === "normas" && !declara.includes(r));
   const nombra = x.relaciones.filter((r) => r.verbo === "Cita la sentencia");
   const laNombran = x.relaciones.filter((r) => r.verbo.startsWith("Una sentencia"));
+  const deSuTexto = (r: Relacion) => r.grafo === "texto";
   const sitio = x.ficha ? (/^https?:\/\/([^/]+)/.exec(x.ficha)?.[1] ?? null) : null;
 
   return (
@@ -168,6 +166,28 @@ export function FichaSentencia({ x }: { x: Leida }) {
         ]}
       />
 
+      {x.dispositivo && (
+        <Card as="section" className="p-5 sm:p-6">
+          <CardTitle>¿Qué decidió?</CardTitle>
+          {x.sentido && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge forma="etiqueta" variant="contorno">
+                {ETIQUETA_SENTIDO[x.sentido]}
+              </Badge>
+              <span className="text-xs text-ink-soft">{DEFINICION_SENTIDO[x.sentido]}</span>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-ink-soft">Su dispositivo, como lo escribe el tribunal:</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-ink [overflow-wrap:anywhere]">{x.dispositivo}</p>
+          {declara.length > 0 && <Aristas lista={declara} />}
+          <p className="mt-3 text-xs leading-relaxed text-ink-soft">
+            Leído de su texto íntegro{x.paginas ? ` (${x.paginas.toLocaleString("es-DO")} páginas)` : ""}
+            {x.corteTexto ? ` el ${formatFecha(x.corteTexto)}` : ""}. El sentido sale de los verbos del dispositivo («ACOGER», «RECHAZAR»,
+            «DECLARAR no conforme con la Constitución…») con reglas fijas; el dispositivo manda.
+          </p>
+        </Card>
+      )}
+
       {normas.length > 0 && (
         <Card as="section" className="p-5 sm:p-6">
           <CardTitle>¿Qué normas nombra?</CardTitle>
@@ -183,21 +203,44 @@ export function FichaSentencia({ x }: { x: Leida }) {
         <Card as="section" className="p-5 sm:p-6">
           <CardTitle>¿Qué sentencias nombra y cuáles la nombran?</CardTitle>
           <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-            Solo las del Tribunal Constitucional que lo dicho en el listado nombra por su número («TC/0425/24»).
+            Las del Tribunal Constitucional nombradas por su número («TC/0425/24») en lo que el listado dice de ella o en su texto íntegro
+            (sus precedentes)
+            {x.citadaEn > 0 ? `. La nombra el texto de ${x.citadaEn.toLocaleString("es-DO")} ${x.citadaEn === 1 ? "sentencia" : "sentencias"}` : ""}
+            {laNombran.filter(deSuTexto).length < x.citadaEn ? `; aquí, las ${laNombran.filter(deSuTexto).length} más recientes` : ""}.
           </p>
-          <Aristas lista={[...nombra, ...laNombran]} />
+          {nombra.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-bold text-ink">Las que nombra</p>
+              <Aristas lista={nombra} visibles={6} cuantas="sentencias" />
+            </div>
+          )}
+          {laNombran.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-bold text-ink">Las que la nombran</p>
+              <Aristas lista={laNombran} visibles={6} cuantas="sentencias" />
+            </div>
+          )}
         </Card>
       )}
 
       <Card as="section" className="p-5 sm:p-6">
         <CardTitle>¿Dónde está su texto?</CardTitle>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          En el sitio del tribunal. Ningún listado trae el PDF: está en la ficha de cada sentencia, que es adonde lleva este
-          enlace.
+          En el sitio del tribunal. Ningún listado trae el PDF: está en la ficha de cada sentencia
+          {x.pdf ? ", de donde se tomó este enlace" : ", que es adonde lleva este enlace"}.
         </p>
         {x.ficha && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button asChild>
+            {x.pdf && (
+              <Button asChild>
+                <a href={x.pdf} target="_blank" rel="noopener noreferrer">
+                  Abrir el PDF
+                  <IconExternal className="h-4 w-4" />
+                  <span className="sr-only">(se abre en otra pestaña)</span>
+                </a>
+              </Button>
+            )}
+            <Button asChild variant={x.pdf ? "outline" : undefined}>
               <a href={x.ficha} target="_blank" rel="noopener noreferrer">
                 Abrir su ficha en {sitio ?? "el tribunal"}
                 <IconExternal className="h-4 w-4" />

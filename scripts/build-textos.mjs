@@ -71,10 +71,20 @@ for (const c of CORPUS) if (!["tc", "tse", "leyes", "documentos"].includes(c)) t
 /** Para depurar una regla o un host: una sola dirección por el mismo camino, como `--como` (la ficha de una sentencia, una ley o un documento). Imprime la fila; no escribe. */
 const PROBAR = arg("probar", null);
 const COMO = arg("como", "documentos");
+/** Con `--muestra`, estas claves en lugar de una muestra repartida (separadas por coma). */
+const CLAVES = arg("claves", "").split(",").map((x) => x.trim()).filter(Boolean);
 
 const UA = "Socratico-Inteligencia/1.0 (texto de documentos publicos; herramienta independiente)";
 /** Pausa entre el fin de una petición y el inicio de la siguiente al mismo host. */
 const PAUSA_MS = 1000;
+/**
+ * Hosts que piden más calma. El sitio del TC (Umbraco en Azure) responde 504
+ * a muchas fichas cuando se le piden seguidas (muestra del 2026-11-07: 10 de
+ * 12): más pausa, y un 502, 503 o 504 se reintenta dos veces con espera
+ * creciente antes de dejarlo para la corrida siguiente.
+ */
+const PAUSA_HOST = { "tc.gob.do": 3000 };
+const ESPERAS_5XX = [15_000, 45_000];
 const PLAZO_MS = 90_000;
 const TOPE_BYTES = 40 * 1024 * 1024;
 /** Lo que tarda pdf.js con un documento antes de darlo por colgado. */
@@ -104,7 +114,7 @@ async function turno(h) {
   const espera = e.siguiente - Date.now();
   if (espera > 0) await dormir(espera);
   return () => {
-    e.siguiente = Date.now() + PAUSA_MS;
+    e.siguiente = Date.now() + (PAUSA_HOST[h] ?? PAUSA_MS);
     soltar();
   };
 }
@@ -133,7 +143,7 @@ async function pedir(url, { html = false, sinRobots = false } = {}) {
   const e = host(u.host);
   if (e.bloqueado) return { estado: "bloqueado", nota: e.bloqueado };
   if (!sinRobots && !(await permitido(u))) return { estado: "robots", nota: "robots.txt lo veta" };
-  for (let intento = 0; intento < 2; intento++) {
+  for (let intento = 0; intento <= ESPERAS_5XX.length; intento++) {
     const soltar = await turno(u.host);
     try {
       e.pedidos++;
@@ -153,9 +163,9 @@ async function pedir(url, { html = false, sinRobots = false } = {}) {
         await r.body?.cancel();
         return { estado: "no-existe", nota: `HTTP ${st}`, status: st };
       }
-      if (st >= 500 && intento === 0) {
+      if (st >= 500 && intento < ESPERAS_5XX.length && (intento === 0 || [502, 503, 504].includes(st))) {
         await r.body?.cancel();
-        await dormir(5000);
+        await dormir(ESPERAS_5XX[intento]);
         continue;
       }
       if (!r.ok) {
@@ -176,7 +186,7 @@ async function pedir(url, { html = false, sinRobots = false } = {}) {
       return { estado: "ok", bytes, tipo, url: r.url, status: st };
     } catch (err) {
       if (intento === 0) {
-        await dormir(5000);
+        await dormir(ESPERAS_5XX[0]);
         continue;
       }
       return { estado: "error", nota: String(err?.name === "TimeoutError" ? "plazo vencido" : (err?.cause?.code ?? err?.message ?? err)).slice(0, 120) };
@@ -419,7 +429,8 @@ function escribirInstantanea(nombre, inst) {
   mkdirSync(SALIDA, { recursive: true });
   const claves = Object.keys(inst.filas).sort();
   const cuerpo = claves.map((k) => `${JSON.stringify(k)}:${JSON.stringify(inst.filas[k])}`).join(",\n");
-  const cabeza = JSON.stringify({ generado: inst.generado, version: inst.version, hosts: inst.hosts, cuenta: inst.cuenta });
+  const total = Object.values(inst.totales).reduce((a, b) => a + b, 0);
+  const cabeza = JSON.stringify({ generado: inst.generado, version: inst.version, total, totales: inst.totales, hosts: inst.hosts, cuenta: inst.cuenta });
   writeFileSync(path.join(SALIDA, ARCHIVO[nombre]), `${cabeza.slice(0, -1)},"filas":{\n${cuerpo}\n}}\n`);
 }
 
@@ -450,6 +461,8 @@ for (const c of CORPUS) {
     porArchivo.set(nombre, {
       generado: previa?.generado ?? hoy,
       version: T.VERSION_TEXTOS,
+      // Por corpus, cuántas cosas tiene en su fuente (las sentencias de cada tribunal, las leyes con ficha, los documentos), se lean o no.
+      totales: { ...(previa?.totales ?? {}) },
       hosts: previa?.hosts ?? {},
       cuenta: {},
       filas: previa?.filas ?? {},
@@ -466,12 +479,16 @@ for (const c of CORPUS) {
   const lista = await elementos(c);
   const inst = porArchivo.get(ARCHIVO_DE(c));
   if (MUESTRA) {
-    // Repartidas a lo largo de la lista (que va por clave: años y sitios distintos).
+    const pedidas = lista.filter((x) => CLAVES.includes(x.clave));
+    // Repartidas a lo largo de la lista (que va por clave: años y sitios distintos), además de las pedidas.
     const paso = Math.max(1, Math.floor(lista.length / MUESTRA));
-    pendientes.push(...lista.filter((_, i) => i % paso === 0).slice(0, MUESTRA));
+    pendientes.push(...pedidas, ...lista.filter((x, i) => i % paso === 0 && !CLAVES.includes(x.clave)).slice(0, MUESTRA));
     continue;
   }
   const vigentes = new Set(lista.map((x) => x.clave));
+  // Cuántas cosas tiene este corpus en su fuente, se lean o no: el denominador de la cobertura.
+  if (inst.totales[c] !== lista.length) inst.cambiada = true;
+  inst.totales[c] = lista.length;
   // Lo que ya no está en la lista de origen sale de la instantánea.
   for (const k of Object.keys(inst.filas)) {
     if (k.startsWith(c === "tse" ? "TSE-" : c === "tc" ? "TC-" : "") && !vigentes.has(k)) {
@@ -582,9 +599,14 @@ if (MUESTRA) {
     const { texto } = T.unirPaginas(paginas);
     console.log(`\n===== ${el.corpus} ${el.clave} · ${fila.e} · ${fila.p} págs · ${fila.c} caracteres${fila.u ? ` · ${fila.u}` : ""}`);
     if (el.corpus === "tc" || el.corpus === "tse") {
-      console.log(`--- inicio\n${sinCedula(recorte(texto, 1500))}`);
-      const k = Math.max(texto.search(/D\s?E\s?C\s?I\s?D\s?E\s*:/g), 0);
-      console.log(`--- desde DECIDE (${k})\n${sinCedula(texto.slice(Math.max(0, k - 300), k + 3500))}`);
+      console.log(`--- inicio\n${sinCedula(recorte(texto, 900))}`);
+      const d = T.dispositivoDe(texto);
+      if (d) {
+        console.log(`--- antes del dispositivo\n${sinCedula(texto.slice(Math.max(0, d.inicio - 400), d.inicio))}`);
+        console.log(`--- dispositivo leído\n${d.ordinales.map((o) => `${o.ordinal} [${o.principal ?? "?"}; ${o.verbos.join(",")}] ${sinCedula(recorte(o.texto, 500))}`).join("\n")}`);
+      } else {
+        console.log(`--- sin dispositivo; el final:\n${sinCedula(texto.slice(-2500))}`);
+      }
       console.log(`--- leído: sentido ${fila.s ?? "—"} · normas ${JSON.stringify(fila.n ?? [])} · precedentes ${JSON.stringify((fila.t ?? []).slice(0, 12))}`);
     } else if (el.corpus === "leyes") {
       console.log(`--- inicio\n${sinCedula(recorte(texto, 700))}`);

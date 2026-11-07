@@ -55,6 +55,9 @@ const V = {
   medida: RDF.expandir("soc:tieneMedida"),
   contratista: RDF.expandir("soc:contratista"),
   inscrita: RDF.expandir("soc:inscritaComo"),
+  fuente: RDF.expandir("dct:source"),
+  dispositivo: RDF.expandir("soc:dispositivo"),
+  sentido: RDF.expandir("soc:sentido"),
 };
 const NOMBRE = { decreto: "Decreto", ley: "Ley", resolucion: "Resolución" };
 /** Los grafos de fuente de las entradas, de los que se lee su fecha de corte. */
@@ -112,7 +115,24 @@ async function exportar() {
     if (rnc) e.c = rnc;
     entradas.push(e);
   }
-  process.stdout.write(JSON.stringify({ generado: meta.generado, cortes, entradas }));
+  // Lo que decidió cada sentencia cuyo texto se leyó (grafo «texto»): el sentido y el dispositivo, por su
+  // ficha en el tribunal, que es el enlace de su entrada (`busqueda_sentencias.py`). La clave de una
+  // sentencia la da `claveSentencia` (lib/grafo.ts): así no se escribe otra vez en Python.
+  const sentencias = {};
+  const H = await lib("grafo-hechos");
+  for (const clave of await C.clavesCompiladas("sentencia")) {
+    const n = { tipo: "sentencia", id: clave };
+    const d = await C.leerDescripcion(n);
+    if (!d) throw new Error(`sentencia:${clave} está en el índice del compilado y no se lee`);
+    const s = N.iriDe(n);
+    const uno = (p) => d.triples.find((x) => x.s.valor === s && x.p === p)?.o.valor ?? null;
+    const ficha = uno(V.fuente);
+    const dispositivo = uno(V.dispositivo);
+    if (!ficha || !dispositivo) continue;
+    const sentido = H.conceptoDe(uno(V.sentido) ?? "") ?? null;
+    sentencias[ficha] = { s: sentido, x: dispositivo };
+  }
+  process.stdout.write(JSON.stringify({ generado: meta.generado, cortes, entradas, sentencias }));
 }
 
 /**

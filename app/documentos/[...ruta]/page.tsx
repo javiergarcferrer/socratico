@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconExternal } from "@/components/icons";
 import { ConectadoCon } from "@/components/conectado-con";
+import { LoQueNombraElDocumento } from "@/components/texto-integro";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 
 export const revalidate = 86400;
@@ -125,6 +126,8 @@ export default async function DocumentoPage({ params }: Props) {
           </ul>
         </Card>
       )}
+
+      <LoQueNombraElDocumento nodo={{ tipo: "documento", id: x.clave }} />
 
       <Card as="section" className="p-5 sm:p-6">
         <CardTitle>¿Dónde está el archivo?</CardTitle>

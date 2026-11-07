@@ -22,9 +22,12 @@
 
 import { reconocerPorForma } from "@/lib/grafo";
 import { referenciasNormativas, type RelacionNorma } from "@/lib/legislacion";
+import type { Sentido } from "@/lib/vocabulario-textos";
+
+export type { Sentido };
 
 /** Sube cuando cambia una regla de este módulo: las filas de otra versión se vuelven a leer. */
-export const VERSION_TEXTOS = 1;
+export const VERSION_TEXTOS = 2;
 
 /* ------------------------------------------------------------- limpieza */
 
@@ -79,9 +82,14 @@ export function paginaDe(i: number, inicios: number[]): number {
 
 /* ----------------------------------------------------------- sentencias */
 
-/** Un ordinal del dispositivo: «SEGUNDO», los verbos en mayúsculas que manda y su texto. */
+/**
+ * Un ordinal del dispositivo: «SEGUNDO», su verbo principal (el primero, en
+ * infinitivo: «DECLARA inadmisible» manda DECLARAR), todos los verbos que
+ * manda y su texto.
+ */
 export interface Ordinal {
   ordinal: string;
+  principal: string | null;
   verbos: string[];
   texto: string;
 }
@@ -99,10 +107,14 @@ export const TOPE_DISPOSITIVO = 3000;
 
 /*
   «DECIDE:» en mayúsculas, a veces con las letras espaciadas por el PDF
-  («D E C I D E :»); el TSE escribe también «FALLA:» o «RESUELVE:». En el
-  cuerpo, «decide» va en minúsculas: la mayúscula marca el dispositivo.
+  («D E C I D E :»). En el cuerpo, «decide» va en minúsculas: la mayúscula
+  marca el dispositivo. «FALLA:» y «RESUELVE:» solo si no hay ningún
+  «DECIDE:» y el tribunal se nombra justo antes («…este Tribunal, FALLA:»):
+  la sentencia cita fallos de otros tribunales y resoluciones de la JCE con
+  la misma forma.
 */
-const MARCA_DISPOSITIVO = /\b(?:D\s?E\s?C\s?I\s?D\s?E|F\s?A\s?L\s?L\s?A|R\s?E\s?S\s?U\s?E\s?L\s?V\s?E)\s*:/g;
+const MARCA_DISPOSITIVO = /\bD\s?E\s?C\s?I\s?D\s?E\s*:/g;
+const MARCA_SUPLETORIA = /\b(?:F\s?A\s?L\s?L\s?A|R\s?E\s?S\s?U\s?E\s?L\s?V\s?E)\s*:/g;
 
 /** Lo que cierra el dispositivo: la firma, los votos o la certificación de la secretaría. */
 const FIN_DISPOSITIVO =
@@ -112,8 +124,54 @@ const NOMBRE_ORDINAL =
   "PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|S[ÉE]PTIMO|OCTAVO|NOVENO|D[ÉE]CIMO(?:\\s+(?:PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO))?|UND[ÉE]CIMO|DUOD[ÉE]CIMO";
 const ORDINAL = new RegExp(`(?:^|\\n|[.;]\\s)\\s*(${NOMBRE_ORDINAL})\\s*[:.\\-–—]`, "g");
 
-/** Un verbo del dispositivo: una palabra en mayúsculas de cuatro letras o más que acaba en -AR, -ER o -IR. */
-const VERBO = /\b([A-ZÁÉÍÓÚÑ]{2,}(?:AR|ER|IR))\b/g;
+/**
+ * Los verbos de un fallo, en infinitivo, con las formas en que los escriben
+ * el TC y el TSE: el infinitivo («DECLARAR», lo más común desde 2013) y la
+ * tercera persona («DECLARA», en las primeras sentencias del TC y en las del
+ * TSE).
+ */
+const FORMAS_VERBO: Record<string, string[]> = {
+  ADMITIR: ["ADMITIR", "ADMITE"],
+  INADMITIR: ["INADMITIR", "INADMITE"],
+  ACOGER: ["ACOGER", "ACOGE"],
+  RECHAZAR: ["RECHAZAR", "RECHAZA"],
+  DECLARAR: ["DECLARAR", "DECLARA"],
+  REVOCAR: ["REVOCAR", "REVOCA"],
+  CONFIRMAR: ["CONFIRMAR", "CONFIRMA"],
+  ANULAR: ["ANULAR", "ANULA"],
+  ORDENAR: ["ORDENAR", "ORDENA"],
+  DISPONER: ["DISPONER", "DISPONE"],
+  COMUNICAR: ["COMUNICAR", "COMUNICA"],
+  REMITIR: ["REMITIR", "REMITE"],
+  DESESTIMAR: ["DESESTIMAR", "DESESTIMA"],
+  SUSPENDER: ["SUSPENDER", "SUSPENDE"],
+  CONDENAR: ["CONDENAR", "CONDENA"],
+  COMPENSAR: ["COMPENSAR", "COMPENSA"],
+  OTORGAR: ["OTORGAR", "OTORGA"],
+  LEVANTAR: ["LEVANTAR", "LEVANTA"],
+  LIBRAR: ["LIBRAR", "LIBRA"],
+  RATIFICAR: ["RATIFICAR", "RATIFICA"],
+  EXHORTAR: ["EXHORTAR", "EXHORTA"],
+  LIQUIDAR: ["LIQUIDAR", "LIQUIDA"],
+  FIJAR: ["FIJAR", "FIJA"],
+  ENVIAR: ["ENVIAR", "ENVÍA", "ENVIA"],
+  RESERVAR: ["RESERVAR", "RESERVA"],
+};
+const INFINITIVO = new Map(Object.entries(FORMAS_VERBO).flatMap(([inf, formas]) => formas.map((f) => [f, inf] as const)));
+/** Un verbo escrito en mayúsculas en cualquier punto del ordinal. */
+const EN_MAYUSCULAS = /\b[A-ZÁÉÍÓÚÑ]{4,}\b/g;
+
+/** El verbo principal de un ordinal (su primera palabra, en cualquier caja) y todos los que manda en mayúsculas. */
+function verbosDe(texto: string): { principal: string | null; verbos: string[] } {
+  const primera = /^[\s"“«(]*([A-Za-zÁÉÍÓÚÑáéíóúñ]+)/.exec(texto)?.[1]?.toLocaleUpperCase("es") ?? "";
+  const principal = INFINITIVO.get(primera) ?? null;
+  const verbos = new Set<string>(principal ? [principal] : []);
+  for (const m of texto.matchAll(EN_MAYUSCULAS)) {
+    const v = INFINITIVO.get(m[0]);
+    if (v) verbos.add(v);
+  }
+  return { principal, verbos: [...verbos] };
+}
 
 /**
  * El dispositivo de una sentencia: lo que sigue a la **última** marca
@@ -124,6 +182,11 @@ const VERBO = /\b([A-ZÁÉÍÓÚÑ]{2,}(?:AR|ER|IR))\b/g;
 export function dispositivoDe(texto: string): Dispositivo | null {
   let marca: RegExpMatchArray | null = null;
   for (const m of texto.matchAll(MARCA_DISPOSITIVO)) marca = m;
+  if (!marca) {
+    for (const m of texto.matchAll(MARCA_SUPLETORIA)) {
+      if (/\bTribunal\b/i.test(texto.slice(Math.max(0, (m.index ?? 0) - 160), m.index))) marca = m;
+    }
+  }
   if (!marca) return null;
   const desde = (marca.index ?? 0) + marca[0].length;
   const resto = texto.slice(desde, desde + 20_000);
@@ -135,7 +198,7 @@ export function dispositivoDe(texto: string): Dispositivo | null {
     const ini = (m.index ?? 0) + m[0].length;
     const hasta = k + 1 < cortes.length ? (cortes[k + 1].index ?? cuerpo.length) : cuerpo.length;
     const t = plano(cuerpo.slice(ini, hasta));
-    return { ordinal: m[1].replace(/\s+/g, " ").toUpperCase(), verbos: [...new Set([...t.matchAll(VERBO)].map((v) => v[1]))], texto: t };
+    return { ordinal: m[1].replace(/\s+/g, " ").toUpperCase(), ...verbosDe(t), texto: t };
   });
   const textoEntero = plano(cuerpo.slice(cortes[0].index ?? 0));
   return {
@@ -159,26 +222,28 @@ const plano = (t: string) => t.replace(/\s+/g, " ").trim();
  *  · `otro`: ninguno de esos (un desistimiento, un archivo, una liquidación).
  *
  * Es la lectura de la fórmula del propio tribunal; el dispositivo queda
- * siempre a la vista junto al sentido.
+ * siempre a la vista junto al sentido (`lib/vocabulario-textos.ts`).
  */
-export type Sentido = "no-conforme" | "conforme" | "acoge" | "rechaza" | "inadmisible" | "otro";
-
-export const SENTIDOS: readonly Sentido[] = ["no-conforme", "conforme", "acoge", "rechaza", "inadmisible", "otro"];
-
 const NO_CONFORME = /\bno\s+conformes?\s+con\s+la\s+Constituci[oó]n|\binconstitucional(?:es)?\b/i;
 const CONFORME = /(?<!\bno\s)\bconformes?\s+con\s+la\s+Constituci[oó]n/i;
 const INADMISIBLE = /\binadmisibles?\b|\bINADMITIR\b/i;
 
-/** Si un ordinal declara (no rechaza) lo que dice el patrón. */
-const declara = (o: Ordinal, re: RegExp) => o.verbos.includes("DECLARAR") && !o.verbos.includes("RECHAZAR") && re.test(o.texto);
+/** Si un ordinal declara (no rechaza) lo que dice el patrón: «ACOGER… y, en consecuencia, DECLARAR no conforme…» declara. */
+const declara = (o: Ordinal, re: RegExp) => o.verbos.includes("DECLARAR") && o.principal !== "RECHAZAR" && re.test(o.texto);
 
+/**
+ * El sentido sale del verbo **principal** de cada ordinal: en «LEVANTA ACTA
+ * del desistimiento…; en consecuencia, ACOGE dicho desistimiento» manda
+ * LEVANTAR (un desistimiento), no ACOGER. Lo que se declara sobre una norma,
+ * en cambio, cuenta en cualquier punto del ordinal que no rechaza.
+ */
 export function sentidoDe(d: Dispositivo): Sentido {
   const os = d.ordinales;
   if (os.some((o) => declara(o, NO_CONFORME))) return "no-conforme";
   if (os.some((o) => declara(o, CONFORME))) return "conforme";
-  if (os.some((o) => o.verbos.includes("ACOGER"))) return "acoge";
-  if (os.some((o) => o.verbos.includes("RECHAZAR"))) return "rechaza";
-  if (os.some((o) => INADMISIBLE.test(o.texto) && (o.verbos.includes("DECLARAR") || o.verbos.includes("INADMITIR")))) return "inadmisible";
+  if (os.some((o) => o.principal === "ACOGER")) return "acoge";
+  if (os.some((o) => o.principal === "RECHAZAR")) return "rechaza";
+  if (os.some((o) => o.principal === "INADMITIR" || (o.principal === "DECLARAR" && INADMISIBLE.test(o.texto)))) return "inadmisible";
   return "otro";
 }
 

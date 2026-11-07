@@ -24,6 +24,7 @@ import { ConectadoCon } from "@/components/conectado-con";
 import { provinciaDeTexto } from "@/lib/provincias";
 import Conversacion from "@/components/espacios/conversacion";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { DocumentosQueLoNombran } from "@/components/texto-integro";
 
 export const revalidate = 86400;
 
@@ -281,6 +282,7 @@ export default async function ObraPage({ params }: Props) {
         son los que MapaInversiones asocia al código SNIP; la ficha de cada uno
         consulta la DGCP en vivo.
       </p>
+      <DocumentosQueLoNombran nodo={{ tipo: "obra", id: String(Number(snip)) }} className="mt-6 p-5 sm:p-6" />
       <EnElGrafo nodo={{ tipo: "obra", id: String(Number(snip)) }} className="mt-6" />
       <Conversacion className="mt-6" referencia={{ tipo: "obra", ref: enlace.obra(String(Number(snip))), titulo: tituloLegible(o.nombre), href: enlace.obra(String(Number(snip))) }} />
     </div>

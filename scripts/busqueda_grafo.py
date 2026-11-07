@@ -37,6 +37,23 @@ def _llano(s: str) -> str:
 
 def entradas(raiz: pathlib.Path) -> tuple[list[dict], dict[str, str]]:
     """Las entradas y la fecha de corte de cada grafo de fuente que las trae."""
+    d = _exportado(raiz)
+    return d["entradas"], d["cortes"]
+
+
+def sentencias(raiz: pathlib.Path) -> dict[str, dict]:
+    """Lo que decidió cada sentencia cuyo texto se leyó, por su ficha en el
+    tribunal: `{"s": sentido, "x": dispositivo}` (grafo «texto»)."""
+    return _exportado(raiz).get("sentencias", {})
+
+
+_memo: dict = {}
+
+
+def _exportado(raiz: pathlib.Path) -> dict:
+    """La salida de `busqueda-grafo.mjs`, una vez por corrida."""
+    if "d" in _memo:
+        return _memo["d"]
     salida = subprocess.run(
         ["node", "--no-warnings", str(raiz / "scripts" / "busqueda-grafo.mjs")],
         cwd=raiz,
@@ -44,8 +61,8 @@ def entradas(raiz: pathlib.Path) -> tuple[list[dict], dict[str, str]]:
         capture_output=True,
         text=True,
     ).stdout
-    d = json.loads(salida)
-    return d["entradas"], d["cortes"]
+    _memo["d"] = json.loads(salida)
+    return _memo["d"]
 
 
 def fuera_del_grafo(grafo: list[dict], otras: list[dict], reparar) -> list[dict]:

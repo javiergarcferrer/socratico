@@ -39,6 +39,7 @@ import { enlace } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { DocumentosQueLoNombran } from "@/components/texto-integro";
 import { schemaOrgDe } from "@/lib/grafo-ld";
 
 const DOC_CLAVE =
@@ -781,6 +782,7 @@ export default async function ProcesoPage({
         abierto={abiertoParaOfertar}
         huella={huellaDe({ estado: p.estado_proceso })}
       />
+      <DocumentosQueLoNombran nodo={{ tipo: "proceso", id: p.codigo_proceso.trim() }} className="mt-6 p-5 sm:p-6" />
       <EnElGrafo nodo={{ tipo: "proceso", id: p.codigo_proceso.trim() }} className="mt-6" />
       <Conversacion className="mt-6" referencia={{ tipo: "proceso", ref: enlace.proceso(p.codigo_proceso), titulo: p.titulo, href: enlace.proceso(p.codigo_proceso) }} />
     </div>

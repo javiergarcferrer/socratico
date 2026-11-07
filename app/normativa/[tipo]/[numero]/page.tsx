@@ -20,6 +20,7 @@ import { enlace, numeroCanonico, type NodoRdf } from "@/lib/grafo";
 import { TextoEnlazado } from "@/components/texto-enlazado";
 import Conversacion from "@/components/espacios/conversacion";
 import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
+import { CitasDelTexto } from "@/components/texto-integro";
 import { ETIQUETA_MOVIMIENTO, getFuncionarios, personaPorFirma, personasDelDecreto } from "@/lib/funcionarios";
 import { decretoPorNumero } from "@/lib/decretos";
 import { schemaOrgDe } from "@/lib/grafo-ld";
@@ -193,6 +194,8 @@ export default async function NormaPage({ params }: Props) {
           </p>
         )}
       </Card>
+
+      {nodo && <CitasDelTexto nodo={nodo} />}
 
       {/* De la ley al proyecto que la originó y a los que hoy la tocan (plan 1.4). */}
       <Suspense fallback={null}>

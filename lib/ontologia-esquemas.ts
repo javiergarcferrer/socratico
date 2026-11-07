@@ -375,12 +375,13 @@ export const TABLAS: Tabla[] = [
   {
     nombre: "citas",
     descripcion:
-      "Qué ley o qué decreto con ficha nombra el título de cada norma o iniciativa, y qué le hace según el verbo que lo antecede. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; lo demás es cita. En una iniciativa, deroga y modifica son lo que propone.",
-    fuente: "Socrático: regla sobre los títulos de la Consultoría Jurídica y del SIL",
+      "Qué ley o qué decreto con ficha nombra el título de cada norma o iniciativa, o el texto íntegro de cada ley (artículo por artículo), y qué le hace según el verbo que lo antecede. Solo cambia una norma quien puede: una ley a una ley o a un decreto, un decreto a otro decreto, un proyecto de ley a cualquiera de los dos; una ley no cambia una norma posterior a ella; lo demás es cita. En una iniciativa, deroga y modifica son lo que propone. Un par puede salir dos veces: una del título y otra del texto.",
+    fuente: "Socrático: regla sobre los títulos de la Consultoría Jurídica y del SIL y sobre el texto íntegro de las leyes",
     columnas: [
       { nombre: "de", tipo: "VARCHAR", clave: true, descripcion: "Quien la nombra: una norma (normas.id) o una iniciativa (iniciativas.id)." },
       { nombre: "a", tipo: "VARCHAR", clave: true, descripcion: "La norma nombrada (normas.id)." },
-      { nombre: "relacion", tipo: "VARCHAR", descripcion: "deroga, modifica (modifica, reforma, sustituye o adiciona) o cita." },
+      { nombre: "relacion", tipo: "VARCHAR", clave: true, descripcion: "deroga, modifica (modifica, reforma, sustituye o adiciona) o cita." },
+      { nombre: "segun", tipo: "VARCHAR", clave: true, descripcion: "De dónde se lee: titulo (el título de la norma o de la iniciativa) o texto (el texto íntegro de la ley)." },
     ],
   },
 ];
