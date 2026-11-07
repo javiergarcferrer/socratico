@@ -19,7 +19,7 @@
  * repara y les quita la cédula como a todas. Corre después de
  * `scripts/build-grafo.mjs`.
  *
- * Con `--comprobar`, dice si el corpus (`public/data/busqueda/corpus.json`) y
+ * Con `--comprobar`, dice si el corpus (`public/data/busqueda/corpus.json.gz`) y
  * el grafo dicen lo mismo: cada entrada que lleva a la ficha de un nodo —un
  * documento o un conjunto de datos, por la dirección de fuera que guarda— lleva
  * a un nodo del compilado, y a uno que ninguna otra entrada nombra; cada nodo
@@ -34,6 +34,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { registrarTs } from "./cargador-ts.mjs";
+import { leerCorpus } from "./corpus-busqueda.mjs";
 
 registrarTs();
 
@@ -154,7 +155,7 @@ const SIEMPRE_NODO = new Set(["documento", "dato", "sentencia"]);
 
 async function comprobar() {
   const t0 = Date.now();
-  const corpus = JSON.parse(readFileSync(path.join(RAIZ, "public", "data", "busqueda", "corpus.json"), "utf8"));
+  const corpus = leerCorpus(RAIZ);
   // Cada entrada que lleva a la ficha de un nodo, por tipo y clave compilada:
   // el mismo enlace que deriva el servidor (`hrefDeEntrada`, `lib/busqueda.ts`).
   const enCorpus = new Map();

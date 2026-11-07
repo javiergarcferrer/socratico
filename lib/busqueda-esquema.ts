@@ -7,8 +7,8 @@
  * buscaría en silencio peor. Por eso ninguno de los dos la escribe por su
  * cuenta.
  *
- * El archivo (`indice.bin`) guarda dos cosas, y el servidor no lee nada más
- * del corpus:
+ * El archivo (`indice.bin.br`, `ARCHIVO_INDICE`) guarda dos cosas, y el
+ * servidor no lee nada más del corpus:
  *
  *  1. **El índice por palabra**: invertido, propio, y no el de Orama que lo
  *     precedió (27 MB de JSON, ~1,3 s por arranque en frío con 68 mil
@@ -28,6 +28,19 @@
  */
 
 import { lematizar, PALABRAS_VACIAS, sinTildes } from "./raiz.ts";
+
+/**
+ * Los dos archivos de `public/data/busqueda/` que se guardan comprimidos. El
+ * índice (74 MB crudo, 13 MB con brotli) viaja en cada función que busca, y
+ * Vercel cuenta el trazado descomprimido contra su tope de 250 MB por
+ * función: crudo, era la mitad de `/mcp`. Se descomprime una vez por
+ * instancia (~0,2 s). El corpus (54 MB crudo) no viaja; va con gzip para que
+ * lo lean `scripts/build-busqueda.py` y `.claude/hooks/cedulas.py` con la
+ * biblioteca estándar de Python, y para que ningún archivo del árbol se
+ * acerque al tope de GitHub.
+ */
+export const ARCHIVO_INDICE = "indice.bin.br";
+export const ARCHIVO_CORPUS = "corpus.json.gz";
 
 /** Los campos buscables, en el orden en que el índice los numera. */
 export const CAMPOS = ["ti", "x", "o"] as const;

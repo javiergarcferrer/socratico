@@ -93,21 +93,24 @@ if printf '%s\n' "$nuevos" | grep -qE '^lib/[a-z-]+\.ts$'; then
 fi
 
 # 5a. The search index belongs to its corpus and its vectors: the server
-#     reads only indice.bin (word index + corpus by columns), so a stale one
-#     is not an error at runtime — it silently serves the previous corpus.
-if [ -f public/data/busqueda/corpus.json ]; then
+#     reads only indice.bin.br (word index + corpus by columns, brotli), so a
+#     stale one is not an error at runtime — it silently serves the previous
+#     corpus. A raw indice.bin or corpus.json left behind is stale by
+#     definition: nothing reads it, and it would ride into every function.
+if [ -f public/data/busqueda/corpus.json.gz ]; then
   if etq="$(node -e '
-    const fs = require("fs");
-    const c = JSON.parse(fs.readFileSync("public/data/busqueda/corpus.json", "utf8"));
-    const b = fs.readFileSync("public/data/busqueda/indice.bin");
-    if (b.subarray(0, 4).toString() !== "SIB2") { console.log("indice.bin is not SIB2"); process.exit(); }
+    const fs = require("fs"), z = require("zlib");
+    for (const viejo of ["indice.bin", "corpus.json"]) if (fs.existsSync("public/data/busqueda/" + viejo)) console.log(viejo + " left over: the compressed one is the only one read");
+    const c = JSON.parse(z.gunzipSync(fs.readFileSync("public/data/busqueda/corpus.json.gz")).toString("utf8"));
+    const b = z.brotliDecompressSync(fs.readFileSync("public/data/busqueda/indice.bin.br"));
+    if (b.subarray(0, 4).toString() !== "SIB2") { console.log("indice.bin.br is not SIB2"); process.exit(); }
     const cab = JSON.parse(b.subarray(8, 8 + b.readUInt32LE(4)).toString());
     const esperada = `${c.generado}|${c.huella ?? "sin-huella"}|${c.docs.length}`;
-    if (cab.etiqueta !== esperada) console.log(`indice.bin ${cab.etiqueta} != corpus ${esperada}`);
+    if (cab.etiqueta !== esperada) console.log(`indice.bin.br ${cab.etiqueta} != corpus ${esperada}`);
     const v = require("crypto").createHash("sha256").update(fs.readFileSync("public/data/busqueda/vectores.bin")).digest("hex");
-    if (cab.vectores !== v) console.log("indice.bin was built with another vectores.bin");
+    if (cab.vectores !== v) console.log("indice.bin.br was built with another vectores.bin");
   ' 2>&1)" && [ -z "$etq" ]; then
-    ok "search: indice.bin matches corpus.json and vectores.bin"
+    ok "search: indice.bin.br matches corpus.json.gz and vectores.bin"
   else
     mal "search index out of date — node scripts/build-indice-busqueda.mjs"; printf '%s\n' "$etq" | sed 's/^/       /'
   fi
@@ -161,7 +164,7 @@ fi
 #     every node of a type the search carries has its entry, save those its
 #     scope leaves out by a stated rule (`FUERA` in scripts/busqueda-grafo.mjs,
 #     recognized by the graphs that assert them). ~10 s: completo only.
-if [ "$modo" = "--completo" ] && [ -f public/data/busqueda/corpus.json ]; then
+if [ "$modo" = "--completo" ] && [ -f public/data/busqueda/corpus.json.gz ]; then
   if coh="$(node --no-warnings scripts/busqueda-grafo.mjs --comprobar 2>&1)"; then
     ok "search ↔ graph: $(printf '%s\n' "$coh" | tail -1)"
   else

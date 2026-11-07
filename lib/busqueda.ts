@@ -25,18 +25,21 @@
  * interfaz; no se hace pasar por una coincidencia.
  *
  * Nada de esto es una base de datos (CLAUDE.md, la invariante): los
- * vectores, el modelo y el índice ya construido (`indice.bin`, de
+ * vectores, el modelo y el índice ya construido (`indice.bin.br`, de
  * `scripts/build-indice-busqueda.mjs`: el índice por palabra y el corpus por
- * columnas) son archivos versionados en `public/data/busqueda`, leídos una
- * vez por instancia y guardados en memoria. `corpus.json` no se lee aquí: es
- * de lo que se construyen.
+ * columnas, con brotli) son archivos versionados en `public/data/busqueda`,
+ * leídos una vez por instancia y guardados en memoria. `corpus.json.gz` no se
+ * lee aquí: es de lo que se construyen.
  */
 
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
+import { brotliDecompress } from "node:zlib";
 import { Tokenizer } from "@huggingface/tokenizers";
 import {
+  ARCHIVO_INDICE,
   entradasDe,
   esVacia,
   leerIndice,
@@ -241,11 +244,11 @@ function partir(buf: Buffer, n: number, dim: number): [Int8Array, Float32Array] 
  * columnas), el modelo y los vectores. Es un `readFile` por archivo y unas
  * vistas sobre sus búferes; lo que más tarda es armar el tokenizador. Si el
  * índice falta, es de otra forma o no es de estos vectores, lanza: el gate
- * (`verificar.sh`) no deja pasar uno que no sea de su `corpus.json`.
+ * (`verificar.sh`) no deja pasar uno que no sea de su `corpus.json.gz`.
  */
 async function cargar(): Promise<Motor> {
   const [bufIndice, crudoTok, crudoMeta, bufModelo, bufVectores] = await Promise.all([
-    readFile(path.join(DIR, "indice.bin")),
+    readFile(path.join(DIR, ARCHIVO_INDICE)).then((b) => promisify(brotliDecompress)(b)),
     readFile(path.join(DIR, "tokenizer.json"), "utf8"),
     readFile(path.join(DIR, "modelo.json"), "utf8"),
     readFile(path.join(DIR, "modelo.bin")),

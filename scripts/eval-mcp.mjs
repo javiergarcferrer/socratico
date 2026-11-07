@@ -9,7 +9,7 @@
  * MINERD»— hecha como la haría un asistente, con la herramienta que le toca.
  * La respuesta correcta (el oráculo) se calcula aquí, aparte, leyendo las
  * instantáneas de `public/data` (`procesos.json`, `historico/`,
- * `busqueda/corpus.json`), no con el código del servidor: un cambio que rompa
+ * `busqueda/corpus.json.gz`), no con el código del servidor: un cambio que rompa
  * la forma de una herramienta, o un script que cambie la forma del corpus que
  * `lib/busqueda.ts` vuelve a separar, deja su caso en rojo.
  *
@@ -126,7 +126,7 @@ const historicoInstituciones = leer("historico/instituciones.json").filas;
 const mayorProveedor = resumen.proveedores[0];
 const filaProveedor = leer(`historico/proveedores/${mayorProveedor.rpe.slice(-1)}.json`).filas[mayorProveedor.rpe];
 const suma = (serie, k) => serie.reduce((s, f) => s + f[k], 0);
-const corpus = leer("busqueda/corpus.json");
+const corpus = JSON.parse(gunzipSync(readFileSync(path.join(DATOS, "busqueda/corpus.json.gz"))).toString("utf8"));
 const rncMayor = corpus.docs.find((d) => d.t === "proveedor" && d.r === mayorProveedor.rpe)?.c ?? null;
 const instituciones = leer("instituciones.json").instituciones;
 const MINERD = instituciones.find((x) => x.acronimo === "MINERD");

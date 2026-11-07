@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Genera public/data/busqueda/indice.bin: el índice del buscador **ya
+ * Genera public/data/busqueda/indice.bin.br: el índice del buscador **ya
  * construido** —el índice por palabra y el corpus por columnas—, para que el
- * servidor no lea `corpus.json` ni arme nada en cada arranque en frío.
+ * servidor no lea `corpus.json.gz` ni arme nada en cada arranque en frío.
  *
  * Es la forma de `lib/busqueda-esquema.ts` (términos ordenados y, por
  * término, sus apariciones con campo y frecuencia; luego cada campo de las
@@ -14,7 +14,7 @@
  *
  * La cabecera lleva la etiqueta del corpus (fecha, huella y número de
  * entradas) y el sha256 de `vectores.bin`: el gate (`verificar.sh`) compara
- * las dos con `corpus.json` y `vectores.bin`, y el servidor la de los
+ * las dos con `corpus.json.gz` y `vectores.bin`, y el servidor la de los
  * vectores al cargar.
  *
  * El corte de palabras, las vacías y el lematizador vienen de
@@ -30,6 +30,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { comprimirIndice, leerCorpus, leerIndiceCrudo, rutaIndice } from "./corpus-busqueda.mjs";
 import {
   COLUMNAS_NUMERO,
   COLUMNAS_TEXTO,
@@ -41,7 +42,8 @@ import {
 } from "../lib/busqueda-esquema.ts";
 
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public", "data", "busqueda");
-const corpus = JSON.parse(readFileSync(path.join(DIR, "corpus.json"), "utf8"));
+const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const corpus = leerCorpus(RAIZ);
 resolverFrases(corpus);
 
 // El identificador de una ficha (el RPE de un proveedor, el código de un
@@ -66,15 +68,17 @@ if (vectores.length !== (corpus.vectorizados ?? corpus.docs.length) * (corpus.di
 }
 const huellaVectores = createHash("sha256").update(vectores).digest("hex");
 const bin = serializarIndice(ix, corpus, huellaVectores);
-const destino = path.join(DIR, "indice.bin");
-writeFileSync(destino, bin);
-// El formato anterior (Orama en JSON), si quedara de otra versión.
+const destino = rutaIndice(RAIZ);
+const comprimido = comprimirIndice(bin);
+writeFileSync(destino, comprimido);
+// Los formatos anteriores (Orama en JSON; el índice sin comprimir), si quedaran.
 rmSync(path.join(DIR, "indice.json.br"), { force: true });
+rmSync(path.join(DIR, "indice.bin"), { force: true });
 
 // Lo que el servidor hará: leer y comprobar que es el mismo índice y el
 // mismo corpus, campo por campo y entrada por entrada.
 t = performance.now();
-const { indice: leido, corpus: columnas } = leerIndice(readFileSync(destino));
+const { indice: leido, corpus: columnas } = leerIndice(leerIndiceCrudo(RAIZ));
 const msLeer = performance.now() - t;
 const fallos = [];
 const igualIndice =
@@ -108,5 +112,5 @@ if (fallos.length) {
 
 console.error(
   `${corpus.docs.length} entradas · ${ix.terminos.length} términos · ${ix.entrada.length} apariciones · ` +
-    `${(bin.length / 1e6).toFixed(2)} MB · construir ${Math.round(msConstruir)} ms, leer ${Math.round(msLeer)} ms`,
+    `${(bin.length / 1e6).toFixed(2)} MB (${(comprimido.length / 1e6).toFixed(2)} MB con brotli) · construir ${Math.round(msConstruir)} ms, leer ${Math.round(msLeer)} ms`,
 );

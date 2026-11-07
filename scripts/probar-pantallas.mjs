@@ -52,5 +52,5 @@ for (const [pregunta, esperada] of preguntas) {
   else console.log(`✗ «${pregunta}» → esperaba ${esperada}; llevó a ${lista.map((p) => p.href).join(", ") || "ninguna"}`);
 }
 console.log(`${bien}/${preguntas.length} preguntas llegan a su pantalla entre las tres primeras`);
-if (!existsSync(path.join(RAIZ, "public/data/busqueda/corpus.json"))) console.log("(sin corpus: corre scripts/build-busqueda.py)");
+if (!existsSync(path.join(RAIZ, "public/data/busqueda/corpus.json.gz"))) console.log("(sin corpus: corre scripts/build-busqueda.py)");
 process.exit(bien === preguntas.length ? 0 : 1);

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera public/data/busqueda/{corpus.json,vectores.bin}: el índice del
+"""Genera public/data/busqueda/{corpus.json.gz,vectores.bin}: el índice del
 buscador de toda la plataforma (`/buscar`, la paleta ⌘K, `/api/buscar`).
 
 No lee ninguna fuente: junta en un solo corpus lo que ya traen el grafo
@@ -38,6 +38,7 @@ Uso:
     python3 scripts/build-busqueda.py
 """
 import datetime
+import gzip
 import hashlib
 import json
 import math
@@ -484,7 +485,12 @@ def main() -> None:
         "frases": frases,
         "docs": limpios,
     }
-    (SALIDA / "corpus.json").write_text(json.dumps(corpus, ensure_ascii=False, separators=(",", ":")))
+    # Con gzip (`ARCHIVO_CORPUS` de lib/busqueda-esquema.ts): 54 → 9 MB. `mtime=0`
+    # para que el mismo corpus dé los mismos bytes y git no vea un cambio.
+    crudo = json.dumps(corpus, ensure_ascii=False, separators=(",", ":")).encode()
+    with open(SALIDA / "corpus.json.gz", "wb") as f, gzip.GzipFile(fileobj=f, mode="wb", compresslevel=9, mtime=0) as gz:
+        gz.write(crudo)
+    (SALIDA / "corpus.json").unlink(missing_ok=True)
     cuenta = Counter(d["t"] for d in docs)
     print(f"{len(docs)} entradas: {dict(cuenta)}", file=sys.stderr)
 
