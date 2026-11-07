@@ -27,7 +27,7 @@ import type { Sentido } from "@/lib/vocabulario-textos";
 export type { Sentido };
 
 /** Sube cuando cambia una regla de este módulo: las filas de otra versión se vuelven a leer. */
-export const VERSION_TEXTOS = 3;
+export const VERSION_TEXTOS = 4;
 
 /* ------------------------------------------------------------- limpieza */
 
@@ -112,11 +112,22 @@ export const TOPE_DISPOSITIVO = 3000;
   **última**: una sentencia cita fallos de otros tribunales y resoluciones de
   la JCE con la misma forma, y las conclusiones de las partes con los mismos
   ordinales («PRIMERO: ACOGER…») van antes del fallo. Sin ninguna marca, el
-  último «PRIMERO» al que sigue la firma.
+  último «PRIMERO» al que sigue la firma. Lo que viene tras el título de un
+  voto particular no cuenta (`TITULO_VOTO`).
 */
 const MARCA_DISPOSITIVO =
   /\b(?:D\s?E\s?C\s?I\s?D\s?E|F\s?A\s?L\s?L\s?A|R\s?E\s?S\s?U\s?E\s?L\s?V\s?E)\b\s*:?\s*(?=(?:\S+\s+){0,3}?PRIMERO\s*[:.\-–—])/gi;
 const PRIMER_ORDINAL = /(?:^|\n|[.;:]\s)\s*PRIMERO\s*[:.\-–—]/g;
+
+/**
+ * El título de un voto particular, en mayúsculas como lo pone el tribunal
+ * («VOTO SALVADO DE LA MAGISTRADA…», «VOTO DISIDENTE…»; en minúsculas es la
+ * frase que lo anuncia antes del fallo: «Figura incorporado el voto salvado
+ * de…»). Lo que le sigue ya no es la sentencia: un voto reproduce a veces la
+ * norma juzgada con su propio «RESUELVE: PRIMERO:» (TC/0903/26) o el fallo
+ * de la mayoría, y cita sus propios precedentes.
+ */
+const TITULO_VOTO = /\bVOTOS?\s+(?:DISIDENTES?|SALVADOS?|PARTICULAR(?:ES)?|CONCURRENTES?)\b/g;
 
 /** Lo que cierra el dispositivo: la firma (también «Aprobada:» tras el último ordinal), los votos o la certificación de la secretaría. */
 const FIN_DISPOSITIVO =
@@ -175,22 +186,38 @@ function verbosDe(texto: string): { principal: string | null; verbos: string[] }
   return { principal, verbos: [...verbos] };
 }
 
-/**
- * El dispositivo de una sentencia: lo que sigue a la **última** marca
- * «DECIDE:» (la que abre el fallo; una anterior puede ser una cita de otra
- * sentencia), partido en sus ordinales. `null` si el texto no la trae o no
- * le sigue ningún ordinal.
- */
-export function dispositivoDe(texto: string): Dispositivo | null {
+/** Dónde empieza el fallo en un texto: tras su última marca o, sin ninguna, en el último «PRIMERO» al que sigue la firma a menos de 8,000 caracteres. -1 si no hay. */
+function inicioDelFallo(texto: string): number {
   let desde = -1;
   for (const m of texto.matchAll(MARCA_DISPOSITIVO)) desde = (m.index ?? 0) + m[0].length;
-  if (desde < 0) {
-    // Sin marca: el último «PRIMERO» que la firma sigue a menos de 8,000 caracteres.
-    for (const m of texto.matchAll(PRIMER_ORDINAL)) {
-      const ini = m.index ?? 0;
-      if (FIN_DISPOSITIVO.test(texto.slice(ini, ini + 8000))) desde = ini;
-    }
+  if (desde >= 0) return desde;
+  for (const m of texto.matchAll(PRIMER_ORDINAL)) {
+    const ini = m.index ?? 0;
+    if (FIN_DISPOSITIVO.test(texto.slice(ini, ini + 8000))) desde = ini;
   }
+  return desde;
+}
+
+/** Dónde empiezan los votos particulares: el primer título de voto que tiene un fallo delante. `null` si no hay. */
+function inicioDeLosVotos(texto: string): number | null {
+  for (const v of texto.matchAll(TITULO_VOTO)) if (inicioDelFallo(texto.slice(0, v.index)) >= 0) return v.index ?? 0;
+  return null;
+}
+
+/** La sentencia sin sus votos particulares: lo que dice el tribunal, no lo que dice un juez que disiente o salva su voto. */
+export function sinVotos(texto: string): string {
+  const v = inicioDeLosVotos(texto);
+  return v == null ? texto : texto.slice(0, v);
+}
+
+/**
+ * El dispositivo de una sentencia: lo que sigue a la **última** marca del
+ * fallo antes de los votos particulares (una anterior puede ser una cita de
+ * otra sentencia; una posterior, la norma que un voto reproduce), partido en
+ * sus ordinales. `null` si el texto no la trae o no le sigue ningún ordinal.
+ */
+export function dispositivoDe(texto: string): Dispositivo | null {
+  const desde = inicioDelFallo(sinVotos(texto));
   if (desde < 0) return null;
   const resto = texto.slice(desde, desde + 20_000);
   const fin = resto.search(FIN_DISPOSITIVO);

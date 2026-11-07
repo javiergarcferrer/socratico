@@ -369,7 +369,8 @@ async function hechos(el, paginas, tipo = "pdf", total = paginas.length) {
       fila.dp = T.paginaDe(d.inicio, inicios);
       fila.n = T.normasDelDispositivo(d);
     }
-    fila.t = T.sentenciasCitadas(texto, corpus === "tc" ? clave : null).slice(0, 300);
+    // Los precedentes que nombra la sentencia, no los de un voto particular.
+    fila.t = T.sentenciasCitadas(T.sinVotos(texto), corpus === "tc" ? clave : null).slice(0, 300);
     return fila;
   }
   if (corpus === "leyes") return { e: "ok", ...base, n: T.cambiosDeLey(texto).slice(0, 400) };
