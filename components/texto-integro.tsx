@@ -103,7 +103,7 @@ export async function LoQueNombraElDocumento({ nodo }: { nodo: NodoRdf }) {
   const normas = x.relaciones.filter((a) => a.grupo === "normas");
   const procesos = x.relaciones.filter((a) => a.grupo === "procesos");
   const obras = x.relaciones.filter((a) => a.grupo === "obras");
-  const empresas = x.relaciones.filter((a) => a.grupo === "entidades");
+  const empresas = x.relaciones.filter((a) => a.grupo === "registros" && a.verbo === "Lo nombra su texto");
   const bloque = (titulo: string, lista: Relacion[], cuantas: string) =>
     lista.length > 0 && (
       <div className="mt-4">

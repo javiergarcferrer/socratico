@@ -284,7 +284,6 @@ const V = {
   declaraNoConforme: expandir("soc:declaraNoConforme"),
   declaraConforme: expandir("soc:declaraConforme"),
   menciona: expandir("soc:menciona"),
-  empresa: expandir("soc:Empresa"),
   procesoDeContratacion: expandir("soc:ProcesoDeContratacion"),
   promulgadaComo: expandir("soc:promulgadaComo"),
   documento: expandir("soc:Documento"),
@@ -571,7 +570,8 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
       }
       case V.menciona: {
         // Lo que nombra el texto de un documento: un proceso, una obra, una empresa proveedora.
-        const grupo: GrupoRelacion = esDe(o, V.procesoDeContratacion) ? "procesos" : esDe(o, V.proyecto) ? "obras" : "entidades";
+        // Una empresa nombrada va con los registros: no es «la misma entidad» ni quien la supervisa.
+        const grupo: GrupoRelacion = esDe(o, V.procesoDeContratacion) ? "procesos" : esDe(o, V.proyecto) ? "obras" : "registros";
         const extra = esDe(o, V.procesoDeContratacion) ? procesoVecino(o) : esDe(o, V.proyecto) ? obraVecina(o) : {};
         agregar({ grupo, verbo: "Lo nombra su texto", neutro: "Un documento que lo nombra en su texto", ...hacia(o), nombre: nombre(o), ...extra }, x);
         break;
