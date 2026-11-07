@@ -15,6 +15,9 @@
 #
 # Cuándo corre:
 #  · cada lunes a las 08:23 UTC (04:23 en Santo Domingo), fuentes y textos, en main;
+#  · los demás días a las 09:47 UTC, solo textos, en main: pide únicamente lo que
+#    no tiene fila final (lo nuevo y lo que no respondió), así que cuando todo
+#    está leído no pide casi nada y compilar no hace commit;
 #  · a mano (workflow_dispatch) con los pasos que se pidan;
 #  · en un push a una rama claude/* cuyo mensaje diga «[refrescar: …]» con los
 #    pasos (fuentes, textos, muestra, todo): así una sesión, que no tiene red
@@ -28,12 +31,17 @@ name: Refrescar
 on:
   schedule:
     - cron: "23 8 * * 1"
+    - cron: "47 9 * * 0,2-6"
   workflow_dispatch:
     inputs:
       pasos:
         description: "fuentes, textos, muestra (separados por coma) o todo"
         required: true
         default: "todo"
+      minutos:
+        description: "Tope de la lectura de textos, en minutos (hasta 290)"
+        required: false
+        default: "290"
   push:
     branches: ["claude/**"]
 
@@ -48,15 +56,22 @@ jobs:
       textos: ${{ steps.p.outputs.textos }}
       muestra: ${{ steps.p.outputs.muestra }}
       claves: ${{ steps.p.outputs.claves }}
+      minutos: ${{ steps.p.outputs.minutos }}
     steps:
       - id: p
         env:
           EVENTO: ${{ github.event_name }}
+          HORARIO: ${{ github.event.schedule }}
           PEDIDOS: ${{ inputs.pasos }}
+          MINUTOS: ${{ inputs.minutos }}
           MENSAJE: ${{ github.event.head_commit.message }}
         run: |
+          # El tope de la lectura: el pedido a mano, si es un entero entre 5 y 290; si no, 290.
+          minutos="290"
+          if printf '%s' "$MINUTOS" | grep -qE '^[0-9]{1,3}$' && [ "$MINUTOS" -ge 5 ] && [ "$MINUTOS" -le 290 ]; then minutos="$MINUTOS"; fi
+          echo "minutos=$minutos" >> "$GITHUB_OUTPUT"
           case "$EVENTO" in
-            schedule) pasos="fuentes,textos" ;;
+            schedule) if [ "$HORARIO" = "23 8 * * 1" ]; then pasos="fuentes,textos"; else pasos="textos"; fi ;;
             workflow_dispatch) pasos="$PEDIDOS" ;;
             push) pasos="$(printf '%s' "$MENSAJE" | grep -oE '\[refrescar: *[a-z, ]+\]' | head -1 | sed -E 's/^\[refrescar: *//; s/\]$//')" ;;
             *) pasos="" ;;
@@ -128,10 +143,12 @@ jobs:
           path: .cache/textos
           key: textos-v3-${{ github.run_id }}
           restore-keys: textos-v3-
-      - run: |
+      - env:
+          MINUTOS: ${{ needs.plan.outputs.minutos }}
+        run: |
           set -o pipefail
           mkdir -p .cache
-          node --no-warnings scripts/build-textos.mjs --minutos 290 | tee .cache/textos-corrida.txt
+          node --no-warnings scripts/build-textos.mjs --minutos "$MINUTOS" | tee .cache/textos-corrida.txt
       - uses: actions/cache/save@v4
         if: always()
         with:
@@ -180,9 +197,16 @@ jobs:
             mkdir -p llegado/t && tar -xf llegado/textos/textos.tar -C llegado/t
             mkdir -p datos/textos && cp -a llegado/t/datos/textos/. datos/textos/
           fi
+      - name: ¿Cambió algo?
+        id: cambio
+        run: |
+          # Sin una instantánea nueva no hay nada que compilar: la corrida diaria que no encontró nada termina aquí.
+          if [ -z "$(git status --porcelain -- public datos)" ]; then echo "si=0" >> "$GITHUB_OUTPUT"; echo "Nada cambió."; else echo "si=1" >> "$GITHUB_OUTPUT"; fi
       - name: Rehacer lo derivado
+        if: steps.cambio.outputs.si == '1'
         run: ./scripts/compilar-derivados.sh
       - name: Commit, gate y push
+        if: steps.cambio.outputs.si == '1'
         env:
           RAMA: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

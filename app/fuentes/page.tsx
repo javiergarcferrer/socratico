@@ -1177,7 +1177,7 @@ export default async function FuentesPage() {
             </Link>{" "}
             se leen de ahí con caché de horas para el año en curso y de días para los
             cerrados. La sentencia en sí es un PDF que se abre desde su ficha en el
-            sitio del Tribunal: no se publica aquí; la lectura semanal del texto íntegro (abajo)
+            sitio del Tribunal: no se publica aquí; la lectura diaria del texto íntegro (abajo)
             lo baja para sacar su dispositivo.
           </p>
           <p className="mt-3">
@@ -1704,9 +1704,10 @@ function TextoIntegro({ textos }: { textos: Record<"sentencias" | "leyes" | "doc
         </p>
       )}
       <p className="mt-3">
-        La lectura corre cada semana fuera de la plataforma, con las mismas reglas que las demás instantáneas: su{" "}
+        La lectura corre cada día fuera de la plataforma, con las mismas reglas que las demás instantáneas: su{" "}
         <code className="rounded bg-canvas px-1 py-0.5 font-mono">robots.txt</code> primero, un pedido a la vez por sitio y un
-        segundo entre uno y otro, y el nombre de la plataforma en cada pedido. Lo ya leído no se vuelve a pedir.
+        segundo entre uno y otro (tres en el Tribunal Constitucional), y el nombre de la plataforma en cada pedido. Solo se pide lo que no se ha
+        leído: lo nuevo y lo que no respondió.
       </p>
     </Fuente>
   );
