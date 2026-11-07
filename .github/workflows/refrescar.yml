@@ -1,0 +1,189 @@
+# El refresco de las instantáneas (docs/INFRAESTRUCTURA.md §6) y del texto de
+# las sentencias, las leyes y los documentos (§5.12), sin nadie en el circuito.
+#
+# Tres trabajos con red y uno sin ella:
+#  · fuentes: scripts/refrescar-fuentes.sh (los build-*.py en su orden);
+#  · textos: scripts/build-textos.mjs, con tope de tiempo y su caché: una
+#    corrida que no termina deja lo leído y la siguiente sigue;
+#  · muestra: build-textos.mjs --muestra, que solo imprime extractos;
+#  · compilar: junta lo que trajeron, rehace todo lo derivado
+#    (scripts/compilar-derivados.sh) y corre el gate completo
+#    (.claude/hooks/verificar.sh --completo) sobre el árbol que se empuja. Solo
+#    en verde hace el commit y lo empuja a la rama que lo pidió: en main, eso
+#    despliega a producción, como cualquier push que pasa el gate.
+#
+# Cuándo corre:
+#  · cada lunes a las 08:23 UTC (04:23 en Santo Domingo), fuentes y textos, en main;
+#  · a mano (workflow_dispatch) con los pasos que se pidan;
+#  · en un push a una rama claude/* cuyo mensaje diga «[refrescar: …]» con los
+#    pasos (fuentes, textos, muestra, todo): así una sesión, que no tiene red
+#    a los orígenes, pide la lectura y la recibe como un commit en su rama.
+#
+# Nunca evade un bloqueo: un host que responde 401/403/429/470 o un desafío se
+# detiene y queda dicho en la instantánea y en el resumen.
+
+name: Refrescar
+
+on:
+  schedule:
+    - cron: "23 8 * * 1"
+  workflow_dispatch:
+    inputs:
+      pasos:
+        description: "fuentes, textos, muestra (separados por coma) o todo"
+        required: true
+        default: "todo"
+  push:
+    branches: ["claude/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      fuentes: ${{ steps.p.outputs.fuentes }}
+      textos: ${{ steps.p.outputs.textos }}
+      muestra: ${{ steps.p.outputs.muestra }}
+    steps:
+      - id: p
+        env:
+          EVENTO: ${{ github.event_name }}
+          PEDIDOS: ${{ inputs.pasos }}
+          MENSAJE: ${{ github.event.head_commit.message }}
+        run: |
+          case "$EVENTO" in
+            schedule) pasos="fuentes,textos" ;;
+            workflow_dispatch) pasos="$PEDIDOS" ;;
+            push) pasos="$(printf '%s' "$MENSAJE" | grep -oE '\[refrescar: *[a-z, ]+\]' | head -1 | sed -E 's/^\[refrescar: *//; s/\]$//')" ;;
+            *) pasos="" ;;
+          esac
+          pasos="$(printf '%s' "$pasos" | tr -d ' ')"
+          [ "$pasos" = "todo" ] && pasos="fuentes,textos"
+          for p in fuentes textos muestra; do
+            if printf ',%s,' "$pasos" | grep -q ",$p,"; then echo "$p=1"; else echo "$p=0"; fi >> "$GITHUB_OUTPUT"
+          done
+          echo "pasos: ${pasos:-ninguno}"
+
+  muestra:
+    needs: plan
+    if: needs.plan.outputs.muestra == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - run: node --no-warnings scripts/build-textos.mjs --muestra 6 --minutos 45
+
+  fuentes:
+    needs: plan
+    if: needs.plan.outputs.fuentes == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    concurrency: { group: "fuentes-${{ github.ref }}", cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install --quiet xlrd openpyxl pypdf pdfminer.six brotli numpy tokenizers
+      - run: npm ci --no-audit --no-fund
+      - run: ./scripts/refrescar-fuentes.sh
+      - name: Empaquetar lo que cambió
+        run: tar -cf fuentes.tar public/data scripts/fuentes-nomina .cache/refrescar/resumen.txt
+      - uses: actions/upload-artifact@v4
+        with: { name: fuentes, path: fuentes.tar, retention-days: 3 }
+
+  textos:
+    needs: plan
+    if: needs.plan.outputs.textos == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    concurrency: { group: "textos-${{ github.ref }}", cancel-in-progress: false }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/cache/restore@v4
+        with:
+          path: .cache/textos
+          key: textos-${{ github.run_id }}
+          restore-keys: textos-
+      - run: |
+          set -o pipefail
+          mkdir -p .cache
+          node --no-warnings scripts/build-textos.mjs --minutos 290 | tee .cache/textos-corrida.txt
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .cache/textos
+          key: textos-${{ github.run_id }}
+      - name: Empaquetar lo leído
+        run: tar -cf textos.tar public/data/textos .cache/textos-corrida.txt
+      - uses: actions/upload-artifact@v4
+        with: { name: textos, path: textos.tar, retention-days: 3 }
+
+  compilar:
+    needs: [plan, fuentes, textos]
+    if: always() && (needs.fuentes.result == 'success' || needs.textos.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    concurrency: { group: "compilar-${{ github.ref }}", cancel-in-progress: false }
+    permissions:
+      contents: write
+    steps:
+      # La punta de la rama al empezar, no el commit que pidió la corrida: lo derivado se compila con el código de ahora.
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.ref_name }}", fetch-depth: 30 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install --quiet numpy tokenizers
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with: { path: llegado }
+      - name: Poner lo leído sobre el árbol
+        run: |
+          # Las instantáneas de fuentes enteras (un script puede borrar o partir archivos), y el texto encima.
+          if [ -f llegado/fuentes/fuentes.tar ]; then
+            mkdir -p llegado/f && tar -xf llegado/fuentes/fuentes.tar -C llegado/f
+            rsync -a --delete llegado/f/public/data/ public/data/
+            rsync -a llegado/f/scripts/fuentes-nomina/ scripts/fuentes-nomina/
+          fi
+          if [ -f llegado/textos/textos.tar ]; then
+            mkdir -p llegado/t && tar -xf llegado/textos/textos.tar -C llegado/t
+            rsync -a --delete llegado/t/public/data/textos/ public/data/textos/
+          fi
+      - name: Rehacer lo derivado
+        run: ./scripts/compilar-derivados.sh
+      - name: Commit, gate y push
+        env:
+          RAMA: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A public datos scripts/fuentes-nomina
+          if git diff --cached --quiet; then echo "Nada cambió."; exit 0; fi
+          {
+            echo "Refrescar las instantáneas del $(TZ=America/Santo_Domingo date +%F)"
+            echo
+            echo "Corrida automática de .github/workflows/refrescar.yml (docs/INFRAESTRUCTURA.md §6)."
+            echo "El gate completo pasó sobre este árbol antes del push."
+            if [ -f llegado/f/.cache/refrescar/resumen.txt ]; then echo; echo "Fuentes:"; cut -c1-160 llegado/f/.cache/refrescar/resumen.txt; fi
+            if [ -f llegado/t/.cache/textos-corrida.txt ]; then echo; echo "Textos:"; grep -E '^textos:|^  [a-z0-9.-]+:' llegado/t/.cache/textos-corrida.txt | cut -c1-200; fi
+          } > /tmp/mensaje.txt
+          git commit -q -F /tmp/mensaje.txt
+          rm -rf llegado
+          ./.claude/hooks/verificar.sh --completo
+          for intento in 1 2; do
+            if git push origin "HEAD:$RAMA"; then exit 0; fi
+            # Otra sesión empujó mientras tanto: el gate va otra vez sobre el árbol rebasado.
+            git fetch origin "$RAMA" && git rebase "origin/$RAMA" && ./.claude/hooks/verificar.sh --completo || exit 1
+          done
+          exit 1
