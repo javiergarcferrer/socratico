@@ -1,11 +1,13 @@
 """Entradas del corpus del buscador desde public/data/leyes.json (scripts/build-leyes.py).
 
 Una entrada por ley, del mismo tipo y forma que las normas de `build-busqueda.py`
-(`normas()`), para que el integrador deduplique por tipo, número y fecha. El
-enlace va a la ficha `/normativa/ley/{número}` con el número canónico de
-`numeroCanonico` (lib/grafo.ts): «47-2020» es la Ley 47-20. Las leyes con
-número solo (antes de los noventa) o con «BIS» no tienen ficha: enlazan al PDF
-de la Consultoría.
+(`normas()`), para que el integrador deduplique por tipo, número y fecha. Qué ley
+tiene ficha no lo decide este módulo: lo dice el grafo compilado (`fichas`, las
+de los nodos que trae `busqueda_grafo`), que la regla vive una sola vez, en
+`leyesConFicha()` de lib/normativa.ts. Con ficha, el enlace va a
+`/normativa/ley/{número}` con el número canónico de `numeroCanonico`
+(lib/grafo.ts: «47-2020» es la Ley 47-20) y el integrador la cambia por la
+entrada del grafo; sin ella, al PDF de la Consultoría.
 """
 import json
 import pathlib
@@ -25,18 +27,10 @@ def canonico(numero: str) -> str:
     return re.sub(r"^(\d{1,4})-(?:19|20)(\d{2})$", r"\1-\2", n)
 
 
-def entradas(datos: pathlib.Path) -> tuple[list[dict], str]:
+def entradas(datos: pathlib.Path, fichas: set[str]) -> tuple[list[dict], str]:
     crudo = json.loads((datos / "leyes.json").read_text())
     campos = crudo["campos"]
     filas = [dict(zip(campos, fila)) for fila in crudo["leyes"]]
-    # Un número canónico que el origen usa para leyes distintas (17-06 es el
-    # presupuesto de 2006 y la presa de Jigüey) no identifica una ley: su
-    # ficha resolvería una sola. Esas van al PDF de cada una.
-    titulos: dict[str, set] = {}
-    for f in filas:
-        titulos.setdefault(canonico((f.get("Numero") or "").strip()), set()).add(
-            re.sub(r"\W+", "", (f.get("Titulo") or "").lower())
-        )
     out = []
     # La misma ley cargada con dos fechas (37-17, 62-00…) es una sola entrada:
     # la más reciente, que es la primera (el archivo viene de la más nueva a la
@@ -49,13 +43,7 @@ def entradas(datos: pathlib.Path) -> tuple[list[dict], str]:
         if re.fullmatch(r"\d{1,4}-\d{2,4}", n) and clave in vistas:
             continue
         vistas.add(clave)
-        # «0-00» es un marcador del origen que cuatro leyes de 1921 comparten:
-        # no identifica una ley, así que no lleva ficha.
-        con_ficha = (
-            re.fullmatch(r"\d{1,4}-\d{2,4}", n)
-            and not re.fullmatch(r"0+-\d+", n)
-            and len(titulos[n]) == 1
-        )
+        con_ficha = f"/normativa/ley/{n}" in fichas
         e = {
             "t": "norma",
             "ti": f["Titulo"],

@@ -172,6 +172,17 @@ if [ "$modo" = "--completo" ] && [ -f public/data/busqueda/corpus.json.gz ]; the
   fi
 fi
 
+# 5f. Every plain question of scripts/bateria-pantallas.json lands on its screen
+#     among the first three (docs/INFRAESTRUCTURA.md §8.7): the model, lib/pantallas.ts
+#     and lib/menu.ts move together or the palette sends people astray. ~1 s.
+if [ "$modo" = "--completo" ] && [ -f public/data/busqueda/corpus.json.gz ]; then
+  if pant="$(node --no-warnings scripts/probar-pantallas.mjs 2>&1)"; then
+    ok "screens: $(printf '%s\n' "$pant" | tail -1)"
+  else
+    mal "screens: scripts/probar-pantallas.mjs"; printf '%s\n' "$pant" | grep -E '✗|preguntas' | head -8 | sed 's/^/       /'
+  fi
+fi
+
 # 6. Build (completo only).
 LOG="${TMPDIR:-/tmp}/socratico-build.log"
 construido=0

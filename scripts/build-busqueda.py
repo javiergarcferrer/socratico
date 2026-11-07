@@ -112,11 +112,35 @@ def instituciones() -> list[dict]:
     ]
 
 
-def normas() -> tuple[list[dict], str]:
+# Lo que se busca del dispositivo de una sentencia: el principio, que dice
+# qué decide (los ordinales finales comunican y publican).
+TOPE_DISPOSITIVO = 900
+
+
+def con_lo_que_decidio(lista: list[dict], decididas: dict[str, dict]) -> list[dict]:
+    """Las entradas de sentencias con lo que decidió cada una, si su texto se
+    leyó (grafo «texto», por `busqueda_grafo.sentencias`): el sentido y el
+    principio del dispositivo en el texto auxiliar, para que «declara no
+    conforme la Ley 1-12» la encuentre. El detalle (`d`) queda con el número:
+    de él deriva el servidor la ficha de la sentencia (`hrefDeEntrada`)."""
+    salida = []
+    for e in lista:
+        d = decididas.get(e.get("h") or "")
+        if d:
+            e = dict(e)
+            e["x"] = " ".join(filter(None, [e["x"], d.get("s"), sin_cedula(d["x"][:TOPE_DISPOSITIVO])]))
+        salida.append(e)
+    return salida
+
+
+def normas(fichas: set[str]) -> tuple[list[dict], str]:
+    """Las normas de la instantánea reciente. Un decreto, una ley o una
+    resolución tiene ficha si es nodo del grafo (`fichas`): la regla vive en
+    los constructores (lib/normativa.ts, lib/decretos.ts), no aquí. Un
+    reglamento no es nodo: su ficha, si su número lo identifica."""
     crudo = json.loads((DATOS / "normativa.json").read_text())
     # Un número que el origen da a normas distintas (el Decreto 108-23 son dos
-    # decretos) no identifica una: su ficha resolvería una sola. Esas abren
-    # el PDF de cada una en la Consultoría.
+    # decretos) no identifica una fila: esas abren el PDF de cada una.
     titulos: dict[tuple, set] = defaultdict(set)
     for filas in crudo["busquedas"].values():
         for f in filas:
@@ -137,8 +161,15 @@ def normas() -> tuple[list[dict], str]:
                 continue
             vistas.add(clave)
             ruta = RUTA_NORMA.get(tipo)
+            # Un número que esta instantánea da a dos títulos (una fe de errata
+            # publicada de nuevo) no dice cuál de las dos filas es el nodo: las
+            # dos van al PDF, y `fuera_del_grafo` quita la que el grafo describe.
             unica = len(titulos[(tipo, numero)]) == 1
-            ficha = f"/normativa/{ruta}/{numero}" if ruta and unica and re.fullmatch(r"\d{1,4}-\d{2,4}", numero) else None
+            if ruta in ("decreto", "ley", "resolucion"):
+                candidata = f"/normativa/{ruta}/{busqueda_grafo.canonico(ruta, numero)}"
+                ficha = candidata if unica and candidata in fichas else None
+            else:
+                ficha = f"/normativa/{ruta}/{numero}" if ruta and unica and re.fullmatch(r"\d{1,4}-\d{2,4}", numero) else None
             pdf = f"{busqueda_leyes.DOCUMENTO}/{f['DocId']}" if not ficha and f.get("DocId") else None
             # La misma norma cargada con dos fechas (Resolución 85-24): una.
             if ficha and ficha in vistas:
@@ -394,12 +425,14 @@ def main() -> None:
     docs: list[dict] = []
     fechas: dict[str, str] = {}
     docs += instituciones()
-    recientes, fechas["norma"] = normas()
-    historicas, fechas["ley"] = busqueda_leyes.entradas(DATOS)
     # Una norma que es nodo del grafo se busca como la describe el grafo; de
-    # las instantáneas, solo lo que no es nodo (`busqueda_grafo`).
+    # las instantáneas, solo lo que no es nodo (`busqueda_grafo`). Qué norma es
+    # nodo lo dice el grafo: las instantáneas no lo vuelven a decidir.
     grafo, cortes = busqueda_grafo.entradas(RAIZ)
     normas_grafo = [e for e in grafo if e["t"] == "norma"]
+    fichas = {e["h"] for e in normas_grafo}
+    recientes, fechas["norma"] = normas(fichas)
+    historicas, fechas["ley"] = busqueda_leyes.entradas(DATOS, fichas)
     docs += normas_grafo + busqueda_grafo.fuera_del_grafo(
         normas_grafo, recientes + de_modulo(sin_repetidas(recientes, historicas)), reparar
     )
@@ -414,6 +447,8 @@ def main() -> None:
         "proceso": busqueda_procesos.entradas(DATOS),
         "sentencia": busqueda_sentencias.entradas(DATOS),
     }.items():
+        if tipo == "sentencia":
+            lista = con_lo_que_decidio(lista, busqueda_grafo.sentencias(RAIZ))
         docs += de_modulo(lista)
         fechas[tipo] = fecha
     docs += de_modulo([e for e in congreso if e["t"] == "iniciativa"])
