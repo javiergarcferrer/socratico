@@ -449,10 +449,11 @@ async function procesar(el, trabajadores, extractos) {
   const x = await trabajadores.extraer(tipo, r.bytes);
   if (x.error) return { e: "error", nota: x.error, h: huella(r.bytes), u: el.ficha ? url : undefined };
   const paginas = x.paginas;
-  guardarCache(el.corpus, el.clave, { tipo, paginas, total: x.total });
   const fila = { ...(await hechos(el, paginas, tipo, x.total ?? paginas.length)), h: huella(r.bytes) };
   if (x.recortado) fila.recortado = true;
   if (el.ficha) fila.u = url;
+  // Con lo que no sale del texto (la huella del archivo, su dirección): la fila se puede rehacer de aquí sin pedir nada.
+  guardarCache(el.corpus, el.clave, { tipo, paginas, total: x.total, h: fila.h, u: fila.u, recortado: fila.recortado });
   if (extractos) extractos.push({ el, fila, paginas });
   return fila;
 }
@@ -566,6 +567,21 @@ for (const c of CORPUS) {
       if (guardado) {
         const { s: _s, d: _d, dp: _dp, n: _n, t: _t, x: _x, o: _o, r: _r, nota: _nota, ...comun } = previa;
         inst.filas[el.clave] = { ...comun, ...(await hechos(el, guardado.paginas, guardado.tipo, guardado.total ?? previa.p)) };
+        inst.cambiada = true;
+        releidas++;
+        continue;
+      }
+    }
+    // Sin fila (una corrida cuyo commit no llegó), lo que ya se bajó se rehace de la caché sin pedirlo. De una sentencia, solo
+    // si la caché guarda la huella y la dirección del archivo (desde la versión 4): sin ellas, la ficha perdería su PDF.
+    if (!previa) {
+      const g = leerCache(c, el.clave);
+      if (g && (g.h || (c !== "tc" && c !== "tse"))) {
+        const fila = { ...(await hechos(el, g.paginas, g.tipo, g.total ?? g.paginas.length)) };
+        if (g.h) fila.h = g.h;
+        if (g.u) fila.u = g.u;
+        if (g.recortado) fila.recortado = true;
+        inst.filas[el.clave] = fila;
         inst.cambiada = true;
         releidas++;
         continue;
