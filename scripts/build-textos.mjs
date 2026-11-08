@@ -85,7 +85,7 @@ const PAUSA_MS = 1000;
  * 12): más pausa, y un 502, 503 o 504 se reintenta dos veces con espera
  * creciente antes de dejarlo para la corrida siguiente.
  */
-const PAUSA_HOST = { "tc.gob.do": 3000 };
+const PAUSA_HOST = { "tc.gob.do": 3000, "tribunalconstitucional.gob.do": 3000 };
 const ESPERAS_5XX = [15_000, 45_000];
 const PLAZO_MS = 90_000;
 const TOPE_BYTES = 40 * 1024 * 1024;
@@ -144,12 +144,24 @@ const DESAFIO_HTML = /cf-chl|challenge-platform|Attention Required|Just a moment
  * Una petición GET con el contrato de la plataforma. `{ estado: "ok", bytes,
  * tipo, url }` o `{ estado, nota }`; no lanza.
  */
+/**
+ * Hosts que se mudaron: un 301 o un 308 al mismo camino en otro host. El resto
+ * de la corrida se pide directo al nuevo, sin el salto (RFC 9110 §15.4.2: el
+ * cliente puede cambiar sus enlaces), y el origen recibe la mitad de los
+ * pedidos. tc.gob.do responde así hacia tribunalconstitucional.gob.do.
+ */
+const MUDANZAS = new Map();
+
 async function pedir(url, opciones = {}, saltos = 0) {
   const { html = false, sinRobots = false } = opciones;
   const u = new URL(url);
+  if (MUDANZAS.has(u.host)) {
+    u.host = MUDANZAS.get(u.host);
+    url = u.href;
+  }
   const e = host(u.host);
-  if (e.bloqueado) return { estado: "bloqueado", nota: e.bloqueado };
-  if (!sinRobots && !(await permitido(u))) return { estado: "robots", nota: "robots.txt lo veta" };
+  if (e.bloqueado) return { estado: "bloqueado", nota: e.bloqueado, url };
+  if (!sinRobots && !(await permitido(u))) return { estado: "robots", nota: "robots.txt lo veta", url };
   for (let intento = 0; intento <= ESPERAS_5XX.length; intento++) {
     const soltar = await turno(u.host);
     try {
@@ -166,17 +178,20 @@ async function pedir(url, opciones = {}, saltos = 0) {
         await r.body?.cancel();
         const destino = r.headers.get("location");
         if (!destino || saltos >= 3) return { estado: "error", nota: `redirección ${st} sin destino o en cadena` };
+        const siguiente = new URL(destino, url);
+        const mismoCamino = siguiente.protocol === u.protocol && siguiente.pathname + siguiente.search === u.pathname + u.search;
+        if ((st === 301 || st === 308) && siguiente.host !== u.host && mismoCamino) MUDANZAS.set(u.host, siguiente.host);
         soltar();
-        return pedir(new URL(destino, url).href, opciones, saltos + 1);
+        return pedir(siguiente.href, opciones, saltos + 1);
       }
       if (r.headers.get("cf-mitigated") || [401, 403, 429, 451, 470].includes(st)) {
         await r.body?.cancel();
         e.bloqueado ??= `HTTP ${st}${r.headers.get("cf-mitigated") ? ` (cf-mitigated: ${r.headers.get("cf-mitigated")})` : ""}`;
-        return { estado: "bloqueado", nota: e.bloqueado, status: st };
+        return { estado: "bloqueado", nota: e.bloqueado, status: st, url };
       }
       if (st === 404 || st === 410) {
         await r.body?.cancel();
-        return { estado: "no-existe", nota: `HTTP ${st}`, status: st };
+        return { estado: "no-existe", nota: `HTTP ${st}`, status: st, url };
       }
       if (st >= 500 && intento < ESPERAS_5XX.length && (intento === 0 || [502, 503, 504].includes(st))) {
         await r.body?.cancel();
@@ -185,20 +200,20 @@ async function pedir(url, opciones = {}, saltos = 0) {
       }
       if (!r.ok) {
         await r.body?.cancel();
-        return { estado: "error", nota: `HTTP ${st}`, status: st };
+        return { estado: "error", nota: `HTTP ${st}`, status: st, url };
       }
       if (Number(r.headers.get("content-length") ?? 0) > TOPE_BYTES) {
         await r.body?.cancel();
-        return { estado: "grande", nota: `${r.headers.get("content-length")} bytes` };
+        return { estado: "grande", nota: `${r.headers.get("content-length")} bytes`, url };
       }
       const bytes = r.body ? await leerConTope(r.body) : Buffer.alloc(0);
-      if (!bytes) return { estado: "grande", nota: `más de ${TOPE_BYTES} bytes` };
+      if (!bytes) return { estado: "grande", nota: `más de ${TOPE_BYTES} bytes`, url };
       const tipo = r.headers.get("content-type") ?? "";
       if (/text\/html/i.test(tipo) && (html ? DESAFIO_HTML : DESAFIO).test(bytes.subarray(0, 20_000).toString("latin1"))) {
         e.bloqueado ??= "desafío en lugar de la página";
-        return { estado: "bloqueado", nota: e.bloqueado };
+        return { estado: "bloqueado", nota: e.bloqueado, url };
       }
-      return { estado: "ok", bytes, tipo, url: r.url, status: st };
+      return { estado: "ok", bytes, tipo, status: st, url };
     } catch (err) {
       if (intento === 0) {
         await dormir(ESPERAS_5XX[0]);
@@ -430,6 +445,7 @@ async function procesar(el, trabajadores, extractos) {
   if (el.ficha) {
     usados.add(new URL(el.ficha).host);
     const r = await pedir(el.ficha, { html: true });
+    if (r.url) usados.add(new URL(r.url).host);
     if (r.estado !== "ok") return { e: r.estado, nota: r.nota };
     const html = r.bytes.toString("utf8");
     url = archivoDeFicha(el.corpus, html, el.ficha);
@@ -442,6 +458,7 @@ async function procesar(el, trabajadores, extractos) {
   if (el.corpus === "documentos" && !["pdf", "docx", "xlsx"].includes(el.ext)) return { e: "formato", nota: el.ext };
   usados.add(new URL(url).host);
   const r = await pedir(url);
+  if (r.url) usados.add(new URL(r.url).host);
   if (r.estado !== "ok") return { e: r.estado, nota: r.nota, u: el.ficha ? url : undefined };
   const clase = tipoDeArchivo(r.bytes);
   const tipo = clase === "pdf" ? "pdf" : clase === "zip" ? (/\.xlsx(?:$|\?)/i.test(url) || el.ext === "xlsx" ? "xlsx" : "docx") : null;
