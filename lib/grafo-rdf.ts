@@ -303,6 +303,22 @@ const V = {
 } as const;
 
 /**
+ * Las aristas en el orden en que se recortan (`fetch` del MCP, sus páginas, el
+ * inspector del banco): primero lo que dice una fuente o el título (de qué
+ * proyecto nació una ley, qué deroga su título, quién la firmó), después lo
+ * que un texto íntegro declara, deroga o modifica, y al final lo que un texto
+ * solo cita o nombra. Una ley que nombran cientos de documentos no esconde
+ * de dónde viene. Estable: dentro de cada peso, el orden de la descripción.
+ */
+export function porPeso(lista: readonly Relacion[]): Relacion[] {
+  const peso = (r: Relacion) => (r.grafo !== "texto" ? 0 : /declara|[Dd]eroga|[Mm]odifica/.test(r.verbo) ? 1 : 2);
+  return lista
+    .map((r, i) => [r, i] as const)
+    .sort((a, b) => peso(a[0]) - peso(b[0]) || a[1] - b[1])
+    .map(([r]) => r);
+}
+
+/**
  * Las aristas de un nodo, leídas de su descripción RDF: el explorador pinta
  * exactamente lo que dice el RDF, ni más ni menos. Un cargo (nodo intermedio)
  * se atraviesa: desde una persona, la arista va a la institución, al decreto

@@ -1,5 +1,5 @@
 import { nodoDeRuta, rutaDeNodo, type TipoNodoRdf } from "@/lib/grafo";
-import { CLASE_DE_TIPO, GRUPOS, claveNodo, describir, iriDe, relacionesDesdeTriples } from "@/lib/grafo-rdf";
+import { CLASE_DE_TIPO, GRUPOS, claveNodo, describir, iriDe, porPeso, relacionesDesdeTriples } from "@/lib/grafo-rdf";
 import { etiquetaUnica, metaGrafo } from "@/lib/grafo-compilado";
 import type { CalidadGrafo } from "@/lib/grafo-calidad";
 import { datosDe, formaDe } from "@/lib/grafo-hechos";
@@ -53,7 +53,7 @@ export async function inspeccionar(ruta: string): Promise<Inspeccion | null> {
   const otros = new Set(relaciones.flatMap((r) => (r.nodo && claveNodo(r.nodo) !== propia ? [claveNodo(r.nodo)] : [])));
 
   const grupos = GRUPOS.map((g) => {
-    const del = relaciones.filter((r) => r.grupo === g.id);
+    const del = porPeso(relaciones.filter((r) => r.grupo === g.id));
     return {
       id: g.id,
       etiqueta: g.etiqueta,

@@ -15,6 +15,7 @@ import {
   inventario,
   iriDe,
   volcadoDelGrafo,
+  porPeso,
   relacionesDesdeTriples,
   type GrupoRelacion,
   type Paso as PasoCamino,
@@ -485,7 +486,7 @@ const POR_GRUPO_FETCH = 15;
 function bloqueRelaciones(relaciones: Relacion[], ruta: string, tope = Infinity): string[] {
   const lineas: string[] = [];
   for (const g of GRUPOS) {
-    const delGrupo = relaciones.filter((r) => r.grupo === g.id);
+    const delGrupo = porPeso(relaciones.filter((r) => r.grupo === g.id));
     if (delGrupo.length === 0) continue;
     lineas.push("", `### ${g.etiqueta} (${delGrupo.length})`, ...delGrupo.slice(0, tope).map(lineaRelacion));
     if (delGrupo.length > tope) lineas.push(`- Siguen ${delGrupo.length - tope}: fetch con el id «${ruta}» y group «${g.id}».`);
@@ -700,7 +701,7 @@ async function vecinos(id: string, grupo: GrupoRelacion | undefined, pagina: num
   const d = await describir(n);
   if (!d) throw new Aviso(`No encontramos «${recortar(id, 120)}» en las instantáneas del grafo.`);
   const ruta = rutaDeNodo(n);
-  const todas = relacionesDesdeTriples(d.triples, iriDe(n), d.grafos).filter((r) => !grupo || r.grupo === grupo);
+  const todas = porPeso(relacionesDesdeTriples(d.triples, iriDe(n), d.grafos).filter((r) => !grupo || r.grupo === grupo));
   const paginas = Math.max(1, Math.ceil(todas.length / POR_PAGINA_RELACIONES));
   const actual = Math.min(Math.max(1, pagina), paginas);
   const origen = await procedencia(n.tipo);
@@ -1850,7 +1851,7 @@ async function contextoDeNodo(n: NodoRdf, por: string): Promise<z.infer<typeof E
   const relaciones = relacionesDesdeTriples(d.triples, sujeto, d.grafos);
   const lineas: string[] = [];
   for (const g of GRUPOS) {
-    const del = relaciones.filter((r) => r.grupo === g.id);
+    const del = porPeso(relaciones.filter((r) => r.grupo === g.id));
     if (!del.length) continue;
     lineas.push(...del.slice(0, TOPE_RECUPERAR.relacionesPorGrupo).map((r) => `${g.etiqueta}: ${lineaRelacion(r).slice(2)}`));
     if (del.length > TOPE_RECUPERAR.relacionesPorGrupo) lineas.push(`${g.etiqueta}: siguen ${del.length - TOPE_RECUPERAR.relacionesPorGrupo} (fetch con group «${g.id}»).`);
