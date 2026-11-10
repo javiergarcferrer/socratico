@@ -1,11 +1,11 @@
 {
  "conforme": true,
  "ontologia": "2.6.0",
- "grafo": "2026-11-08",
- "volcado": "2026-11-08",
- "huella": "9459fe7477ce84fbf77f5ca94d63ff4355a49ab438834eb9b9b8f6ba9d1f9212",
- "triples": 1927510,
- "nodos": 213676,
+ "grafo": "2026-11-10",
+ "volcado": "2026-11-10",
+ "huella": "7d85619a375d04b4f03881b25ce79feffa074c63d02135f865d0768d97c15147",
+ "triples": 1934534,
+ "nodos": 213951,
  "muestra": {
   "personas": 300,
   "decretos": 106,
@@ -56,13 +56,13 @@
   {
    "forma": "Decreto",
    "clase": "soc:Decreto",
-   "focos": 251,
+   "focos": 252,
    "violaciones": 0
   },
   {
    "forma": "Documento",
    "clase": "soc:Documento",
-   "focos": 1758,
+   "focos": 2032,
    "violaciones": 0
   },
   {
@@ -146,7 +146,7 @@
   {
    "forma": "Norma",
    "clase": "soc:Norma",
-   "focos": 474,
+   "focos": 475,
    "violaciones": 0
   },
   {
@@ -230,7 +230,7 @@
   {
    "forma": "Sentencia",
    "clase": "soc:Sentencia",
-   "focos": 1111,
+   "focos": 1382,
    "violaciones": 0
   },
   {
