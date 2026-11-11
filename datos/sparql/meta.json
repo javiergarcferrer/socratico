@@ -1,7 +1,7 @@
 {
-  "generado": "2026-11-10",
+  "generado": "2026-11-11",
   "origen": "public/data/grafo/grafo.trig.gz",
-  "sha256Origen": "22de017503d97cca1b61cd742c055d8973a03ff6813086fa13efaf829c7a8a43",
+  "sha256Origen": "5ce19d175fc1a0dc71c7c92a3ce1c2e96ebc386990d207f71be46a6233579339",
   "cuadruplos": 1915496,
   "porOmision": 83,
   "grafos": [
@@ -18,7 +18,7 @@
       "cuadruplos": 237558
     },
     {
-      "iri": "https://w3id.org/socratico/derivado/plataforma/2026-11-10",
+      "iri": "https://w3id.org/socratico/derivado/plataforma/2026-11-11",
       "cuadruplos": 135245
     },
     {
@@ -46,7 +46,7 @@
       "cuadruplos": 6850
     },
     {
-      "iri": "https://w3id.org/socratico/derivado/identidad/2026-11-10",
+      "iri": "https://w3id.org/socratico/derivado/identidad/2026-11-11",
       "cuadruplos": 1107
     },
     {

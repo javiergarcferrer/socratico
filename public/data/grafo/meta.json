@@ -1,11 +1,11 @@
 {
-  "generado": "2026-11-10",
+  "generado": "2026-11-11",
   "formato": "N-Triples (application/n-triples), comprimido con gzip",
   "triples": 1866681,
   "bytes": 16780309,
   "trig": {
     "formato": "TriG (application/trig), comprimido con gzip: cada triple en el grafo con nombre de su fuente y su corte, o de la regla que lo deriva; en el grafo por omisión, PROV-O de cada grafo",
-    "bytes": 9109415,
+    "bytes": 9109418,
     "cuadruples": 1915413,
     "grafos": {
       "instituciones": 6850,
