@@ -1,7 +1,7 @@
 {
-  "generado": "2026-11-13",
+  "generado": "2026-11-14",
   "origen": "public/data/grafo/grafo.trig.gz",
-  "sha256Origen": "31a7f9752d8b92492d7b4a4c49cb455837febffb830306acc89836bab3a6afb4",
+  "sha256Origen": "4d4a93d75f613ff726ae6f6f271f4d896cc7e921c7f218e06e6237ee0ed13729",
   "cuadruplos": 1915496,
   "porOmision": 83,
   "grafos": [
@@ -18,7 +18,7 @@
       "cuadruplos": 237558
     },
     {
-      "iri": "https://w3id.org/socratico/derivado/plataforma/2026-11-13",
+      "iri": "https://w3id.org/socratico/derivado/plataforma/2026-11-14",
       "cuadruplos": 135245
     },
     {
@@ -46,7 +46,7 @@
       "cuadruplos": 6850
     },
     {
-      "iri": "https://w3id.org/socratico/derivado/identidad/2026-11-13",
+      "iri": "https://w3id.org/socratico/derivado/identidad/2026-11-14",
       "cuadruplos": 1107
     },
     {
@@ -62,6 +62,6 @@
       "cuadruplos": 11
     }
   ],
-  "bytes": 16162636,
+  "bytes": 16162637,
   "formato": "N-Quads (application/n-quads), comprimido con gzip: los cuádruplos del volcado en TriG, con el PROV-O de cada grafo en el grafo por omisión"
 }
