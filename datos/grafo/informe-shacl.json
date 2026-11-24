@@ -1,11 +1,11 @@
 {
  "conforme": true,
  "ontologia": "2.6.0",
- "grafo": "2026-11-14",
- "volcado": "2026-11-14",
- "huella": "f30063d4ac3e084ca38e27ff4661d8c1b5bee42fdca491ab878d6bdc4fedf153",
- "triples": 1944760,
- "nodos": 214474,
+ "grafo": "2026-11-24",
+ "volcado": "2026-11-24",
+ "huella": "20d3d59d7c42a37b16e4e10dadd9386e251a28174530b9a6525d092fa29cd75a",
+ "triples": 1944813,
+ "nodos": 214477,
  "muestra": {
   "personas": 300,
   "decretos": 106,
@@ -56,13 +56,13 @@
   {
    "forma": "Decreto",
    "clase": "soc:Decreto",
-   "focos": 252,
+   "focos": 253,
    "violaciones": 0
   },
   {
    "forma": "Documento",
    "clase": "soc:Documento",
-   "focos": 2555,
+   "focos": 2557,
    "violaciones": 0
   },
   {
@@ -146,7 +146,7 @@
   {
    "forma": "Norma",
    "clase": "soc:Norma",
-   "focos": 475,
+   "focos": 476,
    "violaciones": 0
   },
   {
