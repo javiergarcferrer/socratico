@@ -60,6 +60,9 @@ escaño pasa a un nodo propio y se lista.
   de este script lo comprueba para cada votación.
 - **Ausente**: «Ausente para esta votación» (AU). La fuente no distingue
   ausencia excusada de no excusada en el voto nominal.
+- **Fuera del denominador**: las votaciones a mano alzada (`votoId` «ML»,
+  «Manos levantadas»: unas 42 por diputado en 2024-2028), que no registran
+  quién estuvo; el voto nominal las guarda como «otro».
 - Nunca un porcentaje sin su denominador: cada agregado guarda las cuentas.
 
 ## El bufete directivo
@@ -520,7 +523,9 @@ def main() -> None:
             if total >= 3 and n * 2 > total:
                 posicion[b] = sentido
         for i, ch in enumerate(v["v"]):
-            if ch == "-":
+            # «-»: no lo lista; «o»: otro código, en la práctica «ML», manos levantadas: una votación a mano
+            # alzada no registra quién estuvo, así que no entra al denominador.
+            if ch in "-o":
                 continue
             lid = ids[i]
             # Fuera de su ejercicio (dejó el escaño; el SIL a veces lo sigue listando ausente) no cuenta.

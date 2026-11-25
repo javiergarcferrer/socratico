@@ -364,7 +364,8 @@ function finDe(lid, periodo) {
 }
 /** Presente: sí, no, abstención o sin voto; el denominador, las votaciones en que figura hasta el fin de su ejercicio. */
 function asistenciaDe(lid, filtro = () => true) {
-  const mias = filasNominales.filter((f) => f.lid === lid && filtro(f) && !(finDe(lid, f.periodo) && f.fecha > finDe(lid, f.periodo)));
+  // Las votaciones a mano alzada («ML», guardadas como «o») no registran quién estuvo: fuera del denominador.
+  const mias = filasNominales.filter((f) => f.lid === lid && f.sentido !== "o" && filtro(f) && !(finDe(lid, f.periodo) && f.fecha > finDe(lid, f.periodo)));
   return { listadas: mias.length, presente: mias.filter((f) => "snbx".includes(f.sentido)).length, ausente: mias.filter((f) => f.sentido === "a").length };
 }
 /** Las disidencias de un diputado en un período, con la regla de la ontología (mayoría de más de la mitad de al menos tres). */

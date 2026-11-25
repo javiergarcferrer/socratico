@@ -20,7 +20,7 @@ import { join } from "node:path";
  */
 
 export const NOTA_ASISTENCIA =
-  "Votaciones del pleno en que el SIL lo lista en el voto nominal (el denominador) y, de ellas, en cuántas figura presente: votó sí, no, se abstuvo o estuvo presente sin votar. Mide la presencia en las votaciones, no en la sesión entera; el SIL no distingue en el voto nominal la ausencia excusada de la que no lo es, ni da las licencias.";
+  "Votaciones del pleno en que el SIL lo lista en el voto nominal (el denominador) y, de ellas, en cuántas figura presente: votó sí, no, se abstuvo o estuvo presente sin votar. Las votaciones a mano alzada no cuentan: no registran quién estuvo. Mide la presencia en las votaciones, no en la sesión entera; el SIL no distingue en el voto nominal la ausencia excusada de la que no lo es, ni da las licencias.";
 
 export const NOTA_DISIDENCIA =
   "Votó con otro sentido que más de la mitad de su bancada (la que el SIL le da en esa votación), contando las votaciones en que votaron al menos tres de ella y su mayoría fue clara.";
