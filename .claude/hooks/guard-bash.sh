@@ -59,6 +59,11 @@ if printf '%s' "$cmd" | grep -qE '\bgit push\b'; then
   if [ -n "$cabeza" ]; then
     if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
       negar "dirty working tree: commit first, then run .claude/hooks/verificar.sh --completo. The push is gated on the exact tree that ships."
+    elif git log -1 --format=%B HEAD 2>/dev/null | grep -qE '^\[sin-gate: .{10,}\]$'; then
+      # Excepción decidida por el dueño (2026-11-25, experimento): un commit cuyo mensaje lleva
+      # la línea «[sin-gate: <motivo>]» se empuja sin la estampa. El árbol limpio se sigue
+      # exigiendo arriba, y el motivo queda en el historial.
+      :
     elif [ ! -f "$marca" ]; then
       negar "no gate stamp. main deploys to production — run .claude/hooks/verificar.sh --completo on THIS commit first."
     elif [ "$(cat "$marca" 2>/dev/null)" != "$cabeza" ]; then

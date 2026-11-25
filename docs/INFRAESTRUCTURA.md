@@ -4552,6 +4552,7 @@ Todos cargan `lib.sh`; leen el JSON del evento por la entrada estándar con `jq`
 
 - Si `--completo` termina sin fallos y `git status --porcelain` está vacío, el paso 7 escribe el sha de `HEAD` en `$(git rev-parse --git-dir)/harness-gate` e imprime `stamped <sha> — push to main allowed`; con el árbol sucio imprime `not stamped: working tree dirty…` y no sella.
 - `guard-bash.sh` rechaza cualquier `git push` si el árbol está sucio, si no existe `harness-gate` o si su contenido no es el sha de `HEAD`. Un commit nuevo o un rebase cambian `HEAD` y anulan el sello.
+- Excepción (decidida por el dueño el 2026-11-25, como experimento): si el mensaje de `HEAD` lleva una línea `[sin-gate: <motivo de diez caracteres o más>]`, `guard-bash.sh` deja empujar sin la estampa; el árbol limpio se sigue exigiendo, y el motivo queda en el historial.
 - `/entregar` empuja con `git fetch origin main`, `git rebase origin/main`, `./.claude/hooks/verificar.sh --completo` sobre el árbol rebasado y `git push origin HEAD:main`, reintentando ante un fallo de red a los 2, 4, 8 y 16 s.
 
 ### 12.8 Reglas por ruta — `.claude/rules/`
