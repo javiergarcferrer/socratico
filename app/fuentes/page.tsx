@@ -6,6 +6,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { getCountIniciativas, getPeriodos } from "@/lib/congreso";
 import { contarProveedoresRegistrados } from "@/lib/dgcp";
 import { CUATRIENIOS, getCensoSenado } from "@/lib/senado";
+import { getLegisladores } from "@/lib/legisladores";
 import { getDeuda } from "@/lib/deuda";
 import { consultarNormativa } from "@/lib/normativa";
 import { formatFecha, formatMagnitud, SIN_DATO } from "@/lib/format";
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function FuentesPage() {
-  const [censo, periodos, censoSenado, nomina, deuda, fiscal, proveedores, normativa, textos] =
+  const [censo, periodos, censoSenado, nomina, deuda, fiscal, proveedores, normativa, textos, legisladores] =
     await Promise.all([
       getCountIniciativas(),
       getPeriodos(),
@@ -55,7 +56,9 @@ export default async function FuentesPage() {
       contarProveedoresRegistrados(),
       consultarNormativa("3", new Date().getFullYear()),
       resumenesDeTextos(),
+      getLegisladores(),
     ]);
+  const nominal = legisladores?.corte.nominal?.periodos ?? [];
   const normativaInstantanea =
     normativa.origen !== null && normativa.origen !== "vivo" ? normativa.origen : null;
 
@@ -292,9 +295,31 @@ export default async function FuentesPage() {
             instantánea (
             <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-votaciones.py</code>
             ): sesión, moción, recuento y las iniciativas sobre las que se votó en cada una, como nodos del
-            grafo. El voto de cada diputado no se copia —son diecinueve páginas por votación, y
-            leerlas todas cargaría al SIL un día entero—: lo lee en vivo la ficha de cada
-            votación. El Senado vota en su propio sistema y no entra.
+            grafo.
+          </p>
+          <p className="mt-2 text-[13px] text-ink-soft sm:text-xs">
+            El voto de cada diputado en cada votación (
+            <code className="rounded bg-canvas px-1 py-0.5 font-mono">scripts/build-votos-nominales.py</code>
+            ) se lee aparte y poco a poco: diez filas por página, diecinueve páginas por votación, a lo sumo
+            tres peticiones a la vez con pausa, y una votación cerrada no se vuelve a pedir.{" "}
+            {nominal.length > 0
+              ? `Leídas: ${nominal.map((x) => `${formatInt(x.leidas)} de ${formatInt(x.votaciones)} votaciones de ${x.periodo}`).join("; ")}, las de la instantánea de votaciones${legisladores?.corte.votacionesHasta ? ` (hasta la del ${legisladores.corte.votacionesHasta})` : ""}; las posteriores entran cuando se refresca.`
+              : "Todavía no hay votaciones leídas."}{" "}
+            De ahí sale la asistencia de cada diputado a las votaciones del pleno —con su denominador, las
+            votaciones en que el SIL lo lista— y cuántas veces votó distinto a su bancada; no la asistencia a la
+            sesión entera, ni licencias ni excusas, que el voto nominal no distingue. Cada legislador del SIL
+            se casa con una persona del grafo por su identificador o por su nombre completo, nunca si ese
+            nombre se repite en el grafo o en el SIL ni con un cargo incompatible; los dudosos quedan como fichas
+            aparte. Los votos no se
+            descargan enteros: se leen de a una persona.
+          </p>
+          <p className="mt-2 text-[13px] text-ink-soft sm:text-xs">
+            El Senado vota en su propio sistema y no publica el voto nominal de sus senadores (su sección
+            «Votaciones electrónicas» dice no tener archivos, 2026-11-25). Sí publica la asistencia al pleno, un PDF
+            por sesión, en su web, cuyo <code className="rounded bg-canvas px-1 py-0.5 font-mono">robots.txt</code>{" "}
+            veta por nombre a los agentes de inteligencia artificial y cuya descarga pasa por una ruta de
+            administración de WordPress: no se lee. Hace falta un acuerdo con el Senado; mientras tanto, la ficha de
+            un senador lo dice en vez de quedar vacía.
           </p>
         </Fuente>
 

@@ -1,3 +1,6 @@
+import { getLegisladores, type Adicion } from "@/lib/legisladores";
+import { SITIO } from "@/lib/sitio";
+import { enlace } from "@/lib/grafo";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { agujas, contieneTodas, plano } from "@/lib/raiz";
@@ -239,10 +242,12 @@ function aCargo(c: CargoCrudo): Cargo {
 let memo: Promise<Funcionarios | null> | null = null;
 
 export function getFuncionarios(): Promise<Funcionarios | null> {
-  memo ??= readFile(join(process.cwd(), "public", "data", "funcionarios.json"), "utf8")
-    .then((t) => {
+  memo ??= Promise.all([readFile(join(process.cwd(), "public", "data", "funcionarios.json"), "utf8"), getLegisladores()])
+    .then(([t, legisladores]) => {
       const d = JSON.parse(t) as Instantanea;
       if (!Array.isArray(d?.personas) || d.personas.length === 0) return null;
+      aplicarLegisladores(d.personas, legisladores?.adiciones ?? []);
+      atarCamaras(d.personas);
       const limite = haceTresAnios(d.generado);
       const personas: Persona[] = d.personas.map((p) => {
         const cargos = p.c.map(aCargo);
@@ -289,6 +294,68 @@ export function getFuncionarios(): Promise<Funcionarios | null> {
   return memo;
 }
 
+/**
+ * Una persona, un nodo (docs/INFRAESTRUCTURA.md §7.4): lo que
+ * `scripts/build-legisladores.py` casó o creó sobre `funcionarios.json`. A una
+ * persona casada se le añaden sus escaños de otros períodos; un legislador sin
+ * persona, o con un casamiento dudoso, es una persona nueva; un casamiento
+ * heredado que chocaba con un cargo incompatible se separa: el escaño se va al
+ * nodo nuevo. Cada cosa con la evidencia que guarda `legisladores.json`.
+ */
+function aplicarLegisladores(personas: PersonaCruda[], adiciones: Adicion[]): void {
+  if (!adiciones.length) return;
+  const porId = new Map(personas.map((p) => [p.id, p]));
+  for (const a of adiciones) {
+    if (a.separadoDe) {
+      const origen = porId.get(a.separadoDe);
+      if (origen) {
+        origen.c = origen.c.filter((c) => c.o !== "congreso");
+        if (origen.leg === a.legislador) origen.leg = null;
+      }
+    }
+    let p = porId.get(a.persona);
+    if (!p) {
+      if (!a.nuevo) continue;
+      p = { id: a.persona, n: a.nuevo, a: null, c: [], f: null, leg: a.legislador, pep: [2] };
+      personas.push(p);
+      porId.set(p.id, p);
+    }
+    p.leg ??= a.legislador;
+    for (const { vot, ...c } of a.cargos) {
+      if (p.c.some((x) => x.o === "congreso" && x.per === c.per && x.t === c.t)) continue;
+      if (!vot && p.c.some((x) => x.o === "congreso" && x.per === c.per)) continue;
+      // El bufete va delante: con la misma fecha que el escaño, el orden estable lo deja encabezar.
+      if (vot) p.c.unshift({ ...c, url: `${SITIO}${enlace.votacion(vot)}` });
+      else p.c.push({ ...c });
+    }
+    // Del más reciente al más viejo, como los ordena build-funcionarios.py: el escaño sin fecha, por su período.
+    const orden = (c: CargoCrudo) =>
+      c.d ?? (c.m === "vigente" || (c.m === "electo" && c.per === "2024-2028") ? "9999" : c.per ? `${c.per.slice(-4)}-08-15` : "0000");
+    p.c.sort((x, y) => orden(y).localeCompare(orden(x)));
+    if (!p.pep?.includes(2)) p.pep = [...(p.pep ?? []), 2].sort((x, y) => x - y);
+  }
+}
+
+/** Las dos cámaras en el clasificador de DIGEPRES (`public/data/instituciones.json`). */
+const SENADO = 900101;
+const CAMARA_DE_DIPUTADOS = 900102;
+
+/**
+ * Un escaño es un cargo en su cámara: el SIL no da la institución, pero el
+ * título la dice («Diputada por…», «Senador por…», «Presidente de la Cámara de
+ * Diputados»). Así la persona se liga con la cámara en el grafo, y la cámara
+ * con quien la preside.
+ */
+function atarCamaras(personas: PersonaCruda[]): void {
+  for (const p of personas) {
+    for (const c of p.c) {
+      if (c.o !== "congreso" || c.i != null) continue;
+      if (/^(Diputad|Diputación|Presidente de la Cámara|Presidenta de la Cámara|Vicepresident[ae] de la Cámara)/.test(c.t)) c.i = CAMARA_DE_DIPUTADOS;
+      else if (/^(Senad)/.test(c.t)) c.i = SENADO;
+    }
+  }
+}
+
 export async function personaPorId(id: string): Promise<Persona | null> {
   const f = await getFuncionarios();
   return f?.porId.get(id) ?? null;
@@ -331,7 +398,8 @@ function estadoPep(cargos: Cargo[]): { hoy: boolean; ultima: string | null } {
     if (c.numeral311 == null) continue;
     if (esActual(c)) return { hoy: true, ultima: null };
     const fin = c.periodo?.match(/(\d{4})\D*$/)?.[1];
-    const fecha = fin ? `${fin}-12-31` : c.fecha;
+    // Quien dejó el escaño antes de que acabe el período: cuenta el día en que lo dejó.
+    const fecha = c.movimiento === "cesa" && c.fecha ? c.fecha : fin ? `${fin}-12-31` : c.fecha;
     if (fecha && (ultima === null || fecha > ultima)) ultima = fecha;
   }
   return { hoy: false, ultima };
@@ -468,6 +536,23 @@ export function puntaje(p: Persona): number {
   // cargo: el Presidente en funciones ya encabeza por su cargo del MAP.
   if (p.firma) s += 10;
   return s;
+}
+
+/**
+ * Lo que una persona es hoy, para buscarla por ello (`lib/busqueda-personas.ts`):
+ * sus cargos vigentes (con la institución que nombran), sus provincias y su partido (con las
+ * siglas de su bancada en el SIL, si las tiene): un tramo por cosa, en texto, no plano.
+ */
+export function contextoDeBusqueda(p: Persona, siglas: string[] = []): string[] {
+  const partes: string[] = [];
+  for (const c of p.cargos) {
+    if (!esActual(c)) continue;
+    partes.push(c.titulo);
+    if (c.institucion) partes.push(c.institucion);
+    if (c.provincia) partes.push(c.provincia);
+    if (c.partido) partes.push(c.partido);
+  }
+  return [...new Set([...partes, ...siglas])];
 }
 
 /** Quién encabeza hoy cada poder y órgano, en el orden en que la Constitución los nombra. */

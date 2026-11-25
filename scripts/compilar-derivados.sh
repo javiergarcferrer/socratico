@@ -1,6 +1,6 @@
 #!/bin/bash
 # Todo lo que sale de las instantáneas sin red, en el orden de
-# docs/INFRAESTRUCTURA.md §6: el grafo compilado, su volcado, sus tablas, el
+# docs/INFRAESTRUCTURA.md §6: el casamiento de los legisladores y su asistencia, el grafo compilado, su volcado, sus tablas, el
 # volcado de SPARQL, el corpus y el índice del buscador, y el informe SHACL
 # (que valida contra `next start` sobre un build de este árbol). Tras correrlo,
 # `./.claude/hooks/verificar.sh --completo` comprueba lo mismo de vuelta.
@@ -12,6 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 paso() { echo "== $1"; }
 
+paso "legisladores";     python3 scripts/build-legisladores.py
 paso "grafo";            node --max-old-space-size=6144 scripts/build-grafo.mjs
 paso "volcado";          node --max-old-space-size=6144 scripts/build-grafo-volcado.mjs
 paso "tablas";           node --max-old-space-size=6144 scripts/build-grafo-tablas.mjs

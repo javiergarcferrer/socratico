@@ -26,6 +26,7 @@
  * Uso:
  *     node scripts/eval-mcp.mjs                                   # http://localhost:3000/mcp
  *     node scripts/eval-mcp.mjs --url https://socratico.vercel.app/mcp
+ *     node scripts/eval-mcp.mjs --solo "Golden set"              # solo los casos cuya pregunta lo lleva
  * Sale con 1 si un caso falla.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -317,6 +318,110 @@ function exigir(condicion, mensaje) {
   if (!condicion) throw new Fallo(mensaje);
 }
 const pesos = (n) => `RD$ ${Number(n).toLocaleString("en-US")}`;
+
+
+/* ------------------------------------------- personas y Congreso: el oráculo */
+
+// El voto nominal leído del SIL (`scripts/build-votos-nominales.py`) y el casamiento de cada
+// legislador con su persona (`scripts/build-legisladores.py`). Las cifras se recuentan aquí
+// desde el voto nominal crudo, con la definición de la ontología, no con lib/legisladores.ts.
+// `--votos DIR`: una copia congelada de datos/votos/ (la lectura del SIL sigue escribiendo mientras se prueba).
+const iv = process.argv.indexOf("--votos");
+const VOTOS = iv > 0 ? path.resolve(process.argv[iv + 1]) : path.join(RAIZ, "datos", "votos");
+const nominal = existsSync(path.join(VOTOS, "nominal.json")) ? JSON.parse(readFileSync(path.join(VOTOS, "nominal.json"), "utf8")) : null;
+const casamiento = existsSync(path.join(VOTOS, "legisladores.json")) ? JSON.parse(readFileSync(path.join(VOTOS, "legisladores.json"), "utf8")) : null;
+const actaDe = new Map(leer("votaciones.json").votaciones.map((v) => [String(v.id), v]));
+const DIG = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+/** Cada voto: `{ votacion, lid, sentido, bancada, fecha, periodo }`, recontado del archivo crudo. */
+const filasNominales = [];
+for (const [vid, v] of Object.entries(nominal?.votos ?? {})) {
+  const per = nominal.periodos[v.p];
+  const acta = actaDe.get(vid);
+  for (let k = 0; k < v.v.length; k++) {
+    if (v.v[k] === "-") continue;
+    filasNominales.push({ votacion: Number(vid), lid: per.legisladores[k][0], sentido: v.v[k], bancada: v.b[k] && v.b[k] !== "-" ? per.partidos[DIG.indexOf(v.b[k])] : null, fecha: acta?.fecha ?? "", periodo: v.p });
+  }
+}
+// El fin del ejercicio: el de su ficha del SIL en ese período o, si dejó de figurar antes de las
+// últimas votaciones leídas del período, su última votación presente (o la última listada).
+const fichas = existsSync(path.join(VOTOS, "fichas.json")) ? JSON.parse(readFileSync(path.join(VOTOS, "fichas.json"), "utf8")).legisladores : {};
+const ultimaDelPeriodo = {};
+for (const f of filasNominales) if (f.fecha > (ultimaDelPeriodo[f.periodo] ?? "")) ultimaDelPeriodo[f.periodo] = f.fecha;
+const finMemo = new Map();
+function finDe(lid, periodo) {
+  const k = `${lid}|${periodo}`;
+  if (finMemo.has(k)) return finMemo.get(k);
+  const ficha = fichas[String(lid)];
+  let fin = ficha?.periodo === periodo && ficha.fin ? ficha.fin : null;
+  if (!fin) {
+    const suyas = filasNominales.filter((f) => f.lid === lid && f.periodo === periodo);
+    const ultima = suyas.reduce((m, f) => (f.fecha > m ? f.fecha : m), "");
+    const presente = suyas.filter((f) => "snbx".includes(f.sentido)).reduce((m, f) => (f.fecha > m ? f.fecha : m), "");
+    if (ultima && ultima < ultimaDelPeriodo[periodo]) fin = presente || ultima;
+  }
+  finMemo.set(k, fin);
+  return fin;
+}
+/** Presente: sí, no, abstención o sin voto; el denominador, las votaciones en que figura hasta el fin de su ejercicio. */
+function asistenciaDe(lid, filtro = () => true) {
+  const mias = filasNominales.filter((f) => f.lid === lid && filtro(f) && !(finDe(lid, f.periodo) && f.fecha > finDe(lid, f.periodo)));
+  return { listadas: mias.length, presente: mias.filter((f) => "snbx".includes(f.sentido)).length, ausente: mias.filter((f) => f.sentido === "a").length };
+}
+/** Las disidencias de un diputado en un período, con la regla de la ontología (mayoría de más de la mitad de al menos tres). */
+function disidenciasDe(lid, periodo) {
+  const porVotacion = new Map();
+  for (const f of filasNominales) if (f.periodo === periodo) (porVotacion.get(f.votacion) ?? porVotacion.set(f.votacion, []).get(f.votacion)).push(f);
+  let base = 0;
+  let cuenta = 0;
+  for (const filas of porVotacion.values()) {
+    const mia = filas.find((f) => f.lid === lid);
+    if (!mia || !"snb".includes(mia.sentido) || !mia.bancada) continue;
+    const suya = filas.filter((f) => f.bancada === mia.bancada && "snb".includes(f.sentido));
+    const n = {};
+    for (const f of suya) n[f.sentido] = (n[f.sentido] ?? 0) + 1;
+    const [mayor, cuantos] = Object.entries(n).sort((a, b) => b[1] - a[1])[0] ?? [null, 0];
+    if (suya.length < 3 || cuantos * 2 <= suya.length) continue;
+    base++;
+    if (mia.sentido !== mayor) cuenta++;
+  }
+  return { base, cuenta };
+}
+const legisladorPorPersona = new Map((casamiento?.legisladores ?? []).filter((l) => l.persona).map((l) => [l.persona, l]));
+const personaDeLeg = new Map((casamiento?.legisladores ?? []).map((l) => [l.id, l.persona]));
+/** «1,234» o «1.234» → 1234. */
+const cifra = (s) => Number(String(s).replace(/[^\d]/g, ""));
+/** ¿El texto dice «P de L» con esas cifras (con o sin separador de miles)? */
+const diceDe = (texto, p, l) => [...texto.matchAll(/(\d[\d.,]*) de (\d[\d.,]*)/g)].some((m) => cifra(m[1]) === p && cifra(m[2]) === l);
+const PACHECO = "alfredo-pacheco-osoria";
+const directorio = leer("congreso.json").legisladores;
+const funcionariosJson = leer("funcionarios.json").personas;
+
+/**
+ * El golden set de nombres: 30 personas reales —los primeros legisladores del directorio con
+ * persona, uno de cada tres de una forma—: el nombre completo, el nombre de pila con el primer
+ * apellido solo, y el nombre con una errata (dos letras trocadas en el último apellido).
+ * Acierta si la persona correcta (su ficha, o la del legislador en una versión anterior) sale
+ * primera, o entre las cinco primeras.
+ */
+function goldenNombres() {
+  const salida = [];
+  for (const l of [...directorio].sort((a, b) => a.id - b.id)) {
+    const persona = personaDeLeg.get(l.id);
+    if (!persona) continue;
+    const ps = l.n.split(/\s+/);
+    if (ps.length < 3) continue;
+    const k = salida.length % 3;
+    let q = l.n;
+    if (k === 1) q = `${ps[0]} ${ps.at(-2)}`;
+    if (k === 2) {
+      const u = ps.at(-1);
+      q = [...ps.slice(0, -1), u.length > 4 ? u[0] + u[2] + u[1] + u.slice(3) : u].join(" ");
+    }
+    salida.push({ q, persona, leg: l.id, forma: ["completo", "pila y primer apellido", "con errata"][k] });
+    if (salida.length === 30) break;
+  }
+  return salida;
+}
 
 const CASOS = [
   {
@@ -1647,6 +1752,232 @@ const CASOS = [
       return `ninguno bajo ${PERSONALES.length} rutas; CSV, POST y el rechazo de actualizaciones por el protocolo`;
     },
   },
+  {
+    pregunta: "Preguntas de competencia, 1: ¿qué porcentaje de las votaciones del pleno de 2025 estuvo presente el diputado Alfredo Pacheco?",
+    async correr() {
+      exigir(nominal && casamiento, "falta datos/votos/: corre build-votos-nominales.py y build-legisladores.py");
+      const lid = legisladorPorPersona.get(PACHECO)?.id;
+      exigir(lid, "Alfredo Pacheco Osoria no está casado con un legislador del SIL");
+      const o = asistenciaDe(lid, (f) => f.fecha.startsWith("2025"));
+      exigir(o.listadas > 0, "el voto nominal leído no tiene votaciones de 2025");
+      const { datos, error } = await llamar("retrieve", { query: "¿Qué porcentaje de las votaciones del pleno de 2025 estuvo presente el diputado Alfredo Pacheco?" });
+      exigir(!error, error);
+      const ev = datos.evidencias.slice(0, 3).find((e) => e.clase === "Asistencia a las votaciones del pleno" && e.id === `/funcionarios/${PACHECO}`);
+      exigir(ev, `su asistencia no está entre las tres primeras evidencias: ${datos.evidencias.slice(0, 3).map((e) => e.clase).join(" | ")}`);
+      exigir(diceDe(ev.texto.split("Por año:")[1] ?? "", o.presente, o.listadas), `no dice ${o.presente} de ${o.listadas} para 2025: ${ev.texto.slice(0, 300)}`);
+      return `${o.presente} de ${o.listadas} en 2025, primera evidencia de las tres`;
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 2: ¿quiénes son los 10 diputados con más ausencias en 2025-2026, y de qué partido y provincia?",
+    async correr() {
+      exigir(nominal && casamiento, "falta datos/votos/");
+      const ids = [...new Set(filasNominales.map((f) => f.lid))];
+      const nombre = new Map(casamiento.legisladores.map((l) => [l.id, l.nombre]));
+      const col = new Intl.Collator("es");
+      const esperado = ids
+        .map((id) => ({ id, ...asistenciaDe(id, (f) => f.fecha.startsWith("2025") || f.fecha.startsWith("2026")) }))
+        .filter((x) => x.listadas > 0)
+        .sort((a, b) => b.ausente - a.ausente || col.compare(nombre.get(a.id), nombre.get(b.id)))
+        .slice(0, 10);
+      const { datos, error } = await llamar("retrieve", { query: "¿Quiénes son los 10 diputados con más ausencias en 2025-2026, y de qué partido y provincia?" });
+      exigir(!error, error);
+      const ev = datos.evidencias.slice(0, 3).find((e) => e.clase === "Ausencias en las votaciones del pleno");
+      exigir(ev, "el ranking de ausencias no está entre las tres primeras evidencias");
+      const dichos = [...ev.texto.matchAll(/\d+\. ([^(]+) \(/g)].map((m) => m[1].trim());
+      exigir(JSON.stringify(dichos) === JSON.stringify(esperado.map((x) => nombre.get(x.id))), `el orden no es el del voto nominal: ${dichos.join("; ")}`);
+      exigir(esperado.every((x) => diceDe(ev.texto, x.ausente, x.listadas)), "falta el denominador de alguna fila");
+      return `${esperado.length} diputados, primero ${nombre.get(esperado[0].id)} (${esperado[0].ausente} de ${esperado[0].listadas})`;
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 3: ¿qué cargos ha tenido Kinsberly Taveras Duarte y qué decreto la designó?",
+    async correr() {
+      const p = funcionariosJson.find((x) => x.id === "kinsberly-taveras-duarte");
+      exigir(p, "kinsberly-taveras-duarte no está en funcionarios.json");
+      const decretos = p.c.map((c) => c.dec?.[0]).filter(Boolean);
+      exigir(decretos.length, "la instantánea no le da decretos");
+      const { datos, error } = await llamar("retrieve", { query: "¿Qué cargos ha tenido Kinsberly Taveras Duarte y qué decreto la designó?" });
+      exigir(!error, error);
+      const e = datos.entidades.find((x) => x.id === "/funcionarios/kinsberly-taveras-duarte");
+      exigir(e, `no es una entidad: ${datos.entidades.map((x) => x.id).join(", ")}`);
+      const texto = JSON.stringify(e);
+      exigir(decretos.some((d) => texto.includes(d)), `ningún decreto suyo (${decretos.join(", ")}) en lo que trae`);
+      exigir(/Diput/.test(texto), "no trae su escaño");
+      return `${p.c.length} cargos; trae el decreto ${decretos.find((d) => texto.includes(d))} y su escaño`;
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 4: ¿cómo votó Alfredo Pacheco Osoria en una iniciativa, y votó distinto a su bancada?",
+    async correr() {
+      exigir(nominal && casamiento, "falta datos/votos/");
+      const lid = legisladorPorPersona.get(PACHECO).id;
+      const filasIni = leer("congreso.json").iniciativas.filas;
+      const expediente = new Map(filasIni.map((f) => [f[0], f[1]]));
+      // La votación más reciente con nominal leído, sobre una iniciativa con expediente, en que votó.
+      const suya = filasNominales
+        .filter((f) => f.lid === lid && "snb".includes(f.sentido))
+        .sort((a, b) => b.votacion - a.votacion)
+        .find((f) => (actaDe.get(String(f.votacion))?.iniciativas ?? []).some((i) => expediente.has(i)));
+      exigir(suya, "ninguna votación leída suya sobre una iniciativa con expediente");
+      const ini = actaDe.get(String(suya.votacion)).iniciativas.find((i) => expediente.has(i));
+      const numero = expediente.get(ini);
+      const etiqueta = { s: "Sí", n: "No", b: "Abstención" }[suya.sentido];
+      const { datos, error } = await llamar("retrieve", { query: `¿Cómo votó Alfredo Pacheco Osoria en la iniciativa ${numero}, y votó distinto a su bancada?` });
+      exigir(!error, error);
+      const ev = datos.evidencias.slice(0, 3).find((e) => e.clase === "Su voto en una iniciativa");
+      exigir(ev, `su voto no está entre las tres primeras evidencias: ${datos.evidencias.slice(0, 3).map((e) => e.clase).join(" | ")}`);
+      exigir(ev.texto.includes(`votación ${suya.votacion}`) && ev.texto.includes(`votó «${etiqueta}»`), `no dice «${etiqueta}» en la votación ${suya.votacion}: ${ev.texto.slice(0, 300)}`);
+      exigir(/su bancada \([^)]+\), «/.test(ev.texto), "no dice la posición de su bancada");
+      return `${numero}: «${etiqueta}» en la votación ${suya.votacion}, con la posición de su bancada`;
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 5: ¿qué camino une a Alfredo Pacheco Osoria con la Cámara de Diputados?",
+    async correr() {
+      const camara = (await llamar("search", { query: "Cámara de Diputados", type: "institucion" })).datos?.results?.[0]?.id;
+      exigir(camara, "no se encontró la institución");
+      const { datos, error } = await llamar("path", { from: `/funcionarios/${PACHECO}`, to: camara });
+      exigir(!error, error);
+      exigir(datos.encontrado, `sin camino: ${datos.explicacion}`);
+      exigir(datos.pasos[0].id === `/funcionarios/${PACHECO}` && datos.pasos.at(-1).id === camara, "el camino no une los dos extremos");
+      return `${datos.saltos} saltos: ${datos.pasos.map((x) => x.nombre).join(" → ")}`;
+    },
+  },
+  ...["Pacheco", "pacheco osoria", "Alfredo Pacheo", "presidente de la cámara"].map((q, k) => ({
+    pregunta: `Preguntas de competencia, ${6 + k}: buscar «${q}» trae a Alfredo Pacheco Osoria primero, con su cargo`,
+    async correr() {
+      const { datos, error } = await llamar("search", { query: q });
+      exigir(!error, error);
+      const r = datos.results[0];
+      exigir(r?.id === `/funcionarios/${PACHECO}`, `el primero es ${r?.id} (${r?.title})`);
+      exigir(/Presidente de la Cámara de Diputados|Diputado/.test(r.text), `sin su cargo: ${r.text}`);
+      return `${r.title} · ${r.text.slice(0, 80)}`;
+    },
+  })),
+  {
+    pregunta: "Preguntas de competencia, 10: buscar «senador de Santiago» trae a quien representa a Santiago en el Senado",
+    async correr() {
+      const s = directorio.find((l) => l.c === "senado" && l.pr === "Santiago");
+      exigir(s, "el directorio no trae senador de Santiago");
+      const persona = personaDeLeg.get(s.id);
+      const { datos, error } = await llamar("search", { query: "senador de Santiago" });
+      exigir(!error, error);
+      exigir(datos.results[0]?.id === `/funcionarios/${persona}`, `el primero es ${datos.results[0]?.id}, no /funcionarios/${persona}`);
+      return s.n;
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 11: buscar «ministro de Hacienda» trae a quien ocupa hoy el ministerio",
+    async correr() {
+      const m = funcionariosJson.filter((p) => p.c.some((c) => c.m === "vigente" && /^Ministr[oa]\b/i.test(c.t) && /Hacienda/i.test(c.t)));
+      exigir(m.length >= 1, "la instantánea no trae ministro de Hacienda vigente");
+      const { datos, error } = await llamar("search", { query: "ministro de Hacienda" });
+      exigir(!error, error);
+      exigir(m.some((p) => datos.results.slice(0, 3).some((r) => r.id === `/funcionarios/${p.id}`)), `no está entre los tres primeros: ${datos.results.slice(0, 3).map((r) => r.id).join(", ")}`);
+      return m.map((p) => p.n).join(", ");
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 12: ¿cuántas sesiones faltó un senador? La respuesta dice por qué no hay cifra",
+    async correr() {
+      const s = directorio.find((l) => l.c === "senado" && l.pr === "Santiago");
+      const { datos, error } = await llamar("retrieve", { query: `¿Cuántas sesiones faltó el senador ${s.n}?` });
+      exigir(!error, error);
+      const ev = datos.evidencias.slice(0, 3).find((e) => e.clase === "Asistencia en el Senado");
+      exigir(ev && /no publica el voto nominal/.test(ev.texto) && /robots\.txt/.test(ev.texto), "no dice por qué no hay cifra del Senado");
+      return ev.texto.slice(0, 90);
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 13: ¿cuántas veces votó distinto a su bancada Alfredo Pacheco Osoria en 2024-2028?",
+    async correr() {
+      exigir(nominal && casamiento, "falta datos/votos/");
+      const lid = legisladorPorPersona.get(PACHECO).id;
+      const o = disidenciasDe(lid, "2024-2028");
+      const { datos, error } = await llamar("retrieve", { query: "¿Cuántas veces votó distinto a su bancada el diputado Alfredo Pacheco Osoria?" });
+      exigir(!error, error);
+      const ev = datos.evidencias.slice(0, 3).find((e) => e.clase === "Asistencia a las votaciones del pleno");
+      exigir(ev, "sin su evidencia de votos");
+      const tramo = /Período 2024-2028:[^]*?votaciones con posición de bancada/.exec(ev.texto)?.[0] ?? "";
+      exigir(diceDe(tramo.split("Votó distinto")[1] ?? "", o.cuenta, o.base), `no dice ${o.cuenta} de ${o.base}: ${tramo.slice(-160)}`);
+      return `${o.cuenta} de ${o.base} votaciones con posición de bancada`;
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 14: ¿quién preside la Cámara de Diputados?",
+    async correr() {
+      const { datos, error } = await llamar("search", { query: "presidente de la Cámara de Diputados" });
+      exigir(!error, error);
+      exigir(datos.results[0]?.id === `/funcionarios/${PACHECO}`, `el primero es ${datos.results[0]?.id}`);
+      return datos.results[0].text.slice(0, 90);
+    },
+  },
+  {
+    pregunta: "Preguntas de competencia, 15: ¿qué porcentaje de asistencia tiene la diputada que más faltó en 2026, y cuál es el de su bancada?",
+    async correr() {
+      exigir(nominal && casamiento, "falta datos/votos/");
+      const ids = [...new Set(filasNominales.map((f) => f.lid))];
+      const col = new Intl.Collator("es");
+      const nombre = new Map(casamiento.legisladores.map((l) => [l.id, l.nombre]));
+      const top = ids
+        .map((id) => ({ id, ...asistenciaDe(id, (f) => f.fecha.startsWith("2026")) }))
+        .filter((x) => x.listadas > 0)
+        .sort((a, b) => b.ausente - a.ausente || col.compare(nombre.get(a.id), nombre.get(b.id)))[0];
+      exigir(top, "sin votaciones de 2026");
+      const persona = personaDeLeg.get(top.id);
+      const { datos, error } = await llamar("retrieve", { query: `¿Qué porcentaje de asistencia tuvo en 2026 ${nombre.get(top.id)}, y cuál es el de su bancada?` });
+      exigir(!error, error);
+      const ev = datos.evidencias.slice(0, 3).find((e) => e.clase === "Asistencia a las votaciones del pleno" && e.id === `/funcionarios/${persona}`);
+      exigir(ev, `su asistencia no está entre las tres primeras: ${datos.evidencias.slice(0, 3).map((e) => `${e.clase} ${e.id}`).join(" | ")}`);
+      exigir(diceDe(ev.texto.split("Por año:")[1] ?? "", top.presente, top.listadas), `no dice ${top.presente} de ${top.listadas}`);
+      exigir(/Su bancada \([^)]+\): [\d.,]+ de [\d.,]+/.test(ev.texto), "sin la cifra de su bancada con denominador");
+      return `${nombre.get(top.id)}: ${top.presente} de ${top.listadas}`;
+    },
+  },
+  {
+    pregunta: "Golden set: 30 búsquedas de nombre traen a la persona correcta (acierto en el primer lugar ≥ 90 %)",
+    async correr() {
+      exigir(casamiento, "falta datos/votos/legisladores.json");
+      const casos = goldenNombres();
+      let uno = 0;
+      let cinco = 0;
+      const fallos = [];
+      for (const c of casos) {
+        const { datos, error } = await llamar("search", { query: c.q });
+        const ids = error ? [] : datos.results.slice(0, 5).map((r) => r.id);
+        const bien = (id) => id === `/funcionarios/${c.persona}` || id === `/congreso/legisladores/${c.leg}`;
+        if (bien(ids[0])) uno++;
+        else fallos.push(`«${c.q}» (${c.forma}) → ${ids[0] ?? "nada"}`);
+        if (ids.some(bien)) cinco++;
+      }
+      const p1 = uno / casos.length;
+      exigir(p1 >= 0.9, `primer lugar ${uno}/${casos.length}, cinco primeros ${cinco}/${casos.length}; fallan: ${fallos.slice(0, 5).join("; ")}`);
+      return `primer lugar ${uno}/${casos.length} (${Math.round(p1 * 100)} %), cinco primeros ${cinco}/${casos.length}${fallos.length ? `; falla ${fallos.join("; ")}` : ""}`;
+    },
+  },
+  {
+    pregunta: "Asistencia: ningún porcentaje sin su denominador, y la suma nominal de cada votación es la de presentes del acta",
+    async correr() {
+      exigir(nominal, "falta datos/votos/nominal.json");
+      let malas = 0;
+      for (const [vid, v] of Object.entries(nominal.votos)) {
+        const acta = actaDe.get(vid);
+        if (acta?.presentes != null && [...v.v].filter((c) => "snbx".includes(c)).length !== acta.presentes) malas++;
+      }
+      const n = Object.keys(nominal.votos).length;
+      exigir(malas / Math.max(1, n) <= 0.005, `${malas} de ${n} votaciones no cuadran con el acta (más de 0,5 %)`);
+      for (const { nombre, res } of vistas) {
+        if (nombre !== "retrieve") continue;
+        for (const e of res.structuredContent?.evidencias ?? []) {
+          if (!/Asistencia|Ausencias/.test(e.clase)) continue;
+          const sinDenominador = [...e.texto.matchAll(/\(([\d.,]+) %\)/g)].length > [...e.texto.matchAll(/[\d.,]+ de [\d.,]+ \([\d.,]+ %\)/g)].length;
+          exigir(!sinDenominador, `«${e.titulo}»: un porcentaje sin su denominador`);
+        }
+      }
+      return `${n} votaciones con nominal, ${malas} discrepancias con el acta`;
+    },
+  },
 ];
 
 /* ------------------------------------------------ reglas de toda respuesta */
@@ -1685,7 +2016,10 @@ function reglasGenerales() {
 
 console.log(`eval-mcp — ${URL_MCP}`);
 let rojos = 0;
-for (const caso of CASOS) {
+// `--solo <texto>`: solo los casos cuya pregunta lo lleva (p. ej. «Golden set», para medir el antes contra producción).
+const j = process.argv.indexOf("--solo");
+const elegidos = j > 0 ? CASOS.filter((c) => c.pregunta.includes(process.argv[j + 1])) : CASOS;
+for (const caso of elegidos) {
   const t0 = performance.now();
   try {
     const dicho = await caso.correr();
@@ -1698,5 +2032,5 @@ for (const caso of CASOS) {
 const generales = reglasGenerales();
 for (const f of generales) console.log(`  FAIL  regla general — ${f}`);
 rojos += generales.length;
-console.log(`${CASOS.length - (rojos - generales.length)}/${CASOS.length} casos; ${generales.length ? `${generales.length} reglas generales en rojo` : "reglas generales en verde"} (${vistas.length} respuestas revisadas)`);
+console.log(`${elegidos.length - (rojos - generales.length)}/${elegidos.length} casos; ${generales.length ? `${generales.length} reglas generales en rojo` : "reglas generales en verde"} (${vistas.length} respuestas revisadas)`);
 process.exit(rojos ? 1 : 0);

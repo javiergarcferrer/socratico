@@ -124,13 +124,15 @@ export async function explorar(q: string, faceta: ClaveFaceta | null, pagina = 1
     buscarEnTodo(consulta, { tipo: tipoIndice, pagina, porPagina: POR_PAGINA }),
     // Los nombres del grafo y el padrón se leen en toda página y con toda
     // faceta: sus cuentas son las de las facetas, que no cambian al filtrar.
-    buscarNodos(consulta).catch(() => null),
+    // Las personas van por páginas: con su faceta, la página pedida; en «Todo», la primera.
+    buscarNodos(consulta, { pagina: faceta === "funcionario" ? pagina : 1 }).catch(() => null),
     buscarEmpresas(consulta, { limite: faceta === "empresa" ? POR_PAGINA : EMPRESAS_EN_TODO, pagina: faceta === "empresa" ? pagina : 1 }).catch(() => null),
   ]);
   if (!h) return null;
 
   // Los nodos por nombre y las empresas de «Todo» van en la primera página; las siguientes recorren el índice.
-  const candidatos = pagina > 1 ? [] : (nodos?.candidatos ?? []).filter((c) => !faceta || FACETA_DE_NODO[c.nodo.tipo] === faceta);
+  const candidatos =
+    pagina > 1 && faceta !== "funcionario" ? [] : (nodos?.candidatos ?? []).filter((c) => !faceta || FACETA_DE_NODO[c.nodo.tipo] === faceta);
   const filas: FilaExplorada[] = [];
   const vistas = new Set<string>();
   const sumar = (f: FilaExplorada) => {
@@ -165,7 +167,8 @@ export async function explorar(q: string, faceta: ClaveFaceta | null, pagina = 1
   const corte = faceta ? 0 : EMPRESAS_TRAS;
   [...delIndice.slice(0, corte), ...deEmpresas, ...delIndice.slice(corte)].forEach(sumar);
 
-  const cuentaCandidatos = (clave: ClaveFaceta) => (nodos?.candidatos ?? []).filter((c) => FACETA_DE_NODO[c.nodo.tipo] === clave).length;
+  const cuentaCandidatos = (clave: ClaveFaceta) =>
+    clave === "funcionario" && nodos?.personas ? nodos.personas.total : (nodos?.candidatos ?? []).filter((c) => FACETA_DE_NODO[c.nodo.tipo] === clave).length;
   const facetas: Faceta[] = [
     ...TIPOS_RESULTADO.map((t) => ({ clave: t.clave as string, etiqueta: t.plural, total: Math.max(h.porTipo[t.clave] ?? 0, cuentaCandidatos(t.clave)) })),
     { clave: "empresa", etiqueta: FACETAS_DEL_GRAFO[0].etiqueta, total: empresas?.total ?? cuentaCandidatos("empresa") },
@@ -177,10 +180,19 @@ export async function explorar(q: string, faceta: ClaveFaceta | null, pagina = 1
       ? (empresas?.total ?? candidatos.length)
       : faceta === "provincia"
         ? candidatos.length
-        : faceta
+        : faceta === "funcionario"
+          ? Math.max(h.total, nodos?.personas?.total ?? candidatos.length)
+          : faceta
           ? Math.max(h.total, candidatos.length)
           : facetas.reduce((s, f) => s + f.total, 0);
-  const paginas = faceta === "empresa" ? Math.max(1, empresas?.paginas ?? 1) : faceta === "provincia" ? 1 : h.paginas;
+  const paginas =
+    faceta === "empresa"
+      ? Math.max(1, empresas?.paginas ?? 1)
+      : faceta === "provincia"
+        ? 1
+        : faceta === "funcionario"
+          ? Math.max(h.paginas, nodos?.personas?.paginas ?? 1)
+          : h.paginas;
   return {
     consulta,
     cedula: false,

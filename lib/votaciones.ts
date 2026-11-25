@@ -9,8 +9,9 @@ import { join } from "node:path";
  * que se votó. El voto de cada diputado no está: lo lee en vivo la ficha
  * `/congreso/votaciones/[id]` (`getVotacion` de `lib/congreso.ts`).
  *
- * La lee el compilador del grafo (`lib/grafo-constructores.ts`) y nada más:
- * la instantánea no viaja en ninguna función.
+ * La leen el compilador del grafo (`lib/grafo-constructores.ts`), la ficha de
+ * una persona (sus disidencias, `components/congreso/congreso-de-persona.tsx`)
+ * y `retrieve` del MCP (cómo votó un diputado en una iniciativa).
  *
  * Módulo de servidor (`node:fs`), memoizado por instancia.
  */
@@ -69,4 +70,24 @@ let porIdMemo: Promise<Map<number, VotacionPleno>> | null = null;
 export async function votacionPorId(id: number): Promise<VotacionPleno | null> {
   porIdMemo ??= getVotaciones().then((v) => new Map((v?.lista ?? []).map((x) => [x.id, x])));
   return (await porIdMemo).get(id) ?? null;
+}
+
+let expedientesMemo: Promise<Map<string, number>> | null = null;
+
+/**
+ * El número del SIL de una iniciativa por su expediente («06360-2024-2028-CD»),
+ * de la instantánea del Congreso (`public/data/congreso.json`): lo que pide
+ * `retrieve` para decir cómo votó un diputado en ella. `null` si no está.
+ */
+export async function iniciativaDeExpediente(numero: string): Promise<number | null> {
+  expedientesMemo ??= readFile(join(process.cwd(), "public", "data", "congreso.json"), "utf8")
+    .then((t) => {
+      const filas = (JSON.parse(t) as { iniciativas: { filas: [number, string][] } }).iniciativas.filas;
+      return new Map(filas.map(([id, n]) => [n.toUpperCase(), id]));
+    })
+    .catch(() => {
+      expedientesMemo = null;
+      return new Map<string, number>();
+    });
+  return (await expedientesMemo).get(numero.toUpperCase()) ?? null;
 }

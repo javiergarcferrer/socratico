@@ -1,3 +1,19 @@
+import { getVotaciones, iniciativaDeExpediente, votacionPorId } from "@/lib/votaciones";
+import {
+  ETIQUETA_SENTIDO,
+  NOTA_ASISTENCIA,
+  getLegisladores,
+  legisladorDePersona,
+  partirAnio,
+  rankingAusencias,
+  textoAsistencia,
+  votosDeLegislador,
+  votosDeVotacion,
+  type Cuentas,
+  type Legislador,
+  type Legisladores,
+  type Sentido,
+} from "@/lib/legisladores";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
@@ -45,6 +61,7 @@ import {
   decretoCompilado,
   decretosFirmados as decretosFirmadosCompilados,
   metaGrafo,
+  buscarPersonasPorParecido,
   personaCompilada,
   type PersonaCompilada,
 } from "@/lib/grafo-compilado";
@@ -377,6 +394,9 @@ function lineaResultado(r: Resultado, corte: string | null | undefined): string 
     .join(" · ");
 }
 
+/** Cuántas personas por parecido van delante del índice en `search`. */
+const TOPE_PERSONAS_PARECIDO = 3;
+
 async function buscar(query: string, opciones: { tipo?: TipoResultado; pagina?: number } = {}): Promise<z.infer<typeof Busqueda>> {
   const q = query.trim().slice(0, 200);
   if (!q) throw new Aviso("La búsqueda está vacía: escribe un nombre, un RNC, un número de decreto o un tema.");
@@ -429,6 +449,27 @@ async function buscar(query: string, opciones: { tipo?: TipoResultado; pagina?: 
     for (const p of PROVINCIAS.filter((x) => contieneTodas(plano(x.nombre), a)).slice(0, TOPE.provincias)) {
       const ruta = rutaDeNodo({ tipo: "provincia", id: p.slug });
       sumar({ id: ruta, title: p.nombre, url: absoluta(ruta), text: `Provincia · cabecera: ${p.cabecera} · límites de la ONE` });
+    }
+  }
+
+  // Personas por parecido (nombre en cualquier orden, una errata, su cargo de hoy): antes del índice, que
+  // las ordena por palabras y no sabe que «Pacheo» es «Pacheco» ni que «presidente de la cámara» es un cargo.
+  if (!soloIndice || tipo === "funcionario") {
+    const parecidas = await buscarPersonasPorParecido(q, { porPagina: TOPE_PERSONAS_PARECIDO }).catch(() => null);
+    const fuertes = parecidas?.personas.filter((x) => x.fuerte) ?? [];
+    const meta = parecidas ? await metaGrafo() : null;
+    const corte = meta?.grafos.find((g) => g.clave === "personas")?.corte ?? meta?.grafos.find((g) => g.clave === "vigente")?.corte ?? null;
+    // Sin una fuerte, la más parecida solo si todas las palabras caen en su nombre (una errata): «Alfredo Pacheo».
+    for (const x of fuertes.length ? fuertes : (parecidas?.personas ?? []).filter((y) => y.porNombre).slice(0, 1)) {
+      const ruta = enlace.funcionario(x.id);
+      sumar({
+        id: ruta,
+        title: x.nombre,
+        url: absoluta(ruta),
+        text: ["Persona con cargo público", x.cargo, corte && `instantánea de personas del ${corte}`, fuertes.length ? null : "la más parecida, con una errata"]
+          .filter(Boolean)
+          .join(" · "),
+      });
     }
   }
 
@@ -1802,6 +1843,11 @@ const INTENCION = {
   dirige: / (quien dirige|dirige|ministr[ao]|director[a]?|titular|encabeza) /,
   decretos: / (decretos?|firm[oó]|firmados?) /,
   vinculo: / (relacion(a|es)?|vincul[ao]s?|vinculad[ao]|conect[ao]|conectad[ao]|lig[ao]|ligad[ao]|camino) /,
+  asistencia: / (asist(e|io|encia|encias|ieron)|ausen(te|tes|cia|cias)|inasistencias?) /,
+  // «Faltar» solo cuenta junto al Congreso: «¿qué falta para que se apruebe?» no pide ausencias.
+  faltas: / falt(o|aron|as|ado|an) /,
+  congreso: / (diputad[ao]s?|legislador(es|as?)?|senador(es|as?)?|pleno|camara|sesion(es)?|congreso) /,
+  voto: / (vot(o|a|aron|os|acion|aciones|ado)|disid(e|io|encia|encias)|bancada|dissent) /,
 } as const;
 
 /** Palabras de una pregunta de compras que dicen la intención, no lo que se compra. */
@@ -1871,6 +1917,106 @@ async function contextoDeNodo(n: NodoRdf, por: string): Promise<z.infer<typeof E
   };
 }
 
+/** Las palabras de un nombre propio, planas y sin «de», «la», «los». */
+const palabrasDeNombre = (n: string) => plano(n).trim().split(" ").filter((w) => w.length > 1 && !["de", "del", "la", "las", "los", "y", "e"].includes(w));
+
+/** Cuánto del voto nominal está leído, para decirlo al lado de cada cifra. */
+function coberturaNominal(l: Legisladores): string {
+  const per = l.corte.nominal?.periodos ?? [];
+  return `Voto nominal leído del SIL de la Cámara de Diputados el ${(l.corte.nominalGenerado ?? l.generado).slice(0, 10)}: ${per
+    .map((p) => `${ENTERO.format(p.leidas)} de ${ENTERO.format(p.votaciones)} votaciones de ${p.periodo}`)
+    .join("; ")}, las de la lista de votaciones del ${l.corte.votacionesGenerado ?? "?"} (hasta el ${l.corte.votacionesHasta ?? "?"}); las posteriores aún no están.`;
+}
+
+/** La asistencia, las disidencias y, si la pregunta nombra una iniciativa, el voto de un diputado en ella. */
+async function evidenciaDeLegislador(l: Legislador, persona: string, anio: number | null, q: string): Promise<z.infer<typeof Evidencia>[]> {
+  const legs = await getLegisladores();
+  if (!legs) return [];
+  const url = absoluta(`${enlace.funcionario(persona)}#congreso`);
+  if (l.camara === "senado") {
+    return [{
+      id: enlace.funcionario(persona),
+      clase: "Asistencia en el Senado",
+      titulo: l.nombre,
+      texto: "El Senado no publica el voto nominal de sus senadores. Publica la asistencia al pleno en un PDF por sesión en www.senadord.gob.do, cuyo robots.txt veta a los agentes de inteligencia artificial: la plataforma no la lee mientras no haya un acuerdo con el Senado. No hay cifra de asistencia, y no porque falte (Socrático, /fuentes, 2026-11-25).",
+      url,
+      por: "la pregunta pide asistencia o voto de un senador",
+    }];
+  }
+  const salida: z.infer<typeof Evidencia>[] = [];
+  const pct = (c: Cuentas) => textoAsistencia(c);
+  const partes: string[] = [];
+  for (const [per, c] of Object.entries(l.asistencia?.periodo ?? {}).sort().reverse()) {
+    const siglas = l.periodos[per]?.partido;
+    const b = siglas ? legs.bancadas[`periodo:${per}`]?.[siglas] : undefined;
+    const cam = legs.camara.periodo[per];
+    partes.push(
+      `Período ${per}: presente en ${pct(c)} votaciones del pleno en que lo lista el SIL; ausente en ${ENTERO.format(c.ausente)}; presente sin votar en ${ENTERO.format(c.sinVoto)}. Su bancada (${siglas ?? "?"}): ${b ? pct(b) : "—"} presencias; la cámara: ${cam ? pct(cam) : "—"}. Votó distinto a la mayoría de su bancada en ${ENTERO.format(l.disidencia?.cuenta[per] ?? 0)} de ${ENTERO.format(l.disidencia?.base[per] ?? 0)} votaciones con posición de bancada.`,
+    );
+  }
+  const anios = Object.entries(l.asistencia?.anio ?? {}).filter(([k]) => anio == null || Number(partirAnio(k).anio) === anio).sort().reverse();
+  if (anios.length) {
+    partes.push(
+      `Por año: ${anios
+        .map(([k, c]) => {
+          const { periodo, anio: a } = partirAnio(k);
+          const cob = legs.corte.anios?.[k];
+          const parcial = cob && cob.leidas < cob.votaciones ? ` (leídas ${ENTERO.format(cob.leidas)} de ${ENTERO.format(cob.votaciones)} votaciones de ese año)` : "";
+          return `${a}, ${pct(c)}, ausente en ${ENTERO.format(c.ausente)}${anios.some(([o]) => o !== k && partirAnio(o).anio === a) ? ` en el período ${periodo}` : ""}${parcial}`;
+        })
+        .join("; ")}.`,
+    );
+  }
+  salida.push({
+    id: enlace.funcionario(persona),
+    clase: "Asistencia a las votaciones del pleno",
+    titulo: l.nombre,
+    texto: `${partes.join(" ")} ${NOTA_ASISTENCIA} ${coberturaNominal(legs)} Casamiento con la persona: ${l.evidencia ?? "sin evidencia"}.`,
+    url,
+    por: "la pregunta pide su asistencia o su voto, y su persona es legisladora en el SIL",
+  });
+  // Una iniciativa nombrada por su número («06360-2024-2028-CD»): cómo votó en cada votación sobre ella.
+  const numero = /\b(\d{5})-(\d{4})-(\d{4})-(CD|SEN)\b/i.exec(q)?.[0];
+  if (numero) {
+    const ini = await iniciativaPorNumeroEnVotaciones(numero);
+    if (ini) {
+      const votos = await votosDeLegislador(l.id);
+      const suyas = votos.filter((v) => ini.votaciones.includes(v.votacion));
+      const lineas = await Promise.all(
+        suyas.map(async (v) => {
+          const todos = (await votosDeVotacion(v.votacion)) ?? [];
+          const bancada = todos.filter((x) => x.bancada === v.bancada && ["si", "no", "abstencion"].includes(x.sentido));
+          const cuenta = new Map<string, number>();
+          for (const x of bancada) cuenta.set(x.sentido, (cuenta.get(x.sentido) ?? 0) + 1);
+          const [mayor, n] = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+          const posicion = n * 2 > bancada.length && bancada.length >= 3 ? ETIQUETA_SENTIDO[mayor as Sentido] : "sin mayoría clara";
+          const acta = await votacionPorId(v.votacion);
+          return `votación ${v.votacion} (${acta?.fecha ?? "sin fecha"}): votó «${ETIQUETA_SENTIDO[v.sentido]}»; su bancada (${v.bancada ?? "?"}), «${posicion}»`;
+        }),
+      );
+      salida.push({
+        id: enlace.funcionario(persona),
+        clase: "Su voto en una iniciativa",
+        titulo: `${l.nombre} en la iniciativa ${numero}`,
+        texto: lineas.length
+          ? `${lineas.join("; ")}. Voto nominal del SIL.`
+          : `El voto nominal leído no tiene votaciones suyas sobre la iniciativa ${numero} (${ini.votaciones.length} votaciones del pleno la tratan). ${coberturaNominal(legs)}`,
+        url,
+        por: "la pregunta nombra la iniciativa y al diputado",
+      });
+    }
+  }
+  return salida;
+}
+
+/** Las votaciones del pleno sobre una iniciativa, por su número de expediente. */
+async function iniciativaPorNumeroEnVotaciones(numero: string): Promise<{ votaciones: number[] } | null> {
+  const ini = await iniciativaDeExpediente(numero);
+  if (ini == null) return null;
+  const v = await getVotaciones();
+  return { votaciones: (v?.lista ?? []).filter((x) => x.iniciativas.includes(ini)).map((x) => x.id) };
+}
+
 /** Lo que devuelve `retrieve`; lo pinta también el modo «Preguntar» de la portada (`/`). */
 export type Recuperacion = z.infer<typeof Recuperado>;
 
@@ -1880,6 +2026,7 @@ export async function recuperar(pregunta: string, limite: number = TOPE_RECUPERA
   sinBuscarPorCedula(q);
   const p = plano(q);
   const pide = Object.fromEntries(Object.entries(INTENCION).map(([k, re]) => [k, re.test(p)])) as Record<keyof typeof INTENCION, boolean>;
+  pide.asistencia ||= pide.faltas && pide.congreso;
   const anio = Number(/\b(20[1-3]\d)\b/.exec(q)?.[1] ?? NaN);
 
   // Siglas: una palabra que la pregunta escribe en mayúsculas y que es la
@@ -1954,7 +2101,23 @@ export async function recuperar(pregunta: string, limite: number = TOPE_RECUPERA
       );
       continue;
     }
-    if (c.candidatos.length === 1) sumarNodo(c.candidatos[0].nodo, `su nombre casa con «${nombre}»`, true);
+    // Una persona solo es la nombrada si casa fuerte (su nombre sin errata o su cargo de hoy).
+    if (c.candidatos.length === 1 && (c.candidatos[0].nodo.tipo !== "funcionario" || c.candidatos[0].fuerte)) {
+      sumarNodo(c.candidatos[0].nodo, `su nombre casa con «${nombre}»`, true);
+      continue;
+    }
+    // Una persona cuyo nombre lleva todas las palabras del nombrado («Alfredo Pacheco» → «Alfredo
+    // Pacheco Osoria»): si es una sola —o una sola es legisladora y la pregunta es del Congreso—, es ella.
+    const dichas = palabrasDeNombre(nombre);
+    const contienen = c.candidatos.filter((x) => x.nodo.tipo === "funcionario" && x.fuerte && dichas.every((w) => palabrasDeNombre(x.nombre).includes(w)));
+    const delCongreso = pide.asistencia || pide.voto
+      ? (await Promise.all(contienen.map(async (x) => ((await legisladorDePersona(x.nodo.id)) ? x : null)))).filter((x) => x != null)
+      : [];
+    const unica = contienen.length === 1 ? contienen[0] : delCongreso.length === 1 ? delCongreso[0] : null;
+    if (unica) sumarNodo(unica.nodo, `su nombre lleva todas las palabras de «${nombre}»${contienen.length > 1 ? ", y es la única legisladora o el único legislador entre quienes las llevan" : ""}`, true);
+    // La más parecida, solo si el parecido es de su nombre («Alfredo Pacheo»), no de su cargo: «Ministerio de
+    // Educación Superior» no es la ministra, es una institución que no se pudo atar.
+    else if (c.candidatos[0]?.nodo.tipo === "funcionario" && c.candidatos[0].porNombre) sumarNodo(c.candidatos[0].nodo, `la persona más parecida a «${nombre}» (con una errata por palabra)`, false);
     else sinAtar.push(nombre);
   }
   for (const r of h.resultados.slice(0, 10)) {
@@ -2039,6 +2202,39 @@ export async function recuperar(pregunta: string, limite: number = TOPE_RECUPERA
         url: x.url,
         por: `procurement (${deducidos}): ${ENTERO.format(r.total)} cumplen, suma estimada RD$ ${ENTERO.format(r.suma)}`,
       });
+    }
+  }
+
+  // La asistencia y el voto de un diputado, si la pregunta los pide: sus agregados, con su denominador.
+  if (pide.asistencia || pide.voto) {
+    const legs = await getLegisladores();
+    // Solo las nombradas con certeza: a una persona parecida no se le atribuyen votos ajenos.
+    const personas = nodos.filter((x) => x.n.tipo === "funcionario" && x.fuerte);
+    for (const { n } of personas) {
+      const l = await legisladorDePersona(n.id);
+      if (!l) continue;
+      evidencias.unshift(...(await evidenciaDeLegislador(l, n.id, Number.isFinite(anio) ? anio : null, q)));
+    }
+    if (legs && personas.length === 0 && pide.asistencia && pide.congreso) {
+      const anios = [...q.matchAll(/\b(20[2-3]\d)\b/g)].map((m) => Number(m[1]));
+      const filtro = anios.length ? { desde: Math.min(...anios), hasta: Math.max(...anios) } : { eje: "periodo" as const, clave: "2024-2028" };
+      const filas = await rankingAusencias(filtro, 10);
+      if (filas.length) {
+        const corte = anios.length ? (anios.length > 1 ? `${Math.min(...anios)}-${Math.max(...anios)}` : String(anios[0])) : "el período 2024-2028";
+        evidencias.unshift({
+          id: null,
+          clase: "Ausencias en las votaciones del pleno",
+          titulo: `Los ${filas.length} diputados con más ausencias, ${corte}`,
+          texto: `${filas
+            .map(({ legislador: x, cuentas: c }, i) => {
+              const per = Object.values(x.periodos).at(-1);
+              return `${i + 1}. ${x.nombre} (${[per?.partido, per?.provincia].filter(Boolean).join(", ") || "sin partido ni provincia en el SIL"}): ausente en ${ENTERO.format(c.ausente)} de ${ENTERO.format(c.listadas)} votaciones en que lo lista el SIL`;
+            })
+            .join("; ")}. Es la cuenta bruta de ausencias, como pide la pregunta: quien estuvo más tiempo en el escaño tiene más votaciones; la tasa sale de cada par de cifras. ${NOTA_ASISTENCIA} ${coberturaNominal(legs)}`,
+          url: absoluta("/congreso"),
+          por: "el voto nominal del SIL: la pregunta pide ausencias sin nombrar a nadie",
+        });
+      }
     }
   }
 

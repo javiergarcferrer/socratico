@@ -16,6 +16,7 @@ import { describirEmpresaSola, iriDe, nombreDecreto, type ClaveGrafo, type Descr
 import {
   buscarFinancieras,
   buscarPersonas,
+  buscarPersonasPorParecido,
   decretoCompilado,
   leerDescripcion,
   leerVecinos,
@@ -296,6 +297,7 @@ const V = {
   dictadaPor: expandir("soc:dictadaPor"),
   votacion: expandir("soc:Votacion"),
   celebradaPor: expandir("soc:celebradaPor"),
+  disintioEn: expandir("soc:disintioEn"),
   sobre: expandir("soc:sobre"),
   votosAFavor: expandir("soc:votosAFavor"),
   votosEnContra: expandir("soc:votosEnContra"),
@@ -609,6 +611,9 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
       case V.celebradaPor:
         agregar({ grupo: "votaciones", verbo: "En el pleno de", neutro: "La cámara que vota", ...hacia(o), nombre: nombre(o) }, x);
         break;
+      case V.disintioEn:
+        agregar({ grupo: "votaciones", verbo: "Votó distinto a su bancada", neutro: "Una votación en que votó distinto a su bancada", ...hacia(o), nombre: nombre(o), ...votacionVecina(o) }, x);
+        break;
       case V.sobre:
         agregar({ grupo: "votaciones", verbo: "Votó sobre", neutro: "Una votación sobre la iniciativa", ...hacia(o), nombre: nombre(o), ...normaVecina(o) }, x);
         break;
@@ -670,6 +675,8 @@ export function relacionesDesdeTriples(triples: Triple[], sujeto: string, grafos
       if (pr) agregar({ grupo: "procesos", verbo: "Contrato con", neutro: "Un contrato del proceso", ...hacia(pr), nombre: nombre(pr), ...contratoVecino(s) }, unoT(s, V.contratista, "iri"));
     } else if (x.p === V.inscritaComo && esDe(sujeto, V.proveedor)) {
       agregar({ grupo: "entidades", verbo: "Es la inscripción de", neutro: "Su inscripción de proveedora", ...hacia(s), nombre: nombre(s) }, x);
+    } else if (x.p === V.disintioEn) {
+      agregar({ grupo: "votaciones", verbo: "Votó distinto a su bancada", neutro: "Un diputado que votó distinto a su bancada", ...hacia(s), nombre: nombre(s) }, x);
     } else if (x.p === V.celebradaPor) {
       agregar({ grupo: "votaciones", verbo: "Votó en el pleno", neutro: "La cámara que vota", ...hacia(s), nombre: nombre(s), ...votacionVecina(s) }, x);
     } else if (x.p === V.sobre) {
@@ -1101,6 +1108,10 @@ export interface Candidato {
   nombre: string;
   clase: string;
   detalle: string | null;
+  /** Una persona que casa fuerte: su nombre sin errata, o una frase de su cargo de hoy. */
+  fuerte?: boolean;
+  /** Una persona en cuyo nombre caen todas las palabras (con una errata, quizá). */
+  porNombre?: boolean;
 }
 
 /** Lo que devuelve la búsqueda de nodos: los candidatos y si hay más que no se muestran. */
@@ -1108,6 +1119,8 @@ export interface Candidatos {
   candidatos: Candidato[];
   /** Algún tipo tenía más coincidencias que las que caben: la lista es una muestra. */
   truncado: boolean;
+  /** Las personas van por páginas: cuántas casan en total y qué página es esta. */
+  personas?: { total: number; pagina: number; paginas: number };
 }
 
 /**
@@ -1155,7 +1168,7 @@ const TOPE_CANDIDATOS = { personas: 8, instituciones: 5, financieras: 4, total: 
  * plataforma (`/buscar`): solo nombres de nodos del grafo. Cada tipo tiene su
  * tope, y `truncado` dice si alguno se pasó.
  */
-export async function buscarNodos(q: string): Promise<Candidatos> {
+export async function buscarNodos(q: string, { pagina = 1 }: { pagina?: number } = {}): Promise<Candidatos> {
   const texto = q.trim().slice(0, 120);
   if (!texto) return { candidatos: [], truncado: false };
   const salida: Candidato[] = [];
@@ -1174,13 +1187,16 @@ export async function buscarNodos(q: string): Promise<Candidatos> {
   if (salida.length) return { candidatos: salida, truncado: false };
 
   let truncado = false;
+  let personasPagina: Candidatos["personas"];
   const a = agujas(texto);
   // Personas y entidades financieras, del índice de nombres compilado (la misma búsqueda que sus fichas).
-  const personas = await buscarPersonas(texto);
-  if (personas) {
-    truncado ||= personas.length > TOPE_CANDIDATOS.personas;
-    for (const p of personas.slice(0, TOPE_CANDIDATOS.personas)) {
-      salida.push({ nodo: { tipo: "funcionario", id: p.id }, nombre: p.nombre, clase: CLASE_DE_TIPO.funcionario, detalle: p.cargo });
+  // Por parecido (nombre en cualquier orden, una errata por palabra, o su cargo de hoy) y por páginas.
+  const encontradas = await buscarPersonasPorParecido(texto, { pagina, porPagina: TOPE_CANDIDATOS.personas });
+  if (encontradas) {
+    truncado ||= encontradas.paginas > encontradas.pagina;
+    personasPagina = { total: encontradas.total, pagina: encontradas.pagina, paginas: encontradas.paginas };
+    for (const p of encontradas.personas) {
+      salida.push({ nodo: { tipo: "funcionario", id: p.id }, nombre: p.nombre, clase: CLASE_DE_TIPO.funcionario, detalle: p.cargo, fuerte: p.fuerte, porNombre: p.porNombre });
     }
   }
   const instituciones = buscarInstituciones(texto, TOPE_CANDIDATOS.instituciones + 1);
@@ -1208,7 +1224,7 @@ export async function buscarNodos(q: string): Promise<Candidatos> {
     .sort((x, y) => x.e - y.e || x.i - y.i)
     .map((x) => x.c)
     .slice(0, TOPE_CANDIDATOS.total);
-  return { candidatos, truncado };
+  return { candidatos, truncado, personas: personasPagina };
 }
 
 export type { Termino };

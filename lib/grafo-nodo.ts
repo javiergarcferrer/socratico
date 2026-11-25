@@ -69,7 +69,9 @@ export type ClaveGrafo =
   | "documentos"
   | "datos"
   | "sentencias"
-  | "votaciones";
+  | "votaciones"
+  | "votos"
+  | "asistencia";
 
 /** Lo que afirma una descripción mientras se arma: cada triple con el grafo de donde sale. */
 export class Afirmaciones {

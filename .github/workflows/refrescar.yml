@@ -116,11 +116,11 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: ./scripts/refrescar-fuentes.sh
       - name: Empaquetar lo que cambió
-        # Solo los archivos de public/data que los scripts escribieron o borraron: así compilar no pisa lo
+        # Solo los archivos de public/data (y datos/votos) que los scripts escribieron o borraron: así compilar no pisa lo
         # que otra sesión empujó mientras tanto. Nunca las fuentes crudas de nómina (nombres): quedan aquí.
         run: |
-          git ls-files -m -o --exclude-standard -- public/data > cambiados.txt
-          git ls-files -d -- public/data > borrados.txt
+          git ls-files -m -o --exclude-standard -- public/data datos/votos > cambiados.txt
+          git ls-files -d -- public/data datos/votos > borrados.txt
           wc -l cambiados.txt borrados.txt
           tar -cf fuentes.tar -T cambiados.txt borrados.txt .cache/refrescar/resumen.txt
       - uses: actions/upload-artifact@v4
@@ -191,6 +191,7 @@ jobs:
           if [ -f llegado/fuentes/fuentes.tar ]; then
             mkdir -p llegado/f && tar -xf llegado/fuentes/fuentes.tar -C llegado/f
             if [ -d llegado/f/public/data ]; then cp -a llegado/f/public/data/. public/data/; fi
+            if [ -d llegado/f/datos/votos ]; then mkdir -p datos/votos && cp -a llegado/f/datos/votos/. datos/votos/; fi
             if [ -s llegado/f/borrados.txt ]; then xargs -r -d '\n' rm -f -- < llegado/f/borrados.txt; fi
           fi
           if [ -f llegado/textos/textos.tar ]; then

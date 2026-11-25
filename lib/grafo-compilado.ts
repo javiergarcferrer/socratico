@@ -1,3 +1,4 @@
+import { entradaPersona, ordenar, type EntradaPersona } from "@/lib/busqueda-personas";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { brotliDecompressSync } from "node:zlib";
@@ -321,8 +322,8 @@ export function comprasPublicadas(): Promise<ComprasPublicadas | null> {
  * el orden, su cargo principal y su firma—, en el orden de su instantánea.
  */
 interface Nombres {
-  /** `[id, nombre, texto plano, puntaje, cargo principal, firma]` */
-  personas: [string, string, string, number, string | null, [string, string, number, string, string] | null][];
+  /** `[id, nombre, texto plano, puntaje, cargo principal, firma, contexto de hoy: sus tramos en plano, separados por «|»]` */
+  personas: [string, string, string, number, string | null, [string, string, number, string, string] | null, string?][];
   /** `[slug, nombre, tipo, rnc, texto plano]` */
   financieras: [string, string, string | null, string | null, string][];
 }
@@ -383,6 +384,36 @@ export async function buscarPersonas(q: string): Promise<PersonaCompilada[] | nu
     .filter((p) => !a || contieneTodas(p[2], a))
     .sort((x, y) => y[3] - x[3] || COLADOR.compare(x[1], y[1]))
     .map(persona);
+}
+
+let entradasMemo: Promise<(EntradaPersona & { fila: Nombres["personas"][number] })[] | null> | null = null;
+
+/**
+ * Las personas que se parecen a la consulta —por su nombre en cualquier orden,
+ * con una errata por palabra, o por su cargo, partido y provincia de hoy—, de
+ * la más parecida a la menos, por páginas (`lib/busqueda-personas.ts`). `null`
+ * si el índice no está.
+ */
+export async function buscarPersonasPorParecido(
+  q: string,
+  { pagina = 1, porPagina = 8 }: { pagina?: number; porPagina?: number } = {},
+): Promise<{ personas: (PersonaCompilada & { fuerte: boolean; porNombre: boolean })[]; total: number; pagina: number; paginas: number } | null> {
+  entradasMemo ??= nombres().then(
+    (n) =>
+      n?.personas.map((fila) => ({ fila, ...entradaPersona(fila[1], fila[2], fila[6] ?? "", fila[3]) })) ?? null,
+  );
+  const entradas = await entradasMemo;
+  if (!entradas) return null;
+  const orden = ordenar(q, entradas);
+  const paginas = Math.max(1, Math.ceil(orden.length / porPagina));
+  const p = Math.min(Math.max(1, pagina), paginas);
+  return {
+    // «Fuerte»: casa por su nombre entero sin errata o por una frase de su cargo de hoy.
+    personas: orden.slice((p - 1) * porPagina, p * porPagina).map((x) => ({ ...persona(x.entrada.fila), fuerte: (x.todasEnNombre && !x.conErrata) || x.frase, porNombre: x.todasEnNombre })),
+    total: orden.length,
+    pagina: p,
+    paginas,
+  };
 }
 
 /** La persona con ese id, del índice de nombres. */

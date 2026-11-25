@@ -88,6 +88,7 @@ const T = await lib("tablas-compras");
 const ESQ = await lib("ontologia-esquemas");
 const O = await lib("ontologia");
 const RZ = await lib("raiz");
+const L = await lib("legisladores");
 const CAL = await lib("grafo-calidad");
 
 /** Lo que dice la calidad medida, en una línea. */
@@ -175,7 +176,7 @@ function diferencia(a, b) {
 
 /** El índice de nombres: personas y entidades financieras, con lo que pide su búsqueda (`lib/grafo-compilado.ts`). */
 async function indiceDeNombres() {
-  const [f, fin] = await Promise.all([F.getFuncionarios(), B.getFinancieras()]);
+  const [f, fin, legs] = await Promise.all([F.getFuncionarios(), B.getFinancieras(), L.getLegisladores()]);
   return {
     personas: f.personas.map((p) => [
       p.id,
@@ -184,6 +185,10 @@ async function indiceDeNombres() {
       F.puntaje(p),
       F.cargoPrincipal(p)?.titulo ?? null,
       p.firma ? [p.firma.como, p.firma.clave, p.firma.decretos, p.firma.desde, p.firma.hasta] : null,
+      // Lo que es hoy, para buscarla por su cargo, su partido o su provincia (`lib/busqueda-personas.ts`).
+      F.contextoDeBusqueda(p, Object.values(legs?.porPersona.get(p.id)?.periodos ?? {}).map((x) => x.partido).filter(Boolean))
+        .map((x) => RZ.plano(x).trim())
+        .join("|"),
     ]),
     financieras: fin.entidades.map((e) => [e.slug, e.nombre, e.tipo ?? null, e.rnc ?? null, B.planoDeEntidad(e)]),
   };

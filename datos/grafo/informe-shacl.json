@@ -1,11 +1,11 @@
 {
  "conforme": true,
- "ontologia": "2.6.0",
- "grafo": "2026-11-24",
- "volcado": "2026-11-24",
- "huella": "20d3d59d7c42a37b16e4e10dadd9386e251a28174530b9a6525d092fa29cd75a",
- "triples": 1944813,
- "nodos": 214477,
+ "ontologia": "2.7.0",
+ "grafo": "2026-11-25",
+ "volcado": "2026-11-25",
+ "huella": "d0b69c9a0f8d2cd255d8788ff0a7e31a000b14afd9f9a27dfe12644407a6830f",
+ "triples": 1945146,
+ "nodos": 214528,
  "muestra": {
   "personas": 300,
   "decretos": 106,
@@ -15,12 +15,18 @@
   "sentencias": 200,
   "votaciones": 200
  },
- "fueraDeMuestra": 0,
+ "fueraDeMuestra": 37,
  "formas": [
   {
    "forma": "Adjudicacion",
    "clase": "soc:Adjudicacion",
    "focos": 0,
+   "violaciones": 0
+  },
+  {
+   "forma": "AsistenciaLegislativa",
+   "clase": "soc:AsistenciaLegislativa",
+   "focos": 20,
    "violaciones": 0
   },
   {
@@ -105,6 +111,12 @@
    "forma": "Institucion",
    "clase": "soc:Institucion",
    "focos": 894,
+   "violaciones": 0
+  },
+  {
+   "forma": "Legislador",
+   "clase": "soc:Legislador",
+   "focos": 4,
    "violaciones": 0
   },
   {

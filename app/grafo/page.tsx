@@ -6,8 +6,10 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Cifra, Rotulo, TiraDeCifras } from "@/components/papel";
 import { EstadoVacio } from "@/components/estado-vacio";
 import { BuscadorUrl } from "@/components/buscador-url";
-import { RedVecinos, type VecinoRed } from "@/components/graficos";
+import { RedVecinos } from "@/components/graficos";
+import { vecinosParaRed } from "@/components/graficos/vecinos-red";
 import { Ruta } from "@/components/ruta";
+import { Paginador } from "@/components/paginador";
 import Plegable from "@/components/plegable";
 import Antiguedad from "@/components/antiguedad";
 import { IconExternal } from "@/components/icons";
@@ -42,7 +44,7 @@ import { NOMBRES_TABLAS } from "@/lib/grafo-tablas";
 
 export const revalidate = 86400;
 
-type Props = { searchParams: Promise<{ nodo?: string; q?: string }> };
+type Props = { searchParams: Promise<{ nodo?: string; q?: string; pagina?: string }> };
 
 const cargar = cache(async (ruta: string) => {
   const nodo = nodoDeRuta(ruta);
@@ -79,11 +81,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function GrafoPage({ searchParams }: Props) {
-  const { nodo, q } = await searchParams;
+  const { nodo, q, pagina } = await searchParams;
   const consulta = (q ?? "").trim().slice(0, 120);
+  const pag = /^\d{1,3}$/.test(pagina ?? "") ? Number(pagina) : 1;
   // Hasta 600: la ruta de un documento lleva la dirección entera de su archivo.
   if (nodo) return <VistaNodo ruta={nodo.slice(0, 600)} consulta={consulta} />;
-  return <Portada consulta={consulta} />;
+  return <Portada consulta={consulta} pagina={pag} />;
 }
 
 /* ---------------------------------------------------------------- portada */
@@ -121,11 +124,11 @@ const LISTADO_DE_CLASE: Record<string, string> = {
   "soc:Sentencia": "/constitucional",
 };
 
-async function Portada({ consulta }: { consulta: string }) {
+async function Portada({ consulta, pagina }: { consulta: string; pagina: number }) {
   const [clases, wikidata, candidatos, volcado] = await Promise.all([
     inventario(),
     enlacesWikidata(),
-    consulta ? buscarNodos(consulta) : Promise.resolve(null),
+    consulta ? buscarNodos(consulta, { pagina }) : Promise.resolve(null),
     volcadoDelGrafo(),
   ]);
   const ejemplo = `${SITIO}${enlace.funcionario("luis-rodolfo-abinader-corona")}`;
@@ -159,6 +162,15 @@ async function Portada({ consulta }: { consulta: string }) {
           ayuda="Busca entre los nodos del grafo: personas con cargo, instituciones, entidades financieras y provincias por su nombre; un decreto por su número; una ley o una resolución por «Ley 87-01» o «Resolución 48-26»; una empresa por su RNC; un proceso de compra por su código; un proveedor por «RPE 32369»; una obra por «SNIP 3731»."
         />
         {candidatos && <ListaCandidatos resultado={candidatos} consulta={consulta} hacia={(c) => enlace.grafo(rutaDeNodo(c.nodo))} />}
+        {candidatos?.personas && candidatos.personas.paginas > 1 && (
+          <Paginador
+            pagina={candidatos.personas.pagina}
+            paginas={candidatos.personas.paginas}
+            etiqueta={`Páginas de las ${candidatos.personas.total} personas que casan`}
+            href={(n) => `${enlace.grafo()}?q=${encodeURIComponent(consulta)}${n > 1 ? `&pagina=${n}` : ""}`}
+            className="mt-3"
+          />
+        )}
       </section>
 
       {!consulta && (
@@ -324,7 +336,9 @@ function ListaCandidatos({
   return (
     <Card as="section" aria-label={`Fichas que se llaman «${consulta}»`}>
       <p className="px-5 pt-3 text-xs text-ink-soft sm:px-6" aria-live="polite">
-        {resultado.truncado
+        {resultado.personas && resultado.personas.total > 0
+          ? `${resultado.personas.total === 1 ? "Una persona" : `${resultado.personas.total.toLocaleString("es-DO")} personas`} por su nombre, con una errata por palabra, o por su cargo, partido y provincia de hoy; las más parecidas primero.`
+          : resultado.truncado
           ? `Las primeras ${candidatos.length} fichas con «${consulta}» en el nombre: hay más; escribe más palabras para afinar.`
           : `${candidatos.length === 1 ? "Una ficha" : `${candidatos.length} fichas`} con «${consulta}» en el nombre`}
       </p>
@@ -375,23 +389,7 @@ async function VistaNodo({ ruta, consulta }: { ruta: string; consulta: string })
   const propia = rutaDeNodo(v.nodo);
   const candidatos = consulta ? await buscarNodos(consulta) : null;
 
-  // Un vecino por nodo, en el orden de las aristas: la primera arista es la que se escribe.
-  const vistos = new Set<string>();
-  const vecinos: VecinoRed[] = [];
-  for (const r of v.relaciones) {
-    if (!r.nodo) continue;
-    const k = claveNodo(r.nodo);
-    if (vistos.has(k) || k === claveNodo(v.nodo)) continue;
-    vistos.add(k);
-    vecinos.push({
-      clave: k,
-      nombre: r.nombre,
-      // El rótulo del tramo ya dice «Cargos»: el cargo va solo; los demás verbos sí dicen algo.
-      arista: r.verbo === "Cargo" && r.detalle ? r.detalle : [r.verbo, r.monto != null ? formatPesos(r.monto) : null, r.detalle].filter(Boolean).join(" · "),
-      grupo: GRUPOS.find((g) => g.id === r.grupo)!.etiqueta,
-      href: enlace.grafo(rutaDeNodo(r.nodo)),
-    });
-  }
+  const vecinos = vecinosParaRed(v);
   const grupos = GRUPOS.map((g) => ({ ...g, relaciones: v.relaciones.filter((r) => r.grupo === g.id) })).filter(
     (g) => g.relaciones.length > 0,
   );

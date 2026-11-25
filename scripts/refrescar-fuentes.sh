@@ -39,7 +39,7 @@ py() { correr "$1" "$2" python3 "scripts/build-$1.py" "${@:3}"; }
 ( py procesos 3600; py historico 3600; py rnc 3600; py empresas 3600; py sanciones 1800 ) &
 ( py deuda 1800; py subastas 1800; py tenedores 1800 ) &
 ( py fiscal 1800; py subsidio 1800 ) &
-( py congreso 3600; py votaciones 9000 ) &
+( py congreso 3600; py votaciones 9000; py votos-nominales 14400; correr votos-fichas 1800 python3 scripts/build-votos-nominales.py --fichas ) &
 ( py bcrd 900; py justicia 900; py sentencias 1800; py mapa 900 ) &
 ( py banca 3600; py sociedad 1800; py catalogo 3600 ) &
 ( py documentos 5400; py nomina 3600 --descargar ) &

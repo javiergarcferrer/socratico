@@ -11,9 +11,14 @@ import { EnElGrafo, alternasRdf } from "@/components/en-el-grafo";
 import { DeclaracionJurada } from "@/components/fuentes-nuevas/declaracion-jurada";
 import Plegable from "@/components/plegable";
 import { Ruta } from "@/components/ruta";
+import { EstadoVacio } from "@/components/estado-vacio";
 import AccionesFicha from "@/components/acciones-ficha";
 import { Termino } from "@/components/termino";
 import { LineaTiempo, type CarrilTiempo } from "@/components/graficos";
+import { CongresoDePersona } from "@/components/congreso/congreso-de-persona";
+import { RedDeFicha } from "@/components/grafo/red-de-ficha";
+import { legisladorDePersona } from "@/lib/legisladores";
+import { vecindario } from "@/lib/grafo-rdf";
 import { formatFecha, hace } from "@/lib/format";
 import { enlace } from "@/lib/grafo";
 import { hrefInstitucion, institucionPorId } from "@/lib/instituciones";
@@ -84,6 +89,13 @@ export default async function FuncionarioPage({ params }: Props) {
   );
   const otros = parecidos(datos, persona);
   const numerales = persona.pep;
+  const legislador = await legisladorDePersona(persona.id);
+  const escano = persona.cargos.find((c) => c.origen === "congreso" && c.partido && esActual(c)) ?? persona.cargos.find((c) => c.origen === "congreso" && c.partido);
+  const red = await vecindario({ tipo: "funcionario", id: persona.id });
+  // Solo lo que el grafo liga por identificador con el dinero público: compras, procesos, obras, empresas y proveedores.
+  const dinero = (red?.relaciones ?? []).filter(
+    (r) => ["compras", "procesos", "obras"].includes(r.grupo) || (r.nodo != null && ["empresa", "proveedor", "proceso", "obra"].includes(r.nodo.tipo)),
+  );
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -109,6 +121,16 @@ export default async function FuncionarioPage({ params }: Props) {
                 </time>
               </>
             )}
+          </p>
+        )}
+        {(escano?.partido || persona.pepVigente) && (
+          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-ink-soft">
+            {persona.pepVigente && (
+              <Badge forma="sello" variant="firma">
+                PEP
+              </Badge>
+            )}
+            {escano?.partido && <span>{escano.partido}</span>}
           </p>
         )}
         {persona.alias.length > 0 && (
@@ -173,8 +195,6 @@ export default async function FuncionarioPage({ params }: Props) {
         )}
       </Card>
 
-      <DeclaracionJurada persona={persona} />
-
       {persona.firma && (
         <Card as="section" className="mt-5">
           <CardHeader>
@@ -208,10 +228,10 @@ export default async function FuncionarioPage({ params }: Props) {
       <ConectadoCon
         className="mt-5"
         aristas={[
-          persona.legislador != null && {
-            etiqueta: "Su ficha de legislador",
-            href: enlace.legislador(persona.legislador),
-            nombre: "Qué propuso y cómo votó",
+          legislador != null && {
+            etiqueta: "Su escaño",
+            href: "#congreso",
+            nombre: "Asistencia, votos y propuestas",
             fuente: "SIL de la Cámara",
           },
           ...instituciones.slice(0, 4).map((i) => ({
@@ -267,6 +287,53 @@ export default async function FuncionarioPage({ params }: Props) {
 
       <CarreraEnElTiempo persona={persona} decretos={decretos} />
 
+      {legislador && <CongresoDePersona legislador={legislador} />}
+
+      <DeclaracionJurada persona={persona} />
+
+      <Card as="section" className="mt-5">
+        <CardHeader>
+          <CardTitle>¿Lo toca el dinero público?</CardTitle>
+          <CardAction className="font-mono tabular-nums">{dinero.length}</CardAction>
+        </CardHeader>
+        {red == null ? (
+          <EstadoVacio variante="caida" titulo="El grafo compilado no respondió" className="m-5">
+            No es que no la toque el dinero público: es que no se pudo leer su red. Sus cargos, arriba, sí se leyeron;
+            vuelve a abrir la ficha en un momento.
+          </EstadoVacio>
+        ) : dinero.length > 0 ? (
+          <>
+          <ul>
+            {dinero.slice(0, 12).map((r, k) => (
+              <li key={k} className="relative border-t border-hairline px-5 py-2.5">
+                {r.href ? (
+                  <Link href={r.href} className="estira text-sm text-ink hover:text-brand-700">
+                    {r.nombre}
+                  </Link>
+                ) : (
+                  <span className="text-sm text-ink">{r.nombre}</span>
+                )}
+                <p className="mt-0.5 text-xs text-ink-soft">{r.verbo}</p>
+              </li>
+            ))}
+          </ul>
+          {dinero.length > 12 && (
+            <p className="border-t border-hairline px-5 py-3 text-xs text-ink-soft">
+              {`Se ven 12 de ${dinero.length}; todas están en su red, más abajo.`}
+            </p>
+          )}
+          </>
+        ) : (
+          <p className="px-5 pb-5 text-sm leading-relaxed text-ink-soft">
+            Ningún registro de compras, contratos, obras ni del padrón de empresas la liga por un identificador. La
+            plataforma no ata a una persona con un proveedor o una empresa por el parecido del nombre: sin cédula ni
+            RNC en común, un tocayo no es una prueba.
+          </p>
+        )}
+      </Card>
+
+      <RedDeFicha nodo={{ tipo: "funcionario", id: persona.id }} className="mt-5" />
+
       {otros.length > 0 && (
         <Card as="section" className="mt-5">
           <CardHeader>
@@ -315,10 +382,8 @@ export default async function FuncionarioPage({ params }: Props) {
 /**
  * Sus cargos y los decretos de esos cargos, en carriles sobre un eje de años
  * (`LineaTiempo`). Solo con dos hechos fechados o más: uno solo ya lo dice la
- * cabecera. Sus votos en el pleno no van aquí: la instantánea de votaciones
- * guarda el resultado de cada una, y cómo votó cada diputado está en la ficha
- * de la votación (`/congreso/votaciones/[id]`), que lo lee del SIL; la nota
- * solo sale a quien tiene ficha de legislador.
+ * cabecera. Sus votos en el pleno no van aquí: van en la sección del Congreso
+ * (`CongresoDePersona`), con su denominador.
  */
 function CarreraEnElTiempo({ persona, decretos }: { persona: Persona; decretos: Map<string, number | null> }) {
   const vistos = new Set<string>();
@@ -365,8 +430,7 @@ function CarreraEnElTiempo({ persona, decretos }: { persona: Persona; decretos: 
       <CardTitle>¿Cuándo pasó cada cosa?</CardTitle>
       <p className="mt-1 text-xs text-ink-soft">
         Una raya por cargo y por decreto con fecha, en la instantánea de funcionarios.
-        {persona.legislador != null &&
-          " Sus votos en el pleno no están en esta línea: la instantánea guarda el resultado de cada votación, y cómo votó cada diputado está en la ficha de la votación."}
+        {persona.legislador != null && " Su asistencia y sus votos en el pleno están en la sección del Congreso."}
       </p>
       <LineaTiempo
         carriles={carriles}

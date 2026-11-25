@@ -1,3 +1,4 @@
+import { getLegisladores, legisladorDePersona } from "@/lib/legisladores";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SITIO } from "@/lib/sitio";
@@ -189,6 +190,7 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
   ]);
   if (!ind || !fin || !padron || !historico) throw new Error("falta una instantánea: decretos, banca, padrón o histórico");
   const fuentesBanca = await leerInstantanea<{ fuentes: Record<string, string> }>("banca.json");
+  const legisladores = await getLegisladores();
   const [procesos, obras, leyes, resoluciones, congreso, biblioteca, catalogo] = await Promise.all([
     leerInstantanea<{ fuente: string; hasta: string }>("procesos.json"),
     leerInstantanea<{ corte: string; fuente: string; archivos: Record<string, { nombre: string }> }>("obras.json"),
@@ -356,6 +358,23 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
       corte: dia(votaciones.generado),
     },
     {
+      clave: "votos",
+      etiqueta: "Voto nominal del pleno de la Cámara de Diputados",
+      descripcion:
+        "El voto de cada diputado (sí, no, abstención, presente sin votar, ausente) en las votaciones del pleno de 2020-2024 y 2024-2028 que se han leído del SIL, y la ficha de representación de cada legislador (función, demarcación, partido, inicio y fin del ejercicio). En el grafo entra de a una persona: su identificador en la cámara y sus escaños.",
+      fuentes: [`${SIL}/votacion/legisladores/`, `${SIL}/legislador/legislador/`],
+      corte: dia(legisladores?.corte.nominalGenerado ?? legisladores?.generado),
+    },
+    {
+      clave: "asistencia",
+      etiqueta: "Asistencia y disidencia de los diputados (regla)",
+      descripcion:
+        "De su voto nominal: en cuántas votaciones del pleno lo lista el SIL (el denominador), en cuántas figura presente, ausente o presente sin votar, por período y por año; y en cuántas votó con otro sentido que más de la mitad de su bancada (al menos tres votantes), con las más recientes como aristas a la votación.",
+      fuentes: [],
+      corte: dia(legisladores?.generado),
+      derivado: { de: ["votos", "votaciones"] },
+    },
+    {
       clave: "ofac",
       etiqueta: "Lista SDN de la OFAC",
       descripcion: "Las entradas de la lista de sanciones del Tesoro de los Estados Unidos atadas a un RNC dominicano.",
@@ -410,7 +429,7 @@ export async function grafosEnVivo(): Promise<DefinicionGrafo[]> {
         "Una institución que es también una entidad financiera, una entidad financiera con RNC en el padrón, una persona que es legisladora en el SIL, a quién se atribuye una declaración jurada y qué institución del cruce publica un conjunto de datos: por identificador o por nombre normalizado (o, para las organizaciones de datos.gob.do, una tabla comprobada a mano), nunca entre homónimos.",
       fuentes: [],
       corte: dia(f.generado),
-      derivado: { de: ["instituciones", "banca", "padron", "personas", "cargos-congreso", "declaraciones", "datos"] },
+      derivado: { de: ["instituciones", "banca", "padron", "personas", "cargos-congreso", "votos", "declaraciones", "datos"] },
     },
     {
       clave: "firma",
@@ -581,6 +600,46 @@ async function describirPersona(id: string, ligero = false): Promise<Descripcion
   if (p.legislador != null) {
     const l = `${SITIO}${enlace.legislador(p.legislador)}#id`;
     x.de("identidad", t(s, "owl:sameAs", iri(l)));
+    const leg = await legisladorDePersona(id);
+    // Una persona, un nodo: el rol de legislador, con la evidencia de su casamiento.
+    x.de("identidad", t(s, "rdf:type", iri("soc:Legislador")), t(s, "soc:legisladorSil", entero(p.legislador)));
+    if (leg?.evidencia) x.de("identidad", t(s, "soc:evidenciaCasamiento", lit(leg.evidencia)));
+    if (leg && !ligero) {
+      const cortes = [
+        ...Object.entries(leg.asistencia?.periodo ?? {}),
+        ...Object.entries(leg.asistencia?.anio ?? {}),
+      ];
+      for (const [clave, c] of cortes) {
+        // El año va con su período («2024-2028:2025»): en el nodo, su IRI lleva los dos y su corte, el año.
+        const corte = clave.includes(":") ? clave.split(":")[1] : clave;
+        const a = `${SITIO}${enlace.funcionario(id)}#asistencia-${clave.replace(":", "-")}`;
+        x.de(
+          "asistencia",
+          t(a, "rdf:type", iri("soc:AsistenciaLegislativa")),
+          t(a, "rdfs:label", lit(`Asistencia a las votaciones del pleno, ${clave.includes(":") ? `${corte} (período ${clave.split(":")[0]})` : `período ${corte}`}`, "es")),
+          t(a, "soc:deLegislador", iri(s)),
+          t(s, "soc:asistencia", iri(a)),
+          t(a, "soc:corteAsistencia", lit(corte)),
+          t(a, "soc:votacionesListadas", entero(c.listadas)),
+          t(a, "soc:votacionesPresente", entero(c.presente)),
+          t(a, "soc:votacionesAusente", entero(c.ausente)),
+          t(a, "soc:presenteSinVotar", entero(c.sinVoto)),
+        );
+        const base = clave.includes(":") ? undefined : leg.disidencia?.base[clave];
+        if (base != null) {
+          x.de("asistencia", t(a, "soc:votacionesConPosicion", entero(base)), t(a, "soc:disidencias", entero(leg.disidencia?.cuenta[clave] ?? 0)));
+        }
+      }
+      for (const d of leg.disidencia?.ultimas ?? []) {
+        const v = await votacionPorId(d.votacion);
+        if (!v) continue;
+        const vIri = iriDe({ tipo: "votacion", id: String(d.votacion) });
+        x.de("asistencia", t(s, "soc:disintioEn", iri(vIri)));
+        // Sin tipo: el nodo entero de la votación es el suyo (su forma pide código, cámara y recuento).
+        x.de("votaciones", t(vIri, "rdfs:label", lit(nombreVotacion(v), "es")));
+        if (v.fecha) x.de("votaciones", t(vIri, "soc:fecha", fecha(v.fecha)));
+      }
+    }
   }
   for (const d of ligero ? [] : await declaracionesDe(id)) {
     // A quién es la declaración lo decide Socrático por el nombre; el documento, lo publica la institución.

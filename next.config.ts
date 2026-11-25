@@ -1,4 +1,18 @@
 import type { NextConfig } from "next";
+import { existsSync, readFileSync } from "node:fs";
+
+/*
+  Una persona, un nodo (docs/INFRAESTRUCTURA.md §3.7, §7.4): la ficha de un
+  legislador casado con su persona redirige (308) a la de ella, en su sección
+  Congreso. Se lee al compilar, de `datos/votos/legisladores.json`; un
+  legislador sin persona sigue con su ficha en vivo del SIL.
+*/
+const LEGISLADORES = "datos/votos/legisladores.json";
+const legisladoresConPersona: { id: number; persona: string }[] = existsSync(LEGISLADORES)
+  ? (JSON.parse(readFileSync(LEGISLADORES, "utf8")) as { legisladores: { id: number; persona: string | null }[] }).legisladores.filter(
+      (l): l is { id: number; persona: string } => l.persona != null,
+    )
+  : [];
 
 /*
   Rendimiento percibido, no solo medido.
@@ -93,7 +107,17 @@ const nextConfig: NextConfig = {
     // la ficha de un decreto.
     // Toda ficha que es un nodo del grafo incrusta su schema.org, ya compilado
     // (`lib/grafo-ld.ts`): lleva `datos/grafo/ld/` y nada más del grafo.
-    "/funcionarios": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
+    // La ficha de una persona: su escaño, su asistencia y sus disidencias (`datos/votos/`,
+    // `lib/legisladores.ts`), y su red de un paso del compilado (`RedDeFicha`).
+    "/funcionarios": [
+      "./public/data/decretos/**",
+      "./public/data/wikidata.json",
+      "./datos/grafo/ld/**",
+      "./datos/grafo/meta.json",
+      "./datos/grafo/nodos/funcionario/**",
+      "./datos/votos/legisladores.json",
+    ],
+    "/congreso/legisladores": ["./datos/votos/legisladores.json"],
     "/normativa": ["./public/data/decretos/**", "./public/data/wikidata.json", "./datos/grafo/ld/**"],
     // La ficha de una norma: lo que dice su texto íntegro y quién la nombra en el suyo (`CitasDelTexto`, §5.12).
     "/normativa/[tipo]/[numero]": ["./datos/grafo/meta.json", "./datos/grafo/nodos/{ley,decreto,resolucion}/**"],
@@ -133,6 +157,9 @@ const nextConfig: NextConfig = {
       "./public/data/wikidata.json",
     ],
     "/api/explorar/preguntar": [
+      "./datos/votos/legisladores.json",
+      "./datos/votos/nominal.json",
+      "./public/data/votaciones.json",
       "./public/data/procesos.json",
       "./public/data/rnc/**",
       "./public/data/busqueda/**",
@@ -158,6 +185,9 @@ const nextConfig: NextConfig = {
     // (`lib/tablas-compras.ts`: los procesos y el cruce de proveedores con
     // el RNC). No lleva DuckDB: `query` llama a `/api/sql`.
     "/mcp": [
+      "./datos/votos/legisladores.json",
+      "./datos/votos/nominal.json",
+      "./public/data/votaciones.json",
       "./public/data/procesos.json",
       "./public/data/rnc/**",
       "./public/data/busqueda/**",
@@ -181,7 +211,7 @@ const nextConfig: NextConfig = {
     "/provincias": ["./public/data/wikidata.json", "./datos/grafo/ld/**"],
     // Las fichas de proceso, de proveedor, de obra y de iniciativa son nodos del grafo: incrustan su schema.org.
     // Los documentos cuyo texto nombra el proceso, la obra o la empresa (`DocumentosQueLoNombran`, §5.12).
-    "/fuentes": ["./datos/textos/resumen.json"],
+    "/fuentes": ["./datos/textos/resumen.json", "./datos/votos/legisladores.json"],
     "/procesos": ["./datos/grafo/ld/**"],
     "/procesos/[codigo]": ["./datos/grafo/meta.json", "./datos/grafo/nodos/proceso/**"],
     "/proveedores/": ["./datos/grafo/ld/**"],
@@ -288,6 +318,11 @@ const nextConfig: NextConfig = {
       { source: "/def/fabric", destination: "/ontologia.fabric.ttl", statusCode: 303 as const },
       // El banco de trabajo vivía en `/explorar`; hoy es la portada. La consulta viaja con la redirección.
       { source: "/explorar", destination: "/", permanent: true },
+      ...legisladoresConPersona.map((l) => ({
+        source: `/congreso/legisladores/${l.id}`,
+        destination: `/funcionarios/${encodeURIComponent(l.persona)}#congreso`,
+        permanent: true,
+      })),
     ];
   },
   /*
