@@ -52,6 +52,9 @@ export interface Disidencia {
   voto: "si" | "no" | "abstencion";
   bancada: string;
   posicion: "si" | "no" | "abstencion";
+  fecha: string | null;
+  /** Lo que se sometió, recortado a 160 caracteres. */
+  mocion: string;
 }
 
 export interface Legislador {
@@ -104,6 +107,34 @@ export interface Legisladores {
 
 const RUTA = join(process.cwd(), "datos", "votos", "legisladores.json");
 const RUTA_NOMINAL = join(process.cwd(), "datos", "votos", "nominal.json");
+const RUTA_INDICE = join(process.cwd(), "datos", "votos", "votaciones.json");
+
+let indiceMemo: Promise<{ fechas: Record<string, string>; porExpediente: Record<string, number[]> } | null> | null = null;
+
+/**
+ * La fecha de cada votación y las votaciones de cada expediente («06360-2024-2028-CD»), de
+ * `datos/votos/votaciones.json`: lo que las funciones necesitan de `votaciones.json` y
+ * `congreso.json`, que no viajan en ninguna (next.config.ts, `outputFileTracingExcludes`).
+ */
+function indiceVotaciones() {
+  indiceMemo ??= readFile(RUTA_INDICE, "utf8")
+    .then((t) => JSON.parse(t) as { fechas: Record<string, string>; porExpediente: Record<string, number[]> })
+    .catch((e: NodeJS.ErrnoException) => {
+      indiceMemo = null;
+      if (e.code !== "ENOENT") console.error("[legisladores] votaciones", e);
+      return null;
+    });
+  return indiceMemo;
+}
+
+export async function fechaDeVotacion(id: number): Promise<string | null> {
+  return (await indiceVotaciones())?.fechas[String(id)] ?? null;
+}
+
+/** Las votaciones del pleno sobre una iniciativa, por su expediente; `null` si el expediente no está. */
+export async function votacionesDeExpediente(numero: string): Promise<number[] | null> {
+  return (await indiceVotaciones())?.porExpediente[numero.toUpperCase()] ?? null;
+}
 
 let memo: Promise<Legisladores | null> | null = null;
 

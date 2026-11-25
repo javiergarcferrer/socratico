@@ -1,7 +1,8 @@
-import { getVotaciones, iniciativaDeExpediente, votacionPorId } from "@/lib/votaciones";
 import {
   ETIQUETA_SENTIDO,
   NOTA_ASISTENCIA,
+  fechaDeVotacion,
+  votacionesDeExpediente,
   getLegisladores,
   legisladorDePersona,
   partirAnio,
@@ -1990,8 +1991,8 @@ async function evidenciaDeLegislador(l: Legislador, persona: string, anio: numbe
           for (const x of bancada) cuenta.set(x.sentido, (cuenta.get(x.sentido) ?? 0) + 1);
           const [mayor, n] = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
           const posicion = n * 2 > bancada.length && bancada.length >= 3 ? ETIQUETA_SENTIDO[mayor as Sentido] : "sin mayoría clara";
-          const acta = await votacionPorId(v.votacion);
-          return `votación ${v.votacion} (${acta?.fecha ?? "sin fecha"}): votó «${ETIQUETA_SENTIDO[v.sentido]}»; su bancada (${v.bancada ?? "?"}), «${posicion}»`;
+          const fecha = await fechaDeVotacion(v.votacion);
+          return `votación ${v.votacion} (${fecha ?? "sin fecha"}): votó «${ETIQUETA_SENTIDO[v.sentido]}»; su bancada (${v.bancada ?? "?"}), «${posicion}»`;
         }),
       );
       salida.push({
@@ -2011,10 +2012,8 @@ async function evidenciaDeLegislador(l: Legislador, persona: string, anio: numbe
 
 /** Las votaciones del pleno sobre una iniciativa, por su número de expediente. */
 async function iniciativaPorNumeroEnVotaciones(numero: string): Promise<{ votaciones: number[] } | null> {
-  const ini = await iniciativaDeExpediente(numero);
-  if (ini == null) return null;
-  const v = await getVotaciones();
-  return { votaciones: (v?.lista ?? []).filter((x) => x.iniciativas.includes(ini)).map((x) => x.id) };
+  const votaciones = await votacionesDeExpediente(numero);
+  return votaciones ? { votaciones } : null;
 }
 
 /** Lo que devuelve `retrieve`; lo pinta también el modo «Preguntar» de la portada (`/`). */

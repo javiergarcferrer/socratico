@@ -159,9 +159,7 @@ const nextConfig: NextConfig = {
     "/api/explorar/preguntar": [
       "./datos/votos/legisladores.json",
       "./datos/votos/nominal.json",
-      "./public/data/votaciones.json",
-      // El expediente de una iniciativa → su número del SIL (`iniciativaDeExpediente`, «Su voto en una iniciativa»).
-      "./public/data/congreso.json",
+      "./datos/votos/votaciones.json",
       "./public/data/procesos.json",
       "./public/data/rnc/**",
       "./public/data/busqueda/**",
@@ -189,9 +187,7 @@ const nextConfig: NextConfig = {
     "/mcp": [
       "./datos/votos/legisladores.json",
       "./datos/votos/nominal.json",
-      "./public/data/votaciones.json",
-      // El expediente de una iniciativa → su número del SIL (`iniciativaDeExpediente`, «Su voto en una iniciativa»).
-      "./public/data/congreso.json",
+      "./datos/votos/votaciones.json",
       "./public/data/procesos.json",
       "./public/data/rnc/**",
       "./public/data/busqueda/**",

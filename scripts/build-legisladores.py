@@ -99,6 +99,9 @@ VOTACIONES = RAIZ / "public" / "data" / "votaciones.json"
 NOMINAL = RAIZ / "datos" / "votos" / "nominal.json"
 FICHAS = RAIZ / "datos" / "votos" / "fichas.json"
 SALIDA = RAIZ / "datos" / "votos" / "legisladores.json"
+# Lo que las funciones necesitan de votaciones.json y congreso.json (excluidas de toda función por su
+# tamaño, next.config.ts): la fecha de cada votación y qué votaciones tratan cada expediente.
+INDICE = RAIZ / "datos" / "votos" / "votaciones.json"
 
 DIGITOS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 PERIODOS = {"2020-2024": ("2020-08-16", "2024-08-15"), "2024-2028": ("2024-08-16", "2028-08-15")}
@@ -540,8 +543,10 @@ def main() -> None:
                 if ch != posicion[b]:
                     disid[lid]["cuenta"][v["p"]] += 1
                     if len(disid[lid]["ultimas"]) < TOPE_DISIDENCIAS:
+                        mocion = re.sub(r"\s+", " ", acta.get("mocion") or "").strip()
                         disid[lid]["ultimas"].append({"votacion": int(vid), "voto": CAMPO[ch], "bancada": siglas,
-                                                       "posicion": CAMPO[posicion[b]]})
+                                                       "posicion": CAMPO[posicion[b]], "fecha": acta.get("fecha"),
+                                                       "mocion": mocion[:157] + "…" if len(mocion) > 160 else mocion})
 
     # Cuánto de cada año de cada período está leído: una cifra de un año a medio leer lo dice.
     cobertura_anios: dict[str, dict] = {}
@@ -609,6 +614,17 @@ def main() -> None:
         "bancadas": {k: dict(v) for k, v in sorted(bancadas.items())},
     }
     SALIDA.write_text(json.dumps(salida, ensure_ascii=False, separators=(",", ":")))
+    expedientes = {f[0]: f[1] for f in json.loads(CONGRESO.read_text())["iniciativas"]["filas"]}
+    por_expediente: dict[str, list[int]] = collections.defaultdict(list)
+    for vid, v in sorted(votaciones.items(), key=lambda kv: int(kv[0])):
+        for ini in v.get("iniciativas") or []:
+            if ini in expedientes:
+                por_expediente[expedientes[ini]].append(int(vid))
+    INDICE.write_text(json.dumps({
+        "generado": salida["generado"],
+        "fechas": {vid: v["fecha"] for vid, v in sorted(votaciones.items(), key=lambda kv: int(kv[0])) if v.get("fecha")},
+        "porExpediente": dict(sorted(por_expediente.items())),
+    }, ensure_ascii=False, separators=(",", ":")))
     print(json.dumps(resumen, ensure_ascii=False, indent=1), file=sys.stderr)
     if informe:
         print("\nDudosos:", file=sys.stderr)

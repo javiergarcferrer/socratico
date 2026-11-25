@@ -19,7 +19,10 @@ import {
   type Cuentas,
   type Legislador,
 } from "@/lib/legisladores";
-import { votacionPorId } from "@/lib/votaciones";
+
+/** Los dos períodos del SIL, para repartir las disidencias. */
+const PERIODO_INICIO: Record<string, string> = { "2020-2024": "2020-08-16", "2024-2028": "2024-08-16" };
+const PERIODO_FIN: Record<string, string> = { "2020-2024": "2024-08-15", "2024-2028": "2028-08-15" };
 
 /**
  * La sección Congreso de la ficha de una persona (docs/INFRAESTRUCTURA.md §3.3,
@@ -110,10 +113,11 @@ async function Periodo({
   const base = l.disidencia?.base[periodo] ?? 0;
   const cuenta = l.disidencia?.cuenta[periodo] ?? 0;
   const [desde, hasta] = periodo.split("-");
-  const ultimas = await Promise.all(
-    (l.disidencia?.ultimas ?? []).slice(0, 40).map(async (d) => ({ d, v: await votacionPorId(d.votacion) })),
-  );
-  const delPeriodo = ultimas.filter((x) => x.v?.periodo === periodo).slice(0, 8);
+  // Las disidencias más recientes de este período, con su fecha y su moción (sin leer votaciones.json).
+  const delPeriodo = (l.disidencia?.ultimas ?? [])
+    .filter((d) => (d.fecha ?? "") >= (PERIODO_INICIO[periodo] ?? "9999") && (d.fecha ?? "") <= (PERIODO_FIN[periodo] ?? ""))
+    .slice(0, 8)
+    .map((d) => ({ d }));
   const parcial = cobertura && cobertura.leidas < cobertura.votaciones;
   const ancla = parcial
     ? { alcance: "muestra" as const, escaneados: cobertura.leidas, universo: cobertura.votaciones, periodo: `las más recientes de ${periodo}` }
@@ -188,13 +192,13 @@ async function Periodo({
         </p>
         {delPeriodo.length > 0 && (
           <ul className="mt-2">
-            {delPeriodo.map(({ d, v }) => (
+            {delPeriodo.map(({ d }) => (
               <li key={d.votacion} className="relative border-t border-hairline py-2.5 first:border-0">
                 <Link href={enlace.votacion(d.votacion)} className="estira text-sm text-ink hover:text-brand-700">
-                  {v?.mocion ? (v.mocion.length > 160 ? `${v.mocion.slice(0, 157)}…` : v.mocion) : `Votación ${d.votacion}`}
+                  {d.mocion || `Votación ${d.votacion}`}
                 </Link>
                 <p className="mt-0.5 text-xs text-ink-soft">
-                  {v?.fecha && <time dateTime={v.fecha} className="font-mono tabular-nums">{formatFecha(v.fecha)}</time>}
+                  {d.fecha && <time dateTime={d.fecha} className="font-mono tabular-nums">{formatFecha(d.fecha)}</time>}
                   {" · "}Votó «{ETIQUETA_SENTIDO[d.voto]}»; su bancada ({d.bancada}), «{ETIQUETA_SENTIDO[d.posicion]}»
                 </p>
               </li>
