@@ -219,8 +219,10 @@ def main() -> None:
                     par[2] = max(par[2], fecha_v)
     # Solo con el período leído entero y una votación presente: de una lectura parcial, o de quien
     # nunca figuró presente, no se deduce un fin (no se inventa una fecha).
-    leido_entero = {per: sum(1 for v in votaciones.values() if v["periodo"] == per)
-                    == sum(1 for v in nominal["votos"].values() if v["p"] == per) for per in PERIODOS}
+    # «Entero» tolera hasta un 0.1 % de votaciones que el SIL no da completas (la 20257, con páginas
+    # repetidas en cada lectura, 2026-11-25): no mueven el último día en que alguien figura.
+    leido_entero = {per: sum(1 for v in nominal["votos"].values() if v["p"] == per)
+                    >= 0.999 * sum(1 for v in votaciones.values() if v["periodo"] == per) for per in PERIODOS}
     for (lid, per), (primera, ultima, presente) in listada.items():
         p = sil[lid]["periodos"].get(per)
         if p is None or p.get("fin") or not leido_entero.get(per) or not presente:
