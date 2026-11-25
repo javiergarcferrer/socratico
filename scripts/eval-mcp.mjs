@@ -1972,6 +1972,23 @@ const CASOS = [
     },
   },
   {
+    pregunta: "retrieve: «el período 2020-2024» es un período, no el año 2020",
+    async correr() {
+      exigir(nominal && casamiento, "falta datos/votos/");
+      const lid = legisladorPorPersona.get(PACHECO).id;
+      const o = asistenciaDe(lid, (f) => f.periodo === "2020-2024");
+      exigir(o.listadas > 0, "el voto nominal leído no tiene 2020-2024");
+      const { datos, error } = await llamar("retrieve", { query: "¿Qué asistencia tuvo Alfredo Pacheco Osoria en el período 2020-2024?" });
+      exigir(!error, error);
+      const ev = datos.evidencias.slice(0, 3).find((e) => e.clase === "Asistencia a las votaciones del pleno");
+      exigir(ev, "sin su evidencia de asistencia");
+      exigir(/Período 2020-2024/.test(ev.texto) && !/Período 2024-2028/.test(ev.texto), "no se queda en el período pedido");
+      exigir(diceDe(ev.texto.split("Por año:")[0], o.presente, o.listadas), `no dice ${o.presente} de ${o.listadas}`);
+      exigir(!datos.siguientes.some((x) => x.herramienta === "contracting_history"), "leyó «2020» como año: ofrece contracting_history");
+      return `${o.presente} de ${o.listadas} en 2020-2024, sin leer «2020» como año`;
+    },
+  },
+  {
     pregunta: "Golden set: 30 búsquedas de nombre traen a la persona correcta (acierto en el primer lugar ≥ 90 %)",
     async correr() {
       exigir(casamiento, "falta datos/votos/legisladores.json");

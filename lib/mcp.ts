@@ -1954,7 +1954,13 @@ function coberturaNominal(l: Legisladores): string {
 }
 
 /** La asistencia, las disidencias y, si la pregunta nombra una iniciativa, el voto de un diputado en ella. */
-async function evidenciaDeLegislador(l: Legislador, persona: string, anio: number | null, q: string): Promise<z.infer<typeof Evidencia>[]> {
+async function evidenciaDeLegislador(
+  l: Legislador,
+  persona: string,
+  anio: number | null,
+  q: string,
+  periodo: string | null = null,
+): Promise<z.infer<typeof Evidencia>[]> {
   const legs = await getLegisladores();
   if (!legs) return [];
   const url = absoluta(`${enlace.funcionario(persona)}#congreso`);
@@ -1971,7 +1977,9 @@ async function evidenciaDeLegislador(l: Legislador, persona: string, anio: numbe
   const salida: z.infer<typeof Evidencia>[] = [];
   const pct = (c: Cuentas) => textoAsistencia(c);
   const partes: string[] = [];
-  for (const [per, c] of Object.entries(l.asistencia?.periodo ?? {}).sort().reverse()) {
+  // Solo un período del SIL filtra («2020-2024»); un rango de años («2025-2026») no.
+  const suyo = periodo && l.asistencia?.periodo[periodo] ? periodo : null;
+  for (const [per, c] of Object.entries(l.asistencia?.periodo ?? {}).filter(([p]) => !suyo || p === suyo).sort().reverse()) {
     const siglas = l.periodos[per]?.partido;
     const b = siglas ? legs.bancadas[`periodo:${per}`]?.[siglas] : undefined;
     const cam = legs.camara.periodo[per];
@@ -1979,7 +1987,10 @@ async function evidenciaDeLegislador(l: Legislador, persona: string, anio: numbe
       `Período ${per}: presente en ${pct(c)} votaciones del pleno en que lo lista el SIL; ausente en ${ENTERO.format(c.ausente)}; presente sin votar en ${ENTERO.format(c.sinVoto)}. Su bancada (${siglas ?? "?"}): ${b ? pct(b) : "—"} presencias; la cámara: ${cam ? pct(cam) : "—"}. Votó distinto a la mayoría de su bancada en ${ENTERO.format(l.disidencia?.cuenta[per] ?? 0)} de ${ENTERO.format(l.disidencia?.base[per] ?? 0)} votaciones con posición de bancada.`,
     );
   }
-  const anios = Object.entries(l.asistencia?.anio ?? {}).filter(([k]) => anio == null || Number(partirAnio(k).anio) === anio).sort().reverse();
+  const anios = Object.entries(l.asistencia?.anio ?? {})
+    .filter(([k]) => (anio == null || Number(partirAnio(k).anio) === anio) && (!suyo || partirAnio(k).periodo === suyo))
+    .sort()
+    .reverse();
   if (anios.length) {
     partes.push(
       `Por año: ${anios
@@ -2050,7 +2061,10 @@ export async function recuperar(pregunta: string, limite: number = TOPE_RECUPERA
   const p = plano(q);
   const pide = Object.fromEntries(Object.entries(INTENCION).map(([k, re]) => [k, re.test(p)])) as Record<keyof typeof INTENCION, boolean>;
   pide.asistencia ||= pide.faltas && pide.congreso;
-  const anio = Number(/\b(20[1-3]\d)\b/.exec(q)?.[1] ?? NaN);
+  // «2020-2024» es un período legislativo, no el año 2020: se lee aparte y no cuenta como año.
+  const periodoPedido = /\b(20\d\d-20\d\d)\b/.exec(q)?.[1] ?? null;
+  const sinPeriodo = periodoPedido ? q.replace(periodoPedido, " ") : q;
+  const anio = Number(/\b(20[1-3]\d)\b/.exec(sinPeriodo)?.[1] ?? NaN);
 
   // Siglas: una palabra que la pregunta escribe en mayúsculas y que es la
   // sigla de una institución («MINERD», «INAPA»). En minúsculas no cuentan:
@@ -2236,11 +2250,15 @@ export async function recuperar(pregunta: string, limite: number = TOPE_RECUPERA
     for (const { n } of personas) {
       const l = await legisladorDePersona(n.id);
       if (!l) continue;
-      evidencias.unshift(...(await evidenciaDeLegislador(l, n.id, Number.isFinite(anio) ? anio : null, q)));
+      evidencias.unshift(...(await evidenciaDeLegislador(l, n.id, Number.isFinite(anio) ? anio : null, q, periodoPedido)));
     }
     if (legs && personas.length === 0 && pide.asistencia && pide.congreso) {
-      const anios = [...q.matchAll(/\b(20[2-3]\d)\b/g)].map((m) => Number(m[1]));
-      const filtro = anios.length ? { desde: Math.min(...anios), hasta: Math.max(...anios) } : { eje: "periodo" as const, clave: "2024-2028" };
+      // «2025-2026» son dos años; «2020-2024» y «2024-2028», los dos períodos del SIL.
+      const esPeriodo = periodoPedido === "2020-2024" || periodoPedido === "2024-2028";
+      const anios = [...(esPeriodo ? sinPeriodo : q).matchAll(/\b(20[2-3]\d)\b/g)].map((m) => Number(m[1]));
+      const filtro = anios.length
+        ? { desde: Math.min(...anios), hasta: Math.max(...anios) }
+        : { eje: "periodo" as const, clave: esPeriodo ? periodoPedido! : "2024-2028" };
       const filas = await rankingAusencias(filtro, 10);
       if (filas.length) {
         const corte = anios.length ? (anios.length > 1 ? `${Math.min(...anios)}-${Math.max(...anios)}` : String(anios[0])) : "el período 2024-2028";
