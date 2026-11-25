@@ -69,7 +69,12 @@ const misma = (t: string, w: string) => w === t || (t.length >= 6 && w.length >=
 function casa(t: string, lista: string[], genero = false): number {
   let mejor = 0;
   for (const w of lista) {
-    if (w === t || (genero && misma(t, w))) return 3;
+    if (w === t) return 3;
+    // Otro género o número: casa, un poco por debajo de la palabra exacta (quien pide «diputada» las ve primero).
+    if (genero && misma(t, w)) {
+      mejor = Math.max(mejor, 2.5);
+      continue;
+    }
     if (t.length >= 3 && w.startsWith(t)) mejor = Math.max(mejor, 2);
     else if (mejor < 1) {
       const e = erratas(Math.min(t.length, w.length));
@@ -94,6 +99,8 @@ export interface EntradaPersona {
 
 export interface Parecido {
   puntos: number;
+  /** Ninguna palabra cae por errata: todas enteras o como comienzo, en el nombre o en lo que es hoy. */
+  sinErrata: boolean;
   /** Cada palabra cae en su nombre (entera, como comienzo o con una errata). */
   todasEnNombre: boolean;
   /** Alguna cae en el nombre con una errata. */
@@ -109,16 +116,19 @@ export function parecido(consulta: string, e: EntradaPersona): Parecido | null {
   let s = 0;
   let enNombre = 0;
   let conErrata = false;
+  let sinErrata = true;
   for (const t of ts) {
     const n = casa(t, e.nombre);
     if (n > 0) {
       s += 2 * n;
       enNombre++;
       conErrata ||= n === 1;
+      sinErrata &&= n > 1;
       continue;
     }
     const c = casa(t, e.contexto, true);
     if (c === 0) return null;
+    sinErrata &&= c > 1;
     s += c;
   }
   const todasEnNombre = enNombre === ts.length;
@@ -131,7 +141,12 @@ export function parecido(consulta: string, e: EntradaPersona): Parecido | null {
   const tramo = ts.length > 1 ? mejorTramo(ts, e.tramos) : 0;
   const frase = tramo >= 5;
   s += tramo;
-  return { puntos: s + e.puntaje / 100, todasEnNombre, conErrata, frase };
+  // +1 por cada tramo de su contexto que la consulta trae entero: la provincia «Santiago» (no «Santiago
+  // Rodríguez»), el partido «PRM».
+  for (const tr of e.tramos) {
+    if (tr.length > 0 && tr.length < ts.length + 1 && ts.some((_, a) => tr.every((w, k) => ts[a + k] === w))) s += 1;
+  }
+  return { puntos: s + e.puntaje / 100, sinErrata, todasEnNombre, conErrata, frase };
 }
 
 /**

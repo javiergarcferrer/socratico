@@ -356,7 +356,7 @@ const TIPOS_ID = TIPOS_RESULTADO.map((t) => t.clave) as [TipoResultado, ...TipoR
 const Busqueda = z.object({
   results: z.array(Hallado),
   tipo: z.enum(TIPOS_ID).nullable().describe("El tipo al que se limitó la búsqueda, si se pidió."),
-  total: z.number().describe("Cuántos resultados del índice cumplen la consulta (sin las empresas del padrón ni las provincias)."),
+  total: z.number().describe("Cuántos resultados del índice cumplen la consulta (sin las empresas del padrón ni las provincias); con type «funcionario», cuántas personas casan por su nombre o por lo que son hoy (cargo, provincia, partido)."),
   pagina: z.number(),
   paginas: z.number(),
 });
@@ -453,9 +453,33 @@ async function buscar(query: string, opciones: { tipo?: TipoResultado; pagina?: 
     }
   }
 
+  // Con el tipo de las personas, la lista es la de personas por parecido, entera y por páginas: el índice no
+  // sabe que «diputada de Santiago PRM» son un cargo, una provincia y un partido.
+  if (tipo === "funcionario") {
+    const r = await buscarPersonasPorParecido(q, { pagina, porPagina: TOPE.total });
+    if (!r) throw new Aviso("El índice de nombres no cargó. Intenta de nuevo en un momento.");
+    const meta = await metaGrafo();
+    const corte = meta?.grafos.find((g) => g.clave === "personas")?.corte ?? null;
+    return {
+      results: r.personas.map((x) => {
+        const ruta = enlace.funcionario(x.id);
+        return {
+          id: ruta,
+          title: x.nombre,
+          url: absoluta(ruta),
+          text: ["Persona con cargo público", x.cargo, corte && `instantánea de personas del ${corte}`, x.fuerte ? null : "parecida, con una errata"].filter(Boolean).join(" · "),
+        };
+      }),
+      tipo,
+      total: r.total,
+      pagina: r.pagina,
+      paginas: r.paginas,
+    };
+  }
+
   // Personas por parecido (nombre en cualquier orden, una errata, su cargo de hoy): antes del índice, que
   // las ordena por palabras y no sabe que «Pacheo» es «Pacheco» ni que «presidente de la cámara» es un cargo.
-  if (!soloIndice || tipo === "funcionario") {
+  if (!soloIndice) {
     const parecidas = await buscarPersonasPorParecido(q, { porPagina: TOPE_PERSONAS_PARECIDO }).catch(() => null);
     const fuertes = parecidas?.personas.filter((x) => x.fuerte) ?? [];
     const meta = parecidas ? await metaGrafo() : null;

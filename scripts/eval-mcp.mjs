@@ -1937,6 +1937,41 @@ const CASOS = [
     },
   },
   {
+    pregunta: "Búsqueda por cargo, provincia y partido: «diputada de Santiago PRM» trae a las diputadas del PRM por Santiago",
+    async correr() {
+      const esperadas = directorio.filter((l) => l.c !== "senado" && l.pr === "Santiago" && l.ps === "PRM" && /Diputada/.test(l.fn ?? ""));
+      exigir(esperadas.length > 0, "el directorio no trae diputadas del PRM por Santiago");
+      const { datos, error } = await llamar("search", { query: "diputada de Santiago PRM", type: "funcionario" });
+      exigir(!error, error);
+      const primeras = datos.results.slice(0, esperadas.length).map((r) => r.id);
+      const faltan = esperadas.filter((l) => !primeras.includes(`/funcionarios/${personaDeLeg.get(l.id)}`));
+      exigir(faltan.length === 0, `no están entre las ${esperadas.length} primeras: ${faltan.map((l) => l.n).join(", ")}`);
+      return `${esperadas.length} diputadas, primeras de ${datos.total}`;
+    },
+  },
+  {
+    pregunta: "Búsqueda por cargo y provincia, paginada: «diputada de Santiago» trae a todos los diputados por Santiago",
+    async correr() {
+      const esperados = directorio.filter((l) => l.c !== "senado" && l.pr === "Santiago").map((l) => `/funcionarios/${personaDeLeg.get(l.id)}`);
+      exigir(esperados.length > 3, "el directorio trae pocos diputados por Santiago");
+      const vistos = [];
+      let pagina = 1;
+      let total = 0;
+      do {
+        const { datos, error } = await llamar("search", { query: "diputada de Santiago", type: "funcionario", page: pagina });
+        exigir(!error, error);
+        total = datos.total;
+        vistos.push(...datos.results.map((r) => r.id));
+        pagina++;
+        if (pagina > datos.paginas) break;
+      } while (vistos.length < esperados.length * 2);
+      const faltan = esperados.filter((id) => !vistos.slice(0, esperados.length * 2).includes(id));
+      exigir(total >= esperados.length, `total ${total}, menos que los ${esperados.length} del directorio`);
+      exigir(faltan.length === 0, `faltan ${faltan.length} de ${esperados.length}: ${faltan.slice(0, 3).join(", ")}`);
+      return `${esperados.length} diputados por Santiago de ${total} personas, por páginas`;
+    },
+  },
+  {
     pregunta: "Golden set: 30 búsquedas de nombre traen a la persona correcta (acierto en el primer lugar ≥ 90 %)",
     async correr() {
       exigir(casamiento, "falta datos/votos/legisladores.json");

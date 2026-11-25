@@ -408,8 +408,9 @@ export async function buscarPersonasPorParecido(
   const paginas = Math.max(1, Math.ceil(orden.length / porPagina));
   const p = Math.min(Math.max(1, pagina), paginas);
   return {
-    // «Fuerte»: casa por su nombre entero sin errata o por una frase de su cargo de hoy.
-    personas: orden.slice((p - 1) * porPagina, p * porPagina).map((x) => ({ ...persona(x.entrada.fila), fuerte: (x.todasEnNombre && !x.conErrata) || x.frase, porNombre: x.todasEnNombre })),
+    // «Fuerte»: casa por su nombre entero sin errata, por una frase de su cargo de hoy, o con cada palabra entera
+    // en su nombre o en lo que es hoy (cargo, provincia, partido: «diputada de Santiago PRM»).
+    personas: orden.slice((p - 1) * porPagina, p * porPagina).map((x) => ({ ...persona(x.entrada.fila), fuerte: (x.todasEnNombre && !x.conErrata) || x.frase || (x.sinErrata && !x.todasEnNombre), porNombre: x.todasEnNombre })),
     total: orden.length,
     pagina: p,
     paginas,
